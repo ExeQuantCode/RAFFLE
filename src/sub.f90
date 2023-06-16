@@ -1,4 +1,5 @@
 module help
+use inputs, only: c_cut, c_min, filename_host
 use atomtype
 implicit none
 
@@ -482,8 +483,7 @@ subroutine buildmap_POINT(tmpvector,formula,atomlist,alistrep&
 type(unitcell), dimension(:), allocatable :: formula
 type (atom), dimension(:,:), allocatable :: atomlist,alistrep,predicted_positions
 integer :: el,i,j,k,l,m,n, normalisation,atom_number_previous,structures,&
-     &m_count, n_count, atom_total, eltot, cleanup, cleanup2, repeats, num_VOID, c_cut, norm&
-     &,c_min
+     &m_count, n_count, atom_total, eltot, cleanup, cleanup2, repeats, num_VOID, norm
 double precision :: value_return, summation, max_1, max_2, max_3, comparison, uptol, lowtol, normaliser&
      &,repeat_power, i_comp, j_comp, k_comp, totbin, calculated_value
 integer, dimension(3) :: sum, bin_size
@@ -496,8 +496,6 @@ character(3), dimension(:,:), allocatable :: name_storage, remaining_elements, r
 double precision, dimension(:,:,:,:,:), allocatable ::  results_matrix
 logical :: file_exists, placed
 character(3), dimension(:), allocatable :: elnames
-integer, dimension(:), allocatable :: tmpdig
-character(1024), dimension(:), allocatable :: tmpels
 character(5) :: APP
 character(1024) :: name
 
@@ -786,8 +784,7 @@ subroutine buildmap_WIP (bin_size,formula,atomlist,alistrep&
 type(unitcell), dimension(:), allocatable :: formula
 type (atom), dimension(:,:), allocatable :: atomlist,alistrep,predicted_positions
 integer :: el,i,j,k,l,m,n, normalisation,atom_number_previous,structures,&
-     &m_count, n_count, atom_total, eltot, cleanup, cleanup2, repeats, num_VOID, c_cut, norm&
-     &,c_min
+     &m_count, n_count, atom_total, eltot, cleanup, cleanup2, repeats, num_VOID, norm
 double precision :: value_return, summation, max_1, max_2, max_3, comparison, uptol, lowtol, normaliser&
      &,repeat_power, i_comp, j_comp, k_comp, totbin, calculated_value
 integer, dimension(3) :: sum, bin_size, best
@@ -800,8 +797,6 @@ character(3), dimension(:,:), allocatable :: name_storage, remaining_elements, r
 double precision, dimension(:,:,:,:,:), allocatable ::  results_matrix, append_matrix
 logical :: file_exists, placed
 character(3), dimension(:), allocatable :: elnames
-integer, dimension(:), allocatable :: tmpdig
-character(1024), dimension(:), allocatable :: tmpels
 character(5) :: APP
 character(1024) :: name
 
@@ -964,12 +959,6 @@ print*, "Arriving here", repeats
 
 end if
 
-call invar(15,tmpdig,tmpels)
-c_cut=tmpdig(1)
-deallocate(tmpdig)
-call invar(17,tmpdig,tmpels)
-c_min=tmpdig(1)
-deallocate(tmpdig)
 
 
 !print*, sum 
@@ -1991,7 +1980,7 @@ subroutine add_atom_void (bin_size,formula,atom_number_previous, sigma1,&
   character(3), dimension(:), allocatable :: elnames
   type(unitcell), dimension(:), allocatable :: formula
   integer :: scan_counter,leng,p,q, i, j, k, best_location_index, eltot, atom_number_previous&
-       &, new_atom_number, structures,c_cut
+       &, new_atom_number, structures
   integer, dimension(3) :: bin_size
   double precision, dimension(3) :: best_location
   double precision :: best_location_value, smallest_bond, sigma1, sigma2, bond_distribution, angle_distribution, bondcutoff&
@@ -2000,8 +1989,6 @@ subroutine add_atom_void (bin_size,formula,atom_number_previous, sigma1,&
   type (atom), dimension(:,:), allocatable :: atomlist, alistrep, predicted_positions
   double precision, dimension(:,:,:), allocatable :: elrad
   logical :: new_position_needed
-  integer, dimension(:), allocatable :: tmpdig
-  character(1024), dimension(:), allocatable :: tmpels
 
 
 
@@ -2012,9 +1999,6 @@ subroutine add_atom_void (bin_size,formula,atom_number_previous, sigma1,&
   best_location_value=0
   best_location_index=0
   p=0
-  call invar(15,tmpdig,tmpels)
-  c_cut=tmpdig(1)
-  deallocate(tmpdig)
   open(1001,file="void_heatmap.txt")
   
   
@@ -2646,8 +2630,6 @@ subroutine regenerate_distribution_files (prev_structures)
   type (atom), dimension(:,:), allocatable :: array, repeatedarray
   integer, dimension(:), allocatable :: stochio
   logical :: dir_e, file_e, empty
-  character(1024), dimension(:), allocatable :: tmpels
-  integer, dimension(:), allocatable :: tmpdig
 
 
   
@@ -2972,8 +2954,6 @@ end subroutine regenerate_distribution_files
 subroutine bond_evolution(mode)
   character(1024) :: name, read_element_pairing, read_element
   integer :: prev_structures, mode,i, nbin, stat, exitst, exitst2, exitst3
-  character(1024), dimension(:), allocatable :: tmpels
-  integer, dimension(:), allocatable :: tmpdig
   logical :: dir_e
   double precision, dimension(:,:), allocatable :: gaussian
   double precision, dimension(2) :: read_in, norma_vector
@@ -3884,17 +3864,12 @@ subroutine initialisehost(leng)
   integer :: l,k,j,i,structno, ecount,addedelements, eltot, leng,structures, prev_structures
   type (atom), dimension(:,:), allocatable :: tmplist,atomlist,tmplist2
   integer, dimension(:), allocatable :: stochio, tmpstochio, ts2, tmpstochiotot
-  integer, dimension(:), allocatable :: tmpdig
-  character(1024), dimension(:), allocatable :: tmpels
 
 
-  call invar(13,tmpdig,tmpels)
-  write(name, '(A,A)') "POSCAR_",trim(adjustl(tmpels(1)))
-  open(50, file=trim(adjustl(name)))
+  open(50, file=trim(adjustl(filename_host)))
   do i=1, 5
      read(50, * )
   end do
-  deallocate(tmpels)
   read(50,'(A)') tmp
   eltot=0
   allocate(tmpelnames(100))

@@ -7,10 +7,12 @@ BIN_DIR := ./bin
 SRC_DIR := ./src
 LIB_DIR := ./lib
 BUILD_DIR = ./obj
-LIBS := 
+LIBS := mod_constants.f90 \
+	mod_misc.f90
 OBJS := $(addprefix $(LIB_DIR)/,$(LIBS))
 #$(info VAR is $(OBJS))
-SRCS := atom.f90 \
+SRCS := inputs.f90 \
+	atom.f90 \
 	sub.f90 \
 	generator.f90 \
 	main.f90

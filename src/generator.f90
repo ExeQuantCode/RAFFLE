@@ -1,4 +1,8 @@
 module gen
+use inputs, only: &
+     vdW, volvar, minbond, maxbond,&
+     sigma_bondlength, bins, vps_ratio, filename_host,&
+     enable_self_bonding
 use help
 use atomtype
 implicit none 
@@ -11,10 +15,9 @@ contains
   type(unitcell), dimension(:), allocatable :: formula
   double precision :: bondmin,posneg, r,r2, pi, meanvol, q, normvol, cellmultiplier, calc,sigma1, tmpval
   integer :: l,leng, i,b, j, k, x, y, z, m,p, structures, structno, prev_structures, modeselect, prevpos
-  integer, dimension(3) :: bins
   integer :: errorcounter, ecount, eltot, options, loopcounter, addedelements, addtest, bondminindex,tmpint
   integer, dimension(:), allocatable :: shapeA
-  integer :: eltype, scan, bonding_number_correction, random_seed, num_VOID
+  integer :: eltype, scan, bonding_number_correction, num_VOID
   !! box = initial untransformed cubic unit cell 
   !! a 0 0
   !! 0 b 0
@@ -37,8 +40,6 @@ contains
   double precision, dimension(:,:,:), allocatable :: elrad
   double precision, dimension(:,:), allocatable :: bondavg, bondminimum
   double precision, dimension(:,:,:,:,:), allocatable :: results_matrix
-  character(1024), dimension(:), allocatable :: tmpels
-  integer, dimension(:), allocatable :: tmpdig
   double precision, dimension(:,:), allocatable :: tempmatrix
   character(1) :: equality_String
 
@@ -181,23 +182,23 @@ contains
   b=0
   BIGLOOP: do while(structures.le.structno)
 
-
-     CALL invar(2,tmpdig,tmpels) 
-     eltot=tmpdig(1)
-     deallocate(tmpdig)
-     CALL invar(4,tmpdig,tmpels)
-     do i=1, eltot 
-        elnames(i)=tmpels(i)
-     end do
-     deallocate(tmpels)
-     deallocate(stochio)
-     allocate(stochio(eltot))
-     !! How many of each would you like
-     CALL invar(5,tmpdig,tmpels)
-     do i=1, eltot
-        stochio(i)=tmpdig(i)
-     end do
-     deallocate(tmpdig)
+     !! DO WE WANT STRUCTNO TO BE UPDATABLE LATER ON?
+     !CALL invar(2,tmpdig,tmpels) 
+     !eltot=tmpdig(1)
+     !deallocate(tmpdig)
+     !! DO WE WANT ELNAME TO BE UPDATABLE LATER ON?
+     !CALL invar(4,tmpdig,tmpels)
+     !do i=1, eltot 
+     !   elnames(i)=tmpels(i)
+     !end do
+     !! DO WE WANT STOCHIO UPDATABLE LATER ON?
+     !deallocate(stochio)
+     !allocate(stochio(eltot))
+     !!! How many of each would you like
+     !CALL invar(5,tmpdig,tmpels)
+     !do i=1, eltot
+     !   stochio(i)=tmpdig(i)
+     !end do
      leng=0
      !! Total number of atoms 
      do i=1, eltot
@@ -272,14 +273,12 @@ contains
      !print*, elrad(2,i,i)
      k=0
      bonding_number_correction=0
-     CALL invar(12,tmpdig,tmpels)
 
-     if(tmpdig(1).eq.0) then 
+     if(.not.enable_self_bonding) then 
         do k=1, eltot 
            bonding_number_correction=bonding_number_correction+stochio(k)**2
         end do
      end if
-     deallocate(tmpdig)
 
      normalisation_a=0
 
@@ -310,10 +309,8 @@ contains
         volmin=volmin+stochio(i)*(4.0/3.0)*pi*(elrad(2,i,i)**3)
         do j=1, eltot
            if(j.lt.i) cycle
-           CALL invar(6,tmpdig,tmpels)
-           connectivity=dble(tmpdig(1)/100.0)
+           connectivity=dble(vdW/100.0)
            !print*, connectivity 
-           deallocate(tmpdig)
 
            if(i.eq.j) then 
               if(bonding_number_correction.eq.0) then 
@@ -349,11 +346,9 @@ contains
         !  meanvol=meanvol+stochio(i)*((connectivity*elrad(1,i,i))+((1.0-connectivity)*elrad(2,i,i)))**3*(4/3)*pi 
      end do
      !!Adds or subtracts a small quantity from the calculated volume 
-     call random_number(r) 
-     call invar(7,tmpdig,tmpels)
+     call random_number(r)
      print*, meanvol
-     meanvol=meanvol+(dble(tmpdig(1)/100.0)*r*posneg*meanvol)
-     deallocate(tmpdig)
+     meanvol=meanvol+((volvar/100.0)*r*posneg*meanvol)
      print*, "The allocated volume is", meanvol
 
 !!!-------------------------------------------------------------------------------------!!!
@@ -755,15 +750,11 @@ contains
      end if
 
 
-     call invar(8,tmpdig,tmpels) 
-     b=tmpdig(1) 
-     deallocate(tmpdig) 
+     b=minbond
      !print*, dble(b/100.0)
      open(99,file="errorfile") 
 
-     call invar(11,tmpdig,tmpels) 
-     sigma1=abs(tmpdig(1)/10.0)
-     deallocate(tmpdig) 
+     sigma1=sigma_bondlength
      ! This next line is intended to auto-tune the resolution of the guassian sampling. Needs testing
      !    sigma2=minval(peakseparation)/(2.0*sqrt(2.0*LOG(4.0)))
      sigma2=0.5
@@ -774,11 +765,6 @@ contains
      scan=0
      bestlocationindex=0
      agausssamp=sigma2
-     call invar(14,tmpdig,tmpels)
-     bins(1)=tmpdig(1)
-     bins(2)=tmpdig(2)
-     bins(3)=tmpdig(3)
-     deallocate(tmpdig)
      
      ! First pass is bin size, which should be tied to gaussian size of evolved functions
 
@@ -803,12 +789,12 @@ contains
         !   r=1.0
         !end if
 
-        call invar(16,tmpdig,tmpels)
-        prob_void=dble(tmpdig(1)/(tmpdig(1)+tmpdig(2)+tmpdig(3)))
-        prob_pseudo=prob_void+dble(tmpdig(2)/(tmpdig(1)+tmpdig(2)+tmpdig(3)))
-        prob_scan=prob_pseudo+dble(tmpdig(3)/(tmpdig(1)+tmpdig(2)+tmpdig(3)))
+        prob_void=dble(vps_ratio(1)/(vps_ratio(1)+vps_ratio(2)+vps_ratio(3)))
+        prob_pseudo=prob_void+&
+             dble(vps_ratio(2)/(vps_ratio(1)+vps_ratio(2)+vps_ratio(3)))
+        prob_scan=prob_pseudo+&
+             dble(vps_ratio(3)/(vps_ratio(1)+vps_ratio(2)+vps_ratio(3)))
 
-        deallocate(tmpdig)
 
 !        if(r.le.ratio_voidscan/100) then 
 !           print*, "ADD ATOM VOID"
@@ -1366,19 +1352,13 @@ end subroutine chemread
     integer :: d,l,k,j,i,structno, ecount,addedelements, eltot, leng,structures, prev_structures
     type (atom), dimension(:,:), allocatable :: tmplist,atomlist,tmplist2
     integer, dimension(:), allocatable :: stochio, tmpstochio, tmpstochiotot
-    double precision, dimension(3) :: tmparray 
-    integer, dimension(:), allocatable :: tmpdig
-    character(1024), dimension(:), allocatable :: tmpels
+    double precision, dimension(3) :: tmparray
 
 
     !! Wipes the randomly generated formula
     close(61)
 
-    call invar(13,tmpdig,tmpels)
-    write(name,'(A,A)') "POSCAR_",trim(adjustl(tmpels(1)))
-    deallocate(tmpels)
-
-    open(61, file=trim(adjustl(name)))
+    open(61, file=trim(adjustl(filename_host)))
     read(61, *) tmp
     !print*, tmp
     read(61, *) cellmultiplier 

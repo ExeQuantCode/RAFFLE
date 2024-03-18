@@ -10,7 +10,9 @@ BUILD_DIR = ./obj
 LIBS := mod_constants.f90 \
 	mod_misc.f90 \
 	mod_misc_linalg.f90 \
-	mod_geom.f90
+	mod_vasp_file_handler.f90 \
+	mod_geom.f90 \
+	mod_file_generator.f90
 OBJS := $(addprefix $(LIB_DIR)/,$(LIBS))
 #$(info VAR is $(OBJS))
 SRCS := inputs.f90 \

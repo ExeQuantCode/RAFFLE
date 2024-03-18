@@ -1,21 +1,21 @@
-PROGRAM random
-  use constants, only: pi
+program raffle
+  use constants, only: real12, pi
+  use geom, only: get_sphere_overlap
   use inputs
   use help
   use gen
   use atomtype
-  implicit none 
+  implicit none
+
+
+  integer :: i, len, nbin, nbin2, nbinf
+  real(real12), dimension(3) :: x1, x2, x3
+
   type(unitcell), dimension(:), allocatable :: formula
-  double precision, dimension(3,3) :: box
-  double precision, dimension(3) :: test,spacelist
-  integer :: i,j,k,m,len, n, clock, reason, nbin, nbin2,x,y,z, nbinf, structures, coordination
-  type (atom), dimension(:,:), allocatable :: atomlist, alistrep, atomlistt
-  double precision :: r, meanvol, alpha, beta, gamma,normvol,posneg, q,a,b,c, sigma, bond_test, returned_val 
-  double precision , dimension(:), allocatable :: cutoff
-  double precision, dimension(3) :: angle, x1,x2,x3,x4
-  type (densitymatrix), dimension(:), allocatable :: density
-  double precision, dimension(:,:,:), allocatable :: elrad
-  character(1024) :: buffer, command 
+  real(real12), dimension(3) :: spacelist
+  type (atom), dimension(:,:), allocatable :: atomlist, alistrep
+  real(real12) :: sigma, bond_test, returned_val
+  real(real12), dimension(:,:,:), allocatable :: elrad
   !!For input
   character(1024) :: dummy
 
@@ -25,7 +25,7 @@ PROGRAM random
 
 !!! Reads Input file !!! 
 
-  !CALL angledistribution("C  ")
+  !call angledistribution("C  ")
 
   !x1=0.0
   !x2=0.0
@@ -34,10 +34,10 @@ PROGRAM random
   ! x1(1)=1.0
   ! x3(2)=1.0
   ! x4(3)=1.0
-  ! print*, x1
-  ! print*, x2
-  ! print*, x3
-  ! print*, fourbody(x1,x2,x3,x4)
+  ! write(*,*) x1
+  ! write(*,*) x2
+  ! write(*,*) x3
+  ! write(*,*) fourbody(x1,x2,x3,x4)
   ! stop
 
 
@@ -98,17 +98,17 @@ PROGRAM random
 
   if (options.eq.3) then
      bond_test=1.430
-     print*, bond_test
-     CALL evaluate_contribution ("C  ","C  ",bond_test,returned_val)
+     write(*,*) bond_test
+     call evaluate_contribution ("C  ","C  ",bond_test,returned_val)
      stop
   end if
 
 
 
   if(options.eq.4) then
-     CALL chemread(elnames,eltot,elrad)
-     print*, sphereoverlap(2*elrad(1,1,1),elrad(1,1,1),elrad(1,1,1),dble(pi))
-     print*, (4.0/3.0)*pi*elrad(1,1,1)**3
+     call chemread(elnames,eltot,elrad)
+     write(*,*) get_sphere_overlap(2*elrad(1,1,1),elrad(1,1,1),elrad(1,1,1))
+     write(*,*) (4.0/3.0)*pi*elrad(1,1,1)**3
      stop
   end if
   if(options.eq.5) then 
@@ -118,7 +118,7 @@ PROGRAM random
      x2(2)=0.0
      x3=0.0
      x3(3)=1.0
-     print*, bondangle(x1,x2,x3)
+     write(*,*) get_bondangle(x1,x2,x3)
      stop
   end if
   if (options.eq.6) then 
@@ -134,7 +134,7 @@ PROGRAM random
      stop 
   end if
 
-  !CALL chemread(elnames,eltot,elrad)
+  !call chemread(elnames,eltot,elrad)
   allocate(formula(structno))
 
 
@@ -145,7 +145,6 @@ PROGRAM random
 
 
   call generation(len, atomlist, alistrep, spacelist, formula, structno,options, eltot, elnames, stochio, elrad)
-  print*, "The structures requested have been successfully generated and saved"
+  write(*,*) "The structures requested have been successfully generated and saved"
 
-end PROGRAM
-
+end program raffle

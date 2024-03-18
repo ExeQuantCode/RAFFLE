@@ -1,38 +1,39 @@
 !!!#############################################################################
-!!! Module to define all global variables
 !!! Code written by Ned Thaddeus Taylor
 !!! Code for RAFFLE
 !!! Code part of the ARTEMIS group
 !!!#############################################################################
+!!! module defines all global variables
+!!!#############################################################################
 module inputs
   use misc, only: file_check,flagmaker
-  use constants, only: real12,ierror,pi
+  use constants, only: real12, ierror, pi
   implicit none
   logical :: lseed
 
   integer :: seed !random seed
-1  integer :: structno ! number of structures to generate
-2  integer :: eltot   ! total number of species to add
-3  integer :: options ! options setting (defines the RAFFLE task)
-5  integer, allocatable, dimension(:) :: stochio ! stoichiometry of species to add
-4  character(3), allocatable, dimension(:) :: elnames !species names to add
+  integer :: structno ! number of structures to generate
+  integer :: eltot   ! total number of species to add
+  integer :: options ! options setting (defines the RAFFLE task)
+  integer, allocatable, dimension(:) :: stochio ! stoichiometry of species to add
+  character(3), allocatable, dimension(:) :: elnames !species names to add
 
-6  integer :: vdW    
-7  integer :: volvar 
-8  integer :: minbond
-9  integer :: maxbond
+  integer :: vdW    
+  integer :: volvar 
+  integer :: minbond
+  integer :: maxbond
 
-11  double precision :: sigma_bondlength
-  double precision :: sigma_don
+  real(real12) :: sigma_bondlength
+  real(real12) :: sigma_don
 
-12 logical :: enable_self_bonding
+ logical :: enable_self_bonding
 
-14  integer, dimension(3) :: bins
-16  integer, dimension(3) :: vps_ratio
+  integer, dimension(3) :: bins
+  integer, dimension(3) :: vps_ratio
 
-13  character(1024) :: filename_host !host structure filename
-15  integer :: c_cut !upper cutoff in cell for atom placement
-17  integer :: c_min !lower cutoff in cell for atom placement
+  character(1024) :: filename_host !host structure filename
+  integer :: c_cut !upper cutoff in cell for atom placement
+  integer :: c_min !lower cutoff in cell for atom placement
 
 
 !!!!options:

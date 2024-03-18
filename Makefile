@@ -8,7 +8,9 @@ SRC_DIR := ./src
 LIB_DIR := ./lib
 BUILD_DIR = ./obj
 LIBS := mod_constants.f90 \
-	mod_misc.f90
+	mod_misc.f90 \
+	mod_misc_linalg.f90 \
+	mod_geom.f90
 OBJS := $(addprefix $(LIB_DIR)/,$(LIBS))
 #$(info VAR is $(OBJS))
 SRCS := inputs.f90 \
@@ -35,7 +37,7 @@ else
 	MPIFLAG = -fopenmp
 	MODULEFLAG = -J
 	DEVFLAGS = -g -fbacktrace -fcheck=all -fbounds-check #-g -static -ffpe-trap=invalid
-	DEBUGFLAGS = -fbounds-check
+	DEBUGFLAGS = -fbounds-check -Wall -Wno-maybe-uninitialized
 	MEMFLAG = -mcmodel=large
 endif
 

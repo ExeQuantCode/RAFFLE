@@ -863,7 +863,7 @@ contains
   subroutine loadbar(count,div,loaded)
     implicit none
     integer :: count,div !div=10
-    real :: tiny=1.E-5
+    real(real12) :: tiny=1.E-5
     character(1) :: yn,creturn = achar(13)
     character(1), optional :: loaded
 

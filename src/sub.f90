@@ -2268,43 +2268,4 @@ end do
 close(50)
 end subroutine initialisehost
 
-
-
-
-
-
-
-function ReadLine(aunit, InLine, trimmed) result(OK)
-   integer, intent(IN) :: aunit
-   character(LEN=:), allocatable, optional :: InLine
-   logical, intent(in), optional :: trimmed
-   integer, parameter :: line_buf_len= 1024*4
-   character(LEN=line_buf_len) :: InS
-   logical :: OK, set
-   integer status, size
-   
-   OK = .false.
-   set = .true.
-   do
-    read (aunit,'(a)',advance='NO',iostat=status, size=size) InS
-    OK = .not. IS_IOSTAT_END(status)
-    if (.not. OK) return
-    if (present(InLine)) then
-       if (set) then
-          InLine = InS(1:size)
-          set=.false.
-       else
-          InLine = InLine // InS(1:size)
-       end if
-    end if
-    if (IS_IOSTAT_EOR(status)) exit
-   end do
-   if (present(trimmed) .and. present(InLine)) then
-    if (trimmed) InLine = trim(adjustl(InLine))
-   end if
-   
-   end function ReadLine
-
-
-
 end module help

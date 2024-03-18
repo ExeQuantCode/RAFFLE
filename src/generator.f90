@@ -67,7 +67,7 @@ contains
        deallocate(alistrep)
        deallocate(atomlist)
        !write(*,*) "Deallocation completed"
-       call initialisehost(leng)
+       call initialisehost(leng, filename_host)
        allocate(atomlist(structno,leng))
        allocate(alistrep(structno,leng*27)) 
 
@@ -214,7 +214,7 @@ contains
           deallocate(alistrep)
           deallocate(atomlist)
           write(*,*) "Deallocation completed"
-          call initialisehost(leng)
+          call initialisehost(leng, filename_host)
           allocate(atomlist(structno,leng))
           allocate(alistrep(structno,leng*27)) 
 

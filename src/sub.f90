@@ -3,7 +3,6 @@ module help
   use geom, only: &
        get_bondlength, get_bondangle, get_dihedral_angle, &
        atomprojector
-  use inputs, only: c_cut, c_min, filename_host
   use atomtype
   use vasp_file_handler, only: unitcell, structurecounter, &
        poscar_read, addposcar, &
@@ -521,14 +520,18 @@ end subroutine invar
 
 
 
-subroutine initialisehost(leng)
-type(unitcell), dimension(:), allocatable :: formula
-character(1024) :: tmp, name, location
-character(1024), dimension(:), allocatable :: elnames,tmpelnames
-real(real12) :: cellmultiplier,meanvol
-integer :: l,k,j,i,structno, ecount,addedelements, eltot, leng,structures, prev_structures
-type (atom), dimension(:,:), allocatable :: tmplist,atomlist,tmplist2
-integer, dimension(:), allocatable :: stochio, tmpstochio, ts2, tmpstochiotot
+subroutine initialisehost(leng, filename_host)
+   implicit none
+   integer, intent(inout) :: leng
+   character(1024), intent(in) :: filename_host
+
+   type(unitcell), dimension(:), allocatable :: formula
+   character(1024) :: tmp, name, location
+   character(1024), dimension(:), allocatable :: elnames,tmpelnames
+   real(real12) :: cellmultiplier,meanvol
+   integer :: l,k,j,i,structno, ecount,addedelements, eltot,structures, prev_structures
+   type (atom), dimension(:,:), allocatable :: tmplist,atomlist,tmplist2
+   integer, dimension(:), allocatable :: stochio, tmpstochio, ts2, tmpstochiotot
 
 
 open(50, file=trim(adjustl(filename_host)))

@@ -144,7 +144,7 @@ program raffle
 
 
 
-  call generation(len, atomlist, alistrep, spacelist, formula, structno,options, eltot, elnames, stochio, elrad)
+  call generation(len, atomlist, alistrep, spacelist, formula, structno,options, eltot, elnames, stochio, elrad, c_cut, c_min)
   write(*,*) "The structures requested have been successfully generated and saved"
 
 end program raffle

@@ -14,7 +14,9 @@ contains
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  subroutine generation(leng, atomlist, alistrep, spacelist, formula, structno, options, eltot, elnames, stochio, elrad) 
+  subroutine generation(leng, atomlist, alistrep, spacelist, formula, structno, &
+       options, eltot, elnames, stochio, elrad, c_cut, c_min) 
+    integer, intent(in) :: c_cut, c_min
     type(unitcell), dimension(:), allocatable :: formula
     real(real12) :: bondmin,posneg, r,r2, meanvol, q, normvol, cellmultiplier, calc,sigma1, tmpval
     integer :: l,leng, i,b, j, k, x, y, z, m,p, structures, structno, prev_structures, modeselect, prevpos
@@ -821,7 +823,8 @@ contains
              write(*,*) "ADD ATOM VOID"!
 
              call add_atom_void (bins,formula,i, sigma1,&
-                  &structures,sigma2,elnames,eltot,bondcutoff,atomlist,alistrep,tmpvector,elrad,leng)
+                  &structures,sigma2,elnames,eltot,bondcutoff,atomlist,alistrep,&
+                  tmpvector,elrad,leng,c_cut)
              num_VOID=num_VOID+1
           else if(r.le.prob_pseudo) then 
              write(*,*) num_VOID, "Add Atom Pseudo"
@@ -832,19 +835,20 @@ contains
              if(placed.eqv..FALSE.) then
                 write(*,*) "ADD ATOM VOID"
                 call add_atom_void (bins,formula,i, sigma1,&
-                     &structures,sigma2,elnames,eltot,bondcutoff,atomlist,alistrep,tmpvector,elrad,leng)
+                     &structures,sigma2,elnames,eltot,bondcutoff,atomlist,alistrep,&
+                     tmpvector,elrad,leng,c_cut)
              end if
 
           else if(r.le.prob_scan) then 
              write(*,*) num_VOID, "Add Atom Scan"
              call add_atom_scan_2 (bins, formula, atomlist, alistrep, i, structures, elrad,&
-                  &leng,results_matrix,eltot,elnames,placed,num_VOID)
+                  &leng,results_matrix,eltot,elnames,placed,num_VOID,c_cut,c_min)
              num_VOID=1
              placed=.TRUE.
              if(placed.eqv..FALSE.) then
                 write(*,*) "ADD ATOM VOID"
                 call add_atom_void (bins,formula,i, sigma1,&
-                     &structures,sigma2,elnames,eltot,bondcutoff,atomlist,alistrep,tmpvector,elrad,leng)
+                     &structures,sigma2,elnames,eltot,bondcutoff,atomlist,alistrep,tmpvector,elrad,leng,c_cut)
              end if
           end if
 

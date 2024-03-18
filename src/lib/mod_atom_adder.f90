@@ -1,6 +1,10 @@
 module add_atom
   use constants, only: real12
   use atomtype
+  use vasp_file_handler, only: unitcell, atomrepeater
+  use distributions, only: generate_bondlength_distribution
+  use geom
+  use buildmap
   implicit none
 
 contains
@@ -10,7 +14,8 @@ contains
 !!! add atom to unit cell using the scan method (v2????)
 !!!#############################################################################
   subroutine add_atom_scan_2 (bin_size,formula,atomlist,alistrep,atom_number_previous,structures,elrad,&
-    &leng, results_matrix,eltot,elnames,placed,num_VOID)
+    &leng, results_matrix,eltot,elnames,placed,num_VOID, c_cut, c_min)
+    integer, intent(in) :: c_cut, c_min
    character(1024) :: name
    character(3), dimension(:), allocatable :: elnames
    type(unitcell), dimension(:), allocatable :: formula
@@ -31,7 +36,7 @@ contains
    allocate(sorting_matrix((bin_size(1)+1)*(bin_size(2)+1)*(bin_size(3)+1),4))
    results_matrix=0
    call buildmap_WIP (bin_size, formula, atomlist, alistrep, atom_number_previous, structures, &
-      &elrad, leng, results_matrix,eltot,elnames,placed,num_VOID,append_matrix)
+      &elrad, leng, results_matrix,eltot,elnames,placed,num_VOID,append_matrix,c_cut,c_min)
    if(placed.eqv..FALSE.) return
    n=0
    l=0
@@ -208,7 +213,8 @@ contains
 !!!#############################################################################
    !This routine needs to consider the effects of PLACING the atom that it might interact with itself. Hard to do
    subroutine add_atom_void (bin_size,formula,atom_number_previous, sigma1,&
-    &structures,sigma2,elnames,eltot,bondcutoff,atomlist,alistrep,tmpvector,elrad,leng)
+    &structures,sigma2,elnames,eltot,bondcutoff,atomlist,alistrep,tmpvector,elrad,leng, c_cut)
+    integer, intent(in) :: c_cut
    character(3), dimension(:), allocatable :: elnames
    type(unitcell), dimension(:), allocatable :: formula
    integer :: scan_counter,leng,p,q, i, j, k, best_location_index, eltot, atom_number_previous&

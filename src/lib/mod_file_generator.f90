@@ -2,6 +2,9 @@ module file_generator
   use constants, only: real12, pi
   use atomtype
   use geom, only: get_bondlength, get_bondangle, get_dihedral_angle
+  use vasp_file_handler, only: unitcell, &
+       poscar_read, atomrepeater
+  use geom
   implicit none
 
 contains

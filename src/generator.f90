@@ -7,6 +7,7 @@ module gen
        enable_self_bonding
   use help
   use atomtype
+  use add_atom
   implicit none 
 contains 
 

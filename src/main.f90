@@ -37,7 +37,7 @@ program raffle
   ! write(*,*) x1
   ! write(*,*) x2
   ! write(*,*) x3
-  ! write(*,*) fourbody(x1,x2,x3,x4)
+  ! write(*,*) get_dihedral_angle(x1,x2,x3,x4)
   ! stop
 
 

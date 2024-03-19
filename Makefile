@@ -16,7 +16,8 @@ LIBS := mod_constants.f90 \
 	mod_contributions.f90 \
 	mod_distributions.f90 \
 	mod_buildmap.f90 \
-	mod_atom_adder.f90
+	mod_atom_adder.f90 \
+	mod_read_chemfile.f90
 OBJS := $(addprefix $(LIB_DIR)/,$(LIBS))
 #$(info VAR is $(OBJS))
 SRCS := inputs.f90 \

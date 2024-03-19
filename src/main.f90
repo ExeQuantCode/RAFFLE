@@ -5,6 +5,7 @@ program raffle
   use help
   use gen
   use atomtype
+  use read_chem, only: get_element_radius
   implicit none
 
 
@@ -80,7 +81,10 @@ program raffle
      write(*,*) "Returned value: ",returned_val
      stop 0
   case(4)
-     call chemread(elnames,eltot,elrad)
+     write(*,*) "Sphere Overlap Test"
+     elnames = ["C  ", "Mg ", "O  "]
+     write(*,*) elnames
+     elrad = get_element_radius(elnames)
      write(*,*) get_sphere_overlap(2*elrad(1,1,1),elrad(1,1,1),elrad(1,1,1))
      write(*,*) (4.0/3.0)*pi*elrad(1,1,1)**3
      stop 0

@@ -8,7 +8,8 @@ module gen
   use help
   use atomtype
   use add_atom
-  implicit none 
+  use read_chem, only: get_element_radius
+  implicit none
 contains 
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -84,11 +85,7 @@ contains
     !! assigns the length of elno to eltot. NOT SURE WHY, SHOULD BE LENG?. UNLESS ELNO CONTAINS ALL MATERIAL SPECS
     allocate(elno(eltot))
     allocate(elrad(4,eltot,eltot))
-    !if(modeselect.ne.2) then 
-    call chemread(elnames,eltot,elrad)
-    !end if
-
-    !call chemread(elnames,eltot,elrad)
+    elrad = get_element_radius(elnames)
 
     !! bondlist is a list of ALL the bonds between all the atoms and each of it's neighbours in the first tier of recursive repeated unit cells
     allocate(bondlist(leng,leng*27,eltot,eltot))
@@ -712,7 +709,7 @@ contains
 
 
        if(modeselect.eq.2) then;
-          call chemread(elnames,eltot,elrad)
+          elrad = get_element_radius(elnames)
           do i=1, addedelements
              L=L+stochio(i)
           end do
@@ -1279,74 +1276,6 @@ contains
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-
-  subroutine chemread(elnames, eltot, elrad)
-    character(3), dimension(:), allocatable :: elnames
-    character(3) :: read1, read2
-    real(real12) :: r_vdw, r_cov, c1, c2
-    integer :: increment, i, eltot, j, Reason
-    real(real12), dimension(:,:,:), allocatable :: elrad
-
-
-    deallocate(elrad)
-    allocate(elrad(4,eltot,eltot))
-    elrad=0
-    open(77, file="chem.in", status="old") 
-    do 
-       read(77, *, IOSTAT=Reason) read1, read2, r_cov, r_vdw, c1, c2
-       if (Reason.gt.0) then;
-          stop
-          write(*,*) "Something wrong with chem.in file" 
-       else if(Reason.lt.0) then; 
-          write(*,*) "Done"
-          exit 
-       else 
-          write(*,*) trim(adjustl(read1)), " ",trim(adjustl(read2))," ", r_cov, " ", r_vdw
-          do i=1, eltot 
-             do j=1, eltot
-                if(elnames(i).eq.trim(adjustl(read1))) then;
-                   if(elnames(j).eq.trim(adjustl(read2))) then; 
-                      elrad(1,i,j)=r_cov
-                      elrad(2,i,j)=r_vdw
-                      elrad(3,i,j)=c1
-                      elrad(1,j,i)=r_cov
-                      elrad(2,j,i)=r_vdw
-                      elrad(3,j,i)=c1
-                      if(elnames(i).ne.elnames(j)) then; 
-                         elrad(3,i,j)=c1
-                         elrad(4,i,j)=c2
-                         elrad(4,j,i)=c1
-                         elrad(3,j,i)=c2
-
-                         write(*,*) elnames(i),c1,",",elnames(j),c2
-                      end if
-                      continue
-                   end if
-                end if
-                if(elnames(j).eq.trim(adjustl(read1))) then;
-                   if(elnames(i).eq.trim(adjustl(read2))) then;
-                      elrad(1,j,i)=r_cov
-                      elrad(2,j,i)=r_vdw
-                      elrad(3,j,i)=c1
-                      if(elnames(i).ne.elnames(j)) then;
-                         elrad(3,j,i)=c1
-                         elrad(4,j,i)=c2
-                         elrad(4,j,i)=c1
-                         elrad(3,j,i)=c2
-
-                      end if
-                      continue
-
-                   end if
-                end if
-             end do
-
-          end do
-       end if
-    end do
-
-    close(77)
-  end subroutine chemread
 
   subroutine addhost(eltot,structures,formula,location,atomlist,stochio,elnames,&
        &addedelements,name,structno)

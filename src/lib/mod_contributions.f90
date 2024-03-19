@@ -45,13 +45,12 @@ contains
 
     !!Assuming the line between points can be modelled as linear
     fraction = (bondlength - bondlength_list(1)) / step_size
- 
     amplitude = amplitude_list(1) + &
        (amplitude_list(2) - amplitude_list(1)) * fraction
 
     !! THIS IS A HACK TO MAKE THE BOND LENGTH CONTRIBUTION DECAY
-    !!Arbitrary could be added for when bondlength contribution starts to decay,
-    !! could be changed to be bond specific (should be)!
+    !! Could be added for when bondlength contribution starts to decay,
+    !! Could be changed to be bond specific (should be)!
     if (bondlength.lt.1.6_real12) then 
        amplitude = amplitude 
     else if (bondlength.lt.3._real12) then  

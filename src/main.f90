@@ -10,7 +10,7 @@ program raffle
   implicit none
 
 
-  integer :: i, len, nbin, nbin2, nbinf
+  integer :: i, nbin, nbin2, nbinf
   real(real12), dimension(3) :: x1, x2, x3
 
   type(unitcell), dimension(:), allocatable :: formula
@@ -57,12 +57,7 @@ program raffle
 !!! Assign the elements of each atom                                                       !
 !!!--------------------------------------------------------------------------------------!
 
-  len = 0
   allocate(elnames(eltot))
-  !! Total number of atoms 
-  do i=1, eltot
-     len = len + stochio(i)
-  end do
 
 
   select case(options)
@@ -121,17 +116,13 @@ program raffle
      write(*,*) "Invalid option"
      stop 1
   end select
- 
-
-  !call chemread(elnames,eltot,elrad)
-  allocate(formula(structno))
 
 
 !!!--------------------------------------------------!!!
 !!!Set the number of atoms and generate the unit cell!!!
 !!!--------------------------------------------------!!!
 
-  call generation(len, alistrep, spacelist, formula, structno,options, eltot, elnames, stochio, elrad, c_cut, c_min)
+  call generation(alistrep, structno, options, elnames, stochio, c_cut, c_min)
   write(*,*) "The structures requested have been successfully generated and saved"
 
 end program raffle

@@ -25,14 +25,14 @@ contains
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  subroutine generation(num_atoms, alistrep, spacelist, formula, num_structures, &
-       option, num_species, elnames, stochio, elrad, c_cut, c_min)
+  subroutine generation(alistrep, num_structures, &
+       option, elnames, stochio, c_cut, c_min)
     implicit none
-    integer, intent(inout) :: num_atoms, num_species, num_structures !! SHOULD NOT EVEN BE AN ARGUEMNT
+    integer, intent(inout) :: num_structures !! SHOULD NOT EVEN BE AN ARGUEMNT
     !! MAKE AN INPUT ARGUMENT THAT IS MAX_NUM_STRUCTURES
     integer, intent(in) :: option
     integer, intent(in) :: c_cut, c_min
-    type(unitcell), dimension(:), allocatable :: formula
+    integer, dimension(:), allocatable, intent(inout) :: stochio
 
     type(bas_type) :: host_basis
     real(real12), dimension(3,3) :: host_lattice
@@ -47,36 +47,29 @@ contains
 
     integer :: unit, info_unit, structure_unit
     integer :: bravais_type
+    integer :: num_species, num_atoms
 
-    real(real12) :: bondmin,posneg, r,r2, meanvol, q, normvol, cellmultiplier, calc,sigma1, tmpval
+    real(real12) :: bondmin,posneg, r,r2, meanvol, q, normvol, calc,sigma1
 
     integer :: l, i, j, k, x, y, z, m,p
-    integer :: structures, prev_structures, option_, prevpos
-    integer :: errorcounter, ecount, addedelements, bondminindex,tmpint
-    integer, dimension(:), allocatable :: shapeA
-    integer :: eltype, scan, bonding_number_correction, num_VOID
-    real(real12), allocatable, dimension(:,:) :: peakseparation, temppeaks
-    real(real12), allocatable, dimension(:) :: peaksindividual
+    integer :: structures, prev_structures, option_, prevpos, addedelements
+    integer :: bonding_number_correction, num_VOID
 
-    real(real12), dimension(3) :: angle, spacelist, tmpvector, bestlocation, backuplocation
-    real(real12), dimension(:,:,:,:), allocatable :: bondlist
-    real(real12) ::  bondcutoff,connectivity,tmpangle, volmin, bondpro1, bondpro2, distribution, tmpvalue
-    real(real12) :: anglecutoffupper, anglecutofflower, sigma2, bestlocationindex, agausssamp, peak1, tmpdistribution
+    real(real12), dimension(3) :: angle, tmpvector, bestlocation
+    real(real12) ::  bondcutoff, connectivity, volmin, distribution, sigma2
     real(real12) :: angle_distribution, bond_distribution, normalisation_a, prob_void, prob_scan, prob_pseudo
+    type(atom), dimension(2) :: copy_list
+
     !! atomlist has dimensions(structure, atom)
     !! there is no distinguishing factor for species
-    type (atom), dimension(:,:), allocatable :: atomlist, alistrep, alistrepp
-    type(atom), dimension(2,2) :: copy_list
-    character(1024) :: name, tmp, command,location
-    character(3), dimension(:), allocatable :: elnames, sing_el, elnames_copy
-    integer, dimension(:), allocatable :: elno, stochio, stochio_copy
-    integer, dimension(:,:), allocatable :: nearneighbourmatrix
-    logical :: dir_e, new_position_needed, placed
     real(real12), dimension(:,:,:), allocatable :: elrad
-    real(real12), dimension(:,:), allocatable :: bondavg, bondminimum
+    type (atom), dimension(:,:), allocatable :: atomlist, alistrep
+    type(unitcell), dimension(:), allocatable :: formula
+    character(1024) :: name, tmp, command,location
+    character(3), dimension(:), allocatable :: elnames, elnames_copy
+    integer, dimension(:), allocatable :: stochio_copy
+    logical :: placed
     real(real12), dimension(:,:,:,:,:), allocatable :: results_matrix
-    real(real12), dimension(:,:), allocatable :: tempmatrix
-    character(1) :: equality_String
 
 
     !! The info file doesn't contain much of use yet. Could build in if relevant 
@@ -121,14 +114,9 @@ contains
     !! calls the function structurecounter, which provides information about the number of currently existing 
     !! structures in the directory
     prev_structures=structurecounter("pos")
-    !! assigns the length of elno to num_species. NOT SURE WHY, SHOULD BE num_atoms?. UNLESS ELNO CONTAINS ALL MATERIAL SPECS
-    allocate(elno(num_species))
     allocate(elrad(4,num_species,num_species))
     elrad = get_element_radius(elnames)
 
-    !! bondlist is a list of ALL the bonds between all the atoms and each of its neighbours in the first tier of recursive repeated unit cells
-    allocate(bondlist(num_atoms,num_atoms*27,num_species,num_species))
-    allocate(bondavg(num_species,num_species))
     !! option_=1 is a special option allowing a new poscar to be added in at user specification
 
 
@@ -342,11 +330,11 @@ contains
           r=r*(num_atoms-z)+z
           r2=r2*(num_atoms-z)+z
           !write(*,*) r, r2
-          copy_list(1,1)=atomlist(structures,ceiling(r))
-          copy_list(2,2)=atomlist(structures,ceiling(r2))
+          copy_list(1)=atomlist(structures,ceiling(r))
+          copy_list(2)=atomlist(structures,ceiling(r2))
 
-          atomlist(structures,ceiling(r))=copy_list(2,2) 
-          atomlist(structures,ceiling(r2))=copy_list(1,1) 
+          atomlist(structures,ceiling(r))=copy_list(2) 
+          atomlist(structures,ceiling(r2))=copy_list(1) 
        end do
 
        allocate(stochio_copy(1+addedelements)) 
@@ -452,7 +440,6 @@ contains
              atomlist(structures,1+L)%position(j)=r
              alistrep(structures,1+L)%position(j)=r
           end do
-          errorcounter=0
           atomlist(structures,1+L)%position(:)=matmul(formula(structures)%cell,atomlist(structures,1+L)%position(:))
           call atomrepeater(structures,atomlist(structures,i)%position,&
                &atomlist(structures,i)%name,alistrep,formula,i,num_atoms)
@@ -466,11 +453,6 @@ contains
        sigma2=0.5
        i=i+L
        bondcutoff=2
-       anglecutofflower=0
-       anglecutoffupper=180
-       scan=0
-       bestlocationindex=0
-       agausssamp=sigma2
 
        ! First pass is bin size, which should be tied to gaussian size of evolved functions
 
@@ -486,7 +468,6 @@ contains
           end do
           y=0
           j=0
-          scan=1
           allocate(results_matrix(bins(1)+1,bins(2)+1,bins(3)+1,4,num_species))
 
           !if(i.ne.1) then 
@@ -584,7 +565,6 @@ contains
 
           if(i.eq.num_atoms-1) exit 
           i=i+1
-          bestlocationindex=0
           bestlocation=0
 
        end do aloop
@@ -654,7 +634,6 @@ contains
        allocate(elnames_copy(size(elnames)))
        elnames_copy=""
        elnames_copy(1)=elnames(1)
-       equality_string=""
        k = 1
        elnames_copy = [elnames(1)]
        envelope : do i=2, size(elnames)
@@ -674,11 +653,11 @@ contains
              if(atomlist(structures,j)%name.ne.elnames(i)) then
                 do k=1, num_atoms 
                    if(atomlist(structures,k)%name.eq.elnames(i)) then 
-                      copy_list(1,1)=atomlist(structures,j)
-                      copy_list(2,2)=atomlist(structures,k)
+                      copy_list(1)=atomlist(structures,j)
+                      copy_list(2)=atomlist(structures,k)
 
-                      atomlist(structures,k)=copy_list(1,1) 
-                      atomlist(structures,j)=copy_list(2,2)
+                      atomlist(structures,k)=copy_list(1) 
+                      atomlist(structures,j)=copy_list(2)
                    end if
                 end do
              end if
@@ -695,10 +674,6 @@ contains
        !write(*,*) structures, prevpos, "!!!!!!!!!!!!!!"
        call Jobwrite(tmp,3,3,3)
 
-       write(info_unit,*) "For structure number", prevpos+structures
-       write(info_unit,*) "The average bond value is", bondavg
-       write(info_unit,*) "The lower bound for allowed bonds is", bondavg-0.2
-       write(info_unit,*) "The upper bound for allowed bonds is", bondavg+0.2
        call generate_potcar(tmp, elnames)
        close(structure_unit)
 

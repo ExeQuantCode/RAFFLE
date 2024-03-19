@@ -51,15 +51,19 @@ contains
     real(real12), dimension(3,3) :: lattice
     type(bas_type), dimension(:), allocatable :: basis_list
 
+    integer, dimension(:,:), allocatable :: placement_list
 
     integer :: unit, info_unit, structure_unit
     integer :: bravais_type
     integer :: num_species, num_atoms
+    integer :: itmp1
 
-    real(real12) :: bondmin,posneg, r,r2, meanvol, q, normvol, calc,sigma1
+    real(real12) :: rtmp1, rtmp2
+    real(real12) :: bondmin,posneg, meanvol, q, normvol, calc,sigma1
 
     integer :: l, i, j, k, x, y, z, m,p
-    integer :: structures, prev_structures, option_, prevpos, addedelements
+    integer :: structures, prev_structures, option_, prevpos
+    integer :: num_host_species, num_host_atoms
     integer :: bonding_number_correction, num_VOID
 
     real(real12), dimension(3) :: angle, tmpvector, bestlocation
@@ -67,9 +71,10 @@ contains
     real(real12) :: angle_distribution, bond_distribution, normalisation_a, prob_void, prob_scan, prob_pseudo
     type(atom), dimension(2) :: copy_list
 
+    real(real12), dimension(:,:,:), allocatable :: radius_arr
     !! atomlist has dimensions(structure, atom)
     !! there is no distinguishing factor for species
-    real(real12), dimension(:,:,:), allocatable :: radius_arr
+    !! alistrep contains positions of all atoms repeated in adjacent unit cells. Same point as above. 
     type (atom), dimension(:,:), allocatable :: atomlist, alistrep
     type(unitcell), dimension(:), allocatable :: formula
     character(1024) :: name, tmp, command,location
@@ -97,26 +102,35 @@ contains
        basis_list(i)%spec(:)%num = stoichiometry_list
        basis_list(i)%natom = num_atoms
     end do
+    allocate(placement_list(num_atoms,2))
+    k = 0
+    do i = 1, basis_list(1)%nspec
+       do j = 1, basis_list(1)%spec(i)%num
+          k = k + 1
+          placement_list(k,1) = i
+          placement_list(k,2) = j
+       end do
+    end do
     select case(option_)
     case(2)
-       num_atoms = get_num_atoms_from_poscar(filename_host)
+       num_host_atoms = get_num_atoms_from_poscar(filename_host)
        allocate(atomlist(num_structures,num_atoms))
        allocate(alistrep(num_structures,num_atoms*27))
        open(newunit = unit, file = trim(adjustl(filename_host)))
        call geom_read(unit,host_lattice, host_basis)
        close(unit)
        basis_list = bas_merge(host_basis,basis_list(1))
+       num_host_species = host_basis%nspec
 
        call addhost(num_species,structures,formula,location,atomlist,stoichiometry_list,&
-            element_list,addedelements,name,num_structures)
+            element_list,num_host_species,name,num_structures)
     case default
        allocate(atomlist(num_structures,num_atoms))
        allocate(alistrep(num_structures,num_atoms*27))
        prevpos=structurecounter("pos")
-       addedelements=0
+       num_host_species=0
     end select
 
-    !! alistrep contains positions of all atoms repeated in adjacent unit cells. Same point as above. 
 
     !! calls the function structurecounter, which provides information about the number of currently existing 
     !! structures in the directory
@@ -169,7 +183,7 @@ contains
           allocate(alistrep(num_structures,num_atoms*27)) 
 
           call addhost(num_species,structures,formula,location,atomlist,stoichiometry_list,&
-               &element_list,addedelements,name,num_structures)
+               &element_list,num_host_species,name,num_structures)
        end if
 
 
@@ -231,15 +245,15 @@ contains
        !! sets pseudorandom volume to larger or smaller than atomic volume summation
        !!-----------------------------------------------------------------------
        posneg = 1
-       call random_number(r)
-       if(r.lt.0.5_real12) posneg = -posneg
+       call random_number(rtmp1)
+       if(rtmp1.lt.0.5_real12) posneg = -posneg
 
        !!-----------------------------------------------------------------------
        !!Adds or subtracts a small quantity from the calculated volume
        !!-----------------------------------------------------------------------
-       call random_number(r)
+       call random_number(rtmp1)
        write(*,*) meanvol
-       meanvol = meanvol + ((volvar/100.0)*r*posneg*meanvol)
+       meanvol = meanvol + ((volvar/100.0)*rtmp1*posneg*meanvol)
        write(*,*) "The allocated volume is", meanvol
 
 
@@ -304,13 +318,14 @@ contains
 !!! Assigns all the atoms to the correct species label. 
        k = 0; z = 0; m = 0; l = 0
        do j = 1, num_species
-          k=k+stoichiometry_list(j)
-          m=m+27*stoichiometry_list(j)
+          k = k + stoichiometry_list(j)
+          m = m + 27*stoichiometry_list(j)
           do i=1, num_atoms
              if(option_.eq.1) exit
              if((i.le.k).and.(i.gt.z)) then
-                atomlist(structures,i)%name=element_list(j)
-                atomlist(structures,i)%element_index=j
+                !!! not necessary for bas_type
+                atomlist(structures,i)%name = element_list(j)
+                atomlist(structures,i)%element_index = j
              end if
           end do
           do i=1, num_atoms*27
@@ -328,135 +343,55 @@ contains
        !! Randomly swap 1000 pairs of elements.
        !! Tailor this number to suit individual needs, should never need to be much higher though  
        !! Do not swap host atoms, hence furst step 
-       z = sum(stoichiometry_list(:addedelements))
 
-       do i=1, num_atoms/2
-          call random_number(r)
-          call random_number(r2)
-          r=r*(num_atoms-z)+z
-          r2=r2*(num_atoms-z)+z
-          !write(*,*) r, r2
-          copy_list(1)=atomlist(structures,ceiling(r))
-          copy_list(2)=atomlist(structures,ceiling(r2))
+       !!! THIS SEEMS UNNECESSARY
+       ! do i=1, num_atoms/2
+       !    call random_number(rtmp1)
+       !    call random_number(rtmp2)
+       !    rtmp1=rtmp1*(num_atoms-num_host_atoms)+num_host_atoms
+       !    rtmp2=rtmp2*(num_atoms-num_host_atoms)+num_host_atoms
+       !    copy_list(1)=atomlist(structures,ceiling(rtmp1))
+       !    copy_list(2)=atomlist(structures,ceiling(rtmp2))
+       !    atomlist(structures,ceiling(rtmp1))=copy_list(2) 
+       !    atomlist(structures,ceiling(rtmp2))=copy_list(1) 
+       ! end do
 
-          atomlist(structures,ceiling(r))=copy_list(2) 
-          atomlist(structures,ceiling(r2))=copy_list(1) 
-       end do
+       num_host_atoms     = host_basis%natom
+       element_list       = basis_list(structures)%spec(:)%name
+       stoichiometry_list = basis_list(structures)%spec(:)%num
+       num_species        = basis_list(structures)%nspec
 
-       allocate(stoichiometry_list_copy(1+addedelements)) 
-       allocate(element_list_copy(1+addedelements))
-       stoichiometry_list_copy=0
-       element_list_copy=""
 
-       do i=1, addedelements
-          stoichiometry_list_copy(i)=stoichiometry_list(i)
-          element_list_copy(i)=element_list(i)
-       end do
-
-       deallocate(stoichiometry_list, element_list)
-
-       allocate(stoichiometry_list(1+addedelements))
-       allocate(element_list(1+addedelements))
-
-       stoichiometry_list=stoichiometry_list_copy
-       element_list=element_list_copy
-
-       deallocate(stoichiometry_list_copy, element_list_copy)
-
-       do i=1+z, num_atoms
-          if(i.eq.1+z) then
-             !write(*,*) "This is the first new atom, thus element_list", addedelements+1, "should be ", atomlist(structures,i)%name
-             element_list(addedelements+1)=atomlist(structures,i)%name 
-             !write(*,*) "As this is the first atom, stoichiometry_list (", addedelements +1, ") = 1"
-             stoichiometry_list(addedelements+1)=1
-          else
-             if(atomlist(structures,i)%name.eq.atomlist(structures,i-1)%name) then 
-                stoichiometry_list(size(stoichiometry_list))=stoichiometry_list(size(stoichiometry_list))+1
-                !write(*,*) atomlist(structures,i)%name, "is the name of atom", i, " which is equal to", &
-                !&atomlist(structures,i-1)%name, "which is name of atom", i-1
-                !write(*,*) "Thus, the count of", size(stoichiometry_list), " is incremented by", 1
-             else 
-
-                L=size(stoichiometry_list)+1
-
-                allocate(stoichiometry_list_copy(L))
-                allocate(element_list_copy(L))
-                do j=1, L-1
-                   stoichiometry_list_copy(j)=stoichiometry_list(j)
-                   element_list_copy(j)=element_list(j)               
-                end do
-                stoichiometry_list_copy(size(stoichiometry_list_copy))=1
-                element_list_copy(size(element_list_copy))=atomlist(structures,i)%name
-                deallocate(stoichiometry_list, element_list)
-                allocate(stoichiometry_list(size(stoichiometry_list_copy)))
-                allocate(element_list(size(element_list_copy)))
-                element_list = element_list_copy
-                stoichiometry_list = stoichiometry_list_copy
-                deallocate(stoichiometry_list_copy, element_list_copy)
-
-             end if
-          end if
-       end do
-
-       do i=l, num_atoms
-          do j=1, num_atoms
-             if(i.eq.j) cycle
-             if(atomlist(structures,i)%name.eq.atomlist(structures,j)%name) then 
-                if(atomlist(structures,i)%element_index.gt.atomlist(structures,j)%element_index) then 
-                   atomlist(structures,i)%element_index=atomlist(structures,j)%element_index
-                else 
-                   atomlist(structures,j)%element_index=atomlist(structures,i)%element_index
-                end if
-             end if
-          end do
-       end do
-
-       do i=l, num_atoms*27
-          do j=1, num_atoms*27
-             if(alistrep(structures,i)%name.eq.alistrep(structures,j)%name) then
-                if(alistrep(structures,i)%element_index.gt.alistrep(structures,j)%element_index) then
-                   alistrep(structures,i)%element_index=alistrep(structures,j)%element_index
-                else
-                   alistrep(structures,j)%element_index=alistrep(structures,i)%element_index
-                end if
-
-             end if
-          end do
-       end do
-
-       !! repeat atoms in adjacent unit cells
-       num_species=maxval(atomlist(structures,:)%element_index)
-       if(option_.eq.2) then;
-          radius_arr = get_element_radius(element_list)
-          do i=1, sum(stoichiometry_list(:addedelements))
-             call atomrepeater(structures,atomlist(structures,i)%position,&
-                  &atomlist(structures,i)%name,&
-                  &alistrep,formula,i,num_atoms)
-          end do
-       end if
 !!!!!!!!!!!!! This section places the atoms via distribution !!!!!!!!!!!!!!!!!!!!!!!!!!!!
        !i controls which atom is being placed. it will be reduced to 0 if the first atom is not to be randomly placed. Bad for small cells
        i=1
        !random_seed determines if for a host calculation the first atom should be randomly placed. 1 results in random seeding
 
-       if(option_.ne.2) then 
-          !write(*,*) formula(structures)%cell
-          do j=1, 3
-             call random_number(r) 
-             atomlist(structures,1+L)%position(j)=r
-             alistrep(structures,1+L)%position(j)=r
+       select case(option_)
+       case(2)   
+         i=i-1
+       case default
+          call random_number(rtmp1)
+          itmp1 = ceiling( rtmp1 * num_atoms )
+          do j = 1, 3
+             call random_number(rtmp2)
+             basis_list(structures) % &
+                  spec(placement_list(itmp1,1)) % &
+                  atom(placement_list(itmp1,2),j) = rtmp2
           end do
-          atomlist(structures,1+L)%position(:)=matmul(formula(structures)%cell,atomlist(structures,1+L)%position(:))
-          call atomrepeater(structures,atomlist(structures,i)%position,&
-               &atomlist(structures,i)%name,alistrep,formula,i,num_atoms)
-       else if(option_.eq.2) then         
-          i=i-1
-       end if
+          basis_list(structures) % &
+                  spec(placement_list(itmp1,1)) % &
+                  atom(placement_list(itmp1,2),:) = &
+                  matmul( formula(structures) % cell, &
+                  basis_list(structures) % &
+                  spec(placement_list(itmp1,1)) % &
+                  atom(placement_list(itmp1,2),:) )
+       end select
 
-       sigma1=sigma_bondlength
+       sigma1 = sigma_bondlength
        ! This next line is intended to auto-tune the resolution of the guassian sampling. Needs testing
        !    sigma2=minval(peakseparation)/(2.0*sqrt(2.0*LOG(4.0)))
-       sigma2=0.5
+       sigma2 = 0.5
        i=i+L
        bondcutoff=2
 
@@ -469,15 +404,15 @@ contains
           tmpvector=0
           write(*,*) i, "$$$$$"
           do j=1, 3
-             call random_number(r)
-             tmpvector(j)=r
+             call random_number(rtmp1)
+             tmpvector(j) = rtmp1
           end do
           y=0
           j=0
           allocate(results_matrix(bins(1)+1,bins(2)+1,bins(3)+1,4,num_species))
 
           !if(i.ne.1) then 
-          call random_number(r)
+          call random_number(rtmp1)
           !else 
           !   r=1.0
           !end if
@@ -489,13 +424,13 @@ contains
                real(vps_ratio(3)/(vps_ratio(1)+vps_ratio(2)+vps_ratio(3)),real12)
 
 
-          !        if(r.le.ratio_voidscan/100) then 
+          !        if(rtmp1.le.ratio_voidscan/100) then 
           !           write(*,*) "ADD ATOM VOID"
 
           !           call add_atom_void (bins,formula,i, sigma1,&
           !                &structures,sigma2,element_list,num_species,bondcutoff,atomlist,alistrep,tmpvector,radius_arr,num_atoms)
           !           num_VOID=num_VOID+1
-          !        else if(r.gt.ratio_voidscan/100) then 
+          !        else if(rtmp1.gt.ratio_voidscan/100) then 
           !           write(*,*) num_VOID, "VOID THING"
           !           call add_atom_scan_2 (bins, formula, atomlist, alistrep, i, structures, radius_arr,&
           !                &num_atoms,results_matrix,num_species,element_list,placed,num_VOID)
@@ -509,14 +444,14 @@ contains
 
           write(*,*) prob_void, prob_pseudo, prob_scan 
 
-          if(r.le.prob_void) then 
+          if(rtmp1.le.prob_void) then 
              write(*,*) "ADD ATOM VOID"!
 
              call add_atom_void (bins,formula,i, sigma1,&
                   &structures,sigma2,element_list,num_species,bondcutoff,atomlist,alistrep,&
                   tmpvector,radius_arr,num_atoms,c_cut)
              num_VOID=num_VOID+1
-          else if(r.le.prob_pseudo) then 
+          else if(rtmp1.le.prob_pseudo) then 
              write(*,*) num_VOID, "Add Atom Pseudo"
              call add_atom_pseudo (bins, formula, atomlist, alistrep, i, structures, radius_arr,&
                   &num_atoms,results_matrix,num_species,element_list,placed,num_VOID)
@@ -529,7 +464,7 @@ contains
                      tmpvector,radius_arr,num_atoms,c_cut)
              end if
 
-          else if(r.le.prob_scan) then 
+          else if(rtmp1.le.prob_scan) then 
              write(*,*) num_VOID, "Add Atom Scan"
              call add_atom_scan_2 (bins, formula, atomlist, alistrep, i, structures, radius_arr,&
                   &num_atoms,results_matrix,num_species,element_list,placed,num_VOID,c_cut,c_min)
@@ -702,12 +637,12 @@ contains
 
 
   subroutine addhost(num_species,structures,formula,location,atomlist,stochio,elnames,&
-       addedelements,name,num_structures)
+       num_host_species,name,num_structures)
     type(unitcell), dimension(:), allocatable :: formula
     character(1024) :: tmp, name, location
     character(3), dimension(:), allocatable :: elnames,tmpelnames
     real(real12) :: cellmultiplier,meanvol,tmpdble
-    integer :: d,l,k,j,i,num_structures, ecount,addedelements, num_species, leng,structures, prev_structures
+    integer :: d,l,k,j,i,num_structures, ecount,num_host_species, num_species, leng,structures, prev_structures
     type (atom), dimension(:,:), allocatable :: tmplist,atomlist,tmplist2
     integer, dimension(:), allocatable :: stochio, tmpstochio, tmpstochiotot
     real(real12), dimension(3) :: tmparray
@@ -739,19 +674,19 @@ contains
 
     !!! READS SPECIES LINE
     read(61,'(A)') tmp
-    addedelements=0
+    num_host_species=0
     do i=1,len(tmp)-1
        if(i.eq.1) then 
           if((scan(tmp(i:i+1)," ").eq.0).or.&
                &((scan(tmp(i:i+1)," ").eq.2))) then
-             addedelements=addedelements+1
+             num_host_species=num_host_species+1
              num_species=num_species+1
              !write(*,*) tmp(i:i+1)
              if(scan(tmp(i:i+1)," ").eq.0) then
-                tmpelnames(addedelements)=tmp(i:i+1)
+                tmpelnames(num_host_species)=tmp(i:i+1)
              end if
              if((scan(tmp(i:i+1)," ").eq.2)) then
-                tmpelnames(addedelements)=tmp(i:i)
+                tmpelnames(num_host_species)=tmp(i:i)
              end if
           else
           end if
@@ -759,14 +694,14 @@ contains
           if((scan(tmp(i:i+1)," ").eq.0).or.&
                &((scan(tmp(i:i+1)," ").eq.2).and.(scan(tmp(i-1:i)," ")&
                &.eq.1))) then
-             addedelements=addedelements+1
+             num_host_species=num_host_species+1
              num_species=num_species+1
              !write(*,*) tmp(i:i+1)
              if(scan(tmp(i:i+1)," ").eq.0) then
-                tmpelnames(addedelements)=tmp(i:i+1)
+                tmpelnames(num_host_species)=tmp(i:i+1)
              end if
              if((scan(tmp(i:i+1)," ").eq.2).and.(scan(tmp(i-1:i)," ").eq.1)) then
-                tmpelnames(addedelements)=tmp(i:i)
+                tmpelnames(num_host_species)=tmp(i:i)
              end if
           else
           end if
@@ -774,7 +709,7 @@ contains
     end do
     j=0
     !!! APPENDS THE NEW SPECIES TO THE END OF THE OLD SPECIES
-    do i=addedelements+1,num_species
+    do i=num_host_species+1,num_species
        j=j+1
        tmpelnames(i)=elnames(j)
     end do
@@ -786,15 +721,15 @@ contains
     deallocate(tmpelnames)
 
     !!! READS STOICHIOMETRY LINE
-    allocate(tmpstochio(addedelements))
+    allocate(tmpstochio(num_host_species))
     read(61,*) tmpstochio
     allocate(tmpstochiotot(num_species))
 
-    do i=1,addedelements
+    do i=1,num_host_species
        tmpstochiotot(i)=tmpstochio(i)
     end do
-    do i=1, num_species-addedelements
-       tmpstochiotot(i+addedelements)=stochio(i) 
+    do i=1, num_species-num_host_species
+       tmpstochiotot(i+num_host_species)=stochio(i) 
     end do
     deallocate(stochio) 
     deallocate(tmpstochio) 
@@ -820,7 +755,7 @@ contains
     read(61,*) tmp   
 
     !!! READ ATOM POSITIONS
-    do i=1, addedelements
+    do i=1, num_host_species
        do j=1, stochio(i)
           l=l+1
           read(61,*) tmplist(1,L)%position
@@ -834,7 +769,7 @@ contains
        do i=1, num_species
           do j=1, stochio(i) 
              l=l+1
-             if(i.le.addedelements) atomlist(d,L)%position=tmplist(1,L)%position
+             if(i.le.num_host_species) atomlist(d,L)%position=tmplist(1,L)%position
              atomlist(d,L)%name=tmplist(1,L)%name
           end do
        end do

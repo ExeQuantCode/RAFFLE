@@ -39,7 +39,7 @@ contains
    allocate(sorting_matrix((bin_size(1)+1)*(bin_size(2)+1)*(bin_size(3)+1),4))
    results_matrix=0
    call buildmap_WIP (bin_size, formula, atomlist, alistrep, atom_number_previous, structures, &
-      &elrad, leng, results_matrix,eltot,elnames,placed,num_VOID,append_matrix,c_cut,c_min)
+      &elrad, leng, results_matrix,elnames,placed,num_VOID,append_matrix,c_cut,c_min)
    if(placed.eqv..FALSE.) return
    n=0
    l=0
@@ -275,7 +275,7 @@ contains
 
 
 !!!#############################################################################
-!!! add atom to unit cell using a pseudo-random method
+!!! add atom to unit cell using a fully random method
 !!!#############################################################################
    subroutine add_atom_random (formula,atom_number_previous, sigma1,&
     &structures,sigma2,elnames,eltot,bondcutoff,atomlist,alistrep,tmpvector,elrad)
@@ -376,9 +376,8 @@ contains
     end do
     tmpvector(:)=matmul(formula(structures)%cell,tmpvector(:))
    
-   
     call buildmap_POINT (tmpvector,formula,atomlist,alistrep&
-         &,atom_number_previous,structures,elrad,leng,eltot, elnames,placed,num_VOID&
+         &,atom_number_previous,structures,elrad, elnames&
          &,uptol,lowtol,calculated_value)
     n=0
     l=0 

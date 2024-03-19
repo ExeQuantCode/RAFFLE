@@ -895,7 +895,7 @@ contains
   subroutine jump(unit,linenum)
     integer :: unit, linenum, move
     rewind(unit)
-    do move=1,(linenum)
+    do move = 1, linenum, 1
        read(unit,*)
     end do
     return
@@ -936,7 +936,8 @@ contains
     if(trim(adjustl(udef_action)).eq.'NONE')then
        write(6,*) "File found, but not opened."
     else
-       open(unit=UNIT,file=trim(FILENAME),action=trim(udef_action),iostat=Reason)
+       open(newunit=UNIT,file=trim(FILENAME),&
+            action=trim(udef_action),iostat=Reason)
     end if
 
 

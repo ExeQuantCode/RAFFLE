@@ -1,5 +1,6 @@
 module vasp_file_handler
   use constants, only: real12
+  use misc, only: touch
   use atomtype
   implicit none
 
@@ -9,7 +10,7 @@ module vasp_file_handler
   public :: structurecounter
   public :: atomrepeater
   public :: Incarwrite, Jobwrite, generate_potcar, poswrite, poscar_read
-  public :: touchposdir, touchpos
+  public :: touchposdir
   public :: addposcar
 
 
@@ -262,42 +263,13 @@ contains
 !!! touch POSCAR subdirectories within pos/ directory
 !!!#############################################################################
   subroutine touchposdir(structures,prev_structures)
-    character(1024) :: name, tmp, command  
-    logical :: dir_e
-    integer :: structures, prev_structures 
-    write(name,'(A11,I0.3,A7)')"pos/POSCAR_",structures+prev_structures,"/POSCAR"
-    !!Calculates the new structure number, and writes it to tmp
-    write(tmp,'(A11,I0.3)')"pos/POSCAR_",structures+prev_structures
-    !!Checks if a directory to contain that file exsts already (It should never exist, could add warning)
-    inquire(file=tmp, exist=dir_e)
-    if(dir_e) then
-    else
-       !!Writes a command to create said directory
-     write(command,'(A17,I0.3)')"mkdir pos/POSCAR_",structures+prev_structures
-     call execute_command_line(trim(adjustl(command)))
-    end if
-  end subroutine touchposdir
-!!!#############################################################################
+    implicit none
+    integer, intent(in) :: structures, prev_structures 
+    character(1024) :: tmp
 
-!!!#############################################################################
-!!! touch pos/ directory
-!!!#############################################################################
-  subroutine touchpos() 
-    !> Creates a directory named "pos" if it does not already exist.
-    !> This subroutine is used to ensure that the directory "pos" exists before performing any operations on it.
-    !> If the directory already exists, no action is taken.
-    !> If the directory does not exist, it is created using the "mkdir" command.
-    !> This subroutine does not have any input or output parameters.
-    character(1024) :: file, command 
-    logical :: dir_e
-  
-    inquire(file="pos", exist=dir_e)
-    if(dir_e) then
-    else
-       write(command,*) "mkdir pos"
-       call execute_command_line(command)
-    end if
-  end subroutine touchpos
+    write(tmp,'("pos/POSCAR_",I0.3)') structures + prev_structures
+    call touch(trim(adjustl(tmp)))
+  end subroutine touchposdir
 !!!#############################################################################
 
 
@@ -320,7 +292,7 @@ contains
     
     if (option_generate_files_only.eq.0) then
      prev_structures=structurecounter("pos")
-     call touchpos()
+     call touch("pos")
      call touchposdir(structures,prev_structures)
     end if
     

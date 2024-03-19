@@ -26,6 +26,7 @@
 !!! loadbar          (writes out a loading bar to the terminal)
 !!! jump             (moves file to specified line number)
 !!! file_check       (checks whether file exists and prompts user otherwise)
+!!! touch            (creates a file if it doesn't exist)
 !!! to_upper         (converts all characters in string to upper case)
 !!! to_lower         (converts all characters in string to lower case)
 !!!#############################################################################
@@ -945,6 +946,18 @@ contains
   end subroutine file_check
 !!!#####################################################
 
+!!!#####################################################
+!!! create a file if it doesn't exist
+!!!#####################################################
+  subroutine touch(file)
+    implicit none
+    character(*), intent(in) :: file
+    logical :: exists
+  
+    inquire(file=file, exist=exists)
+    if(.not.exists) call execute_command_line("mkdir "//file)
+  end subroutine touch
+!!!#####################################################
 
 !!!#####################################################
 !!! converts all characters in string to upper case

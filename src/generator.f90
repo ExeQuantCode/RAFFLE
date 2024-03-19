@@ -1,10 +1,11 @@
 module gen
   use constants, only: real12, pi
+  use misc, only: touch
   use rw_geom, only: bas_type, geom_read
   use edit_geom, only: bas_merge
   use isolated, only: generate_isolated_calculations
   use vasp_file_handler, only: &
-       touchpos, touchposdir, &
+       touchposdir, &
        poswrite, incarwrite, jobwrite, generate_potcar, &
        addposcar
   use geom, only: get_volume, get_sphere_overlap, get_random_unit_cell
@@ -151,14 +152,9 @@ contains
 !!!#############################################################################
     !! Builds pos and don subfolders if they do not already exist 
 
-    call touchpos()
+    call touch("pos")
+    call touch("don")
 
-    inquire(file="don", exist=dir_e) 
-    if(dir_e) then 
-    else 
-       write(command,*) "mkdir don"
-       call execute_command_line(command) 
-    end if
 !!!#############################################################################
 !!!#############################################################################
 
@@ -1294,7 +1290,7 @@ contains
     structures=1
     num_structures=1
     prev_structures=structurecounter("pos")
-    call touchpos()
+    call touch("pos")
     call touchposdir(structures,prev_structures)
     allocate(formula(num_structures))
 

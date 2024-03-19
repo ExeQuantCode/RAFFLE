@@ -6,6 +6,7 @@ program raffle
   use gen
   use atomtype
   use read_chem, only: get_element_radius
+  use rw_geom, only: bas_type
   implicit none
 
 
@@ -14,7 +15,8 @@ program raffle
 
   type(unitcell), dimension(:), allocatable :: formula
   real(real12), dimension(3) :: spacelist
-  type (atom), dimension(:,:), allocatable :: atomlist, alistrep
+  type(bas_type) :: bas
+  type(atom), dimension(:,:), allocatable :: atomlist, alistrep
   real(real12) :: sigma, bond_test, returned_val
   real(real12), dimension(:,:,:), allocatable :: elrad
   !!For input
@@ -75,6 +77,7 @@ program raffle
      write(*,*) "NOTHING WAS EVER SET UP FOR CASE 2"
   case(3)
      write(*,*) "Testing"
+     write(*,*) "DEPRECATED"
      bond_test = 1.428_real12
      write(*,*) bond_test
      call evaluate_contribution ("C  ","C  ",bond_test,returned_val)
@@ -82,6 +85,7 @@ program raffle
      stop 0
   case(4)
      write(*,*) "Sphere Overlap Test"
+     write(*,*) "DEPRECATED"
      elnames = ["C  ", "Mg ", "O  "]
      write(*,*) elnames
      elrad = get_element_radius(elnames)
@@ -103,6 +107,7 @@ program raffle
       call bond_evolution(1)
       stop 0
   case(7)
+     !! FIX HERE
      call addposcar(0,dummy,1,0)
      !call addxyzfile()
      stop 0
@@ -126,7 +131,7 @@ program raffle
 !!!Set the number of atoms and generate the unit cell!!!
 !!!--------------------------------------------------!!!
 
-  call generation(len, atomlist, alistrep, spacelist, formula, structno,options, eltot, elnames, stochio, elrad, c_cut, c_min)
+  call generation(len, alistrep, spacelist, formula, structno,options, eltot, elnames, stochio, elrad, c_cut, c_min)
   write(*,*) "The structures requested have been successfully generated and saved"
 
 end program raffle

@@ -1,8 +1,9 @@
 module buildmap
   use constants, only: real12
   use geom
-  use vasp_file_handler, only: structurecounter
+  use vasp_file_handler, only: structurecounter, unitcell
   use contributions
+  use atomtype
   implicit none
 
 contains

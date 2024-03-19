@@ -1,7 +1,7 @@
 module gen
   use constants, only: real12, pi
-  use misc, only: touch
-  use rw_geom, only: bas_type, geom_read
+  use misc, only: touch, shuffle
+  use rw_geom, only: bas_type, geom_read, geom_write
   use edit_geom, only: bas_merge
   use isolated, only: generate_isolated_calculations
   use vasp_file_handler, only: &
@@ -51,12 +51,11 @@ contains
     real(real12), dimension(3,3) :: lattice
     type(bas_type), dimension(:), allocatable :: basis_list
 
-    integer, dimension(:,:), allocatable :: placement_list
+    integer, dimension(:,:), allocatable :: placement_list, placement_list_shuffled
 
     integer :: unit, info_unit, structure_unit
     integer :: bravais_type
     integer :: num_species, num_atoms
-    integer :: itmp1
 
     real(real12) :: rtmp1, rtmp2
     real(real12) :: bondmin,posneg, meanvol, q, normvol, calc,sigma1
@@ -72,6 +71,9 @@ contains
     type(atom), dimension(2) :: copy_list
 
     real(real12), dimension(:,:,:), allocatable :: radius_arr
+    !! Atomlist contains the information about the positions of all atoms in ALL structures. This may cause issues 
+    !! with memory when large numbers of structures are used, may consider breaking down into seperate iterations 
+    !! (e.g paralyse)
     !! atomlist has dimensions(structure, atom)
     !! there is no distinguishing factor for species
     !! alistrep contains positions of all atoms repeated in adjacent unit cells. Same point as above. 
@@ -86,9 +88,6 @@ contains
 
     !! The info file doesn't contain much of use yet. Could build in if relevant 
     open(newunit=info_unit, file="Info")
-    !! Atomlist contains the information about the positions of all atoms in ALL structures. This may cause issues 
-    !! with memory when large numbers of structures are used, may consider breaking down into seperate iterations 
-    !! (e.g paralyse)
     option_=option
 
     !!! THINK OF SOME WAY TO HANDLE THE HOST SEPARATELY
@@ -135,7 +134,6 @@ contains
     !! calls the function structurecounter, which provides information about the number of currently existing 
     !! structures in the directory
     prev_structures = structurecounter("pos")
-    allocate(radius_arr(4,num_species,num_species))
     radius_arr = get_element_radius(element_list)
 
     !! option_=1 is a special option allowing a new poscar to be added in at user specification
@@ -311,52 +309,6 @@ contains
        end do
 
 
-!!!----------------------------------------------!!!
-!!!Set everything to what it should be and places the atoms
-!!!----------------------------------------------!!!
-
-!!! Assigns all the atoms to the correct species label. 
-       k = 0; z = 0; m = 0; l = 0
-       do j = 1, num_species
-          k = k + stoichiometry_list(j)
-          m = m + 27*stoichiometry_list(j)
-          do i=1, num_atoms
-             if(option_.eq.1) exit
-             if((i.le.k).and.(i.gt.z)) then
-                !!! not necessary for bas_type
-                atomlist(structures,i)%name = element_list(j)
-                atomlist(structures,i)%element_index = j
-             end if
-          end do
-          do i=1, num_atoms*27
-             if(option_.eq.1) exit
-             if((i.le.m).and.(i.gt.l)) then
-                alistrep(structures,i)%name=element_list(j)
-                alistrep(structures,i)%element_index=j
-             end if
-          end do
-
-          z=k
-          l=m
-       end do
-       l = 0
-       !! Randomly swap 1000 pairs of elements.
-       !! Tailor this number to suit individual needs, should never need to be much higher though  
-       !! Do not swap host atoms, hence furst step 
-
-       !!! THIS SEEMS UNNECESSARY
-       ! do i=1, num_atoms/2
-       !    call random_number(rtmp1)
-       !    call random_number(rtmp2)
-       !    rtmp1=rtmp1*(num_atoms-num_host_atoms)+num_host_atoms
-       !    rtmp2=rtmp2*(num_atoms-num_host_atoms)+num_host_atoms
-       !    copy_list(1)=atomlist(structures,ceiling(rtmp1))
-       !    copy_list(2)=atomlist(structures,ceiling(rtmp2))
-       !    atomlist(structures,ceiling(rtmp1))=copy_list(2) 
-       !    atomlist(structures,ceiling(rtmp2))=copy_list(1) 
-       ! end do
-
-       num_host_atoms     = host_basis%natom
        element_list       = basis_list(structures)%spec(:)%name
        stoichiometry_list = basis_list(structures)%spec(:)%num
        num_species        = basis_list(structures)%nspec
@@ -364,28 +316,32 @@ contains
 
 !!!!!!!!!!!!! This section places the atoms via distribution !!!!!!!!!!!!!!!!!!!!!!!!!!!!
        !i controls which atom is being placed. it will be reduced to 0 if the first atom is not to be randomly placed. Bad for small cells
-       i=1
        !random_seed determines if for a host calculation the first atom should be randomly placed. 1 results in random seeding
 
+       !!-----------------------------------------------------------------------
+       !! place the first atom in the cell
+       !! if a host exists, this step is skipped
+       !!-----------------------------------------------------------------------
+       placement_list_shuffled = placement_list
+       call shuffle(placement_list_shuffled,1) !!! NEED TO SORT OUT RANDOM SEED
        select case(option_)
        case(2)   
-         i=i-1
+          i = 0
        case default
-          call random_number(rtmp1)
-          itmp1 = ceiling( rtmp1 * num_atoms )
           do j = 1, 3
              call random_number(rtmp2)
              basis_list(structures) % &
-                  spec(placement_list(itmp1,1)) % &
-                  atom(placement_list(itmp1,2),j) = rtmp2
+                  spec(placement_list_shuffled(1,1)) % &
+                  atom(placement_list_shuffled(1,2),j) = rtmp2
           end do
           basis_list(structures) % &
-                  spec(placement_list(itmp1,1)) % &
-                  atom(placement_list(itmp1,2),:) = &
+                  spec(placement_list_shuffled(1,1)) % &
+                  atom(placement_list_shuffled(1,2),:) = &
                   matmul( formula(structures) % cell, &
                   basis_list(structures) % &
-                  spec(placement_list(itmp1,1)) % &
-                  atom(placement_list(itmp1,2),:) )
+                  spec(placement_list_shuffled(1,1)) % &
+                  atom(placement_list_shuffled(1,2),:) )
+          i = 1
        end select
 
        sigma1 = sigma_bondlength
@@ -399,7 +355,7 @@ contains
 
        !call execute_command_line("rm buildmap_testfile.txt") 
        num_VOID=1
-       aloop: do while (i.le.num_atoms-1)
+       aloop: do while (i.lt.num_atoms)
           bondmin=10.0
           tmpvector=0
           write(*,*) i, "$$$$$"
@@ -424,57 +380,25 @@ contains
                real(vps_ratio(3)/(vps_ratio(1)+vps_ratio(2)+vps_ratio(3)),real12)
 
 
-          !        if(rtmp1.le.ratio_voidscan/100) then 
-          !           write(*,*) "ADD ATOM VOID"
-
-          !           call add_atom_void (bins,formula,i, sigma1,&
-          !                &structures,sigma2,element_list,num_species,bondcutoff,atomlist,alistrep,tmpvector,radius_arr,num_atoms)
-          !           num_VOID=num_VOID+1
-          !        else if(rtmp1.gt.ratio_voidscan/100) then 
-          !           write(*,*) num_VOID, "VOID THING"
-          !           call add_atom_scan_2 (bins, formula, atomlist, alistrep, i, structures, radius_arr,&
-          !                &num_atoms,results_matrix,num_species,element_list,placed,num_VOID)
-          !           num_VOID=1
-          !           if(placed.eqv..FALSE.) then
-          !              write(*,*) "ADD ATOM VOID"
-          !              call add_atom_void (bins,formula,i, sigma1,&
-          !                   &structures,sigma2,element_list,num_species,bondcutoff,atomlist,alistrep,tmpvector,radius_arr,num_atoms)
-          !            end if
-          !         end if
-
           write(*,*) prob_void, prob_pseudo, prob_scan 
 
+          i = i + 1
           if(rtmp1.le.prob_void) then 
-             write(*,*) "ADD ATOM VOID"!
+             write(*,*) "ADD ATOM VOID"
 
-             call add_atom_void (bins,formula,i, sigma1,&
-                  &structures,sigma2,element_list,num_species,bondcutoff,atomlist,alistrep,&
-                  tmpvector,radius_arr,num_atoms,c_cut)
+             !!! PROVIDE SOMETHING THAT TELLS IT WHAT ATOMS TO IGNORE IN THE CHECK
+             call add_atom_void(bins,formula(structures)%cell, basis_list(structures), placement_list_shuffled(i:,:), c_cut)
              num_VOID=num_VOID+1
           else if(rtmp1.le.prob_pseudo) then 
              write(*,*) num_VOID, "Add Atom Pseudo"
              call add_atom_pseudo (bins, formula, atomlist, alistrep, i, structures, radius_arr,&
                   &num_atoms,results_matrix,num_species,element_list,placed,num_VOID)
              num_VOID=1
-             placed=.TRUE.
-             if(placed.eqv..FALSE.) then
-                write(*,*) "ADD ATOM VOID"
-                call add_atom_void (bins,formula,i, sigma1,&
-                     &structures,sigma2,element_list,num_species,bondcutoff,atomlist,alistrep,&
-                     tmpvector,radius_arr,num_atoms,c_cut)
-             end if
-
           else if(rtmp1.le.prob_scan) then 
              write(*,*) num_VOID, "Add Atom Scan"
              call add_atom_scan_2 (bins, formula, atomlist, alistrep, i, structures, radius_arr,&
                   &num_atoms,results_matrix,num_species,element_list,placed,num_VOID,c_cut,c_min)
              num_VOID=1
-             placed=.TRUE.
-             if(placed.eqv..FALSE.) then
-                write(*,*) "ADD ATOM VOID"
-                call add_atom_void (bins,formula,i, sigma1,&
-                     &structures,sigma2,element_list,num_species,bondcutoff,atomlist,alistrep,tmpvector,radius_arr,num_atoms,c_cut)
-             end if
           end if
 
 
@@ -504,8 +428,6 @@ contains
 
           !call atomrepeater(structures,atomlist(structures,i+1)%position,alistrep,formula,i+1,num_atoms)
 
-          if(i.eq.num_atoms-1) exit 
-          i=i+1
           bestlocation=0
 
        end do aloop
@@ -556,69 +478,23 @@ contains
        !write(*,*) "1!!!!!!!!!!!!"
 
        
+       !!-----------------------------------------------------------------------
+       !! write generated POSCAR
+       !!-----------------------------------------------------------------------
        write(name,'(A11,I0.3,A7)')"pos/POSCAR_",structures+prevpos,"/POSCAR"
        open(newunit = structure_unit, file=name)
-       write(structure_unit,*) "Test"
-       write(structure_unit,*) 1.0
-       do j=1, 3
-          write(structure_unit,*) &
-               formula(structures)%cell(j,1), &
-               formula(structures)%cell(j,2), &
-               formula(structures)%cell(j,3)
-       end do
-
-
-       !! Reorganises the POSCAR so all like atoms are next to each other, ...
-       !! ... cutting down on space in the input line
-       !! Identifies the string of element_list with doubles reduced
-       L=0
-       allocate(element_list_copy(size(element_list)))
-       element_list_copy=""
-       element_list_copy(1)=element_list(1)
-       k = 1
-       element_list_copy = [element_list(1)]
-       envelope : do i=2, size(element_list)
-          jloop: do j = 1, i - 1, 1
-             if(trim(element_list(j)).eq.trim(element_list(i))) cycle envelope
-          end do jloop
-          k = k + 1
-          element_list_copy = [ element_list(i), element_list_copy ]
-       end do envelope
-       deallocate(element_list)
-       element_list = element_list_copy
-
-
-       !! Swap atoms to the correct positions
-       do i = 1, size(element_list)
-          do j = 1, num_atoms
-             if(atomlist(structures,j)%name.ne.element_list(i)) then
-                do k=1, num_atoms 
-                   if(atomlist(structures,k)%name.eq.element_list(i)) then 
-                      copy_list(1)=atomlist(structures,j)
-                      copy_list(2)=atomlist(structures,k)
-
-                      atomlist(structures,k)=copy_list(1) 
-                      atomlist(structures,j)=copy_list(2)
-                   end if
-                end do
-             end if
-          end do
-       end do
-
-
-       !!-----------------------------------------------------------------------
-       !! write files for the structure
-       !!-----------------------------------------------------------------------
-       call poswrite(structure_unit,formula(structures)%cell,atomlist,num_atoms, structures, num_structures, prevpos)
-       write(tmp,'(A11,I0.3)')"pos/POSCAR_",prevpos+structures
-       call Incarwrite(adjustl(tmp),500, 20*num_atoms)
-       !write(*,*) structures, prevpos, "!!!!!!!!!!!!!!"
-       call Jobwrite(tmp,3,3,3)
-
-       call generate_potcar(tmp, element_list)
+       call geom_write(structure_unit, formula(structures)%cell, basis_list(structures))
        close(structure_unit)
 
-       structures=structures+1
+       !!-----------------------------------------------------------------------
+       !! write additional VASP files
+       !!-----------------------------------------------------------------------
+       write(tmp,'(A11,I0.3)')"pos/POSCAR_",prevpos+structures
+       call Incarwrite(adjustl(tmp),500, 20*num_atoms)
+       call Jobwrite(tmp,3,3,3)
+       call generate_potcar(tmp, element_list)
+
+       structures = structures + 1
 
        call sleep(10)
     end do BIGLOOP

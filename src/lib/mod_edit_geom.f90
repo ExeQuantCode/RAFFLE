@@ -211,7 +211,7 @@ contains
     integer :: js,ja
     integer :: iaxis
     real(real12) :: dtmp1,min_bond,dtol
-    logical :: ludef_above
+    logical :: labove_
     real(real12), dimension(3) :: vdtmp1, vsave
 
     integer, intent(in) :: is,ia
@@ -229,9 +229,9 @@ contains
     end if
 
     if(present(labove))then
-       ludef_above=labove
+       labove_=labove
     else
-       ludef_above=.false.
+       labove_=.false.
     end if
 
     if(present(axis))then
@@ -248,7 +248,7 @@ contains
           vdtmp1 = bas%spec(js)%atom(ja,:3) - bas%spec(is)%atom(ia,:3)
           if(iaxis.gt.0)then
              if(abs(vdtmp1(iaxis)).lt.dtol) cycle atmloop
-             if(ludef_above)then
+             if(labove_)then
                 vdtmp1(iaxis) = 1._real12 + vdtmp1(iaxis)
              else
                 vdtmp1(iaxis) = vdtmp1(iaxis) - 1._real12
@@ -274,13 +274,13 @@ contains
 !!!#############################################################################
 !!! returns minimum bond for a specified atom
 !!!#############################################################################
-  function get_min_dist(lat,bas,loc,lignore_close,axis,labove,lreal,tol) &
-       result(vsave)
+  function get_min_dist(lat,bas,loc,lignore_close,axis,labove,lreal,tol, &
+       ignore_list) result(vsave)
     implicit none
-    integer :: js,ja
+    integer :: js,ja,i
     integer :: iaxis
     real(real12) :: dtmp1,min_bond,dtol
-    logical :: ludef_above,ludef_real
+    logical :: labove_,lreal_
     real(real12), dimension(3) :: vdtmp1,vdtmp2,vsave
 
     logical, intent(in) :: lignore_close
@@ -291,6 +291,7 @@ contains
     integer, intent(in), optional :: axis
     real(real12), intent(in), optional :: tol
     logical, intent(in), optional :: labove, lreal
+    integer, dimension(:,:), intent(in), optional :: ignore_list
 
     !! CORRECT tol TO ACCOUNT FOR LATTICE SIZE
     if(present(tol))then
@@ -300,15 +301,15 @@ contains
     end if
 
     if(present(labove))then
-       ludef_above=labove
+       labove_=labove
     else
-       ludef_above=.false.
+       labove_=.false.
     end if
 
     if(present(lreal))then
-       ludef_real=lreal
+       lreal_=lreal
     else
-       ludef_real=.true.
+       lreal_=.true.
     end if
 
     if(present(axis))then
@@ -322,12 +323,17 @@ contains
     write(0,*) "tester"
     do js=1,bas%nspec
        atmloop: do ja=1,bas%spec(js)%num
+          if(present(ignore_list))then
+             do i = 1, size(ignore_list,1), 1
+                if(any(ignore_list(i,:).eq.[js,ja])) cycle atmloop
+             end do
+          end if
           vdtmp1 = bas%spec(js)%atom(ja,:3) - loc
           write(0,*) js,ja, vdtmp1
           if(lignore_close.and.modu(vdtmp1).lt.dtol) cycle atmloop
           if(iaxis.gt.0)then
              if(abs(vdtmp1(iaxis)).lt.dtol) cycle atmloop
-             if(ludef_above)then
+             if(labove_)then
                 vdtmp1(iaxis) = 1._real12 + vdtmp1(iaxis)
              else
                 vdtmp1(iaxis) = vdtmp1(iaxis) - 1._real12
@@ -343,7 +349,7 @@ contains
           if(dtmp1.lt.min_bond)then
              write(0,*) dtmp1.lt.min_bond
              min_bond = dtmp1
-             if(ludef_real)then
+             if(lreal_)then
                 vsave = vdtmp1
              else
                 vsave = vdtmp2

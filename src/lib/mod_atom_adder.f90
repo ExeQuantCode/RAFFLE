@@ -1,5 +1,8 @@
 module add_atom
   use constants, only: real12
+  use misc_linalg, only: modu
+  use rw_geom, only: bas_type
+  use edit_geom, only: get_min_dist
   use atomtype
   use vasp_file_handler, only: unitcell, atomrepeater
   use distributions, only: generate_bondlength_distribution
@@ -211,108 +214,63 @@ contains
 !!!#############################################################################
 !!! add atom to unit cell considering the void space
 !!!#############################################################################
-   !This routine needs to consider the effects of PLACING the atom that it might interact with itself. Hard to do
-   subroutine add_atom_void (bin_size,formula,atom_number_previous, sigma1,&
-    &structures,sigma2,elnames,eltot,bondcutoff,atomlist,alistrep,tmpvector,elrad,leng, c_cut)
+  !This routine needs to consider the effects of PLACING the atom that it might interact with itself. Hard to do
+  subroutine add_atom_void (bin_size, lattice, basis, atom_ignore_list, c_cut)
+    implicit none
     integer, intent(in) :: c_cut
-   character(3), dimension(:), allocatable :: elnames
-   type(unitcell), dimension(:), allocatable :: formula
-   integer :: scan_counter,leng,p,q, i, j, k, best_location_index, eltot, atom_number_previous&
-      &, new_atom_number, structures
-   integer, dimension(3) :: bin_size
-   real(real12), dimension(3) :: best_location
-   real(real12) :: best_location_value, smallest_bond, sigma1, sigma2, bond_distribution, angle_distribution, bondcutoff&
-      &,agausssamp, comparison
-   real(real12), dimension(3) :: tmpvector
-   type (atom), dimension(:,:), allocatable :: atomlist, alistrep, predicted_positions
-   real(real12), dimension(:,:,:), allocatable :: elrad
-   logical :: new_position_needed
+    type(bas_type), intent(inout) :: basis
+    integer, dimension(3), intent(in) :: bin_size
+    integer, dimension(:,:), intent(in) :: atom_ignore_list
+    real(real12), dimension(3,3), intent(in) :: lattice
+    
+    integer :: i, j, k, l
+    real(real12), dimension(3) :: best_location
+    real(real12) :: best_location_bond, smallest_bond, comparison
+    real(real12), dimension(3) :: tmpvector
+    type (atom), dimension(:,:), allocatable :: atomlist, alistrep
+
+    integer :: void_unit, heatmap_unit
    
+
+    best_location_bond = 0._real12
+    open(newunit=heatmap_unit,file="void_heatmap.txt")
    
-   
-   write(*,*) atom_number_previous
-   allocate(predicted_positions(1,26))
-   new_atom_number=atom_number_previous+1
-   call atomprojector(tmpvector,predicted_positions,formula,new_atom_number,structures)
-   best_location_value=0
-   best_location_index=0
-   p=0
-   open(1001,file="void_heatmap.txt")
-   
-   
-   do i=0, bin_size(1)
-    do j=0, bin_size(2)
-       firstloop :do k=0, bin_size(3)
-   
-          tmpvector(1)=i*dble(formula(structures)%cell(1,1)/bin_size(1))
-          tmpvector(2)=i*dble(formula(structures)%cell(2,1)/bin_size(1))
-          tmpvector(3)=i*dble(formula(structures)%cell(3,1)/bin_size(1))
-          tmpvector(1)=tmpvector(1)+j*dble(formula(structures)%cell(1,2)/bin_size(2))
-          tmpvector(2)=tmpvector(2)+j*dble(formula(structures)%cell(2,2)/bin_size(2))
-          tmpvector(3)=tmpvector(3)+j*dble(formula(structures)%cell(3,2)/bin_size(2))
-          tmpvector(1)=tmpvector(1)+k*dble(formula(structures)%cell(1,3)/bin_size(3))
-          tmpvector(2)=tmpvector(2)+k*dble(formula(structures)%cell(2,3)/bin_size(3))
-          tmpvector(3)=tmpvector(3)+k*dble(formula(structures)%cell(3,3)/bin_size(3)) 
-          if((k.eq.0).and.(j.eq.0).and.(i.eq.0)) smallest_bond=get_bondlength(tmpvector,alistrep(structures,1)%position)
-          p=0
-          do q=1, atom_number_previous*27
-             !if (get_bondlength(tmpvector,alistrep(structures,q)%position).lt.1.0) cycle firstloop
-   !!! Experimental section for ruling out areas of unit cell
-             !if(tmpvector(3).lt.0.375*formula(structures)%cell(3,3)) cycle firstloop
-             !if(tmpvector(3).gt.0.625*formula(structures)%cell(3,3)) cycle firstloop
-             if(p.eq.0) smallest_bond=get_bondlength(tmpvector,alistrep(structures,1)%position)
-             p=p+1
-             if (get_bondlength(tmpvector,alistrep(structures,q)%position).lt.smallest_bond) then 
-                smallest_bond=get_bondlength(tmpvector,alistrep(structures,q)%position)
+    do i = 0, bin_size(1) - 1, 1
+       do j = 0, bin_size(2) - 1, 1
+          do k = 0, bin_size(3) - 1, 1
+      
+             tmpvector = [( sum( [i,j,k] * &
+                  lattice(:,l)/real(bin_size(l),real12) ), l = 1, 3 )]
+             smallest_bond = modu(get_min_dist(&
+                  lattice, basis, tmpvector, .false., &
+                  ignore_list = atom_ignore_list))
+
+             !!! FOR PRINTING, REMOVE !!!
+             comparison = 100._real12 * k / real(bin_size(3),real12)
+             if( comparison .ge. c_cut )then
+                smallest_bond = -1._real12
+                write(heatmap_unit,*) tmpvector(1), tmpvector(2), tmpvector(3), 0._real12
+             else
+                write(heatmap_unit,*) tmpvector(1), tmpvector(2), tmpvector(3), smallest_bond
+             end if
+             !!!
+      
+             if( smallest_bond .gt. best_location_bond ) then
+                best_location_bond = smallest_bond
+                best_location = tmpvector
              end if
           end do
-          comparison=100.0*dble(dble(k)/dble(bin_size(3)))
-          if(comparison.ge.c_cut) then
-             !write(*,*) comparison, c_cut, "HERE"
-             smallest_bond=-1
-   
-          end if
-   
-          if(smallest_bond.eq.-1) then 
-   
-             write(1001,*) tmpvector(1), tmpvector(2), tmpvector(3), 0
-          else 
-             write(1001,*) tmpvector(1), tmpvector(2), tmpvector(3), smallest_bond
-          end if
-   
-          call atomprojector(tmpvector,predicted_positions,formula,new_atom_number,structures)
-   
-          !  do q=atom_number_previous+2, 27*atom_number_previous
-          !     if (get_bondlength(tmpvector,alistrep(structures,q)%position).lt.1.0) cycle firstloop
-   !!! Experimental section for ruling out areas of unit cell
-          !            if(tmpvector(3).lt.0.375*formula(structures)%cell(3,3)) cycle firstloop
-          !!            if(tmpvector(3).gt.0.625*formula(structures)%cell(3,3)) cycle firstloop
-          !    if (get_bondlength(tmpvector,alistrep(structures,q)%position).lt.smallest_bond) then
-          !       smallest_bond=get_bondlength(tmpvector,alistrep(structures,q)%position)
-          !    end if
-          ! end do
-   
-   
-   
-          if (smallest_bond.gt.best_location_value) then
-             best_location_value=smallest_bond
-             best_location=tmpvector
-          end if
-       end do firstloop
+       end do
     end do
-   end do
-   close(1001)
-   atomlist(structures,atom_number_previous+1)%position=best_location
-   !write(*,*) best_location, "$^%$"
-   open(56,file="void_history",access='append')
-   write(56,*) structures, atom_number_previous+1,atomlist(structures,atom_number_previous+1)%position
-   close(56)
-   call atomrepeater(structures,atomlist(structures,atom_number_previous+1)%position,&
-      &atomlist(structures,atom_number_previous+1)%name,alistrep,formula,atom_number_previous+1,leng)
-   !do i=1, (new_atom_number-1)*27
-   !   print*,"!", get_bondlength(best_location,alistrep(structures,i)%position)
-   !end do
-   end subroutine add_atom_void
+    close(heatmap_unit)
+
+    basis%spec(atom_ignore_list(1,1))%atom(atom_ignore_list(1,2),:) = best_location
+   !  open(newunit=void_unit,file="void_history",access='append')
+   !  write(void_unit,*) structures, &
+   !       atom_number_previous+1, basis%spec(species)%atom(atom,:)
+   !  close(void_unit)
+
+  end subroutine add_atom_void
 !!!#############################################################################
 
 

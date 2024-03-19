@@ -51,6 +51,10 @@ module misc
      procedure iswap, rswap, rswap_vec, cswap
   end interface swap
 
+  interface shuffle
+     procedure ishuffle, rshuffle
+  end interface shuffle
+
 
 !!!updated 2021/12/08
 
@@ -644,7 +648,55 @@ contains
 !!!#####################################################
 !!! shuffle an array along one dimension
 !!!#####################################################
-  subroutine shuffle(arr,dim,seed)
+  subroutine ishuffle(arr,dim,seed)
+   implicit none
+   integer :: iseed,istart
+   integer :: i,j,k,n_data,iother
+   integer :: i1s,i2s,i1e,i2e,j1s,j2s,j1e,j2e
+   real(real12) :: r
+   integer, allocatable, dimension(:,:) :: tlist
+
+   integer, intent(in) :: dim
+   integer, dimension(:,:), intent(inout) :: arr
+
+   integer, optional, intent(in) :: seed
+
+   if(present(seed)) iseed = seed
+
+   call random_seed(iseed)
+   n_data = size(arr,dim=dim)
+   if(dim.eq.1)then
+      iother = 2
+      i2s=1;i2e=size(arr,dim=iother)
+      j2s=1;j2e=size(arr,dim=iother)
+   else
+      iother = 1
+      i1s=1;i1e=size(arr,dim=iother)
+      j1s=1;j1e=size(arr,dim=iother)
+   end if
+   istart=1
+   allocate(tlist(1,size(arr,dim=iother)))
+   do k=1,2
+      do i=1,n_data
+         call random_number(r)
+         j = istart + floor((n_data+1-istart)*r)
+         if(dim.eq.1)then
+            i1s=i;i1e=i
+            j1s=j;j1e=j
+         else
+            i2s=i;i2e=i
+            j2s=j;j2e=j
+         end if
+         tlist(1:1,:) = arr(i1s:i1e,i2s:i2e)
+         arr(i1s:i1e,i2s:i2e) = arr(j1s:j1e,j2s:j2e)
+         arr(j1s:j1e,j2s:j2e) = tlist(1:1,:)
+      end do
+   end do
+
+ end subroutine ishuffle
+!!!-----------------------------------------------------
+!!!-----------------------------------------------------
+  subroutine rshuffle(arr,dim,seed)
     implicit none
     integer :: iseed,istart
     integer :: i,j,k,n_data,iother
@@ -689,7 +741,7 @@ contains
        end do
     end do
 
-  end subroutine shuffle
+  end subroutine rshuffle
 !!!#####################################################
 
 

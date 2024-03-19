@@ -19,27 +19,8 @@ program raffle
   !!For input
   character(1024) :: dummy
 
-!!!Is Pie
-  !pi=3.14159265358979323846
-
 
 !!! Reads Input file !!! 
-
-  !call angledistribution("C  ")
-
-  !x1=0.0
-  !x2=0.0
-  !x3=0.0
-  ! x4=0.0
-  ! x1(1)=1.0
-  ! x3(2)=1.0
-  ! x4(3)=1.0
-  ! write(*,*) x1
-  ! write(*,*) x2
-  ! write(*,*) x3
-  ! write(*,*) get_dihedral_angle(x1,x2,x3,x4)
-  ! stop
-
 
   call set_global_vars()
   
@@ -63,76 +44,75 @@ program raffle
 !!!! 2) Run HOST_RSS
 !!!! 3) Test
 !!!! 4) Sphere_Overlap
-!!!! 5) Bondangle_test 
+!!!! 5) Bondangle_test !!! THIS LITERALLY JUST TESTS THAT THE BONDANGLE METHOD WORKS! DO NOT USE! !!!
 !!!! 6) Run evo (Should be run after any set created)
 !!!! 7) Add new poscar  
 !!!! 8) Run evo, but don't regen energies or evolve distributions (only reformat gaussians) 
 !!!! 9) Run evo, don't get energies but do evolve distributions
-  allocate(elnames(eltot))
 
 !!!---------------------------------------------------------------------------------------!
 !!! Assign the elements of each atom                                                       !
 !!!--------------------------------------------------------------------------------------!
 
-
-  len=0
+  len = 0
+  allocate(elnames(eltot))
   !! Total number of atoms 
   do i=1, eltot
-     len=len+stochio(i)
+     len = len + stochio(i)
   end do
 
 
-
-  !!FIX here
-  if(options.eq.7) then 
-     call addposcar(0,dummy,1,0)
-     !call addxyzfile()
-     stop
-  end if
-
-
-  if(options.eq.1) then
+  select case(options)
+  case(0)
+     write(*,*) "NOTHING WAS EVER SET UP FOR CASE 0"
+  case(1)
+     write(*,*) "Regenerating Distribution Files"
      call regenerate_distribution_files (1)
-     stop   
-  end if
-
-  if (options.eq.3) then
-     bond_test=1.430
+     stop 0
+  case(2)
+     write(*,*) "Running HOST_RSS"
+     write(*,*) "NOTHING WAS EVER SET UP FOR CASE 2"
+  case(3)
+     write(*,*) "Testing"
+     bond_test = 1.428_real12
      write(*,*) bond_test
      call evaluate_contribution ("C  ","C  ",bond_test,returned_val)
-     stop
-  end if
-
-
-
-  if(options.eq.4) then
+     write(*,*) "Returned value: ",returned_val
+     stop 0
+  case(4)
      call chemread(elnames,eltot,elrad)
      write(*,*) get_sphere_overlap(2*elrad(1,1,1),elrad(1,1,1),elrad(1,1,1))
      write(*,*) (4.0/3.0)*pi*elrad(1,1,1)**3
-     stop
-  end if
-  if(options.eq.5) then 
-     x1=0.0
-     x1(1)=-1.0
-     x2=0.0
-     x2(2)=0.0
-     x3=0.0
-     x3(3)=1.0
+     stop 0
+  case(5)
+     write(*,*) "Bondangle test"
+     write(*,*) "DEPRECATED"
+     x1 = 0._real12
+     x1(1) = 1._real12
+     x2 = 0._real12
+     x2(2) = 0._real12
+     x3 = 0._real12
+     x3(3) = 1._real12
      write(*,*) get_bondangle(x1,x2,x3)
-     stop
-  end if
-  if (options.eq.6) then 
-     call bond_evolution(1)
-     stop 
-  end if
-  if (options.eq.8) then 
-     call bond_evolution(0)
-     stop
-  end if
-  if (options.eq.9) then 
-     call bond_evolution(2) 
-     stop 
-  end if
+     stop 0
+  case(6)
+      call bond_evolution(1)
+      stop 0
+  case(7)
+     call addposcar(0,dummy,1,0)
+     !call addxyzfile()
+     stop 0
+  case(8)
+      call bond_evolution(0)
+      stop 0
+  case(9)
+      call bond_evolution(2) 
+      stop 0
+  case default
+     write(*,*) "Invalid option"
+     stop 1
+  end select
+ 
 
   !call chemread(elnames,eltot,elrad)
   allocate(formula(structno))
@@ -141,8 +121,6 @@ program raffle
 !!!--------------------------------------------------!!!
 !!!Set the number of atoms and generate the unit cell!!!
 !!!--------------------------------------------------!!!
-
-
 
   call generation(len, atomlist, alistrep, spacelist, formula, structno,options, eltot, elnames, stochio, elrad, c_cut, c_min)
   write(*,*) "The structures requested have been successfully generated and saved"

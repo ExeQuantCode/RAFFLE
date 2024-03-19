@@ -3,9 +3,22 @@ module vasp_file_handler
   use atomtype
   implicit none
 
+  private
+
+  public :: unitcell
+  public :: structurecounter
+  public :: atomrepeater
+  public :: Incarwrite, Jobwrite, generate_potcar, poswrite, poscar_read
+  public :: touchposdir, touchpos
+  public :: addposcar
+
+
+
+
   type unitcell 
      real(real12), dimension(3,3) :: cell 
   end type unitcell
+
 
 contains
 
@@ -142,34 +155,31 @@ contains
 !!!#############################################################################
 !!! write POTCAR file
 !!!#############################################################################
-  subroutine potwrite(filepath, elnames, eltot) 
+  subroutine generate_potcar(filepath, element_list) 
+    implicit none
+    character(20), intent(in) :: filepath
+    character(3), dimension(:), intent(in) :: element_list
 
-    character(3), dimension(:), allocatable :: elnames
-    character(1024) ::  name
-    character(20) :: filepath
-    integer :: eltot, i
-    name=" "
-    !write(*,*) filepath
-    !write(*,*) eltot
-    do i=1, eltot 
-    
-       !write(*,*) i
-     if(i.eq.1) then
-        !write(*,*) "I reached here"
-        write(name, '(A3,1X,A6,A2,1X,A1,A,A)') "cat", "potcar", elnames(i),">",trim(adjustl(filepath)),"/POTCAR"
-        !write(*,*) name
-        call execute_command_line(name)
-     else       
-        write(name, '(A,1X,A,A,1X,A,A,1X,A,1X,A,A)') "cat ",trim(adjustl(filepath)),"/POTCAR", "potcar", elnames(i)," >>",&
-             & trim(adjustl(filepath)),"/POTCAR1"   
-    
-        call execute_command_line(name)
-        write(name,'(A,1X,A,A8,1X,A,A)') "mv ",trim(adjustl(filepath)),"/POTCAR1", trim(adjustl(filepath)),"/POTCAR"
-        call execute_command_line(name)
-     end if
-    
+    integer :: i
+
+    do i=1, size(element_list) 
+       if(i.eq.1) then
+          call execute_command_line( &
+               "cat potcar"//trim(adjustl(element_list(i)))//" > "//&
+               &trim(adjustl(filepath))//"/POTCAR")
+       else
+          call execute_command_line( &
+               "cat "//trim(adjustl(filepath))//"/POTCAR"//&
+               trim(adjustl(element_list(i)))//" potcar"//&
+               trim(adjustl(element_list(i)))//" >> "//&
+               trim(adjustl(filepath))//"/POTCAR1")
+          call execute_command_line( &
+               "mv "//trim(adjustl(filepath))//"/POTCAR1 "//&
+               trim(adjustl(filepath))//"/POTCAR")
+       end if
     end do
-    end subroutine potwrite
+
+  end subroutine generate_potcar
 !!!#############################################################################
 
 
@@ -482,7 +492,7 @@ contains
     write(tmp,'(A11,I0.3)')"pos/POSCAR_",structures+prev_structures
     call Incarwrite(trim(adjustl(tmp)),500, 20*k)
     call Jobwrite(tmp,1,1,1)
-    call potwrite(tmp, elnames, eltot)
+    call generate_potcar(tmp, elnames)
     
     
     

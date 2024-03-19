@@ -4,11 +4,7 @@ module help
        get_bondlength, get_bondangle, get_dihedral_angle, &
        atomprojector
   use atomtype
-  use vasp_file_handler, only: unitcell, structurecounter, &
-       poscar_read, addposcar, &
-       touchpos, touchposdir, &
-       potwrite, jobwrite, incarwrite, poswrite, &
-       atomrepeater
+  use vasp_file_handler, only: unitcell
   use file_generator
   use contributions
   implicit none

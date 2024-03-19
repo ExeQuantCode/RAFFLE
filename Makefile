@@ -10,7 +10,10 @@ BUILD_DIR = ./obj
 LIBS := mod_constants.f90 \
 	mod_misc.f90 \
 	mod_misc_linalg.f90 \
+	mod_rw_geom.f90 \
+	mod_edit_geom.f90 \
 	mod_vasp_file_handler.f90 \
+	mod_isolated.f90 \
 	mod_geom.f90 \
 	mod_file_generator.f90 \
 	mod_contributions.f90 \

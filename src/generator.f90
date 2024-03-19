@@ -2,6 +2,11 @@ module gen
   use constants, only: real12, pi
   use rw_geom, only: bas_type, geom_read
   use edit_geom, only: bas_merge
+  use isolated, only: generate_isolated_calculations
+  use vasp_file_handler, only: &
+       touchpos, touchposdir, &
+       poswrite, incarwrite, jobwrite, generate_potcar, &
+       addposcar
   use geom, only: get_volume, get_sphere_overlap, get_random_unit_cell
   use inputs, only: &
        vdW, volvar, minbond, maxbond,&
@@ -58,7 +63,8 @@ contains
     real(real12) :: angle_distribution, bond_distribution, normalisation_a, prob_void, prob_scan, prob_pseudo
     !! atomlist has dimensions(structure, atom)
     !! there is no distinguishing factor for species
-    type (atom), dimension(:,:), allocatable :: atomlist, alistrep, alistrepp, copy_list
+    type (atom), dimension(:,:), allocatable :: atomlist, alistrep, alistrepp
+    type(atom), dimension(2,2) :: copy_list
     character(1024) :: name, tmp, command,location
     character(3), dimension(:), allocatable :: elnames, sing_el, elnames_copy
     integer, dimension(:), allocatable :: elno, stochio, stochio_copy
@@ -133,61 +139,10 @@ contains
 
     !! elnames is a 1D array containing the symbol for each of the atoms (length=num_species).
 
-!!!#############################################################################
-!!!#############################################################################
-!!! ISOLATION CALCULATIONS SHOULD BE THEIR OWN PROCEDURE
-!!!#############################################################################
-    inquire(file="iso", exist=dir_e) 
-    if(dir_e) then 
-    else 
-       write(command,*) "mkdir iso" 
-       call execute_command_line(command) 
-    end if
-
-!!! This section prepares isolation calculations
-    allocate(copy_list(2,2))
-    do i=1, num_species 
-
-       write(name,'(A11,A,A7)')"iso/POSCAR_",trim(adjustl(elnames(i))),"/POSCAR"
-       !!Calculates the new structure number, and writes it to tmp
-       write(tmp,'(A11,A3)')"iso/POSCAR_",elnames(i)
-       !!Checks if a directory to contain that file exsts already (It should never exist, coul add warning) 
-       inquire(file=tmp, exist=dir_e)
-       if(dir_e) then 
-       else
-          !!Writes a command to create said directory
-          write(command,'(A17,A3)')"mkdir iso/POSCAR_",elnames(i)
-          call execute_command_line(command)
-
-          open(10+i, file=name) 
-          write(10+i,'(A)') "test"
-          write(10+i, *) "1.00000000"
-          write(10+i, *) "   ","20.0000000000000000","        ","0.0000000000000000","        ","0.0000000000000000"
-          write(10+i, *) "   ","0.0000000000000000","        ","20.0000000000000000","        ","0.0000000000000000"
-          write(10+i, *) "   ","0.0000000000000000","        ","0.0000000000000000","        ","20.0000000000000000"
-          write(10+i,*) "     ", elnames(i) 
-          write(10+i,*) "          ", "1"
-          write(10+i,*) "Direct"
-          write(10+i,*) "        ","0.5000000000000000","        ","0.5000000000000000","        ","0.5000000000000000"
-          close(10+i)
-
-          allocate(sing_el(1)) 
-          sing_el(1)=elnames(i) 
-          call potwrite(tmp,sing_el,1) 
-          deallocate(sing_el)
-          call Jobwrite(tmp,1,1,1)
-          call Incarwrite(tmp,500, 20) !!The 500 here is nstep electronic
-          !write(*,*) trim(adjustl(tmp))
-          call chdir(trim(adjustl(tmp)))
-          call execute_command_line("qsub.sh")
-          write(name,*) "cp ../../job_vasp_isca.in ."
-          call execute_command_line(name)
-          call chdir("../../")
-
-       end if
-    end do
-!!!#############################################################################
-!!!#############################################################################
+    !!--------------------------------------------------------------------------
+    !! set up isolated element calculations
+    !!--------------------------------------------------------------------------
+    call generate_isolated_calculations(elnames)
 
 
 !!!#############################################################################
@@ -373,8 +328,10 @@ contains
        meanvol = meanvol+((volvar/100.0)*r*posneg*meanvol)
        write(*,*) "The allocated volume is", meanvol
 
+
+       !!-----------------------------------------------------------------------
        !! generate random unit cell lengths
-       !!-----------------------------------------------------------------------------
+       !!-----------------------------------------------------------------------
        lattice = get_random_unit_cell(b, angle, q)
 
 
@@ -1149,7 +1106,7 @@ contains
        write(info_unit,*) "The average bond value is", bondavg
        write(info_unit,*) "The lower bound for allowed bonds is", bondavg-0.2
        write(info_unit,*) "The upper bound for allowed bonds is", bondavg+0.2
-       call potwrite(tmp, elnames, num_species)
+       call generate_potcar(tmp, elnames)
        close(structures+10000)
        structures=structures+1
 

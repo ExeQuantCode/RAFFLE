@@ -30,13 +30,15 @@ contains
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   subroutine generation(alistrep, num_structures, &
-       option, elnames, stoichiometry_list, c_cut, c_min)
+       option, element_list, stoichiometry_list, c_cut, c_min)
     implicit none
     integer, intent(inout) :: num_structures !! SHOULD NOT EVEN BE AN ARGUEMNT
     !! MAKE AN INPUT ARGUMENT THAT IS MAX_NUM_STRUCTURES
     integer, intent(in) :: option
     integer, intent(in) :: c_cut, c_min
+    !! element_list is a 1D array containing the symbol for each of the atoms (length=num_species).
     integer, dimension(:), allocatable, intent(inout) :: stoichiometry_list
+    character(3), dimension(:), allocatable, intent(inout) :: element_list
 
     type(bas_type) :: host_basis
     real(real12), dimension(3,3) :: host_lattice
@@ -70,7 +72,7 @@ contains
     type (atom), dimension(:,:), allocatable :: atomlist, alistrep
     type(unitcell), dimension(:), allocatable :: formula
     character(1024) :: name, tmp, command,location
-    character(3), dimension(:), allocatable :: elnames, elnames_copy
+    character(3), dimension(:), allocatable :: element_list_copy
     integer, dimension(:), allocatable :: stoichiometry_list_copy
     logical :: placed
     real(real12), dimension(:,:,:,:,:), allocatable :: results_matrix
@@ -85,12 +87,12 @@ contains
 
     !!! THINK OF SOME WAY TO HANDLE THE HOST SEPARATELY
     !!! THAT CAN SIGNIFICANTLY REDUCE DATA USAGE
-    num_species = size(elnames)
+    num_species = size(element_list)
     num_atoms = sum(stoichiometry_list)
     allocate(basis_list(num_structures))
     do i = 1, num_structures
        allocate(basis_list(i)%spec(num_species))
-       basis_list(i)%spec(:)%name = elnames
+       basis_list(i)%spec(:)%name = element_list
        basis_list(i)%spec(:)%num = stoichiometry_list
        basis_list(i)%natom = num_atoms
     end do
@@ -105,7 +107,7 @@ contains
        basis_list = bas_merge(host_basis,basis_list(1))
 
        call addhost(num_species,structures,formula,location,atomlist,stoichiometry_list,&
-            elnames,addedelements,name,num_structures)
+            element_list,addedelements,name,num_structures)
     case default
        allocate(atomlist(num_structures,num_atoms))
        allocate(alistrep(num_structures,num_atoms*27))
@@ -119,7 +121,7 @@ contains
     !! structures in the directory
     prev_structures = structurecounter("pos")
     allocate(radius_arr(4,num_species,num_species))
-    radius_arr = get_element_radius(elnames)
+    radius_arr = get_element_radius(element_list)
 
     !! option_=1 is a special option allowing a new poscar to be added in at user specification
 
@@ -128,12 +130,11 @@ contains
     if(option_.eq.1) num_structures=1
     structures = 1
 
-    !! elnames is a 1D array containing the symbol for each of the atoms (length=num_species).
 
     !!--------------------------------------------------------------------------
     !! set up isolated element calculations
     !!--------------------------------------------------------------------------
-    call generate_isolated_calculations(elnames)
+    call generate_isolated_calculations(element_list)
 
 
     !!--------------------------------------------------------------------------
@@ -167,7 +168,7 @@ contains
           allocate(alistrep(num_structures,num_atoms*27)) 
 
           call addhost(num_species,structures,formula,location,atomlist,stoichiometry_list,&
-               &elnames,addedelements,name,num_structures)
+               &element_list,addedelements,name,num_structures)
        end if
 
 
@@ -284,7 +285,7 @@ contains
           do k=1, num_species
              do j=1, 3
                 !write(*,*) (formula(structures)%cell(j,1)**2+formula(structures)%cell(j,2)**2+formula(structures)%cell(j,3)**2)**0.5, &
-                !&radius_arr(1,k,i), k, i, elnames(k), elnames(i)
+                !&radius_arr(1,k,i), k, i, element_list(k), element_list(i)
                 if((formula(structures)%cell(j,1)**2+formula(structures)%cell(j,2)**2+formula(structures)%cell(j,3)**2)**0.5&
                      &.lt.0.9*(radius_arr(1,k,i))) then
                    write(*,*) "This unit cell would definitely cause recursive atoms to be closer together than 0.9 radius_arr"
@@ -307,14 +308,14 @@ contains
           do i=1, num_atoms
              if(option_.eq.1) exit
              if((i.le.k).and.(i.gt.z)) then
-                atomlist(structures,i)%name=elnames(j)
+                atomlist(structures,i)%name=element_list(j)
                 atomlist(structures,i)%element_index=j
              end if
           end do
           do i=1, num_atoms*27
              if(option_.eq.1) exit
              if((i.le.m).and.(i.gt.l)) then
-                alistrep(structures,i)%name=elnames(j)
+                alistrep(structures,i)%name=element_list(j)
                 alistrep(structures,i)%element_index=j
              end if
           end do
@@ -342,29 +343,29 @@ contains
        end do
 
        allocate(stoichiometry_list_copy(1+addedelements)) 
-       allocate(elnames_copy(1+addedelements))
+       allocate(element_list_copy(1+addedelements))
        stoichiometry_list_copy=0
-       elnames_copy=""
+       element_list_copy=""
 
        do i=1, addedelements
           stoichiometry_list_copy(i)=stoichiometry_list(i)
-          elnames_copy(i)=elnames(i)
+          element_list_copy(i)=element_list(i)
        end do
 
-       deallocate(stoichiometry_list, elnames)
+       deallocate(stoichiometry_list, element_list)
 
        allocate(stoichiometry_list(1+addedelements))
-       allocate(elnames(1+addedelements))
+       allocate(element_list(1+addedelements))
 
        stoichiometry_list=stoichiometry_list_copy
-       elnames=elnames_copy
+       element_list=element_list_copy
 
-       deallocate(stoichiometry_list_copy, elnames_copy)
+       deallocate(stoichiometry_list_copy, element_list_copy)
 
        do i=1+z, num_atoms
           if(i.eq.1+z) then
-             !write(*,*) "This is the first new atom, thus elnames", addedelements+1, "should be ", atomlist(structures,i)%name
-             elnames(addedelements+1)=atomlist(structures,i)%name 
+             !write(*,*) "This is the first new atom, thus element_list", addedelements+1, "should be ", atomlist(structures,i)%name
+             element_list(addedelements+1)=atomlist(structures,i)%name 
              !write(*,*) "As this is the first atom, stoichiometry_list (", addedelements +1, ") = 1"
              stoichiometry_list(addedelements+1)=1
           else
@@ -378,19 +379,19 @@ contains
                 L=size(stoichiometry_list)+1
 
                 allocate(stoichiometry_list_copy(L))
-                allocate(elnames_copy(L))
+                allocate(element_list_copy(L))
                 do j=1, L-1
                    stoichiometry_list_copy(j)=stoichiometry_list(j)
-                   elnames_copy(j)=elnames(j)               
+                   element_list_copy(j)=element_list(j)               
                 end do
                 stoichiometry_list_copy(size(stoichiometry_list_copy))=1
-                elnames_copy(size(elnames_copy))=atomlist(structures,i)%name
-                deallocate(stoichiometry_list, elnames)
+                element_list_copy(size(element_list_copy))=atomlist(structures,i)%name
+                deallocate(stoichiometry_list, element_list)
                 allocate(stoichiometry_list(size(stoichiometry_list_copy)))
-                allocate(elnames(size(elnames_copy)))
-                elnames = elnames_copy
+                allocate(element_list(size(element_list_copy)))
+                element_list = element_list_copy
                 stoichiometry_list = stoichiometry_list_copy
-                deallocate(stoichiometry_list_copy, elnames_copy)
+                deallocate(stoichiometry_list_copy, element_list_copy)
 
              end if
           end if
@@ -425,7 +426,7 @@ contains
        !! repeat atoms in adjacent unit cells
        num_species=maxval(atomlist(structures,:)%element_index)
        if(option_.eq.2) then;
-          radius_arr = get_element_radius(elnames)
+          radius_arr = get_element_radius(element_list)
           do i=1, sum(stoichiometry_list(:addedelements))
              call atomrepeater(structures,atomlist(structures,i)%position,&
                   &atomlist(structures,i)%name,&
@@ -491,17 +492,17 @@ contains
           !           write(*,*) "ADD ATOM VOID"
 
           !           call add_atom_void (bins,formula,i, sigma1,&
-          !                &structures,sigma2,elnames,num_species,bondcutoff,atomlist,alistrep,tmpvector,radius_arr,num_atoms)
+          !                &structures,sigma2,element_list,num_species,bondcutoff,atomlist,alistrep,tmpvector,radius_arr,num_atoms)
           !           num_VOID=num_VOID+1
           !        else if(r.gt.ratio_voidscan/100) then 
           !           write(*,*) num_VOID, "VOID THING"
           !           call add_atom_scan_2 (bins, formula, atomlist, alistrep, i, structures, radius_arr,&
-          !                &num_atoms,results_matrix,num_species,elnames,placed,num_VOID)
+          !                &num_atoms,results_matrix,num_species,element_list,placed,num_VOID)
           !           num_VOID=1
           !           if(placed.eqv..FALSE.) then
           !              write(*,*) "ADD ATOM VOID"
           !              call add_atom_void (bins,formula,i, sigma1,&
-          !                   &structures,sigma2,elnames,num_species,bondcutoff,atomlist,alistrep,tmpvector,radius_arr,num_atoms)
+          !                   &structures,sigma2,element_list,num_species,bondcutoff,atomlist,alistrep,tmpvector,radius_arr,num_atoms)
           !            end if
           !         end if
 
@@ -511,32 +512,32 @@ contains
              write(*,*) "ADD ATOM VOID"!
 
              call add_atom_void (bins,formula,i, sigma1,&
-                  &structures,sigma2,elnames,num_species,bondcutoff,atomlist,alistrep,&
+                  &structures,sigma2,element_list,num_species,bondcutoff,atomlist,alistrep,&
                   tmpvector,radius_arr,num_atoms,c_cut)
              num_VOID=num_VOID+1
           else if(r.le.prob_pseudo) then 
              write(*,*) num_VOID, "Add Atom Pseudo"
              call add_atom_pseudo (bins, formula, atomlist, alistrep, i, structures, radius_arr,&
-                  &num_atoms,results_matrix,num_species,elnames,placed,num_VOID)
+                  &num_atoms,results_matrix,num_species,element_list,placed,num_VOID)
              num_VOID=1
              placed=.TRUE.
              if(placed.eqv..FALSE.) then
                 write(*,*) "ADD ATOM VOID"
                 call add_atom_void (bins,formula,i, sigma1,&
-                     &structures,sigma2,elnames,num_species,bondcutoff,atomlist,alistrep,&
+                     &structures,sigma2,element_list,num_species,bondcutoff,atomlist,alistrep,&
                      tmpvector,radius_arr,num_atoms,c_cut)
              end if
 
           else if(r.le.prob_scan) then 
              write(*,*) num_VOID, "Add Atom Scan"
              call add_atom_scan_2 (bins, formula, atomlist, alistrep, i, structures, radius_arr,&
-                  &num_atoms,results_matrix,num_species,elnames,placed,num_VOID,c_cut,c_min)
+                  &num_atoms,results_matrix,num_species,element_list,placed,num_VOID,c_cut,c_min)
              num_VOID=1
              placed=.TRUE.
              if(placed.eqv..FALSE.) then
                 write(*,*) "ADD ATOM VOID"
                 call add_atom_void (bins,formula,i, sigma1,&
-                     &structures,sigma2,elnames,num_species,bondcutoff,atomlist,alistrep,tmpvector,radius_arr,num_atoms,c_cut)
+                     &structures,sigma2,element_list,num_species,bondcutoff,atomlist,alistrep,tmpvector,radius_arr,num_atoms,c_cut)
              end if
           end if
 
@@ -549,16 +550,16 @@ contains
           !! Implement input integers to mark probabilities or breakpoints 
           !if (i-L.le.-12) then 
           !   write(*,*) "PLACING ATOM RANDOMLY"
-          !   call add_atom_random(formula,i,sigma1,structures,sigma2,elnames,num_species,&
+          !   call add_atom_random(formula,i,sigma1,structures,sigma2,element_list,num_species,&
           !        bondcutoff, atomlist, alistrep,tmpvector,radius_arr)
           !   atomlist(structures,i+1)%position=tmpvector
           !   write(*,*) "RANDOM ATOM SEEDED"
           !else if (i-L.le.-1000) then  
-          !   call add_atom_scan(5,formula,i,sigma1,structures,sigma2,elnames,num_species,&
+          !   call add_atom_scan(5,formula,i,sigma1,structures,sigma2,element_list,num_species,&
           !        bondcutoff, atomlist, alistrep,tmpvector,radius_arr,bestlocation)
           !   atomlist(structures,i+1)%position=bestlocation
           !else
-          !   call add_atom_void10,formula,i,sigma1,structures,sigma2,elnames,num_species,&
+          !   call add_atom_void10,formula,i,sigma1,structures,sigma2,element_list,num_species,&
           !        bondcutoff, atomlist, alistrep,tmpvector,radius_arr,bestlocation)
           !   atomlist(structures,i+1)%position=bestlocation
           !
@@ -600,8 +601,8 @@ contains
        !         if(option_.eq.1) exit
        !         do y=1, num_atoms*27        
        !            if(x.ge.y) cycle
-       !            if(alistrep(structures,x)%name.ne.elnames(k)) cycle 
-       !            if(alistrep(structures,y)%name.ne.elnames(i)) cycle
+       !            if(alistrep(structures,x)%name.ne.element_list(k)) cycle 
+       !            if(alistrep(structures,y)%name.ne.element_list(i)) cycle
        !TURN ME BACK ON
        !if(bondlength(alistrep(structures,x)%position,alistrep(structures,y)%position)&
        !    &.lt.(radius_arr(1,k,i)*dble(tmpdig(1)/100.0))) then
@@ -633,30 +634,30 @@ contains
 
        !! Reorganises the POSCAR so all like atoms are next to each other, ...
        !! ... cutting down on space in the input line
-       !! Identifies the string of elnames with doubles reduced
+       !! Identifies the string of element_list with doubles reduced
        L=0
-       allocate(elnames_copy(size(elnames)))
-       elnames_copy=""
-       elnames_copy(1)=elnames(1)
+       allocate(element_list_copy(size(element_list)))
+       element_list_copy=""
+       element_list_copy(1)=element_list(1)
        k = 1
-       elnames_copy = [elnames(1)]
-       envelope : do i=2, size(elnames)
+       element_list_copy = [element_list(1)]
+       envelope : do i=2, size(element_list)
           jloop: do j = 1, i - 1, 1
-             if(trim(elnames(j)).eq.trim(elnames(i))) cycle envelope
+             if(trim(element_list(j)).eq.trim(element_list(i))) cycle envelope
           end do jloop
           k = k + 1
-          elnames_copy = [ elnames(i), elnames_copy ]
+          element_list_copy = [ element_list(i), element_list_copy ]
        end do envelope
-       deallocate(elnames)
-       elnames = elnames_copy
+       deallocate(element_list)
+       element_list = element_list_copy
 
 
        !! Swap atoms to the correct positions
-       do i = 1, size(elnames)
+       do i = 1, size(element_list)
           do j = 1, num_atoms
-             if(atomlist(structures,j)%name.ne.elnames(i)) then
+             if(atomlist(structures,j)%name.ne.element_list(i)) then
                 do k=1, num_atoms 
-                   if(atomlist(structures,k)%name.eq.elnames(i)) then 
+                   if(atomlist(structures,k)%name.eq.element_list(i)) then 
                       copy_list(1)=atomlist(structures,j)
                       copy_list(2)=atomlist(structures,k)
 
@@ -678,7 +679,7 @@ contains
        !write(*,*) structures, prevpos, "!!!!!!!!!!!!!!"
        call Jobwrite(tmp,3,3,3)
 
-       call generate_potcar(tmp, elnames)
+       call generate_potcar(tmp, element_list)
        close(structure_unit)
 
        structures=structures+1

@@ -1,5 +1,5 @@
 &setup
-  options = 2,
+  options = 3,
   filename_host = "POSCAR_BaTiO3_intf",
   seed = 1,
   vps_ratio = 0 0 1,
@@ -9,7 +9,7 @@
 &structure
   structno=1,
   eltot=3,
-  stochio= 1 1 3
+  stoichiometry_list="1 1 3"
 /
 
 &volume

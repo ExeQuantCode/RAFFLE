@@ -90,13 +90,14 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! Reads flags and assigns to variables
 !!!-----------------------------------------------------------------------------
-    flagloop: do i=1,command_argument_count()
+    flagloop: do i=0,command_argument_count()-1
        empty=.false.
        if (skip) then
           skip=.false.
           cycle flagloop
        end if
        call get_command_argument(i,buffer)
+       buffer=trim(buffer)
 !!!------------------------------------------------------------------------
 !!! FILE AND DIRECTORY FLAGS
 !!!------------------------------------------------------------------------
@@ -175,6 +176,7 @@ contains
     implicit none
     integer :: Reason,unit
     character(1) :: fs
+    character(1024) :: stoichiometry_list
 
     character(*), intent(in) :: file_name
 
@@ -183,7 +185,7 @@ contains
 !!! set up namelists for input file
 !!!-----------------------------------------------------------------------------
     namelist /setup/        options,filename_host,seed,vps_ratio,bins
-    namelist /structure/    structno,eltot,elnames,stochio
+    namelist /structure/    structno,eltot,elnames,stoichiometry_list
     namelist /volume/       vdW, volvar, minbond, maxbond
     namelist /distribution/ c_min,c_cut,sigma_don,sigma_bondlength,&
          enable_self_bonding
@@ -212,11 +214,16 @@ contains
        stop "THERE WAS AN ERROR IN READING DISTRIBUTION SETTINGS"
     end if
 
+    if(trim(stoichiometry_list).ne."")then
+       allocate(stochio(eltot))
+       read(stoichiometry_list,*) stochio
+    end if
 
 !!!-----------------------------------------------------------------------------
 !!! close input file
 !!!-----------------------------------------------------------------------------
     close(unit)
+    write(*,*) "Input file read successfully."
 
     return
   end subroutine read_input_file

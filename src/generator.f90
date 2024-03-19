@@ -20,19 +20,23 @@ module gen
   implicit none
 
 
+  private
+
+  public :: generation
+
 contains 
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   subroutine generation(alistrep, num_structures, &
-       option, elnames, stochio, c_cut, c_min)
+       option, elnames, stoichiometry_list, c_cut, c_min)
     implicit none
     integer, intent(inout) :: num_structures !! SHOULD NOT EVEN BE AN ARGUEMNT
     !! MAKE AN INPUT ARGUMENT THAT IS MAX_NUM_STRUCTURES
     integer, intent(in) :: option
     integer, intent(in) :: c_cut, c_min
-    integer, dimension(:), allocatable, intent(inout) :: stochio
+    integer, dimension(:), allocatable, intent(inout) :: stoichiometry_list
 
     type(bas_type) :: host_basis
     real(real12), dimension(3,3) :: host_lattice
@@ -62,12 +66,12 @@ contains
 
     !! atomlist has dimensions(structure, atom)
     !! there is no distinguishing factor for species
-    real(real12), dimension(:,:,:), allocatable :: elrad
+    real(real12), dimension(:,:,:), allocatable :: radius_arr
     type (atom), dimension(:,:), allocatable :: atomlist, alistrep
     type(unitcell), dimension(:), allocatable :: formula
     character(1024) :: name, tmp, command,location
     character(3), dimension(:), allocatable :: elnames, elnames_copy
-    integer, dimension(:), allocatable :: stochio_copy
+    integer, dimension(:), allocatable :: stoichiometry_list_copy
     logical :: placed
     real(real12), dimension(:,:,:,:,:), allocatable :: results_matrix
 
@@ -82,12 +86,12 @@ contains
     !!! THINK OF SOME WAY TO HANDLE THE HOST SEPARATELY
     !!! THAT CAN SIGNIFICANTLY REDUCE DATA USAGE
     num_species = size(elnames)
-    num_atoms = sum(stochio)
+    num_atoms = sum(stoichiometry_list)
     allocate(basis_list(num_structures))
     do i = 1, num_structures
        allocate(basis_list(i)%spec(num_species))
        basis_list(i)%spec(:)%name = elnames
-       basis_list(i)%spec(:)%num = stochio
+       basis_list(i)%spec(:)%num = stoichiometry_list
        basis_list(i)%natom = num_atoms
     end do
     select case(option_)
@@ -100,8 +104,8 @@ contains
        close(unit)
        basis_list = bas_merge(host_basis,basis_list(1))
 
-       call addhost(num_species,structures,formula,location,atomlist,stochio,&
-            &elnames,addedelements,name,num_structures)
+       call addhost(num_species,structures,formula,location,atomlist,stoichiometry_list,&
+            elnames,addedelements,name,num_structures)
     case default
        allocate(atomlist(num_structures,num_atoms))
        allocate(alistrep(num_structures,num_atoms*27))
@@ -113,9 +117,9 @@ contains
 
     !! calls the function structurecounter, which provides information about the number of currently existing 
     !! structures in the directory
-    prev_structures=structurecounter("pos")
-    allocate(elrad(4,num_species,num_species))
-    elrad = get_element_radius(elnames)
+    prev_structures = structurecounter("pos")
+    allocate(radius_arr(4,num_species,num_species))
+    radius_arr = get_element_radius(elnames)
 
     !! option_=1 is a special option allowing a new poscar to be added in at user specification
 
@@ -149,7 +153,7 @@ contains
 !!!#############################################################################
 
        !! Total number of atoms 
-       num_atoms = sum(stochio)
+       num_atoms = sum(stoichiometry_list)
 
        !! WHY DEALLOCATE EVERY TIME?
        !! HANDLES THE CASE WHERE THE HOST IS TO BE USED
@@ -162,7 +166,7 @@ contains
           allocate(atomlist(num_structures,num_atoms))
           allocate(alistrep(num_structures,num_atoms*27)) 
 
-          call addhost(num_species,structures,formula,location,atomlist,stochio,&
+          call addhost(num_species,structures,formula,location,atomlist,stoichiometry_list,&
                &elnames,addedelements,name,num_structures)
        end if
 
@@ -185,15 +189,15 @@ contains
 
        if(.not.enable_self_bonding) then 
           do k=1, num_species 
-             bonding_number_correction=bonding_number_correction+stochio(k)**2
+             bonding_number_correction=bonding_number_correction+stoichiometry_list(k)**2
           end do
        end if
        
        !! calculate the normalisation factor
-       normalisation_a = sum(stochio**2)
+       normalisation_a = sum(stoichiometry_list**2)
        do i=1, num_species 
           do j = i + 1, num_species, 1
-             normalisation_a = normalisation_a + ( stochio(i) + stochio(j) )**2
+             normalisation_a = normalisation_a + ( stoichiometry_list(i) + stoichiometry_list(j) )**2
           end do
        end do
        normalisation_a = ( num_atoms ** 2._real12 ) / normalisation_a
@@ -202,23 +206,23 @@ contains
        !! calculate the minimum volume
        volmin = 0._real12
        do i = 1, num_species
-          volmin = volmin + stochio(i) * (4._real12/3._real12) * pi * &
-               ( elrad(2,i,i) ** 3._real12 )
+          volmin = volmin + stoichiometry_list(i) * (4._real12/3._real12) * pi * &
+               ( radius_arr(2,i,i) ** 3._real12 )
           do j = i, num_species, 1
              connectivity = vdW / 100._real12
              if( ( i .eq. j ) .and. &
                   (bonding_number_correction.eq.0 .or. num_species .eq. 1)) then 
                 volmin = volmin - connectivity * 0.5 * normalisation_a * &
-                     min((stochio(i)*elrad(3,i,j)),(stochio(j)*elrad(3,j,i))) * &
-                     get_sphere_overlap(elrad(2,i,i),elrad(2,j,j),elrad(1,i,j))
+                     min((stoichiometry_list(i)*radius_arr(3,i,j)),(stoichiometry_list(j)*radius_arr(3,j,i))) * &
+                     get_sphere_overlap(radius_arr(2,i,i),radius_arr(2,j,j),radius_arr(1,i,j))
              else
                 volmin = volmin - connectivity * normalisation_a * &
-                     min((stochio(i)*elrad(3,i,j)),(stochio(j)*elrad(3,j,i))) * &
-                     get_sphere_overlap(elrad(2,i,i),elrad(2,j,j),elrad(1,i,j))
+                     min((stoichiometry_list(i)*radius_arr(3,i,j)),(stoichiometry_list(j)*radius_arr(3,j,i))) * &
+                     get_sphere_overlap(radius_arr(2,i,i),radius_arr(2,j,j),radius_arr(1,i,j))
              end if
              meanvol = volmin
           end do
-          !  meanvol=meanvol+stochio(i)*((connectivity*elrad(1,i,i))+((1.0-connectivity)*elrad(2,i,i)))**3*(4/3)*pi 
+          !  meanvol=meanvol+stoichiometry_list(i)*((connectivity*radius_arr(1,i,i))+((1.0-connectivity)*radius_arr(2,i,i)))**3*(4/3)*pi 
        end do
 
        !!-----------------------------------------------------------------------
@@ -280,10 +284,10 @@ contains
           do k=1, num_species
              do j=1, 3
                 !write(*,*) (formula(structures)%cell(j,1)**2+formula(structures)%cell(j,2)**2+formula(structures)%cell(j,3)**2)**0.5, &
-                !&elrad(1,k,i), k, i, elnames(k), elnames(i)
+                !&radius_arr(1,k,i), k, i, elnames(k), elnames(i)
                 if((formula(structures)%cell(j,1)**2+formula(structures)%cell(j,2)**2+formula(structures)%cell(j,3)**2)**0.5&
-                     &.lt.0.9*(elrad(1,k,i))) then
-                   write(*,*) "This unit cell would definitely cause recursive atoms to be closer together than 0.9 Elrad"
+                     &.lt.0.9*(radius_arr(1,k,i))) then
+                   write(*,*) "This unit cell would definitely cause recursive atoms to be closer together than 0.9 radius_arr"
                    cycle bigloop
                 end if
              end do
@@ -298,8 +302,8 @@ contains
 !!! Assigns all the atoms to the correct species label. 
        k = 0; z = 0; m = 0; l = 0
        do j = 1, num_species
-          k=k+stochio(j)
-          m=m+27*stochio(j)
+          k=k+stoichiometry_list(j)
+          m=m+27*stoichiometry_list(j)
           do i=1, num_atoms
              if(option_.eq.1) exit
              if((i.le.k).and.(i.gt.z)) then
@@ -322,7 +326,7 @@ contains
        !! Randomly swap 1000 pairs of elements.
        !! Tailor this number to suit individual needs, should never need to be much higher though  
        !! Do not swap host atoms, hence furst step 
-       z = sum(stochio(:addedelements))
+       z = sum(stoichiometry_list(:addedelements))
 
        do i=1, num_atoms/2
           call random_number(r)
@@ -337,56 +341,56 @@ contains
           atomlist(structures,ceiling(r2))=copy_list(1) 
        end do
 
-       allocate(stochio_copy(1+addedelements)) 
+       allocate(stoichiometry_list_copy(1+addedelements)) 
        allocate(elnames_copy(1+addedelements))
-       stochio_copy=0
+       stoichiometry_list_copy=0
        elnames_copy=""
 
        do i=1, addedelements
-          stochio_copy(i)=stochio(i)
+          stoichiometry_list_copy(i)=stoichiometry_list(i)
           elnames_copy(i)=elnames(i)
        end do
 
-       deallocate(stochio, elnames)
+       deallocate(stoichiometry_list, elnames)
 
-       allocate(stochio(1+addedelements))
+       allocate(stoichiometry_list(1+addedelements))
        allocate(elnames(1+addedelements))
 
-       stochio=stochio_copy
+       stoichiometry_list=stoichiometry_list_copy
        elnames=elnames_copy
 
-       deallocate(stochio_copy, elnames_copy)
+       deallocate(stoichiometry_list_copy, elnames_copy)
 
        do i=1+z, num_atoms
           if(i.eq.1+z) then
              !write(*,*) "This is the first new atom, thus elnames", addedelements+1, "should be ", atomlist(structures,i)%name
              elnames(addedelements+1)=atomlist(structures,i)%name 
-             !write(*,*) "As this is the first atom, stochio (", addedelements +1, ") = 1"
-             stochio(addedelements+1)=1
+             !write(*,*) "As this is the first atom, stoichiometry_list (", addedelements +1, ") = 1"
+             stoichiometry_list(addedelements+1)=1
           else
              if(atomlist(structures,i)%name.eq.atomlist(structures,i-1)%name) then 
-                stochio(size(stochio))=stochio(size(stochio))+1
+                stoichiometry_list(size(stoichiometry_list))=stoichiometry_list(size(stoichiometry_list))+1
                 !write(*,*) atomlist(structures,i)%name, "is the name of atom", i, " which is equal to", &
                 !&atomlist(structures,i-1)%name, "which is name of atom", i-1
-                !write(*,*) "Thus, the count of", size(stochio), " is incremented by", 1
+                !write(*,*) "Thus, the count of", size(stoichiometry_list), " is incremented by", 1
              else 
 
-                L=size(stochio)+1
+                L=size(stoichiometry_list)+1
 
-                allocate(stochio_copy(L))
+                allocate(stoichiometry_list_copy(L))
                 allocate(elnames_copy(L))
                 do j=1, L-1
-                   stochio_copy(j)=stochio(j)
+                   stoichiometry_list_copy(j)=stoichiometry_list(j)
                    elnames_copy(j)=elnames(j)               
                 end do
-                stochio_copy(size(stochio_copy))=1
+                stoichiometry_list_copy(size(stoichiometry_list_copy))=1
                 elnames_copy(size(elnames_copy))=atomlist(structures,i)%name
-                deallocate(stochio, elnames)
-                allocate(stochio(size(stochio_copy)))
+                deallocate(stoichiometry_list, elnames)
+                allocate(stoichiometry_list(size(stoichiometry_list_copy)))
                 allocate(elnames(size(elnames_copy)))
                 elnames = elnames_copy
-                stochio = stochio_copy
-                deallocate(stochio_copy, elnames_copy)
+                stoichiometry_list = stoichiometry_list_copy
+                deallocate(stoichiometry_list_copy, elnames_copy)
 
              end if
           end if
@@ -421,8 +425,8 @@ contains
        !! repeat atoms in adjacent unit cells
        num_species=maxval(atomlist(structures,:)%element_index)
        if(option_.eq.2) then;
-          elrad = get_element_radius(elnames)
-          do i=1, sum(stochio(:addedelements))
+          radius_arr = get_element_radius(elnames)
+          do i=1, sum(stoichiometry_list(:addedelements))
              call atomrepeater(structures,atomlist(structures,i)%position,&
                   &atomlist(structures,i)%name,&
                   &alistrep,formula,i,num_atoms)
@@ -487,17 +491,17 @@ contains
           !           write(*,*) "ADD ATOM VOID"
 
           !           call add_atom_void (bins,formula,i, sigma1,&
-          !                &structures,sigma2,elnames,num_species,bondcutoff,atomlist,alistrep,tmpvector,elrad,num_atoms)
+          !                &structures,sigma2,elnames,num_species,bondcutoff,atomlist,alistrep,tmpvector,radius_arr,num_atoms)
           !           num_VOID=num_VOID+1
           !        else if(r.gt.ratio_voidscan/100) then 
           !           write(*,*) num_VOID, "VOID THING"
-          !           call add_atom_scan_2 (bins, formula, atomlist, alistrep, i, structures, elrad,&
+          !           call add_atom_scan_2 (bins, formula, atomlist, alistrep, i, structures, radius_arr,&
           !                &num_atoms,results_matrix,num_species,elnames,placed,num_VOID)
           !           num_VOID=1
           !           if(placed.eqv..FALSE.) then
           !              write(*,*) "ADD ATOM VOID"
           !              call add_atom_void (bins,formula,i, sigma1,&
-          !                   &structures,sigma2,elnames,num_species,bondcutoff,atomlist,alistrep,tmpvector,elrad,num_atoms)
+          !                   &structures,sigma2,elnames,num_species,bondcutoff,atomlist,alistrep,tmpvector,radius_arr,num_atoms)
           !            end if
           !         end if
 
@@ -508,11 +512,11 @@ contains
 
              call add_atom_void (bins,formula,i, sigma1,&
                   &structures,sigma2,elnames,num_species,bondcutoff,atomlist,alistrep,&
-                  tmpvector,elrad,num_atoms,c_cut)
+                  tmpvector,radius_arr,num_atoms,c_cut)
              num_VOID=num_VOID+1
           else if(r.le.prob_pseudo) then 
              write(*,*) num_VOID, "Add Atom Pseudo"
-             call add_atom_pseudo (bins, formula, atomlist, alistrep, i, structures, elrad,&
+             call add_atom_pseudo (bins, formula, atomlist, alistrep, i, structures, radius_arr,&
                   &num_atoms,results_matrix,num_species,elnames,placed,num_VOID)
              num_VOID=1
              placed=.TRUE.
@@ -520,19 +524,19 @@ contains
                 write(*,*) "ADD ATOM VOID"
                 call add_atom_void (bins,formula,i, sigma1,&
                      &structures,sigma2,elnames,num_species,bondcutoff,atomlist,alistrep,&
-                     tmpvector,elrad,num_atoms,c_cut)
+                     tmpvector,radius_arr,num_atoms,c_cut)
              end if
 
           else if(r.le.prob_scan) then 
              write(*,*) num_VOID, "Add Atom Scan"
-             call add_atom_scan_2 (bins, formula, atomlist, alistrep, i, structures, elrad,&
+             call add_atom_scan_2 (bins, formula, atomlist, alistrep, i, structures, radius_arr,&
                   &num_atoms,results_matrix,num_species,elnames,placed,num_VOID,c_cut,c_min)
              num_VOID=1
              placed=.TRUE.
              if(placed.eqv..FALSE.) then
                 write(*,*) "ADD ATOM VOID"
                 call add_atom_void (bins,formula,i, sigma1,&
-                     &structures,sigma2,elnames,num_species,bondcutoff,atomlist,alistrep,tmpvector,elrad,num_atoms,c_cut)
+                     &structures,sigma2,elnames,num_species,bondcutoff,atomlist,alistrep,tmpvector,radius_arr,num_atoms,c_cut)
              end if
           end if
 
@@ -546,16 +550,16 @@ contains
           !if (i-L.le.-12) then 
           !   write(*,*) "PLACING ATOM RANDOMLY"
           !   call add_atom_random(formula,i,sigma1,structures,sigma2,elnames,num_species,&
-          !        bondcutoff, atomlist, alistrep,tmpvector,elrad)
+          !        bondcutoff, atomlist, alistrep,tmpvector,radius_arr)
           !   atomlist(structures,i+1)%position=tmpvector
           !   write(*,*) "RANDOM ATOM SEEDED"
           !else if (i-L.le.-1000) then  
           !   call add_atom_scan(5,formula,i,sigma1,structures,sigma2,elnames,num_species,&
-          !        bondcutoff, atomlist, alistrep,tmpvector,elrad,bestlocation)
+          !        bondcutoff, atomlist, alistrep,tmpvector,radius_arr,bestlocation)
           !   atomlist(structures,i+1)%position=bestlocation
           !else
           !   call add_atom_void10,formula,i,sigma1,structures,sigma2,elnames,num_species,&
-          !        bondcutoff, atomlist, alistrep,tmpvector,elrad,bestlocation)
+          !        bondcutoff, atomlist, alistrep,tmpvector,radius_arr,bestlocation)
           !   atomlist(structures,i+1)%position=bestlocation
           !
           !end if
@@ -578,9 +582,9 @@ contains
        write(*,*) num_species, num_atoms
        prev_structures = structurecounter("bon")
        !do i=1, num_atoms
-       !   call generatebondfiles(1,structures,prev_structures,atomlist,alistrep,num_species,stochio,i)
-       !   call generateanglefiles(1,structures,prev_structures,atomlist,alistrep,num_species,stochio,i,bondcutoff)
-       !   call generate4files(1,structures,prev_structures,atomlist,alistrep,num_species,stochio,i,bondcutoff)
+       !   call generatebondfiles(1,structures,prev_structures,atomlist,alistrep,num_species,stoichiometry_list,i)
+       !   call generateanglefiles(1,structures,prev_structures,atomlist,alistrep,num_species,stoichiometry_list,i,bondcutoff)
+       !   call generate4files(1,structures,prev_structures,atomlist,alistrep,num_species,stoichiometry_list,i,bondcutoff)
 
        !end do
        !do i=1, num_atoms
@@ -600,7 +604,7 @@ contains
        !            if(alistrep(structures,y)%name.ne.elnames(i)) cycle
        !TURN ME BACK ON
        !if(bondlength(alistrep(structures,x)%position,alistrep(structures,y)%position)&
-       !    &.lt.(elrad(1,k,i)*dble(tmpdig(1)/100.0))) then
+       !    &.lt.(radius_arr(1,k,i)*dble(tmpdig(1)/100.0))) then
        !  j=j+1 
        !  write(*,*) "Terminating. Bond lengths too short" 
        !  deallocate(tmpdig)

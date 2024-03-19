@@ -5,8 +5,10 @@ program raffle
   use help
   use gen
   use atomtype
-  use read_chem, only: get_element_radius
   use rw_geom, only: bas_type
+
+  use read_chem, only: get_element_radius
+  use vasp_file_handler, only: addposcar
   implicit none
 
 
@@ -18,7 +20,7 @@ program raffle
   type(bas_type) :: bas
   type(atom), dimension(:,:), allocatable :: atomlist, alistrep
   real(real12) :: sigma, bond_test, returned_val
-  real(real12), dimension(:,:,:), allocatable :: elrad
+  real(real12), dimension(:,:,:), allocatable :: radius_arr
   !!For input
   character(1024) :: dummy
 
@@ -57,8 +59,6 @@ program raffle
 !!! Assign the elements of each atom                                                       !
 !!!--------------------------------------------------------------------------------------!
 
-  allocate(elnames(eltot))
-
 
   select case(options)
   case(0)
@@ -81,11 +81,11 @@ program raffle
   case(4)
      write(*,*) "Sphere Overlap Test"
      write(*,*) "DEPRECATED"
-     elnames = ["C  ", "Mg ", "O  "]
-     write(*,*) elnames
-     elrad = get_element_radius(elnames)
-     write(*,*) get_sphere_overlap(2*elrad(1,1,1),elrad(1,1,1),elrad(1,1,1))
-     write(*,*) (4.0/3.0)*pi*elrad(1,1,1)**3
+     element_list = ["C  ", "Mg ", "O  "]
+     write(*,*) element_list
+     radius_arr = get_element_radius(element_list)
+     write(*,*) get_sphere_overlap(2*radius_arr(1,1,1),radius_arr(1,1,1),radius_arr(1,1,1))
+     write(*,*) (4.0/3.0)*pi*radius_arr(1,1,1)**3
      stop 0
   case(5)
      write(*,*) "Bondangle test"
@@ -122,7 +122,7 @@ program raffle
 !!!Set the number of atoms and generate the unit cell!!!
 !!!--------------------------------------------------!!!
 
-  call generation(alistrep, structno, options, elnames, stochio, c_cut, c_min)
+  call generation(alistrep, structno, options, element_list, stoichiometry_list, c_cut, c_min)
   write(*,*) "The structures requested have been successfully generated and saved"
 
 end program raffle

@@ -13,10 +13,10 @@ module inputs
 
   integer :: seed !random seed
   integer :: structno ! number of structures to generate
-  integer :: eltot   ! total number of species to add
+  integer :: num_species   ! total number of species to add
   integer :: options ! options setting (defines the RAFFLE task)
-  integer, allocatable, dimension(:) :: stochio ! stoichiometry of species to add
-  character(3), allocatable, dimension(:) :: elnames !species names to add
+  integer, allocatable, dimension(:) :: stoichiometry_list ! stoichiometry of species to add
+  character(3), allocatable, dimension(:) :: element_list !species names to add
 
   integer :: vdW    
   integer :: volvar 
@@ -57,8 +57,8 @@ module inputs
   public :: sigma_don, sigma_bondlength
   public :: bins, vps_ratio
   public :: seed
-  public :: structno, eltot, options
-  public :: stochio, elnames
+  public :: structno, num_species, options
+  public :: stoichiometry_list, element_list
   public :: filename_host
   public :: c_cut, c_min
 
@@ -176,7 +176,7 @@ contains
     implicit none
     integer :: Reason,unit
     character(1) :: fs
-    character(1024) :: stoichiometry_list
+    character(1024) :: stoichiometry, elements
 
     character(*), intent(in) :: file_name
 
@@ -185,7 +185,7 @@ contains
 !!! set up namelists for input file
 !!!-----------------------------------------------------------------------------
     namelist /setup/        options,filename_host,seed,vps_ratio,bins
-    namelist /structure/    structno,eltot,elnames,stoichiometry_list
+    namelist /structure/    structno,num_species,elements,stoichiometry
     namelist /volume/       vdW, volvar, minbond, maxbond
     namelist /distribution/ c_min,c_cut,sigma_don,sigma_bondlength,&
          enable_self_bonding
@@ -214,9 +214,14 @@ contains
        stop "THERE WAS AN ERROR IN READING DISTRIBUTION SETTINGS"
     end if
 
-    if(trim(stoichiometry_list).ne."")then
-       allocate(stochio(eltot))
-       read(stoichiometry_list,*) stochio
+    if(trim(stoichiometry).ne."")then
+       allocate(stoichiometry_list(num_species))
+       read(stoichiometry,*) stoichiometry_list
+    end if
+
+    if(trim(elements).ne."")then
+       allocate(element_list(num_species))
+       read(elements,*) element_list
     end if
 
 !!!-----------------------------------------------------------------------------

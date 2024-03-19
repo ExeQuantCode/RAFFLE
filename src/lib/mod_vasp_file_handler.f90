@@ -213,35 +213,37 @@ contains
 !!!#############################################################################
 !!! write POSCAR file
 !!!#############################################################################
-  subroutine  poswrite(box,atomlist,len, structures, structno, prev_structures)
-  
+  subroutine  poswrite(unit,box,atomlist,len, structures, structno, prev_structures)
+    implicit none
+    integer, intent(in) :: unit
+
     integer :: i,j, len, reason, structures, structno, prev_structures
     type(atom), dimension(:,:) :: atomlist
     real(real12), dimension(3,3) :: box
     do i=1, len 
      if(i.eq.len) then 
-        write(structures+10000,'(5X,A2)', IOStat=reason, advance="no")&
+        write(unit,'(5X,A2)', IOStat=reason, advance="no")&
              &atomlist(structures,i)%name
      else 
         !if(i.eq.(len-1)) cycle
         if (atomlist(structures,i)%name.eq.atomlist(structures,i+1)%name) cycle
-        write(structures+10000,'(5X,A2)', IOStat=reason, advance="no") &
+        write(unit,'(5X,A2)', IOStat=reason, advance="no") &
              &atomlist(structures,i)%name      
      end if
     end do
     
-    write(structures+10000, '(2X)')
-    !write(structures+10000,*) "HERE"
+    write(unit, '(2X)')
+    !write(unit,*) "HERE"
     j=1
     do i=1, len 
      if(i.eq.len) then 
-        write(structures+10000,'(1X,I3)', IOStat=reason, advance="no") j
+        write(unit,'(1X,I3)', IOStat=reason, advance="no") j
      else
         if (atomlist(structures,i)%name.eq.atomlist(structures,i+1)%name) then 
            j=j+1
            cycle
         else 
-           write(structures+10000,'(1X,I3)', IOStat=reason, advance="no") j
+           write(unit,'(1X,I3)', IOStat=reason, advance="no") j
            j=1
     
         end if
@@ -249,10 +251,10 @@ contains
     end do
     
     
-    write(structures+10000,'(/,A)') "Cartesian"
+    write(unit,'(/,A)') "Cartesian"
     
     do i=1, len 
-     write(structures+10000,'(1X,F0.16,1X,F0.16,1X,F0.16)') atomlist(structures,i)%position(:)
+     write(unit,'(1X,F0.16,1X,F0.16,1X,F0.16)') atomlist(structures,i)%position(:)
     end do
     
   end subroutine poswrite
@@ -277,6 +279,7 @@ contains
 !!! Add POSCAR (directory or file????)
 !!!#############################################################################
   subroutine addposcar(option_generate_files_only,option_filepath,stage, prev_structures_overwrite)
+    implicit none
     type(unitcell), dimension(:), allocatable :: formula
     character(1024) :: tmp, name,option_filepath
     character(3), dimension(:), allocatable :: elnames
@@ -286,6 +289,9 @@ contains
     integer :: prev_structures, option_generate_files_only, prev_structures_overwrite
     type (atom), dimension(:,:), allocatable :: tmplist,atomlist, alistrep
     integer, dimension(:), allocatable :: elno
+
+    integer :: unit
+
     !! Wipes the randomly generated formula
     structures=1
     structno=1
@@ -329,11 +335,11 @@ contains
     if (option_generate_files_only.eq.0) then
     
      write(name,'(A11,I0.3,A7)')"pos/POSCAR_",structures+prev_structures,"/POSCAR"
-     open(structures+10000, file=name,status="new")
-     write(structures+10000,*) "Test"
-     write(structures+10000,*) 1.0
+     open(newunit=unit, file=name,status="new")
+     write(unit,*) "Test"
+     write(unit,*) 1.0
      do i=1, 3
-        write(structures+10000,*) formula(1)%cell(i,1), &
+        write(unit,*) formula(1)%cell(i,1), &
              &formula(1)%cell(i,2), formula(1)%cell(i,3)
      end do
     end if
@@ -425,7 +431,7 @@ contains
     end do
     deallocate(tmplist)
     if (option_generate_files_only.eq.0) then
-     call poswrite(formula(structures)%cell,atomlist,k,1,1,prev_structures)
+     call poswrite(unit,formula(structures)%cell,atomlist,k,1,1,prev_structures)
     end if
     allocate(alistrep(1,k*27))
     do i=1, k

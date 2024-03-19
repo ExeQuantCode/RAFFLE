@@ -1,6 +1,8 @@
 module gen
   use constants, only: real12, pi
-  use geom, only: get_volume, get_sphere_overlap
+  use rw_geom, only: bas_type, geom_read
+  use edit_geom, only: bas_merge
+  use geom, only: get_volume, get_sphere_overlap, get_random_unit_cell
   use inputs, only: &
        vdW, volvar, minbond, maxbond,&
        sigma_bondlength, bins, vps_ratio, filename_host,&
@@ -10,33 +12,52 @@ module gen
   use add_atom
   use read_chem, only: get_element_radius
   implicit none
+
+
 contains 
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  subroutine generation(leng, atomlist, alistrep, spacelist, formula, structno, &
-       options, eltot, elnames, stochio, elrad, c_cut, c_min) 
+  subroutine generation(num_atoms, alistrep, spacelist, formula, num_structures, &
+       option, num_species, elnames, stochio, elrad, c_cut, c_min)
+    implicit none
+    integer, intent(inout) :: num_atoms, num_species, num_structures !! SHOULD NOT EVEN BE AN ARGUEMNT
+    !! MAKE AN INPUT ARGUMENT THAT IS MAX_NUM_STRUCTURES
+    integer, intent(in) :: option
     integer, intent(in) :: c_cut, c_min
     type(unitcell), dimension(:), allocatable :: formula
-    real(real12) :: bondmin,posneg, r,r2, meanvol, q, normvol, cellmultiplier, calc,sigma1, tmpval
-    integer :: l,leng, i,b, j, k, x, y, z, m,p, structures, structno, prev_structures, modeselect, prevpos
-    integer :: errorcounter, ecount, eltot, options, loopcounter, addedelements, addtest, bondminindex,tmpint
-    integer, dimension(:), allocatable :: shapeA
-    integer :: eltype, scan, bonding_number_correction, num_VOID
-    !! box = initial untransformed cubic unit cell 
+
+    type(bas_type) :: host_basis
+    real(real12), dimension(3,3) :: host_lattice
+
+    !! lattice = initial untransformed cubic unit cell 
     !! a 0 0
     !! 0 b 0
     !! 0 0 c
+    real(real12), dimension(3,3) :: lattice
+    type(bas_type), dimension(:), allocatable :: basis_list
+
+
+    integer :: unit, info_unit
+
+    real(real12) :: bondmin,posneg, r,r2, meanvol, q, normvol, cellmultiplier, calc,sigma1, tmpval
+
+    integer :: l, i,b, j, k, x, y, z, m,p
+    integer :: structures, prev_structures, option_, prevpos
+    integer :: errorcounter, ecount, loopcounter, addedelements, addtest, bondminindex,tmpint
+    integer, dimension(:), allocatable :: shapeA
+    integer :: eltype, scan, bonding_number_correction, num_VOID
     real(real12), allocatable, dimension(:,:) :: peakseparation, temppeaks
     real(real12), allocatable, dimension(:) :: peaksindividual
 
-    real(real12), dimension(3,3) :: box
     real(real12), dimension(3) :: angle, spacelist, tmpvector, bestlocation, backuplocation
     real(real12), dimension(:,:,:,:), allocatable :: bondlist
     real(real12) ::  bondcutoff,connectivity,tmpangle, volmin, volmax, bondpro1, bondpro2, distribution, tmpvalue
     real(real12) :: anglecutoffupper, anglecutofflower, sigma2, bestlocationindex, agausssamp, peak1, tmpdistribution
     real(real12) :: angle_distribution, bond_distribution, normalisation_a, prob_void, prob_scan, prob_pseudo
+    !! atomlist has dimensions(structure, atom)
+    !! there is no distinguishing factor for species
     type (atom), dimension(:,:), allocatable :: atomlist, alistrep, alistrepp, copy_list
     character(1024) :: name, tmp, command,location
     character(3), dimension(:), allocatable :: elnames, sing_el, elnames_copy
@@ -49,58 +70,73 @@ contains
     real(real12), dimension(:,:), allocatable :: tempmatrix
     character(1) :: equality_String
 
+
     !! The info file doesn't contain much of use yet. Could build in if relevant 
-    open(11, file="Info")
+    open(newunit=info_unit, file="Info")
     !! Atomlist contains the information about the positions of all atoms in ALL structures. This may cause issues 
     !! with memory when large numbers of structures are used, may consider breaking down into seperate iterations 
     !! (e.g paralyse) 
     loopcounter=0
     addtest=0
-    modeselect=options
-    !write(*,*) "elrad=",elrad
-    !used to test a potential atomic location for interactions with itself
-    allocate(atomlist(structno,leng))
-    allocate(alistrep(structno,leng*27))
-    prevpos=structurecounter("pos")
-    addedelements=0
-    if(modeselect.eq.2) then 
-       !write(*,*) "Initialise host"
-       deallocate(alistrep)
-       deallocate(atomlist)
-       !write(*,*) "Deallocation completed"
-       call initialisehost(leng, filename_host)
-       allocate(atomlist(structno,leng))
-       allocate(alistrep(structno,leng*27)) 
+    option_=option
 
-       call addhost(eltot,structures,formula,location,atomlist,stochio,&
-            &elnames,addedelements,name,structno)
+    !!! THINK OF SOME WAY TO HANDLE THE HOST SEPARATELY
+    !!! THAT CAN SIGNIFICANTLY REDUCE DATA USAGE
+    num_species = size(elnames)
+    num_atoms = sum(stochio)
+    allocate(basis_list(num_structures))
+    do i = 1, num_structures
+       allocate(basis_list(i)%spec(num_species))
+       basis_list(i)%spec(:)%name = elnames
+       basis_list(i)%spec(:)%num = stochio
+       basis_list(i)%natom = num_atoms
+    end do
+    select case(option_)
+    case(2)
+       call initialisehost(num_atoms, filename_host)
+       allocate(atomlist(num_structures,num_atoms))
+       allocate(alistrep(num_structures,num_atoms*27))
+       open(newunit = unit, file = trim(adjustl(filename_host)))
+       call geom_read(unit,host_lattice, host_basis)
+       close(unit)
+       basis_list = bas_merge(host_basis,basis_list(1))
 
+       call addhost(num_species,structures,formula,location,atomlist,stochio,&
+            &elnames,addedelements,name,num_structures)
+    case default
+       allocate(atomlist(num_structures,num_atoms))
+       allocate(alistrep(num_structures,num_atoms*27))
+       prevpos=structurecounter("pos")
+       addedelements=0
+    end select
 
-    end if
     !! alistrep contains positions of all atoms repeated in adjacent unit cells. Same point as above. 
 
     !! calls the function structurecounter, which provides information about the number of currently existing 
     !! structures in the directory
     prev_structures=structurecounter("pos")
-    !! assigns the length of elno to eltot. NOT SURE WHY, SHOULD BE LENG?. UNLESS ELNO CONTAINS ALL MATERIAL SPECS
-    allocate(elno(eltot))
-    allocate(elrad(4,eltot,eltot))
+    !! assigns the length of elno to num_species. NOT SURE WHY, SHOULD BE num_atoms?. UNLESS ELNO CONTAINS ALL MATERIAL SPECS
+    allocate(elno(num_species))
+    allocate(elrad(4,num_species,num_species))
     elrad = get_element_radius(elnames)
 
-    !! bondlist is a list of ALL the bonds between all the atoms and each of it's neighbours in the first tier of recursive repeated unit cells
-    allocate(bondlist(leng,leng*27,eltot,eltot))
-    allocate(bondavg(eltot,eltot))
-    !! modeselect=1 is a special option allowing a new poscar to be added in at user specification
+    !! bondlist is a list of ALL the bonds between all the atoms and each of its neighbours in the first tier of recursive repeated unit cells
+    allocate(bondlist(num_atoms,num_atoms*27,num_species,num_species))
+    allocate(bondavg(num_species,num_species))
+    !! option_=1 is a special option allowing a new poscar to be added in at user specification
 
 
-    !! Could implement structno>1 in the future for large imports
-    if(modeselect.eq.1) structno=1
+    !! Could implement num_structures>1 in the future for large imports
+    if(option_.eq.1) num_structures=1
     structures=1
     loopcounter=0
 
-    !! elnames is a 1D array containing the symbol for each of the atoms (length=eltot). [generator;eltot~>main;elno]----------------------------------------------------------!                                                        !
-    !-----------------------------------------------------------------------------------------!
+    !! elnames is a 1D array containing the symbol for each of the atoms (length=num_species).
 
+!!!#############################################################################
+!!!#############################################################################
+!!! ISOLATION CALCULATIONS SHOULD BE THEIR OWN PROCEDURE
+!!!#############################################################################
     inquire(file="iso", exist=dir_e) 
     if(dir_e) then 
     else 
@@ -110,7 +146,7 @@ contains
 
 !!! This section prepares isolation calculations
     allocate(copy_list(2,2))
-    do i=1, eltot 
+    do i=1, num_species 
 
        write(name,'(A11,A,A7)')"iso/POSCAR_",trim(adjustl(elnames(i))),"/POSCAR"
        !!Calculates the new structure number, and writes it to tmp
@@ -150,17 +186,14 @@ contains
 
        end if
     end do
+!!!#############################################################################
+!!!#############################################################################
 
 
-
-
-
-
-
-
-
-
-
+!!!#############################################################################
+!!!#############################################################################
+!!! SETTING UP DON DIRECTORY SHOULD BE ITS OWN PROCEDURE
+!!!#############################################################################
     !! Builds pos and don subfolders if they do not already exist 
 
     call touchpos()
@@ -171,7 +204,8 @@ contains
        write(command,*) "mkdir don"
        call execute_command_line(command) 
     end if
-
+!!!#############################################################################
+!!!#############################################################################
 
 
 
@@ -180,43 +214,31 @@ contains
 !!! Create the directories for all of the POSCARS to be placed into !!!
     !! BIGLOOP is the parent loop for all procesess, generating one structure for each full completed iteration
     b=0
-    BIGLOOP: do while(structures.le.structno)
+    BIGLOOP: do while(structures.le.num_structures)
+!!!#############################################################################
+!!!#############################################################################
+!!! THIS SHOULD BE ITS OWN PROCEDURE THEN CALLED IN THE MAIN LOOP
+!!!#############################################################################
 
-       !! DO WE WANT STRUCTNO TO BE UPDATABLE LATER ON?
-       !call invar(2,tmpdig,tmpels) 
-       !eltot=tmpdig(1)
-       !deallocate(tmpdig)
-       !! DO WE WANT ELNAME TO BE UPDATABLE LATER ON?
-       !call invar(4,tmpdig,tmpels)
-       !do i=1, eltot 
-       !   elnames(i)=tmpels(i)
-       !end do
-       !! DO WE WANT STOCHIO UPDATABLE LATER ON?
-       !deallocate(stochio)
-       !allocate(stochio(eltot))
-!!! How many of each would you like
-       !call invar(5,tmpdig,tmpels)
-       !do i=1, eltot
-       !   stochio(i)=tmpdig(i)
-       !end do
-       leng=0
+       num_atoms=0
        !! Total number of atoms 
-       do i=1, eltot
-          leng=leng+stochio(i)
+       do i=1, num_species
+          num_atoms=num_atoms+stochio(i)
        end do
 
 
-       if(modeselect.eq.2) then 
+       !! WHY DEALLOCATE EVERY TIME?
+       if(option_.eq.2) then 
           write(*,*) "Initialise host"
           deallocate(alistrep)
           deallocate(atomlist)
           write(*,*) "Deallocation completed"
-          call initialisehost(leng, filename_host)
-          allocate(atomlist(structno,leng))
-          allocate(alistrep(structno,leng*27)) 
+          call initialisehost(num_atoms, filename_host)
+          allocate(atomlist(num_structures,num_atoms))
+          allocate(alistrep(num_structures,num_atoms*27)) 
 
-          call addhost(eltot,structures,formula,location,atomlist,stochio,&
-               &elnames,addedelements,name,structno)
+          call addhost(num_species,structures,formula,location,atomlist,stochio,&
+               &elnames,addedelements,name,num_structures)
 
 
        end if
@@ -257,13 +279,13 @@ contains
 
        !! Meanvol takes the atomic radius and calculates a guestimate for the total rough cell volume. NEED A BETTER METHOD
        !! FOR ACCOMPLISHING THIS
-       !meanvol=4/3*2.2**3*pi*leng
+       !meanvol=4/3*2.2**3*pi*num_atoms
        meanvol=0
        volmin=0
        volmax=0 
        k=0
-       do i=1, eltot
-          do j=1, eltot
+       do i=1, num_species
+          do j=1, num_species
              !      if(elrad(3,i,i).gt.elrad(3,i,j)) write(*,*) "This element is bonded to more of it's partners than they are to it"
              !      if(elrad(3,i,i).lt.elrad(3,i,j)) write(*,*) "This element is bonded to less of it's partners than they are to it"
 
@@ -275,23 +297,23 @@ contains
        bonding_number_correction=0
 
        if(.not.enable_self_bonding) then 
-          do k=1, eltot 
+          do k=1, num_species 
              bonding_number_correction=bonding_number_correction+stochio(k)**2
           end do
        end if
 
        normalisation_a=0
 
-       do i=1, eltot 
-          do j=1, eltot
+       do i=1, num_species 
+          do j=1, num_species
              if(i.eq.j) then 
-                normalisation_a=normalisation_a+dble(dble(stochio(i))/leng)**2
-                write(*,*) dble(stochio(i)/leng)**2, elnames(i), elnames(j)
+                normalisation_a=normalisation_a+dble(dble(stochio(i))/num_atoms)**2
+                write(*,*) dble(stochio(i)/num_atoms)**2, elnames(i), elnames(j)
 
              else 
                 if(j.lt.i) cycle
-                normalisation_a=normalisation_a+dble(dble(stochio(i)+stochio(j))/leng)**2
-                write(*,*) dble(dble(stochio(i)+stochio(j))/leng)**2, elnames(i), elnames(j)
+                normalisation_a=normalisation_a+dble(dble(stochio(i)+stochio(j))/num_atoms)**2
+                write(*,*) dble(dble(stochio(i)+stochio(j))/num_atoms)**2, elnames(i), elnames(j)
 
              end if
 
@@ -305,9 +327,9 @@ contains
 
 
        k=0
-       do i=1, eltot
+       do i=1, num_species
           volmin=volmin+stochio(i)*(4.0/3.0)*pi*(elrad(2,i,i)**3)
-          do j=1, eltot
+          do j=1, num_species
              if(j.lt.i) cycle
              connectivity=real(vdW/100.0, real12)
              !write(*,*) connectivity 
@@ -317,18 +339,18 @@ contains
                    volmin=volmin-connectivity*0.5*normalisation_a*min((stochio(i)*elrad(3,i,j)),(stochio(j)*elrad(3,j,i)))&
                         &*get_sphere_overlap(elrad(2,i,i),elrad(2,j,j),elrad(1,i,j))
 
-                else if(eltot.eq.1) then 
+                else if(num_species.eq.1) then 
                    volmin=volmin-connectivity*0.5*normalisation_a*min((stochio(i)*elrad(3,i,j)),(stochio(j)*elrad(3,j,i)))&
                         &*get_sphere_overlap(elrad(2,i,i),elrad(2,j,j),elrad(1,i,j))
 
                 end if
              else 
                 !volmin=volmin-connectivity*(stochio(i)*elrad(3,i,j)+stochio(j)*elrad(4,i,j))*0.5*&
-                !     &((dble(stochio(j)*stochio(i))/(leng**2))**(0.5)*&
+                !     &((dble(stochio(j)*stochio(i))/(num_atoms**2))**(0.5)*&
                 !     &get_sphere_overlap(elrad(2,i,i),elrad(2,j,j),elrad(1,i,j)))
-                !write(*,*) leng**2-bonding_number_correction, stochio(i)*stochio(j)
+                !write(*,*) num_atoms**2-bonding_number_correction, stochio(i)*stochio(j)
 
-                !volmin=volmin-(2*stochio(i)*stochio(j)/(leng**2-bonding_number_correction))*&
+                !volmin=volmin-(2*stochio(i)*stochio(j)/(num_atoms**2-bonding_number_correction))*&
                 !     &connectivity*(min(stochio(i)*elrad(3,i,j)&
                 !     &,stochio(j)*elrad(3,j,i))*&
                 !     &get_sphere_overlap(elrad(2,i,i),elrad(2,j,j),elrad(1,i,j)))
@@ -348,101 +370,13 @@ contains
        !!Adds or subtracts a small quantity from the calculated volume 
        call random_number(r)
        write(*,*) meanvol
-       meanvol=meanvol+((volvar/100.0)*r*posneg*meanvol)
+       meanvol = meanvol+((volvar/100.0)*r*posneg*meanvol)
        write(*,*) "The allocated volume is", meanvol
 
-!!!-------------------------------------------------------------------------------------!!!
-       !!Define the random unit cell lengths                                                  !!!
-!!!-------------------------------------------------------------------------------------!!!
+       !! generate random unit cell lengths
+       !!-----------------------------------------------------------------------------
+       lattice = get_random_unit_cell(b, angle, q)
 
-       !! Initialises box, which is a cubic unit serving as the basis for the random unit cel
-       box=0
-       !! q keeps a running total of the "volume" in the loosest sense of the word  
-       q=1
-
-       call random_number(r)
-       box(1,1)=0.75+r*2.25
-       q=q*r
-       call random_number(r)
-       box(2,2)=0.75+r*2.25
-       q=q*r
-       call random_number(r)
-       box(3,3)=0.75+r*2.25
-       q=q*r*1000
-
-!!!--------------------------------------------------------------!!!
-!!!Sets the random angles between the unit vectors between 60-120!!!
-!!!--------------------------------------------------------------!!!
-       angle(:)=0
-!!! BRAVAIS LATTICES 
-       if (b.eq.1) then !!! Triclinic 
-          do i=1, 3
-             call random_number(r)
-             r=r*60.0+60.0                                                            !   
-             r=(r*pi)/(180.0)                                                         !     
-             angle(i)=r 
-          end do
-       else if (b.eq.2) then !!! Cubic
-          q=1
-          call random_number(r) 
-          box(1,1)=0.75+r*2.25
-          q=q*(r**3)*1000.0
-          box(2,2)=box(1,1) 
-          box(3,3)=box(1,1)
-          angle(:)=pi/2.0
-       else if (b.eq.3) then !!! Monoclinic 
-          angle(3)=pi/2
-          angle(1)=pi/2
-          call random_number(r) 
-          r=r*60.0+60.0
-          r=(r*pi)/(180.0)
-          angle(2)=r
-       else if (b.eq.4) then !!! Orthorhombic 
-          angle(:)=pi/2.0
-       else if (b.eq.5) then !!! Tetragonal B
-          q=1 
-          call random_number(r) 
-          box(1,1)=0.75+r*2.25
-          box(2,2)=box(1,1) 
-          q=q*(r**2)
-          call random_number(r) 
-          box(3,3)=0.75+r*2.25 
-          q=q*r*1000
-          angle(:)=pi/2.0
-
-       else if (b.eq.6) then !!! Rhombohedral very broken/ Trigonal :-(
-          q=1 
-          call random_number(r) 
-
-          box(1,1)=0.75+r*2.25
-          ! box(1,1)=5.0
-          box(2,2)=box(1,1) 
-          box(3,3)=box(1,1) 
-          q=q*(r**3)*1000 
-          !write(*,*) box(1,1)
-          call random_number(r)
-          r=(r*60.0)+60.0 
-          r=(r*pi)/(180.0)
-          angle(:)=r
-          ! angle(:)= 1.75*pi/3.0
-          !write(*,*) angle(:)
-       else if (b.eq.7) then !!! hexagonal 
-          angle(1)=pi/2.0
-          angle(2)=pi/2.0
-          angle(3)=2.0*pi/3.0
-          call random_number(r) 
-          box(1,1)=0.75+r*2.25
-          box(2,2)=box(1,1) 
-          q=r**2
-          call random_number(r) 
-          box(3,3)=0.75+r*2.25
-          q=q*r*1000
-       end if
-
-
-!!!---------------------------------!!!
-       !!Sets the new unit vectors         !!!
-!!!---------------------------------!!!
 
        !! Creates a TYPE called formula that contains all the info for a unit cell that is random
 
@@ -455,14 +389,14 @@ contains
        write(structures+10000,*) "Test"
        write(structures+10000,*) 1.0
 
-       if(modeselect.ne.2) then      
+       if(option_.ne.2) then      
           formula(structures)%cell=0
-          formula(structures)%cell(1,1)=box(1,1)*calc
-          formula(structures)%cell(1,2)=box(1,1)*(cos(angle(3))-cos(angle(1))*cos(angle(2)))/(sin(angle(1)))
-          formula(structures)%cell(1,3)=box(1,1)*cos(angle(2)) 
-          formula(structures)%cell(2,2)=box(2,2)*sin(angle(1)) 
-          formula(structures)%cell(2,3)=box(2,2)*cos(angle(1))      
-          formula(structures)%cell(3,3)=box(3,3)
+          formula(structures)%cell(1,1)=lattice(1,1)*calc
+          formula(structures)%cell(1,2)=lattice(1,1)*(cos(angle(3))-cos(angle(1))*cos(angle(2)))/(sin(angle(1)))
+          formula(structures)%cell(1,3)=lattice(1,1)*cos(angle(2)) 
+          formula(structures)%cell(2,2)=lattice(2,2)*sin(angle(1)) 
+          formula(structures)%cell(2,3)=lattice(2,2)*cos(angle(1))      
+          formula(structures)%cell(3,3)=lattice(3,3)
 
           !write(*,*) formula(structures)%cell
 
@@ -471,7 +405,7 @@ contains
           normvol=abs(normvol)/meanvol
 
           normvol=normvol**(1.0/3.0)
-          if(modeselect.ne.2) then;
+          if(option_.ne.2) then;
              do j=1, 3
                 do i=1, 3
 
@@ -481,9 +415,11 @@ contains
              end do
           end if
        end if
+
+
 !!! CHECKS IF THE UNIT CELL WILL FORCE ATOMS TO BE TOO CLOSE TOGETHER
-       do i=1, eltot 
-          do k=1, eltot
+       do i=1, num_species 
+          do k=1, num_species
              do j=1, 3
                 !write(*,*) (formula(structures)%cell(j,1)**2+formula(structures)%cell(j,2)**2+formula(structures)%cell(j,3)**2)**0.5, &
                 !&elrad(1,k,i), k, i, elnames(k), elnames(i)
@@ -511,44 +447,20 @@ contains
        m=0
        l=0
 
-       !! Old linear version
-       !     do j=1, eltot
-       !
-       !        k=k+stochio(j)
-       !        m=m+27*stochio(j)
-       !        do i=1, leng
-       !           if(modeselect.eq.1) exit         
-       !           if((i.le.k).and.(i.gt.z)) then  
-       !              atomlist(structures,i)%name=elnames(j)        
-       !              atomlist(structures,i)%element_index=j
-       !           end if
-       !        end do
-       !        do i=1, leng*27
-       !           if(modeselect.eq.1) exit
-       !           if((i.le.m).and.(i.gt.l)) then
-       !              alistrep(structures,i)%name=elnames(j)
-       !              alistrep(structures,i)%element_index=j
-       !           end if
-       !        end do!
 
-       !        z=k
-       !        l=m
-       !     end do
-       !     L=0
-       !! New random version
-       do j=1, eltot
+       do j=1, num_species
 
           k=k+stochio(j)
           m=m+27*stochio(j)
-          do i=1, leng
-             if(modeselect.eq.1) exit
+          do i=1, num_atoms
+             if(option_.eq.1) exit
              if((i.le.k).and.(i.gt.z)) then
                 atomlist(structures,i)%name=elnames(j)
                 atomlist(structures,i)%element_index=j
              end if
           end do
-          do i=1, leng*27
-             if(modeselect.eq.1) exit
+          do i=1, num_atoms*27
+             if(option_.eq.1) exit
              if((i.le.m).and.(i.gt.l)) then
                 alistrep(structures,i)%name=elnames(j)
                 alistrep(structures,i)%element_index=j
@@ -569,11 +481,11 @@ contains
        end do
        !write(*,*) z
 
-       do i=1, leng/2
+       do i=1, num_atoms/2
           call random_number(r)
           call random_number(r2)
-          r=r*(leng-z)+z
-          r2=r2*(leng-z)+z
+          r=r*(num_atoms-z)+z
+          r2=r2*(num_atoms-z)+z
           !write(*,*) r, r2
           copy_list(1,1)=atomlist(structures,ceiling(r))
           copy_list(2,2)=atomlist(structures,ceiling(r2))
@@ -583,20 +495,6 @@ contains
        end do
 
 
-
-
-
-       !L=addedelements
-       !do i=1, eltot 
-       !   do j=1, addedelements
-       !      if(elnames(j).eq.(elnames(addedelements+i))) then 
-       !         L=L-1
-       !         write(*,*) L
-       !      end if
-       !   end do
-       !end do
-       !
-       !addedelements=L
 
 
        allocate(stochio_copy(1+addedelements)) 
@@ -623,8 +521,7 @@ contains
 
        L=1
 
-       do i=1+z, leng
-          !write(*,*) i, z, "£"
+       do i=1+z, num_atoms
           if(i.eq.1+z) then
              !write(*,*) "This is the first new atom, thus elnames", addedelements+1, "should be ", atomlist(structures,i)%name
              elnames(addedelements+1)=atomlist(structures,i)%name 
@@ -663,8 +560,8 @@ contains
           !write(*,*) atomlist(structures,i)%name
        end do
 
-       do i=l, leng
-          do j=1, leng
+       do i=l, num_atoms
+          do j=1, num_atoms
              if(i.eq.j) cycle
              if(atomlist(structures,i)%name.eq.atomlist(structures,j)%name) then 
                 if(atomlist(structures,i)%element_index.gt.atomlist(structures,j)%element_index) then 
@@ -677,8 +574,8 @@ contains
           end do
        end do
 
-       do i=l, leng*27
-          do j=1, leng*27
+       do i=l, num_atoms*27
+          do j=1, num_atoms*27
              if(alistrep(structures,i)%name.eq.alistrep(structures,j)%name) then
                 if(alistrep(structures,i)%element_index.gt.alistrep(structures,j)%element_index) then
                    alistrep(structures,i)%element_index=alistrep(structures,j)%element_index
@@ -690,25 +587,25 @@ contains
           end do
        end do
 
-       !do i=1, leng 
+       !do i=1, num_atoms 
        !   write(*,*)  atomlist(structures,i)%element_index,  atomlist(structures,i)%name
        !end do
 
-       !do i=1, leng*27
+       !do i=1, num_atoms*27
        !   write(*,*) alistrep(structures,i)%element_index
        !end do
 
 
        !write(*,*) elnames
        !write(*,*) stochio
-       eltot=maxval(atomlist(structures,:)%element_index)
+       num_species=maxval(atomlist(structures,:)%element_index)
 
        L=0
 
 
 
 
-       if(modeselect.eq.2) then;
+       if(option_.eq.2) then;
           elrad = get_element_radius(elnames)
           do i=1, addedelements
              L=L+stochio(i)
@@ -721,7 +618,7 @@ contains
           do i=1, L
              call atomrepeater(structures,atomlist(structures,i)%position,&
                   &atomlist(structures,i)%name,&
-                  &alistrep,formula,i,leng)
+                  &alistrep,formula,i,num_atoms)
           end do
           do i=1, L*27
              !write(*,*) alistrep(structures,i)%position, L*27 
@@ -734,7 +631,7 @@ contains
        i=1
        !random_seed determines if for a host calculation the first atom should be randomly placed. 1 results in random seeding
 
-       if(modeselect.ne.2) then 
+       if(option_.ne.2) then 
           !write(*,*) formula(structures)%cell
           do j=1, 3
              call random_number(r) 
@@ -744,8 +641,8 @@ contains
           errorcounter=0
           atomlist(structures,1+L)%position(:)=matmul(formula(structures)%cell,atomlist(structures,1+L)%position(:))
           call atomrepeater(structures,atomlist(structures,i)%position,&
-               &atomlist(structures,i)%name,alistrep,formula,i,leng)
-       else if(modeselect.eq.2) then         
+               &atomlist(structures,i)%name,alistrep,formula,i,num_atoms)
+       else if(option_.eq.2) then         
           i=i-1
        end if
 
@@ -770,7 +667,7 @@ contains
 
        !call execute_command_line("rm buildmap_testfile.txt") 
        num_VOID=1
-       aloop: do while (i.le.leng-1)
+       aloop: do while (i.le.num_atoms-1)
           bondmin=10.0
           tmpvector=0
           write(*,*) i, "$$$$$"
@@ -781,7 +678,7 @@ contains
           y=0
           j=0
           scan=1
-          allocate(results_matrix(bins(1)+1,bins(2)+1,bins(3)+1,4,eltot))
+          allocate(results_matrix(bins(1)+1,bins(2)+1,bins(3)+1,4,num_species))
 
           !if(i.ne.1) then 
           call random_number(r)
@@ -800,17 +697,17 @@ contains
           !           write(*,*) "ADD ATOM VOID"
 
           !           call add_atom_void (bins,formula,i, sigma1,&
-          !                &structures,sigma2,elnames,eltot,bondcutoff,atomlist,alistrep,tmpvector,elrad,leng)
+          !                &structures,sigma2,elnames,num_species,bondcutoff,atomlist,alistrep,tmpvector,elrad,num_atoms)
           !           num_VOID=num_VOID+1
           !        else if(r.gt.ratio_voidscan/100) then 
           !           write(*,*) num_VOID, "VOID THING"
           !           call add_atom_scan_2 (bins, formula, atomlist, alistrep, i, structures, elrad,&
-          !                &leng,results_matrix,eltot,elnames,placed,num_VOID)
+          !                &num_atoms,results_matrix,num_species,elnames,placed,num_VOID)
           !           num_VOID=1
           !           if(placed.eqv..FALSE.) then
           !              write(*,*) "ADD ATOM VOID"
           !              call add_atom_void (bins,formula,i, sigma1,&
-          !                   &structures,sigma2,elnames,eltot,bondcutoff,atomlist,alistrep,tmpvector,elrad,leng)
+          !                   &structures,sigma2,elnames,num_species,bondcutoff,atomlist,alistrep,tmpvector,elrad,num_atoms)
           !            end if
           !         end if
 
@@ -820,32 +717,32 @@ contains
              write(*,*) "ADD ATOM VOID"!
 
              call add_atom_void (bins,formula,i, sigma1,&
-                  &structures,sigma2,elnames,eltot,bondcutoff,atomlist,alistrep,&
-                  tmpvector,elrad,leng,c_cut)
+                  &structures,sigma2,elnames,num_species,bondcutoff,atomlist,alistrep,&
+                  tmpvector,elrad,num_atoms,c_cut)
              num_VOID=num_VOID+1
           else if(r.le.prob_pseudo) then 
              write(*,*) num_VOID, "Add Atom Pseudo"
              call add_atom_pseudo (bins, formula, atomlist, alistrep, i, structures, elrad,&
-                  &leng,results_matrix,eltot,elnames,placed,num_VOID)
+                  &num_atoms,results_matrix,num_species,elnames,placed,num_VOID)
              num_VOID=1
              placed=.TRUE.
              if(placed.eqv..FALSE.) then
                 write(*,*) "ADD ATOM VOID"
                 call add_atom_void (bins,formula,i, sigma1,&
-                     &structures,sigma2,elnames,eltot,bondcutoff,atomlist,alistrep,&
-                     tmpvector,elrad,leng,c_cut)
+                     &structures,sigma2,elnames,num_species,bondcutoff,atomlist,alistrep,&
+                     tmpvector,elrad,num_atoms,c_cut)
              end if
 
           else if(r.le.prob_scan) then 
              write(*,*) num_VOID, "Add Atom Scan"
              call add_atom_scan_2 (bins, formula, atomlist, alistrep, i, structures, elrad,&
-                  &leng,results_matrix,eltot,elnames,placed,num_VOID,c_cut,c_min)
+                  &num_atoms,results_matrix,num_species,elnames,placed,num_VOID,c_cut,c_min)
              num_VOID=1
              placed=.TRUE.
              if(placed.eqv..FALSE.) then
                 write(*,*) "ADD ATOM VOID"
                 call add_atom_void (bins,formula,i, sigma1,&
-                     &structures,sigma2,elnames,eltot,bondcutoff,atomlist,alistrep,tmpvector,elrad,leng,c_cut)
+                     &structures,sigma2,elnames,num_species,bondcutoff,atomlist,alistrep,tmpvector,elrad,num_atoms,c_cut)
              end if
           end if
 
@@ -864,25 +761,25 @@ contains
           !! Implement input integers to mark probabilities or breakpoints 
           !if (i-L.le.-12) then 
           !   write(*,*) "PLACING ATOM RANDOMLY"
-          !   call add_atom_random(formula,i,sigma1,structures,sigma2,elnames,eltot,&
+          !   call add_atom_random(formula,i,sigma1,structures,sigma2,elnames,num_species,&
           !        bondcutoff, atomlist, alistrep,tmpvector,elrad)
           !   atomlist(structures,i+1)%position=tmpvector
           !   write(*,*) "RANDOM ATOM SEEDED"
           !else if (i-L.le.-1000) then  
-          !   call add_atom_scan(5,formula,i,sigma1,structures,sigma2,elnames,eltot,&
+          !   call add_atom_scan(5,formula,i,sigma1,structures,sigma2,elnames,num_species,&
           !        bondcutoff, atomlist, alistrep,tmpvector,elrad,bestlocation)
           !   atomlist(structures,i+1)%position=bestlocation
           !else
-          !   call add_atom_void10,formula,i,sigma1,structures,sigma2,elnames,eltot,&
+          !   call add_atom_void10,formula,i,sigma1,structures,sigma2,elnames,num_species,&
           !        bondcutoff, atomlist, alistrep,tmpvector,elrad,bestlocation)
           !   atomlist(structures,i+1)%position=bestlocation
           !
           !end if
 
 
-          !call atomrepeater(structures,atomlist(structures,i+1)%position,alistrep,formula,i+1,leng)
+          !call atomrepeater(structures,atomlist(structures,i+1)%position,alistrep,formula,i+1,num_atoms)
 
-          if(i.eq.leng-1) exit 
+          if(i.eq.num_atoms-1) exit 
           i=i+1
           bestlocationindex=0
           bestlocation=0
@@ -895,15 +792,15 @@ contains
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
        !Generate the atomic bonding information files used in upcoming learning algorithm
-       write(*,*) eltot, leng
+       write(*,*) num_species, num_atoms
        prev_structures=structurecounter("bon")
-       !do i=1, leng
-       !   call generatebondfiles(1,structures,prev_structures,atomlist,alistrep,eltot,stochio,i)
-       !   call generateanglefiles(1,structures,prev_structures,atomlist,alistrep,eltot,stochio,i,bondcutoff)
-       !   call generate4files(1,structures,prev_structures,atomlist,alistrep,eltot,stochio,i,bondcutoff)
+       !do i=1, num_atoms
+       !   call generatebondfiles(1,structures,prev_structures,atomlist,alistrep,num_species,stochio,i)
+       !   call generateanglefiles(1,structures,prev_structures,atomlist,alistrep,num_species,stochio,i,bondcutoff)
+       !   call generate4files(1,structures,prev_structures,atomlist,alistrep,num_species,stochio,i,bondcutoff)
 
        !end do
-       !do i=1, leng
+       !do i=1, num_atoms
        !write(*,*) atomlist(structures,i)%position, i
        !end do
 
@@ -912,11 +809,11 @@ contains
        k=0
 
        !call invar(8,tmpdig,tmpels)
-       !do i=1, eltot 
-       !   do k=1, eltot 
-       !      do x=1, leng*27
-       !         if(modeselect.eq.1) exit
-       !         do y=1, leng*27        
+       !do i=1, num_species 
+       !   do k=1, num_species 
+       !      do x=1, num_atoms*27
+       !         if(option_.eq.1) exit
+       !         do y=1, num_atoms*27        
        !            if(x.ge.y) cycle
        !            if(alistrep(structures,x)%name.ne.elnames(k)) cycle 
        !            if(alistrep(structures,y)%name.ne.elnames(i)) cycle
@@ -939,13 +836,13 @@ contains
 
        !! This is defined by the MAXBOND input parameter
        !        call invar(9,tmpdig,tmpels)
-       !        do i=1, eltot 
-       !           do k=1, eltot
+       !        do i=1, num_species 
+       !           do k=1, num_species
        !              if(i.gt.k) cycle
-       !              do x=1, leng
+       !              do x=1, num_atoms
        !                 
-       !         if(modeselect.eq.1) exit
-       !         do y=1, leng*27 
+       !         if(option_.eq.1) exit
+       !         do y=1, num_atoms*27 
        !            if(atomlist(structures,x)%name.ne.elnames(k)) cycle
        !            if(alistrep(structures,y)%name.ne.elnames(i)) cycle
        !            bondlist(x,y,i,k)=bondlength(atomlist(structures,x)%position,alistrep(structures,y)%position)
@@ -963,7 +860,7 @@ contains
        !write(*,*) "2!!!!!!!!!!!"
 
        !! The following, for each species pairing, generates an average bondlength. At the end of
-       !! the first eltot loop, the value m can be read out to be the total bonding for that pairing 
+       !! the first num_species loop, the value m can be read out to be the total bonding for that pairing 
        !bondavg=0
        !inquire(file="bonddata.txt", exist=dir_e)
        !     if(dir_e) then
@@ -974,14 +871,14 @@ contains
        !write(*,*) "3!!!!!!!!!!!!"
 
 
-       !do i=1, eltot 
-       !   do k=1, eltot
+       !do i=1, num_species 
+       !   do k=1, num_species
        !      if(i.gt.k) cycle
        !      m=0
-       !      do x=1, leng
+       !      do x=1, num_atoms
        !         if(atomlist(structures,x)%name.ne.elnames(k)) cycle
-       !         if(modeselect.eq.1) exit
-       !         do y=1, leng*27
+       !         if(option_.eq.1) exit
+       !         do y=1, num_atoms*27
        !            if(bondlist(x,y,i,k).gt.0.001) then
        !               if(alistrep(structures,y)%name.ne.elnames(i)) cycle
        !               bondavg(i,k)=bondavg(i,k)+bondlist(x,y,i,k) 
@@ -1001,7 +898,7 @@ contains
        !write(*,*) "4!!!!!!!!!!!!"
 
 
-       !allocate(tempmatrix(leng,leng*27))
+       !allocate(tempmatrix(num_atoms,num_atoms*27))
        !
        !inquire(file="bondsfile.txt", exist=dir_e)
        !     if(dir_e) then
@@ -1010,12 +907,12 @@ contains
        !        open(81,status="new",file="bondsfile.txt", access="append")
        !     end if
 
-       !do x=1, eltot 
-       !   do y=1, eltot
+       !do x=1, num_species 
+       !   do y=1, num_species
        !      if(x.gt.y) cycle
-       !      do i=1, leng 
+       !      do i=1, num_atoms 
        !         m=0
-       !         do j=1, leng*27
+       !         do j=1, num_atoms*27
        !            if(bondlist(i,j,x,y).gt.0.001) then;
        !               m=m+1
        !               write(81,*) bondlist(i,j,x,y),i,j,x,y
@@ -1036,11 +933,11 @@ contains
        !! If that value is greater than a tolerance, the bonds are deemed too varied.
        !! This section is primed for deletion, as maybe unimportant
        !call invar(10,tmpdig,tmpels)
-       !do i=1, eltot
-       !   do k=1, eltot 
-       !      do x=1, leng
-       !         if(modeselect.eq.1) exit
-       !         do y=1, leng*27
+       !do i=1, num_species
+       !   do k=1, num_species 
+       !      do x=1, num_atoms
+       !         if(option_.eq.1) exit
+       !         do y=1, num_atoms*27
        !            q=abs(bondlist(x,y,i,k)-bondavg(i,k))
        !            if(q.gt.dble(tmpdig(1)/100.0)*bondavg(i,k)) then 
        !               !close(structures+10000) 
@@ -1058,12 +955,12 @@ contains
        !deallocate(tmpdig)
 
 
-       !do z=1, eltot 
-       !   do l=1, eltot
-       !      do i=1, leng*27 
-       !         if(modeselect.eq.1) exit
-       !         do k=1, leng*27
-       !            do j=1, leng 
+       !do z=1, num_species 
+       !   do l=1, num_species
+       !      do i=1, num_atoms*27 
+       !         if(option_.eq.1) exit
+       !         do k=1, num_atoms*27
+       !            do j=1, num_atoms 
        !               if(i.eq.k) cycle
        !               if(alistrep(structures,i)%name.ne.elnames(z)) cycle
        !               if(alistrep(structures,j)%name.ne.elnames(l)) cycle
@@ -1098,14 +995,14 @@ contains
 
 !!!THIS SECTION ASSUMES AN AVERAGE COORDINATION NUMBER. THIS IS LIKELY VERY UNPHYSICAL!!! ALSO ASSUMES 2.5A BONDLENGTH
        !k=0
-       !do i=1, leng   
-       ! if(modeselect.eq.1) exit
-       !   do j=1, leng*27
+       !do i=1, num_atoms   
+       ! if(option_.eq.1) exit
+       !   do j=1, num_atoms*27
        !      if(bondlength(atomlist(structures,i)%position,alistrep(structures,j)%position).gt.(bondavg+0.2)) cycle 
        !     k=k+1
        !  end do
        !end do
-       !k=nint(dble(k/leng))
+       !k=nint(dble(k/num_atoms))
        !m=0
 
        !! HYPER SPECIFIC COORDINATION SECTION 
@@ -1115,9 +1012,9 @@ contains
        !   cycle bigloop
        !end if
 !!!COORDINATION NUMBER NEEDS TO BE MORE SOPHISTICATED.
-       !do i=1, leng   
-       ! if(modeselect.eq.1) exit
-       !   do j=1, leng*27
+       !do i=1, num_atoms   
+       ! if(option_.eq.1) exit
+       !   do j=1, num_atoms*27
        !      if(bondlength(atomlist(structures,i)%position,alistrep(structures,j)%position).gt.(bondavg+0.2)) cycle 
        !      m=m+1
        !   end do
@@ -1137,7 +1034,7 @@ contains
 
 
 !!!! This changes the output of the unit cell size to the repeated lattice
-       !   leng=leng*27 
+       !   num_atoms=num_atoms*27 
        !   do i=1, 3
        !      do j=1, 3
        !         formula(structures)%cell(j,i)=formula(structures)%cell(j,i)*3
@@ -1194,9 +1091,9 @@ contains
        !! Swap atoms to the correct positions
 
        do i=1, size(elnames)
-          do j=1, leng
+          do j=1, num_atoms
              if(atomlist(structures,j)%name.ne.elnames(i)) then
-                do k=1, leng 
+                do k=1, num_atoms 
                    if(atomlist(structures,k)%name.eq.elnames(i)) then 
                       copy_list(1,1)=atomlist(structures,j)
                       copy_list(2,2)=atomlist(structures,k)
@@ -1229,30 +1126,30 @@ contains
        deallocate(elnames)
        allocate(elnames(k))
        elnames=elnames_copy
-       eltot=k
+       num_species=k
 
        deallocate(elnames_copy)
 
 
-       !write(*,*) elnames, eltot, leng
+       !write(*,*) elnames, num_species, num_atoms
        !write(*,*) atomlist
 
 
 
-       call poswrite(formula(structures)%cell,atomlist,leng, structures, structno, prevpos)
+       call poswrite(formula(structures)%cell,atomlist,num_atoms, structures, num_structures, prevpos)
 
-       !call poswrite(formula(structures)%cell,atomlist,leng, structures, structno, prev_structures)
+       !call poswrite(formula(structures)%cell,atomlist,num_atoms, structures, num_structures, prev_structures)
 
        write(tmp,'(A11,I0.3)')"pos/POSCAR_",prevpos+structures
-       call Incarwrite(adjustl(tmp),500, 20*leng)
+       call Incarwrite(adjustl(tmp),500, 20*num_atoms)
        !write(*,*) structures, prevpos, "!!!!!!!!!!!!!!"
        call Jobwrite(tmp,3,3,3)
 
-       write(11,*) "For structure number", prevpos+structures
-       write(11,*) "The average bond value is", bondavg
-       write(11,*) "The lower bound for allowed bonds is", bondavg-0.2
-       write(11,*) "The upper bound for allowed bonds is", bondavg+0.2
-       call potwrite(tmp, elnames, eltot)
+       write(info_unit,*) "For structure number", prevpos+structures
+       write(info_unit,*) "The average bond value is", bondavg
+       write(info_unit,*) "The lower bound for allowed bonds is", bondavg-0.2
+       write(info_unit,*) "The upper bound for allowed bonds is", bondavg+0.2
+       call potwrite(tmp, elnames, num_species)
        close(structures+10000)
        structures=structures+1
 
@@ -1277,13 +1174,13 @@ contains
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
-  subroutine addhost(eltot,structures,formula,location,atomlist,stochio,elnames,&
-       &addedelements,name,structno)
+  subroutine addhost(num_species,structures,formula,location,atomlist,stochio,elnames,&
+       addedelements,name,num_structures)
     type(unitcell), dimension(:), allocatable :: formula
     character(1024) :: tmp, name, location
     character(3), dimension(:), allocatable :: elnames,tmpelnames
     real(real12) :: cellmultiplier,meanvol,tmpdble
-    integer :: d,l,k,j,i,structno, ecount,addedelements, eltot, leng,structures, prev_structures
+    integer :: d,l,k,j,i,num_structures, ecount,addedelements, num_species, leng,structures, prev_structures
     type (atom), dimension(:,:), allocatable :: tmplist,atomlist,tmplist2
     integer, dimension(:), allocatable :: stochio, tmpstochio, tmpstochiotot
     real(real12), dimension(3) :: tmparray
@@ -1298,12 +1195,9 @@ contains
     read(61, *) cellmultiplier 
     !write(*,*) cellmultiplier
     do i=1, 3
-       !do while(.true.)
        read(61,*) tmparray
-       write(*,*) tmparray
-       !end do
-       do d=1, structno       
-          formula(d)%cell(i,:)=tmparray(:)
+       do d=1, num_structures       
+          formula(d)%cell(i,:) = tmparray(:)
        end do
     end do
 
@@ -1315,17 +1209,16 @@ contains
     allocate(tmpelnames(100))
     allocate(tmplist(1,1000))
 
-    addedelements=0
 
+    !!! READS SPECIES LINE
     read(61,'(A)') tmp
-
-    !write(*,*) tmp
+    addedelements=0
     do i=1,len(tmp)-1
        if(i.eq.1) then 
           if((scan(tmp(i:i+1)," ").eq.0).or.&
                &((scan(tmp(i:i+1)," ").eq.2))) then
              addedelements=addedelements+1
-             eltot=eltot+1
+             num_species=num_species+1
              !write(*,*) tmp(i:i+1)
              if(scan(tmp(i:i+1)," ").eq.0) then
                 tmpelnames(addedelements)=tmp(i:i+1)
@@ -1340,7 +1233,7 @@ contains
                &((scan(tmp(i:i+1)," ").eq.2).and.(scan(tmp(i-1:i)," ")&
                &.eq.1))) then
              addedelements=addedelements+1
-             eltot=eltot+1
+             num_species=num_species+1
              !write(*,*) tmp(i:i+1)
              if(scan(tmp(i:i+1)," ").eq.0) then
                 tmpelnames(addedelements)=tmp(i:i+1)
@@ -1353,39 +1246,41 @@ contains
        end if
     end do
     j=0
-    do i=addedelements+1,eltot
+    !!! APPENDS THE NEW SPECIES TO THE END OF THE OLD SPECIES
+    do i=addedelements+1,num_species
        j=j+1
        tmpelnames(i)=elnames(j)
     end do
     deallocate(elnames)
-    allocate(elnames(eltot)) 
-    do i=1, eltot
+    allocate(elnames(num_species)) 
+    do i=1, num_species
        elnames(i)=tmpelnames(i)
     end do
     deallocate(tmpelnames)
 
+    !!! READS STOICHIOMETRY LINE
     allocate(tmpstochio(addedelements))
     read(61,*) tmpstochio
-    allocate(tmpstochiotot(eltot))
+    allocate(tmpstochiotot(num_species))
 
     do i=1,addedelements
        tmpstochiotot(i)=tmpstochio(i)
     end do
-
-
-    do i=1, eltot-addedelements
+    do i=1, num_species-addedelements
        tmpstochiotot(i+addedelements)=stochio(i) 
     end do
-
     deallocate(stochio) 
     deallocate(tmpstochio) 
-    allocate(stochio(eltot))
-    do i=1, eltot
+    allocate(stochio(num_species))
+    do i=1, num_species
        stochio(i)=tmpstochiotot(i)
     end do
-    k=0
 
-    do i=1, eltot
+
+    !!! not sure what tmplist is
+    !!! clearly, this is appending elnames to each atom in the list
+    k=0
+    do i=1, num_species
        do j=1, stochio(i)
           k=k+1
           tmplist(1,k)%name=elnames(i)
@@ -1393,40 +1288,29 @@ contains
     end do
     write(*,*) elnames
     l=0
+
+    !!! READ CARTESIAN/DIRECT LINE
     read(61,*) tmp   
 
-
-
-
-
+    !!! READ ATOM POSITIONS
     do i=1, addedelements
        do j=1, stochio(i)
           l=l+1
-          !read(61,'(6X,F18.16)', advance='no') tmplist(structures,L)%position(1) 
-          !read(61,'(6X,F18.16)', advance='no') tmplist(structures,L)%position(2)
-          !read(61,'(6X,F18.16)') tmplist(structures,L)%position(3)
-
-
           read(61,*) tmplist(1,L)%position
-          !                      write(*,*) tmplist(1,L)%position
-
           tmplist(1,L)%position=matmul(tmplist(1,L)%position,formula(1)%cell)
-          write(*,*) tmplist(1,L)%position 
        end do
     end do
-    !write(*,*) "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 
-
-    do d=1, structno    
+    !!! APPENDS THE NEW ATOMS TO THE OLD ATOMS
+    do d=1, num_structures    
        l=0
        !write(*,*) d
-       do i=1, eltot
+       do i=1, num_species
           do j=1, stochio(i) 
              l=l+1
              !write(*,*) l
              if(i.le.addedelements) atomlist(d,L)%position=tmplist(1,L)%position
              atomlist(d,L)%name=tmplist(1,L)%name
-             !write(*,*) atomlist(d,L)%position
           end do
        end do
     end do
@@ -1437,18 +1321,8 @@ contains
 
     close(61)
 
-
-    !open(50,file=name) 
-    !write(50,*) "Test"
-    !write(50,*) 1.0 
-    !do i=1, 3
-    !   write(50,*) formula(structures)%cell(1,i),&
-    !        &formula(structures)%cell(2,i),formula(structures)%cell(3,i)
-    !end do
-    !close(50)
-
-
   end subroutine addhost
+
 
   subroutine addxyzfile()
     type(unitcell), dimension(:), allocatable :: formula
@@ -1456,16 +1330,16 @@ contains
     character(1024), dimension(:), allocatable :: elnames,elnames_tmp, elnames_list
     real(real12) :: cellmultiplier
     real(real12), dimension(:), allocatable :: bondcutoff
-    integer :: tmp,q,l,k,j,i,structno, ecount, eltot, leng,structures, prev_structures
+    integer :: tmp,q,l,k,j,i,num_structures, ecount, num_species, num_atoms,structures, prev_structures
     type (atom), dimension(:,:), allocatable :: tmplist,atomlist, alistrep
     integer, dimension(:), allocatable :: stochio
     !! Wipes the randomly generated formula
     structures=1
-    structno=1
+    num_structures=1
     prev_structures=structurecounter("pos")
     call touchpos()
     call touchposdir(structures,prev_structures)
-    allocate(formula(structno))
+    allocate(formula(num_structures))
 
     write(6,*) "Please enter the filename you wish to add to the database"
     read(*, *) name
@@ -1495,44 +1369,44 @@ contains
     end do
     do i=1, tmp
        if(i.eq.1) then 
-          eltot=1
+          num_species=1
           allocate(elnames(1))
           elnames(1)=elnames_list(1)
        else 
-          loop2 :do j=1, eltot
+          loop2 :do j=1, num_species
              if(elnames_list(i).eq.elnames(j)) exit loop2 
-             if(j.eq.eltot) then 
-                allocate(elnames_tmp(eltot))
+             if(j.eq.num_species) then 
+                allocate(elnames_tmp(num_species))
                 elnames_tmp=elnames
                 deallocate(elnames)
-                eltot=eltot+1
-                allocate(elnames(eltot))
-                do k=1, eltot-1
+                num_species=num_species+1
+                allocate(elnames(num_species))
+                do k=1, num_species-1
                    elnames(k)=elnames_tmp(k)
                 end do
-                elnames(eltot)=elnames_list(i)
+                elnames(num_species)=elnames_list(i)
              end if
           end do loop2
        end if
     end do
-    allocate(stochio(eltot))
+    allocate(stochio(num_species))
     stochio=0
-    do i=1, eltot 
+    do i=1, num_species 
        do j=1, tmp 
           if(elnames(i).eq.elnames_list(j)) stochio(i)=stochio(i)+1
        end do
     end do
-    leng=0
-    do i=1, eltot 
-       leng=leng+stochio(i) 
+    num_atoms=0
+    do i=1, num_species 
+       num_atoms=num_atoms+stochio(i) 
     end do
 
-    allocate(atomlist(1,leng))
-    allocate(bondcutoff(eltot))
+    allocate(atomlist(1,num_atoms))
+    allocate(bondcutoff(num_species))
     write(*,*) "MANUALLY CHANGE"
     stop
     k=0
-    do i=1, eltot
+    do i=1, num_species
        rewind(50)
        read(50,*) 
        read(50,*) tmp
@@ -1564,12 +1438,12 @@ contains
 
 
     !do i=1, k
-    !   call generatebondfiles(1,1,prev_structures,atomlist,alistrep,eltot,stochio,i,elnames)
+    !   call generatebondfiles(1,1,prev_structures,atomlist,alistrep,num_species,stochio,i,elnames)
     !end do
     prev_structures=structurecounter("bad")
     bondcutoff=2.0
     !do i=1, k
-    !   call generateanglefiles(1,1,prev_structures,atomlist,alistrep,eltot,stochio,i,bondcutoff)
+    !   call generateanglefiles(1,1,prev_structures,atomlist,alistrep,num_species,stochio,i,bondcutoff)
     !end do
 
 

@@ -5,6 +5,13 @@ module geom
   use atomtype
   implicit none
 
+  private
+
+  public :: get_bondlength, get_bondangle, get_dihedral_angle
+  public :: get_volume, get_sphere_overlap
+  public :: atomprojector
+  public :: get_random_unit_cell
+
 
 contains
   
@@ -135,4 +142,107 @@ contains
   end subroutine atomprojector
 !!!#############################################################################
   
+
+!!!#############################################################################
+!!! return a random unit cell
+!!!#############################################################################
+  function get_random_unit_cell(bravais_type, angle, volume) result(lattice)
+    implicit none
+    integer, intent(in) :: bravais_type
+    real(real12), intent(out) :: volume
+    real(real12), dimension(3), intent(out) :: angle
+    real(real12), dimension(3,3) :: lattice
+
+    integer :: i
+    real(real12) :: rtmp1
+
+
+    !! Initialises lattice, which is a cubic unit serving as the basis for the random unit cel
+    lattice = 0._real12
+    !! volume keeps a running total of the "volume" in the loosest sense of the word  
+    volume = 1._real12
+
+    do i = 1, 3
+       call random_number(rtmp1)
+       lattice(i,i) = 0.75_real12 + rtmp1 * 2.25_real12
+       volume = volume * rtmp1
+    end do
+    !! to convert from nanometres to angstroms???
+    volume = volume * 1000._real12
+
+
+
+!!!--------------------------------------------------------------!!!
+!!!Sets the random angles between the unit vectors between 60-120!!!
+!!!--------------------------------------------------------------!!!
+    angle(:)=0
+!!! BRAVAIS LATTICES 
+    select case(bravais_type)
+    case(1) !!! Triclinic
+       do i=1, 3
+          call random_number(rtmp1)
+          rtmp1 = ( rtmp1 * 60._real12 ) + 60._real12  
+          rtmp1 = ( rtmp1 * pi ) / ( 180._real12 )                                                         !     
+          angle(i) = rtmp1 
+       end do
+    case(2) !!! Cubic
+       volume = 1._real12
+       call random_number(rtmp1) 
+       lattice(1,1) = 0.75_real12 + rtmp1 * 2.25_real12
+       volume = volume * ( rtmp1 ** 3._real12 ) * 1000._real12
+       lattice(2,2) = lattice(1,1) 
+       lattice(3,3) = lattice(1,1)
+       angle(:) = pi / 2._real12
+    case(3) !!! Monoclinic
+       angle(3) = pi / 2._real12
+       angle(1) = pi / 2._real12
+       call random_number(rtmp1) 
+       rtmp1 = ( rtmp1 * 60._real12 ) + 60._real12  
+       rtmp1 = ( rtmp1 * pi ) / ( 180.0_real12 )
+       angle(2) = rtmp1
+    case(4) !!! Orthorhombic
+       angle(:) = pi / 2._real12
+    case(5) !!! Tetragonal B (WHAT DOES THE B MEAN??)
+       volume = 1._real12 
+       call random_number(rtmp1) 
+       lattice(1,1) = 0.75_real12 + rtmp1 * 2.25_real12
+       lattice(2,2) = lattice(1,1) 
+       volume = volume * ( rtmp1 ** 2._real12 )
+       call random_number(rtmp1) 
+       lattice(3,3) = 0.75_real12 + rtmp1 * 2.25_real12 
+       volume = volume * rtmp1 * 1000._real12
+       angle(:) = pi / 2._real12
+    case(6) !!! Rhombohedral very broken/ Trigonal (WHY???)
+       volume = 1._real12
+       call random_number(rtmp1)
+       lattice(1,1) = 0.75_real12 + rtmp1 * 2.25_real12
+       ! lattice(1,1)=5.0
+       lattice(2,2) = lattice(1,1) 
+       lattice(3,3) = lattice(1,1) 
+       volume = volume * ( rtmp1 ** 3._real12 ) * 1000._real12 
+       !write(*,*) lattice(1,1)
+       call random_number(rtmp1)
+       rtmp1 = ( rtmp1 * 60._real12 ) + 60._real12 
+       rtmp1 = ( rtmp1 * pi ) / ( 180._real12 )
+       angle(:) = rtmp1
+       ! angle(:) = 1.75_real12 * pi / 3._real12
+    case(7) !!! Hexagonal
+       angle(1) = pi / 2._real12
+       angle(2) = pi / 2._real12
+       angle(3) = 2._real12 * pi / 3._real12
+       call random_number(rtmp1) 
+       lattice(1,1) = 0.75_real12 + rtmp1 * 2.25_real12
+       lattice(2,2) = lattice(1,1) 
+       volume = rtmp1 ** 2._real12
+       call random_number(rtmp1) 
+       lattice(3,3) = 0.75_real12 + rtmp1 * 2.25_real12
+       volume = volume * rtmp1 * 1000._real12
+    case default
+       write(*,'("Bravais type ",I0," not recognised")') bravais_type
+       stop 1
+    end select
+
+  end function get_random_unit_cell
+!!!#############################################################################
+
 end module geom

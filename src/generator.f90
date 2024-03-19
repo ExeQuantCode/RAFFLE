@@ -7,7 +7,8 @@ module gen
   use vasp_file_handler, only: &
        touchposdir, &
        poswrite, incarwrite, jobwrite, generate_potcar, &
-       addposcar
+       addposcar, &
+       get_num_atoms_from_poscar
   use geom, only: get_volume, get_sphere_overlap, get_random_unit_cell
   use inputs, only: &
        vdW, volvar, minbond, maxbond,&
@@ -98,7 +99,7 @@ contains
     end do
     select case(option_)
     case(2)
-       call initialisehost(num_atoms, filename_host)
+       num_atoms = get_num_atoms_from_poscar(filename_host)
        allocate(atomlist(num_structures,num_atoms))
        allocate(alistrep(num_structures,num_atoms*27))
        open(newunit = unit, file = trim(adjustl(filename_host)))
@@ -163,7 +164,7 @@ contains
           deallocate(alistrep)
           deallocate(atomlist)
           write(*,*) "Deallocation completed"
-          call initialisehost(num_atoms, filename_host)
+          num_atoms = get_num_atoms_from_poscar(filename_host)
           allocate(atomlist(num_structures,num_atoms))
           allocate(alistrep(num_structures,num_atoms*27)) 
 

@@ -1,6 +1,6 @@
 module vasp_file_handler
   use constants, only: real12
-  use misc, only: touch
+  use misc, only: touch, icount
   use atomtype
   implicit none
 
@@ -12,6 +12,7 @@ module vasp_file_handler
   public :: Incarwrite, Jobwrite, generate_potcar, poswrite, poscar_read
   public :: touchposdir
   public :: addposcar
+  public :: get_num_atoms_from_poscar
 
 
 
@@ -663,4 +664,30 @@ contains
   end function structurecounter
 !!!#############################################################################
    
+
+!!!#############################################################################
+!!! get number of atoms from POSCAR file
+!!!#############################################################################
+  function get_num_atoms_from_poscar(filename_host) result(num_atoms)
+    implicit none
+    character(1024), intent(in) :: filename_host
+    integer :: num_atoms
+
+    integer :: unit, i
+    character(1024) :: buffer
+    integer, dimension(:), allocatable :: num_species_list
+
+
+    open(newunit=unit, file=trim(adjustl(filename_host)))
+    do i = 1, 6
+       read(unit, * )
+    end do
+    read(unit,'(A)') buffer
+    close(unit)
+    allocate(num_species_list(icount(buffer)))
+    read(buffer,*) num_species_list
+    num_atoms = sum(num_species_list)
+  end function get_num_atoms_from_poscar
+!!!#############################################################################
+
 end module vasp_file_handler

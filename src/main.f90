@@ -73,30 +73,14 @@ program raffle
   case(3)
      write(*,*) "Testing"
      write(*,*) "DEPRECATED"
-     bond_test = 1.428_real12
-     write(*,*) bond_test
-     call evaluate_contribution ("C  ","C  ",bond_test,returned_val)
-     write(*,*) "Returned value: ",returned_val
      stop 0
   case(4)
      write(*,*) "Sphere Overlap Test"
      write(*,*) "DEPRECATED"
-     element_list = ["C  ", "Mg ", "O  "]
-     write(*,*) element_list
-     radius_arr = get_element_radius(element_list)
-     write(*,*) get_sphere_overlap(2*radius_arr(1,1,1),radius_arr(1,1,1),radius_arr(1,1,1))
-     write(*,*) (4.0/3.0)*pi*radius_arr(1,1,1)**3
      stop 0
   case(5)
      write(*,*) "Bondangle test"
      write(*,*) "DEPRECATED"
-     x1 = 0._real12
-     x1(1) = 1._real12
-     x2 = 0._real12
-     x2(2) = 0._real12
-     x3 = 0._real12
-     x3(3) = 1._real12
-     write(*,*) get_bondangle(x1,x2,x3)
      stop 0
   case(6)
       call bond_evolution(1)
@@ -122,7 +106,7 @@ program raffle
 !!!Set the number of atoms and generate the unit cell!!!
 !!!--------------------------------------------------!!!
 
-  call generation(alistrep, structno, options, element_list, stoichiometry_list, c_cut, c_min)
+  call generation(alistrep, structno, options, element_list, stoichiometry_list)
   write(*,*) "The structures requested have been successfully generated and saved"
 
 end program raffle

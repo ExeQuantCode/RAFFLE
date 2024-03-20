@@ -9,6 +9,9 @@
 !!! min_dist         (min distance between a point in a cell and nearest atom)
 !!! get_atom_height  (get the value of the atom along that axis)
 !!! get_min_bulk_bond
+!!! get_min_dist     (min distance between a point in a cell and nearest atom)
+!!! get_min_dist_between_two_atoms
+!!! get_min_dist_between_point_and_atom
 !!! shifter          (shifts the basis along the cell by an amount)
 !!! shift_region     (shifts the basis within a region along the cell by amount)
 !!! vacuumer         (adds a vacuum gap to the location specified)
@@ -58,8 +61,22 @@ module edit_geom
      procedure get_closest_atom_1D,get_closest_atom_3D
   end interface get_closest_atom
 
+  private
 
-!!!updated 2022/04/04
+  public :: MATNORM
+  public :: min_dist, get_atom_height, get_min_bulk_bond, get_min_bond
+  public :: get_min_dist, get_shortest_bond
+  public :: get_min_dist_between_point_and_atom, get_min_dist_between_two_atoms
+  public :: shifter, shift_region, vacuumer, set_vacuum, ortho_axis
+  public :: transformer, change_basis, region_rot, normalise_basis
+  public :: centre_of_geom, centre_of_mass, primitive_lat, reducer
+  public :: mkNiggli_lat, reduced_check, planecutter, bas_merge
+  public :: bas_lat_merge, split_bas, get_bulk, get_centre_atom
+  public :: get_wyckoff
+  public :: get_closest_atom
+  public :: wyck_atom_type, wyck_spec_type, bond_type
+
+!!!updated 2024/03/20
 
 
 contains
@@ -360,6 +377,50 @@ contains
 
 
   end function get_min_dist
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! get the shortest distance between two atoms in a periodic cell
+!!!#############################################################################
+  function get_min_dist_between_two_atoms(lat,bas,atom_1,atom_2) result(dist)
+    implicit none
+    type(bas_type), intent(in) :: bas
+    integer, dimension(2), intent(in) :: atom_1,atom_2
+    real(real12), dimension(3,3), intent(in) :: lat
+    real(real12) :: dist
+ 
+    real(real12), dimension(3) :: vec
+ 
+    vec = bas%spec(atom_2(1))%atom(atom_2(2),:3) - &
+          bas%spec(atom_1(1))%atom(atom_1(2),:3)
+    vec = vec - ceiling(vec - 0.5_real12)
+    vec = matmul(vec,lat)
+    dist = modu(vec)
+ 
+  end function get_min_dist_between_two_atoms
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! get the shortest distance between a point and an atom in a periodic cell
+!!!#############################################################################
+  function get_min_dist_between_point_and_atom(lat,bas,loc,atom) result(dist)
+    implicit none
+    type(bas_type), intent(in) :: bas
+    integer, dimension(2), intent(in) :: atom
+    real(real12), dimension(3), intent(in) :: loc
+    real(real12), dimension(3,3), intent(in) :: lat
+    real(real12) :: dist
+
+    real(real12), dimension(3) :: vec
+
+    vec = loc - bas%spec(atom(1))%atom(atom(2),:3)
+    vec = vec - ceiling(vec - 0.5_real12)
+    vec = matmul(vec,lat)
+    dist = modu(vec)
+
+  end function get_min_dist_between_point_and_atom
 !!!#############################################################################
 
 

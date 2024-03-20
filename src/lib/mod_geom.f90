@@ -114,13 +114,13 @@ contains
 !!!#############################################################################
 !!! return the projection of the atoms in the unit cell
 !!!#############################################################################
-  pure subroutine atomprojector(position,array,unit,atomnumber,structures)
+  pure subroutine atomprojector(position,array,lattice,atomnumber,structures)
     use atomtype
     implicit none
     type (atom), dimension(:,:), intent(out) :: array
     real(real12), dimension(3), intent(in) :: position
     integer, intent(in) :: atomnumber, structures
-    type(unitcell), dimension(:), intent(in) :: unit
+    real(real12), dimension(3,3), intent(in) :: lattice
     integer :: j,length,x,y,z,m
     
     m=0
@@ -131,9 +131,9 @@ contains
              m = m + 1
              do j=1, 3
                    array(1,m)%position(j)=position(j)+&
-                     &(x*unit(structures)%cell(j,1))+&
-                     &(y*unit(structures)%cell(j,2))+&
-                     &(z*unit(structures)%cell(j,3))
+                     &(x*lattice(j,1))+&
+                     &(y*lattice(j,2))+&
+                     &(z*lattice(j,3))
              end do
           end do
        end do

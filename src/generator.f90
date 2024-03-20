@@ -30,13 +30,12 @@ contains
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  subroutine generation(alistrep, num_structures, &
-       option, element_list, stoichiometry_list, c_cut, c_min)
+  subroutine generation(alistrep, num_structures, option, &
+       element_list, stoichiometry_list)
     implicit none
     integer, intent(inout) :: num_structures !! SHOULD NOT EVEN BE AN ARGUEMNT
     !! MAKE AN INPUT ARGUMENT THAT IS MAX_NUM_STRUCTURES
     integer, intent(in) :: option
-    integer, intent(in) :: c_cut, c_min
     !! element_list is a 1D array containing the symbol for each of the atoms (length=num_species).
     integer, dimension(:), allocatable, intent(inout) :: stoichiometry_list
     character(3), dimension(:), allocatable, intent(inout) :: element_list
@@ -83,7 +82,6 @@ contains
     character(3), dimension(:), allocatable :: element_list_copy
     integer, dimension(:), allocatable :: stoichiometry_list_copy
     logical :: placed
-    real(real12), dimension(:,:,:,:,:), allocatable :: results_matrix
 
 
     !! The info file doesn't contain much of use yet. Could build in if relevant 
@@ -184,8 +182,6 @@ contains
                &element_list,num_host_species,name,num_structures)
        end if
 
-
-       call execute_command_line("rm buildmap_testfile.txt") 
        call touchposdir(structures,prevpos)
 
 
@@ -353,7 +349,6 @@ contains
 
        ! First pass is bin size, which should be tied to gaussian size of evolved functions
 
-       !call execute_command_line("rm buildmap_testfile.txt") 
        num_VOID=1
        aloop: do while (i.lt.num_atoms)
           bondmin=10.0
@@ -365,7 +360,6 @@ contains
           end do
           y=0
           j=0
-          allocate(results_matrix(bins(1)+1,bins(2)+1,bins(3)+1,4,num_species))
 
           !if(i.ne.1) then 
           call random_number(rtmp1)
@@ -387,23 +381,25 @@ contains
              write(*,*) "ADD ATOM VOID"
 
              !!! PROVIDE SOMETHING THAT TELLS IT WHAT ATOMS TO IGNORE IN THE CHECK
-             call add_atom_void(bins,formula(structures)%cell, basis_list(structures), placement_list_shuffled(i:,:), c_cut)
+             call add_atom_void(bins, &
+                  formula(structures)%cell, basis_list(structures), &
+                  placement_list_shuffled(i:,:))
              num_VOID=num_VOID+1
           else if(rtmp1.le.prob_pseudo) then 
              write(*,*) num_VOID, "Add Atom Pseudo"
-             call add_atom_pseudo (bins, formula, atomlist, alistrep, i, structures, radius_arr,&
-                  &num_atoms,results_matrix,num_species,element_list,placed,num_VOID)
+             call add_atom_pseudo (bins, &
+                  formula(structures)%cell, basis_list(structures), &
+                  placement_list_shuffled(i:,:), radius_arr, placed)
              num_VOID=1
           else if(rtmp1.le.prob_scan) then 
              write(*,*) num_VOID, "Add Atom Scan"
-             call add_atom_scan_2 (bins, formula, atomlist, alistrep, i, structures, radius_arr,&
-                  &num_atoms,results_matrix,num_species,element_list,placed,num_VOID,c_cut,c_min)
+             call add_atom_pseudo (bins, &
+                  formula(structures)%cell, basis_list(structures), &
+                  placement_list_shuffled(i:,:), radius_arr, placed)
              num_VOID=1
           end if
 
 
-
-          deallocate(results_matrix)
           distribution=1
           !!Ditch next line for scan
           tmpvector=matmul(formula(structures)%cell,tmpvector)

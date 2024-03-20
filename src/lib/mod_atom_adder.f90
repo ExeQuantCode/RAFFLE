@@ -16,208 +16,59 @@ contains
 !!!#############################################################################
 !!! add atom to unit cell using the scan method (v2????)
 !!!#############################################################################
-  subroutine add_atom_scan_2 (bin_size,formula,atomlist,alistrep,atom_number_previous,structures,elrad,&
-    &leng, results_matrix,eltot,elnames,placed,num_VOID, c_cut, c_min)
-    integer, intent(in) :: c_cut, c_min
-   character(1024) :: name
-   character(3), dimension(:), allocatable :: elnames
-   type(unitcell), dimension(:), allocatable :: formula
-   integer :: el_correct_read,i, j, k,n,l, num_VOID,atom_number_previous, new_atom_number, structures, leng,eltot
-   integer, dimension(3) :: bin_size
-   real(real12), dimension(3) :: best_location
-   real(real12) :: best_location_value, distribution, sigma1, sigma2, bondcutoff&
-      &,agausssamp
-   real(real12), dimension(3) :: tmpvector
-   type (atom), dimension(:,:), allocatable :: atomlist, alistrep, predicted_positions
-   real(real12), dimension(:,:,:), allocatable :: elrad, product_matrix
-   logical :: new_position_needed, placed
-   real(real12), dimension(:,:,:,:,:), allocatable :: results_matrix, append_matrix
-   real(real12), dimension(:,:), allocatable :: sorting_matrix
-   
-   open(55,file="scan_history",Access='append')
-   
-   allocate(sorting_matrix((bin_size(1)+1)*(bin_size(2)+1)*(bin_size(3)+1),4))
-   results_matrix=0
-   call buildmap_WIP (bin_size, formula, atomlist, alistrep, atom_number_previous, structures, &
-      &elrad, leng, results_matrix,elnames,placed,num_VOID,append_matrix,c_cut,c_min)
-   if(placed.eqv..FALSE.) return
-   n=0
-   l=0
-   
-   
-   
-   do el_correct_read=1, eltot
-    do i=0, bin_size(1)
-       do j=0, bin_size(2)
-          do k=0, bin_size(3)
-             if(el_correct_read.ne.atomlist(structures,atom_number_previous+1)%element_index) then 
-                cycle
-             else
-                n=n+1
-             end if
-             sorting_matrix(n,:)=results_matrix(i+1,j+1,k+1,:,el_correct_read)
-             !write(*,*) results_matrix(i+1,j+1,k+1,:,el_correct_read)
-             shuttle:do L=0,n
-                if(n-L.gt.1) then 
-                   if(sorting_matrix(n-L,4).gt.sorting_matrix(n-L-1,4)) then
-                      sorting_matrix(n-L,:)=sorting_matrix(n-1-L,:)
-                      sorting_matrix(n-1-L,:)=results_matrix(i+1,j+1,k+1,:,el_correct_read)
-                   else
-                      sorting_matrix(n-L,:)=results_matrix(i+1,j+1,k+1,:,el_correct_read)
-                      exit shuttle
-                   end if
-                end if
-             end do shuttle
+  subroutine add_atom_scan (bin_size, lattice, basis, atom_ignore_list, &
+       radius_arr, placed)
+    implicit none
+    type(bas_type), intent(inout) :: basis
+    logical, intent(out) :: placed
+    integer, dimension(3), intent(in) :: bin_size
+    integer, dimension(:,:), intent(in) :: atom_ignore_list
+    real(real12), dimension(3,3) :: lattice
+    real(real12), dimension(:,:,:) :: radius_arr
+
+    integer :: el_correct_read,i, j, k,n,l
+    integer, dimension(3) :: best_gridpoint
+    real(real12), dimension(3) :: tmpvector
+    real(real12), dimension(:,:,:), allocatable :: suitability_grid
+
+
+    placed = .false. 
+    allocate(suitability_grid(0:bin_size(1)-1,0:bin_size(2)-1,0:bin_size(3)-1))
+    ! run buildmap_point for a set of points in the unit cell
+    ! set up a grid and run with it
+    ! easiest way to do that would be to find all atoms, find their radii of ...
+    ! ... influence, and make a set of points for all that lie outside of them
+    ! have it species-dependent   
+    do i=0, bin_size(1)-1
+       do j=0, bin_size(2)-1
+          do k=0, bin_size(3)-1
+             tmpvector = [( sum( [i,j,k] * &
+                  lattice(:,l)/real(bin_size(l),real12) ), l = 1, 3 )]
+             suitability_grid(i,j,k) = &
+                  buildmap_POINT( &
+                  tmpvector, lattice, basis, atom_ignore_list, radius_arr, &
+                  1.1_real12, 0.95_real12)
           end do
        end do
     end do
-   end do
+    if(abs(maxval(suitability_grid)).lt.1.E-6) return
+
+    placed = .true.
+    !!! HAVE I GOT THIS RIGHT? WILL MAXLOC PROVIDE THE INDEX, OR THE INDEX FROM MININDEX?
+    best_gridpoint = maxloc(suitability_grid)
+    basis%spec(atom_ignore_list(1,1))%atom(atom_ignore_list(1,2),:) = &
+         [( sum( best_gridpoint * &
+         lattice(:,l)/real(bin_size(l),real12) ), l = 1, 3 )]
    
-   
-   
-   
-   !write(*,*) "-------------------------------------------------------------"
-   do i=1, (bin_size(1)+1)*(bin_size(2)+1)*(bin_size(3)+1)
-    write(55,*) structures, atom_number_previous+1, sorting_matrix(i,:)
-   end do
-   !write(*,*) "-------------------------------------------------------------"
-   
-   do i=1, 11
-    do j=1, 11
-       do k=1, 11
-          if((append_matrix&
-               &(i,j,k,4,atomlist(structures,atom_number_previous+1)%element_index)).eq.&
-               &maxval(append_matrix&
-               &(:,:,:,4,atomlist(structures,atom_number_previous+1)%element_index))) then 
-   
-   
-             do L=1, 3
-                atomlist(structures,atom_number_previous+1)%position(L)=&
-                     &append_matrix&
-                     &(i,j,k,L,atomlist(structures,atom_number_previous+1)%element_index)
-             end do
-   
-          end if
-       end do
-    end do
-   end do
-   write(name,'(A,I0)') "atoms",atom_number_previous+1
-   open(1062,file=trim(adjustl(name)))
-   write(1062,*) "x,y,z,data,label,color"
-   
-   do i=1, atom_number_previous+1
-    if(trim(adjustl(atomlist(structures,i)%name)).eq."Si") then
-       write(1062,*) atomlist(structures,i)%position(1), ",",&
-            &atomlist(structures,i)%position(2), ",",&
-            &atomlist(structures,i)%position(3), ",",&
-            &"1,",&
-            &trim(adjustl(atomlist(structures,i)%name)), ",",&
-            &"blue"
-    else 
-       write(1062,*) atomlist(structures,i)%position(1), ",",&
-            &atomlist(structures,i)%position(2), ",",&
-            &atomlist(structures,i)%position(3), ",",&
-            &"1,",&
-            &trim(adjustl(atomlist(structures,i)%name)), ",",&
-            &"green"
-    end if
-   end do
-   close(1062)
-   do i=1, (bin_size(1)+1)*(bin_size(2)+1)*(bin_size(3)+1)
-      !write(*,*) sorting_matrix(i,:), "MAT"
-   end do
-   call atomrepeater(structures,atomlist(structures,atom_number_previous+1)%position,&
-      &atomlist(structures,atom_number_previous+1)%name,alistrep,&
-      &formula,atom_number_previous+1,leng)
-   
-   close(55)
-   
-   
-   end subroutine add_atom_scan_2
-!!!#############################################################################
-   
-   
-!!!#############################################################################
-!!! add atom to unit cell using the scan method
-!!!#############################################################################
-   !This routine needs to consider the effects of PLACING the atom that it might interact with itself. Hard to do
-   subroutine add_atom_scan (bin_size,formula,atom_number_previous, sigma1,&
-    &structures,sigma2,elnames,eltot,bondcutoff,atomlist,alistrep,tmpvector,elrad,best_location)
-   character(3), dimension(:), allocatable :: elnames
-   type(unitcell), dimension(:), allocatable :: formula
-   integer :: scan_counter, bin_size,p,q, i, j, k, best_location_index, eltot, atom_number_previous, new_atom_number, structures
-   real(real12), dimension(3) :: best_location
-   real(real12) :: best_location_value, distribution, sigma1, sigma2, bond_distribution, angle_distribution, bondcutoff&
-      &,agausssamp
-   real(real12), dimension(3) :: tmpvector
-   type (atom), dimension(:,:), allocatable :: atomlist, alistrep, predicted_positions
-   real(real12), dimension(:,:,:), allocatable :: elrad
-   logical :: new_position_needed
-   allocate(predicted_positions(1,26))
-   new_atom_number=atom_number_previous+1
-   call atomprojector(tmpvector,predicted_positions,formula,new_atom_number,structures)
-   write(*,*) "Scanning unit cell for a good location"
-   best_location_value=0
-   best_location_index=0
-   p=0
-   do i=0, bin_size-1
-    do j=0, bin_size-1
-       firstloop :do k=0, bin_size-1 
-          tmpvector(1)=i*abs(formula(structures)%cell(1,1)/bin_size)
-          tmpvector(2)=i*abs(formula(structures)%cell(2,1)/bin_size)
-          tmpvector(3)=i*abs(formula(structures)%cell(3,1)/bin_size)
-          tmpvector(1)=tmpvector(1)+j*abs(formula(structures)%cell(1,2)/bin_size)
-          tmpvector(2)=tmpvector(2)+j*abs(formula(structures)%cell(2,2)/bin_size)
-          tmpvector(3)=tmpvector(3)+j*abs(formula(structures)%cell(3,2)/bin_size)
-          tmpvector(1)=tmpvector(1)+k*abs(formula(structures)%cell(1,3)/bin_size)
-          tmpvector(2)=tmpvector(2)+k*abs(formula(structures)%cell(2,3)/bin_size)
-          tmpvector(3)=tmpvector(3)+k*abs(formula(structures)%cell(3,3)/bin_size)
-   
-          do q=1, atom_number_previous !!!This should really be a *27, although is probably redundant
-             if (get_bondlength(tmpvector,alistrep(structures,q)%position).lt.1.0) cycle firstloop
-   !!! Experimental section for ruling out areas of unit cell 
-             !if(tmpvector(3).lt.0.375*formula(structures)%cell(3,3)) cycle firstloop
-             !if(tmpvector(3).gt.0.625*formula(structures)%cell(3,3)) cycle firstloop
-          end do
-          call atomprojector(tmpvector,predicted_positions,formula,new_atom_number,structures)
-   
-          !First, we consider the bondlength match to the existing framework. 
-          distribution=0
-          call generate_bondlength_distribution(sigma1,sigma2,new_atom_number,distribution,&
-               &atomlist,alistrep,tmpvector,elrad,eltot,structures,elnames,new_position_needed,&
-               &predicted_positions)
-          bond_distribution=distribution
-          if(new_position_needed.eqv..TRUE.) cycle
-          ! THIS WILL NOT TRIGGER IN TWO ATOM SYSTEMS; it should do though, as there are repeated atoms"
-   
-          !call generate_bondangle_distribution(tmpvector,atomlist,alistrep,structures,bondcutoff,new_atom_number&
-          !&,new_position_needed,agausssamp,distribution,eltot,sigma1,sigma2,elnames,predicted_positions)
-          !angle_distribution=distribution
-          if(new_position_needed.eqv..TRUE.) cycle
-          p=p+1
-          distribution=bond_distribution!angle_distribution*bond_distribution
-   
-          if (distribution.gt.best_location_value) then 
-             best_location_value=distribution
-             best_location=tmpvector
-          end if
-       end do firstloop
-    end do
-   end do
-   do i=1, (new_atom_number-1)*27
-      !     print*,"!", get_bondlength(best_location,alistrep(structures,i)%position)
-   end do
    end subroutine add_atom_scan
 !!!#############################################################################
-   
+
    
 !!!#############################################################################
 !!! add atom to unit cell considering the void space
 !!!#############################################################################
-  !This routine needs to consider the effects of PLACING the atom that it might interact with itself. Hard to do
-  subroutine add_atom_void (bin_size, lattice, basis, atom_ignore_list, c_cut)
+  subroutine add_atom_void (bin_size, lattice, basis, atom_ignore_list)
     implicit none
-    integer, intent(in) :: c_cut
     type(bas_type), intent(inout) :: basis
     integer, dimension(3), intent(in) :: bin_size
     integer, dimension(:,:), intent(in) :: atom_ignore_list
@@ -227,34 +78,19 @@ contains
     real(real12), dimension(3) :: best_location
     real(real12) :: best_location_bond, smallest_bond, comparison
     real(real12), dimension(3) :: tmpvector
-    type (atom), dimension(:,:), allocatable :: atomlist, alistrep
 
-    integer :: void_unit, heatmap_unit
-   
 
     best_location_bond = 0._real12
-    open(newunit=heatmap_unit,file="void_heatmap.txt")
    
     do i = 0, bin_size(1) - 1, 1
        do j = 0, bin_size(2) - 1, 1
           do k = 0, bin_size(3) - 1, 1
-      
              tmpvector = [( sum( [i,j,k] * &
                   lattice(:,l)/real(bin_size(l),real12) ), l = 1, 3 )]
              smallest_bond = modu(get_min_dist(&
                   lattice, basis, tmpvector, .false., &
                   ignore_list = atom_ignore_list))
 
-             !!! FOR PRINTING, REMOVE !!!
-             comparison = 100._real12 * k / real(bin_size(3),real12)
-             if( comparison .ge. c_cut )then
-                smallest_bond = -1._real12
-                write(heatmap_unit,*) tmpvector(1), tmpvector(2), tmpvector(3), 0._real12
-             else
-                write(heatmap_unit,*) tmpvector(1), tmpvector(2), tmpvector(3), smallest_bond
-             end if
-             !!!
-      
              if( smallest_bond .gt. best_location_bond ) then
                 best_location_bond = smallest_bond
                 best_location = tmpvector
@@ -262,173 +98,136 @@ contains
           end do
        end do
     end do
-    close(heatmap_unit)
 
-    basis%spec(atom_ignore_list(1,1))%atom(atom_ignore_list(1,2),:) = best_location
-   !  open(newunit=void_unit,file="void_history",access='append')
-   !  write(void_unit,*) structures, &
-   !       atom_number_previous+1, basis%spec(species)%atom(atom,:)
-   !  close(void_unit)
+    basis%spec(atom_ignore_list(1,1))%atom(atom_ignore_list(1,2),:) = &
+         best_location
 
   end subroutine add_atom_void
 !!!#############################################################################
 
 
 !!!#############################################################################
-!!! add atom to unit cell using a fully random method
-!!!#############################################################################
-   subroutine add_atom_random (formula,atom_number_previous, sigma1,&
-    &structures,sigma2,elnames,eltot,bondcutoff,atomlist,alistrep,tmpvector,elrad)
-   character(3), dimension(:), allocatable :: elnames
-   type(unitcell), dimension(:), allocatable :: formula
-   integer :: scan_counter, bin_size,p,q, i, j, k, best_location_index, eltot, atom_number_previous, new_atom_number, structures
-   real(real12), dimension(3) :: best_location
-   real(real12) :: best_location_value, distribution, sigma1, sigma2, bond_distribution, angle_distribution, bondcutoff&
-      &,agausssamp,r,search_region
-   real(real12), dimension(3) :: tmpvector
-   type (atom), dimension(:,:), allocatable :: atomlist, alistrep, predicted_positions
-   real(real12), dimension(:,:,:), allocatable :: elrad
-   logical :: new_position_needed
-   allocate(predicted_positions(1,26))
-   new_atom_number=atom_number_previous+1
-   p=0
-   scan_counter=1
-   search_region=0.25
-   
-   write(*,*) "Pseuodorandom placement"
-   firstloop : do while (scan_counter.ne.0)
-    do j=1, 3 
-       call random_number(r)
-       tmpvector(j)=r
-       !        if(j.eq.3) tmpvector(j)=search_region*r
-    end do
-    tmpvector(:)=matmul(formula(structures)%cell,tmpvector(:))
-    !     tmpvector(:)=tmpvector(:)+0.375*formula(structures)%cell(3,:)
-    !     write(*,*) tmpvector
-   
-   
-    do q=1, atom_number_previous
-       if (get_bondlength(tmpvector,alistrep(structures,q)%position).lt.1.0) cycle firstloop
-   !!! Experimental section for ruling out areas of unit cell
-       if(tmpvector(3).lt.0.375*formula(structures)%cell(3,3)) cycle firstloop
-       if(tmpvector(3).gt.0.625*formula(structures)%cell(3,3)) cycle firstloop
-    end do
-    call atomprojector(tmpvector,predicted_positions,formula,new_atom_number,structures)
-   
-    !First, we consider the bondlength match to the existing framework.
-    distribution=0
-    call generate_bondlength_distribution(sigma1,sigma2,new_atom_number,distribution,&
-         &atomlist,alistrep,tmpvector,elrad,eltot,structures,elnames,new_position_needed,&
-         &predicted_positions)
-    bond_distribution=distribution
-    if(new_position_needed.eqv..TRUE.) cycle firstloop
-    ! THIS WILL NOT TRIGGER IN TWO ATOM SYSTEMS; it should do though, as there are repeated atoms"
-   
-    !   call generate_bondangle_distribution(tmpvector,atomlist,alistrep,structures,bondcutoff,new_atom_number&
-    !        &,new_position_needed,agausssamp,distribution,eltot,sigma1,sigma2,elnames,predicted_positions)
-    !   angle_distribution=distribution
-    if(new_position_needed.eqv..TRUE.) cycle firstloop
-    p=p+1
-    if(p.eq.100) then 
-       write(*,*) "100 attemps"
-       p=p-100
-    end if
-    distribution=bond_distribution!angle_distribution*bond_distribution
-    call random_number(r)
-    if (r.gt.distribution) cycle firstloop 
-    scan_counter=0
-   
-   end do firstloop
-   
-   end subroutine add_atom_random
-!!!#############################################################################
-   
-   
-!!!#############################################################################
 !!! add atom to unit cell using a pseudo-random walk method
 !!!#############################################################################
-   subroutine add_atom_pseudo (bin_size,formula,atomlist,alistrep,atom_number_previous,structures,elrad,&
-    &leng, results_matrix,eltot,elnames,placed,num_VOID)
-   character(1024) :: name
-   character(3), dimension(:), allocatable :: elnames
-   type(unitcell), dimension(:), allocatable :: formula
-   integer :: el_correct_read,i, j, k,n,l, num_VOID,atom_number_previous, new_atom_number, structures, leng,eltot
-   integer, dimension(3) :: bin_size
-   real(real12), dimension(3) :: best_location
-   real(real12) :: best_location_value, distribution, sigma1, sigma2, bondcutoff&
-      &,agausssamp, calculated_value, uptol, lowtol, r
-   real(real12), dimension(3) :: tmpvector
-   type (atom), dimension(:,:), allocatable :: atomlist, alistrep, predicted_positions
-   real(real12), dimension(:,:,:), allocatable :: elrad, product_matrix
-   logical :: new_position_needed, placed
-   real(real12), dimension(:,:,:,:,:), allocatable :: results_matrix, append_matrix
-   real(real12), dimension(:,:), allocatable :: sorting_matrix
+  subroutine add_atom_pseudo (bin_size, lattice, basis, atom_ignore_list, &
+       radius_arr, placed)
+    implicit none
+    type(bas_type), intent(inout) :: basis
+    logical, intent(out) :: placed
+    integer, dimension(3), intent(in) :: bin_size
+    integer, dimension(:,:), intent(in) :: atom_ignore_list
+    real(real12), dimension(3,3), intent(in) :: lattice
+    real(real12), dimension(:,:,:), intent(in) :: radius_arr
+
+    integer :: i, j, k, l
+    real(real12) :: rtmp1, rtmp2, crude_norm
+    real(real12) :: calculated_value, calculated_test
+    real(real12) :: lowtol = 0.95_real12
+    real(real12) :: uptol = 1.1_real12
+    real(real12), dimension(3) :: tmpvector, testvector
    
-   uptol=1.1
-   lowtol=0.95
+
+    !! test a random point in the unit cell
+    i = 0
+    placed = .false.
+    crude_norm = 0._real12
+100 random_loop : do 
+       i = i + 1
+       write(6,'(A)',ADVANCE='NO') achar(13)
+       write(6,'(I5.0, A)', ADVANCE='NO') i
+      
+       do j = 1, 3
+          call random_number(rtmp1)
+          tmpvector(j) = rtmp1
+       end do
+       testvector(:) = matmul(lattice,tmpvector(:))
+
+       calculated_value = buildmap_POINT( &
+            testvector, lattice, basis, atom_ignore_list, &
+            radius_arr, uptol, lowtol)
+     
+       l = 0
+       call random_number(rtmp1)
+       if (rtmp1.lt.calculated_value) then
+          placed = .TRUE.
+          tmpvector = testvector
+          exit random_loop
+       end if
+ 
+       !! NOTE: HARDCODED LIMIT ON NUMBER OF TRIES. SET IN INPUT FILE
+       if(i.ge.10000) return
+       if(calculated_value.eq.0) cycle
+    end do random_loop
+
+
+    !! if we have found a point, we can now walk around it
+    walk_loop : do
+       do j=1, 3
+          call random_number(rtmp1)
+          if(rtmp1.le.0.5_real12) then 
+             rtmp1 = -1._real12
+          else
+             rtmp1 = 1._real12
+          end if
+          call random_number(rtmp2)
+          if(k.gt.10) then 
+             testvector(j) = tmpvector(j) + rtmp1 * 0.01 * rtmp2
+          else
+             testvector(j) = tmpvector(j) + rtmp1 * 0.1 * rtmp2
+          end if 
+       end do
+       testvector(:) = matmul(lattice,testvector(:))
+
+       calculated_test = buildmap_POINT( &
+            testvector, lattice, basis, atom_ignore_list, &
+            radius_arr, uptol, lowtol)
+     
+       if(calculated_test.lt.calculated_value) then 
+          l = l + 1
+          if(l.ge.10) then
+             call random_number(rtmp1)
+             if(crude_norm.lt.calculated_value) crude_norm = calculated_value
+
+             if (rtmp1.lt.calculated_value) then
+                placed = .TRUE.
+                tmpvector = matmul(lattice,tmpvector(:))
+                exit walk_loop
+             end if
+             if(k.gt.10) then 
+                calculated_value = calculated_value / crude_norm
+                if (rtmp1.lt.calculated_value) then
+                   placed = .TRUE.
+                   tmpvector = matmul(lattice,tmpvector(:))
+                   exit walk_loop
+                end if
+             end if
    
-   results_matrix=0
-   write(*,*) "here"
-   infloop : do 
-    do j=1, 3
-       call random_number(r)
-       tmpvector(j)=r 
-    end do
-    tmpvector(:)=matmul(formula(structures)%cell,tmpvector(:))
+             !! if we have tried 10 times, and still no luck, then we need to ...
+             !! ... reduce the tolerance
+             k = k + 1
+          end if   
+          cycle walk_loop
+       end if
+
+       l=0
+       tmpvector = testvector
+       calculated_value = calculated_test
+       write(*,*) matmul(lattice,testvector(:)), calculated_test, &
+            crude_norm,calculated_test/crude_norm,k
+       call random_number(rtmp1)
+ 
+       if(k.gt.10) calculated_test = calculated_test / crude_norm
+       if (rtmp1.lt.calculated_test) then 
+          placed=.TRUE.
+          tmpvector = matmul(lattice,testvector(:))
+          exit walk_loop
+       end if
+ 
+    end do walk_loop
+ 
+    basis%spec(atom_ignore_list(1,1))%atom(atom_ignore_list(1,2),:) = tmpvector
    
-    call buildmap_POINT (tmpvector,formula,atomlist,alistrep&
-         &,atom_number_previous,structures,elrad, elnames&
-         &,uptol,lowtol,calculated_value)
-    n=0
-    l=0 
-    call random_number(r)
-   
-    write(*,*) calculated_value, r, tmpvector
-   
-    if (r.lt.calculated_value) exit infloop
-   end do infloop
-   
-   
-   do L=1, 3
-    atomlist(structures,atom_number_previous+1)%position(L)=tmpvector(L)
-   
-   end do
-   
-   write(name,'(A,I0)') "atoms",atom_number_previous+1
-   open(1062,file=trim(adjustl(name)))
-   write(1062,*) "x,y,z,data,label,color"
-   
-   do i=1, atom_number_previous+1
-    if(trim(adjustl(atomlist(structures,i)%name)).eq."Si") then
-       write(1062,*) atomlist(structures,i)%position(1), ",",&
-            &atomlist(structures,i)%position(2), ",",&
-            &atomlist(structures,i)%position(3), ",",&
-            &"1,",&
-            &trim(adjustl(atomlist(structures,i)%name)), ",",&
-            &"blue"
-    else 
-       write(1062,*) atomlist(structures,i)%position(1), ",",&
-            &atomlist(structures,i)%position(2), ",",&
-            &atomlist(structures,i)%position(3), ",",&
-            &"1,",&
-            &trim(adjustl(atomlist(structures,i)%name)), ",",&
-            &"green"
-    end if
-   end do
-   close(1062)
-   do i=1, (bin_size(1)+1)*(bin_size(2)+1)*(bin_size(3)+1)
-      !write(*,*) sorting_matrix(i,:), "MAT"
-   end do
-   call atomrepeater(structures,atomlist(structures,atom_number_previous+1)%position,&
-      &atomlist(structures,atom_number_previous+1)%name,alistrep,&
-      &formula,atom_number_previous+1,leng)
-   
-   close(55)
-   
-   
-   end subroutine add_atom_pseudo
+  end subroutine add_atom_pseudo
 !!!#############################################################################
-   
-   
 
 end module add_atom

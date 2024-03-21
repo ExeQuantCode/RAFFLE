@@ -1,7 +1,7 @@
 module isolated
   use constants, only: real12
   use rw_geom, only: bas_type, geom_write
-  use vasp_file_handler, only: generate_potcar, Jobwrite, Incarwrite
+  use vasp_file_handler, only: generate_potcar, kpoints_write, Incarwrite
   implicit none
 
   private
@@ -70,7 +70,7 @@ contains
           close(unit)
     
           call generate_potcar(tmp,[element_list(i)]) 
-          call Jobwrite(tmp,1,1,1)
+          call kpoints_write(tmp,1,1,1)
           call Incarwrite(tmp,500, 20) !!The 500 here is nstep electronic
        end if
     end do

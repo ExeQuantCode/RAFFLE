@@ -8,7 +8,6 @@ program raffle
   use rw_geom, only: bas_type
 
   use read_chem, only: get_element_radius
-  use vasp_file_handler, only: addposcar
   implicit none
 
 
@@ -86,9 +85,8 @@ program raffle
       call bond_evolution(1)
       stop 0
   case(7)
-     !! FIX HERE
-     call addposcar(0,dummy,1,0)
-     !call addxyzfile()
+     write(*,*) "Add individual POSCAR to the database to be run and learned from"
+     write(*,*) "DEPRECATED"
      stop 0
   case(8)
       call bond_evolution(0)

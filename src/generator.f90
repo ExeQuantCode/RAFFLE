@@ -6,8 +6,7 @@ module gen
   use isolated, only: generate_isolated_calculations
   use vasp_file_handler, only: &
        touchposdir, &
-       poswrite, incarwrite, jobwrite, generate_potcar, &
-       addposcar, &
+       incarwrite, kpoints_write, generate_potcar, &
        get_num_atoms_from_poscar
   use geom, only: get_volume, get_sphere_overlap, get_random_unit_cell
   use inputs, only: &
@@ -487,7 +486,7 @@ contains
        !!-----------------------------------------------------------------------
        write(tmp,'(A11,I0.3)')"pos/POSCAR_",prevpos+structures
        call Incarwrite(adjustl(tmp),500, 20*num_atoms)
-       call Jobwrite(tmp,3,3,3)
+       call kpoints_write(tmp,3,3,3)
        call generate_potcar(tmp, element_list)
 
        structures = structures + 1
@@ -654,133 +653,6 @@ contains
     close(61)
 
   end subroutine addhost
-
-
-  subroutine addxyzfile()
-    type(unitcell), dimension(:), allocatable :: formula
-    character(1024) :: name, buffer
-    character(1024), dimension(:), allocatable :: elnames,elnames_tmp, elnames_list
-    real(real12) :: cellmultiplier
-    real(real12), dimension(:), allocatable :: bondcutoff
-    integer :: tmp,q,l,k,j,i,num_structures, ecount, num_species, num_atoms,structures, prev_structures
-    type (atom), dimension(:,:), allocatable :: tmplist,atomlist, alistrep
-    integer, dimension(:), allocatable :: stochio
-
-    integer :: unit
-    !! Wipes the randomly generated formula
-    structures=1
-    num_structures=1
-    prev_structures=structurecounter("pos")
-    call touch("pos")
-    call touchposdir(structures,prev_structures)
-    allocate(formula(num_structures))
-
-    write(6,*) "Please enter the filename you wish to add to the database"
-    read(*, *) name
-    !name="asio2_06.xyz"
-    open(50, file=name)
-    read(50, *) buffer
-    read(50, *) cellmultiplier
-    formula(1)%cell=0
-    read(50, *) formula(1)%cell(1,1),formula(1)%cell(2,2),formula(1)%cell(3,3)
-    write(name,'(A11,I0.3,A7)')"pos/POSCAR_",structures+prev_structures,"/POSCAR"
-    
-    open(newunit = unit, file=name,status="new")
-    write(unit,*) "Test"
-    write(unit,*) 1.0
-    do i=1, 3
-       write(unit,*)  formula(1)%cell(:,i)
-    end do
-
-
-!!!!WARNING ONLY FOR ONE SYSTEM USE WITH CAUTION
-
-    tmp=3
-
-
-    allocate(elnames_list(tmp))
-    do i=1, tmp 
-       read(50,*) elnames_list(i) 
-    end do
-    do i=1, tmp
-       if(i.eq.1) then 
-          num_species=1
-          allocate(elnames(1))
-          elnames(1)=elnames_list(1)
-       else 
-          loop2 :do j=1, num_species
-             if(elnames_list(i).eq.elnames(j)) exit loop2 
-             if(j.eq.num_species) then 
-                allocate(elnames_tmp(num_species))
-                elnames_tmp=elnames
-                deallocate(elnames)
-                num_species=num_species+1
-                allocate(elnames(num_species))
-                do k=1, num_species-1
-                   elnames(k)=elnames_tmp(k)
-                end do
-                elnames(num_species)=elnames_list(i)
-             end if
-          end do loop2
-       end if
-    end do
-    allocate(stochio(num_species))
-    stochio=0
-    do i=1, num_species 
-       do j=1, tmp 
-          if(elnames(i).eq.elnames_list(j)) stochio(i)=stochio(i)+1
-       end do
-    end do
-    num_atoms=0
-    do i=1, num_species 
-       num_atoms=num_atoms+stochio(i) 
-    end do
-
-    allocate(atomlist(1,num_atoms))
-    allocate(bondcutoff(num_species))
-    write(*,*) "MANUALLY CHANGE"
-    stop
-    k=0
-    do i=1, num_species
-       rewind(50)
-       read(50,*) 
-       read(50,*) tmp
-       read(50,*)
-       do j=1, tmp
-          if(elnames(i).eq.elnames_list(j)) then
-             k=k+1
-             read(50,*) buffer, atomlist(1,k)%position
-             atomlist(1,k)%name=elnames(i)
-          else 
-             read(50,*)
-          end if
-       end do
-    end do
-    close(50)
-
-
-    call poswrite(unit, formula(1)%cell,atomlist,k,1,1,prev_structures)
-    allocate(alistrep(1,k*27))
-    do i=1, k 
-       call atomrepeater(1,atomlist(1,i)%position,atomlist(1,i)%name,alistrep,formula,i,k)
-    end do
-
-    prev_structures=structurecounter("bon")
-
-
-    !do i=1, k
-    !   call generatebondfiles(1,1,prev_structures,atomlist,alistrep,num_species,stochio,i,elnames)
-    !end do
-    prev_structures=structurecounter("bad")
-    bondcutoff=2.0
-    !do i=1, k
-    !   call generateanglefiles(1,1,prev_structures,atomlist,alistrep,num_species,stochio,i,bondcutoff)
-    !end do
-
-    close(unit)
-
-  end subroutine addxyzfile
-
 
 
 end module gen

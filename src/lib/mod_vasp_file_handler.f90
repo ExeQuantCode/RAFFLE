@@ -9,9 +9,8 @@ module vasp_file_handler
   public :: unitcell
   public :: structurecounter
   public :: atomrepeater
-  public :: Incarwrite, Jobwrite, generate_potcar, poswrite, poscar_read
+  public :: Incarwrite, kpoints_write, generate_potcar, poscar_read
   public :: touchposdir
-  public :: addposcar
   public :: get_num_atoms_from_poscar
 
 
@@ -188,7 +187,7 @@ contains
 !!!#############################################################################
 !!! write job and KPOINTS files
 !!!#############################################################################
-  subroutine Jobwrite(filepath, a,b,c)
+  subroutine kpoints_write(filepath, a,b,c)
     implicit none
     integer :: a,b,c
     character(1024) ::  name
@@ -197,68 +196,15 @@ contains
 
     name=" "
     !write(*,*) filepath
-    write(name,*) "cp job_vasp_isca.in ", trim(filepath)
-    call execute_command_line(name)
     write(name,'(A,A8)') trim(filepath), "/KPOINTS"
     open(newunit=unit,file=trim(adjustl(name)), status='new')!"pos/POSCAR_001")!trim(name))
     write(unit, '(A7)') "KPOINTS"
     write(unit, '(A1)') "0" 
     write(unit, '(A1)') "G" 
     write(unit, '(I0,X,I0,X,I0)') a, b, c
-    write(unit, '(I0,X,I0,X,I0)') 0,0,0
+    write(unit, '(I0,X,I0,X,I0)') 0, 0, 0
     close(unit) 
-  end subroutine Jobwrite
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! write POSCAR file
-!!!#############################################################################
-  subroutine  poswrite(unit,box,atomlist,len, structures, structno, prev_structures)
-    implicit none
-    integer, intent(in) :: unit
-
-    integer :: i,j, len, reason, structures, structno, prev_structures
-    type(atom), dimension(:,:) :: atomlist
-    real(real12), dimension(3,3) :: box
-    do i=1, len 
-     if(i.eq.len) then 
-        write(unit,'(5X,A2)', IOStat=reason, advance="no")&
-             &atomlist(structures,i)%name
-     else 
-        !if(i.eq.(len-1)) cycle
-        if (atomlist(structures,i)%name.eq.atomlist(structures,i+1)%name) cycle
-        write(unit,'(5X,A2)', IOStat=reason, advance="no") &
-             &atomlist(structures,i)%name      
-     end if
-    end do
-    
-    write(unit, '(2X)')
-    !write(unit,*) "HERE"
-    j=1
-    do i=1, len 
-     if(i.eq.len) then 
-        write(unit,'(1X,I3)', IOStat=reason, advance="no") j
-     else
-        if (atomlist(structures,i)%name.eq.atomlist(structures,i+1)%name) then 
-           j=j+1
-           cycle
-        else 
-           write(unit,'(1X,I3)', IOStat=reason, advance="no") j
-           j=1
-    
-        end if
-     end if
-    end do
-    
-    
-    write(unit,'(/,A)') "Cartesian"
-    
-    do i=1, len 
-     write(unit,'(1X,F0.16,1X,F0.16,1X,F0.16)') atomlist(structures,i)%position(:)
-    end do
-    
-  end subroutine poswrite
+  end subroutine kpoints_write
 !!!#############################################################################
 
 
@@ -273,210 +219,6 @@ contains
     write(tmp,'("pos/POSCAR_",I0.3)') structures + prev_structures
     call touch(trim(adjustl(tmp)))
   end subroutine touchposdir
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! Add POSCAR (directory or file????)
-!!!#############################################################################
-  subroutine addposcar(option_generate_files_only,option_filepath,stage, prev_structures_overwrite)
-    implicit none
-    type(unitcell), dimension(:), allocatable :: formula
-    character(1024) :: tmp, name,option_filepath
-    character(3), dimension(:), allocatable :: elnames
-    real(real12) :: cellmultiplier
-    real(real12), dimension(:), allocatable :: bondcutoff
-    integer :: q,l,k,j,i,structno, ecount, eltot, leng,structures, stage
-    integer :: prev_structures, option_generate_files_only, prev_structures_overwrite
-    type (atom), dimension(:,:), allocatable :: tmplist,atomlist, alistrep
-    integer, dimension(:), allocatable :: elno
-
-    integer :: unit
-
-    !! Wipes the randomly generated formula
-    structures=1
-    structno=1
-    
-    if (option_generate_files_only.eq.0) then
-     prev_structures=structurecounter("pos")
-     call touch("pos")
-     call touchposdir(structures,prev_structures)
-    end if
-    
-    write(*,*) structures, prev_structures, "!!"
-    allocate(formula(structno))
-    
-    write(6,*) "Please enter the filename you wish to add to the database"
-    !read(*, *) name
-    if (option_generate_files_only.eq.0) then
-     write(name,'(A)') "POSCAR"
-    else 
-     write(*,*) "here"
-     write(name,'(A,A)') trim(adjustl(option_filepath)),"/POSCAR"
-    end if
-    write(*,*) name
-    open(50, file=name)
-    write(*,*) "step 1"
-    read(50, '(A)') tmp
-    read(50, '(F16.0)') cellmultiplier
-    
-    
-    do i=1, 3
-     read(50,*) formula(1)%cell(i,1),formula(1)%cell(i,2),formula(1)%cell(i,3)
-     formula(1)%cell(i,1)=formula(1)%cell(i,1)*cellmultiplier
-     formula(1)%cell(i,2)=formula(1)%cell(i,2)*cellmultiplier
-     formula(1)%cell(i,3)=formula(1)%cell(i,3)*cellmultiplier
-     write(*,*) formula(1)%cell(i,1),formula(1)%cell(i,2),formula(1)%cell(i,3)
-    
-    end do
-    
-    
-    
-    
-    if (option_generate_files_only.eq.0) then
-    
-     write(name,'(A11,I0.3,A7)')"pos/POSCAR_",structures+prev_structures,"/POSCAR"
-     open(newunit=unit, file=name,status="new")
-     write(unit,*) "Test"
-     write(unit,*) 1.0
-     do i=1, 3
-        write(unit,*) formula(1)%cell(i,1), &
-             &formula(1)%cell(i,2), formula(1)%cell(i,3)
-     end do
-    end if
-    read(50,'(A)') tmp
-    
-    
-    ecount=0
-    eltot=0
-    allocate(tmplist(structno,1000))
-    allocate(elnames(1024))
-    do i=1,len(tmp)-1
-     if(i.eq.1) then 
-        if((scan(tmp(i:i+1)," ").eq.0).or.&
-             &((scan(tmp(i:i+1)," ").eq.2))) then
-           eltot=eltot+1
-           !write(*,*) tmp(i:i+1)
-           if(scan(tmp(i:i+1)," ").eq.0) then
-              elnames(eltot)=tmp(i:i+1)
-           end if
-           if((scan(tmp(i:i+1)," ").eq.2).and.(scan(tmp(i-1:i)," ").eq.1)) then
-              elnames(eltot)=tmp(i:i)
-           end if
-        else
-        end if
-    
-    
-     else
-        if((scan(tmp(i:i+1)," ").eq.0).or.&
-             &((scan(tmp(i:i+1)," ").eq.2).and.(scan(tmp(i-1:i)," ")&
-             &.eq.1))) then
-           eltot=eltot+1
-           !write(*,*) tmp(i:i+1)
-           if(scan(tmp(i:i+1)," ").eq.0) then
-              elnames(eltot)=tmp(i:i+1)
-           end if
-           if((scan(tmp(i:i+1)," ").eq.2).and.(scan(tmp(i-1:i)," ").eq.1)) then
-              elnames(eltot)=tmp(i:i)
-           end if
-        else
-        end if
-     end if
-    end do
-    write(*,*) elnames(:), eltot
-    allocate(bondcutoff(eltot))
-    allocate(elno(eltot))
-    !read(50,'(4X)', advance='no')
-    k=0
-    read(50,*) elno
-    write(*,*) elno(:)
-    read(50, *) tmp
-    k=0
-    do i=1, eltot
-     do j=1, elno(i)
-        k=k+1
-    
-        tmplist(structures,k)%name=elnames(i)
-     end do
-    end do
-    write(*,*) k
-    l=0
-    do i=1, eltot
-     do j=1, elno(i)
-        l=l+1
-        read(50, *)&
-             &tmplist(structures,l)%position(1),tmplist(structures,l)%position(2),&
-             &tmplist(structures,l)%position(3)
-        write(*,*) "Warning! Direct POSCAR import ONLY"
-        write(*,*) tmplist(structures,l)%position(1),tmplist(structures,l)%position(2),&
-             &tmplist(structures,l)%position(3)
-        wait(5)
-        do q=1,3
-           tmplist(structures,L)%position(q)=&
-                &formula(structures)%cell(1,q)*tmplist(structures,L)%position(1)+&
-                &formula(structures)%cell(2,q)*tmplist(structures,L)%position(2)+&
-                &formula(structures)%cell(3,q)*tmplist(structures,L)%position(3)
-           write(*,*) tmplist(structures,L)%position(q)
-        end do
-        !write(*,*) atomlist(structures,j)%position(:)
-        !write(*,*) atomlist(1,j)%position(1),atomlist(1,j)%position(2),atomlist(1,j)%position(3\
-    
-     end do
-    end do
-    allocate(atomlist(1,k))
-    do i=1, k
-     atomlist(structures,i)%position=tmplist(structures,i)%position
-     atomlist(structures,i)%name=tmplist(structures,i)%name
-     !write(*,*) tmplist(structures,i)%position(:)
-    
-    end do
-    deallocate(tmplist)
-    if (option_generate_files_only.eq.0) then
-     call poswrite(unit,formula(structures)%cell,atomlist,k,1,1,prev_structures)
-    end if
-    allocate(alistrep(1,k*27))
-    do i=1, k
-     call atomrepeater(structures,atomlist(structures,i)%position,atomlist(structures,i)%name,&
-          &alistrep,&
-          &formula,i,k)
-    end do
-    !!! The problem is here. Firstly, you need to pass STAGE to this function so it can be correctly passed to the following functions 
-    !!! Secondly, prev_structures shouldn't be calculated but also passed from the previous function, as loop number from calling loop
-    !!!
-    if (prev_structures_overwrite.eq.0) then 
-     prev_structures=structurecounter("bon")
-    else  
-     prev_structures=prev_structures_overwrite-1
-    end if
-    
-    !do i=1, k
-    !   call generatebondfiles(stage,structures,prev_structures,atomlist,alistrep,eltot,elno,i,elnames)
-    !end do
-    bondcutoff(1)=1.0
-    write(*,*) "MANUALLY EDIT"
-    stop
-    if (prev_structures_overwrite.eq.0) prev_structures=structurecounter("bad")
-    !do i=1, k
-    !   call generateanglefiles(stage,structures,prev_structures,atomlist,alistrep,eltot,elno,i,bondcutoff)
-    !end do
-    
-    !do i=1, k
-    !   call generate4files(stage,structures,prev_structures,atomlist,alistrep,eltot,elno,i,bondcutoff)
-    !end do
-    
-    !do i=1, k 
-    !   call generate4files(stage,structures,prev_structures,atomlist,alistrep,eltot,elno,i,bondcutoff)
-    !end do
-    
-    write(tmp,'(A11,I0.3)')"pos/POSCAR_",structures+prev_structures
-    call Incarwrite(trim(adjustl(tmp)),500, 20*k)
-    call Jobwrite(tmp,1,1,1)
-    call generate_potcar(tmp, elnames)
-    
-    
-    
-    
-  end subroutine addposcar  
 !!!#############################################################################
 
 

@@ -28,6 +28,9 @@ program raffle
 
 
 
+    !! task=1 is a special task allowing a new poscar to be added in at user specification
+
+
 
 
 !!!! 0) Run RSS
@@ -55,31 +58,8 @@ program raffle
      stop 0
   case(2)
      write(*,*) "Running HOST_RSS"
-     write(*,*) "NOTHING WAS EVER SET UP FOR CASE 2"
-  case(3)
-     write(*,*) "Testing"
-     write(*,*) "DEPRECATED"
-     stop 0
-  case(4)
-     write(*,*) "Sphere Overlap Test"
-     write(*,*) "DEPRECATED"
-     stop 0
-  case(5)
-     write(*,*) "Bondangle test"
-     write(*,*) "DEPRECATED"
-     stop 0
   case(6)
       call bond_evolution(1)
-      stop 0
-  case(7)
-     write(*,*) "Add individual POSCAR to the database to be run and learned from"
-     write(*,*) "DEPRECATED"
-     stop 0
-  case(8)
-      call bond_evolution(0)
-      stop 0
-  case(9)
-      call bond_evolution(2) 
       stop 0
   case default
      write(*,*) "Invalid option"

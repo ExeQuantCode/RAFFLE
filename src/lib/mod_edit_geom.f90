@@ -5,24 +5,43 @@
 !!!#############################################################################
 !!!module contains lattice- and basis-related functions and subroutines.
 !!!module includes the following functions and subroutines:
-!!! MATNORM          (normalises a 3x3 matrix)
-!!! min_dist         (min distance between a point in a cell and nearest atom)
-!!! get_atom_height  (get the value of the atom along that axis)
-!!! get_min_bulk_bond
-!!! get_min_dist     (min distance between a point in a cell and nearest atom)
+!!! min_dist           (min distance between a point in a cell and nearest atom)
+!!! min_dist_iterative (get min length of vector in a lattice, iterative method)
+!!! get_surface_normal (return the vector normal to the surface of the plane ...
+!!!                     ... constructed by the other two vectors)
+!!! get_atom_height    (get the value of the atom along that axis)
+!!! get_min_bulk_bond  (get the minimum bulk bond value)
+!!! get_min_dist       (min distance between a point in a cell and nearest atom)
+!!! get_centre_atom    (returns the location of the centre atom)
+!!! get_closest_atom   (returns the closest atom to a height/3D coordinates)
+!!! get_largest_gap    (returns the largest gap along a specified axis)
+!!! get_shortest_bond  (returns the shortest bond for a specified atom)
 !!! get_min_dist_between_two_atoms
 !!! get_min_dist_between_point_and_atom
+!!! centre_of_geom     (prints centre of geom of a molecule
+!!! centre_of_mass     (prints centre of mass of a molecule)
+!!!##################
+!!! get_neighbour_fingerprint    (returns a fingerprint of the neighbours)
+!!! get_nearest_neighbours_atom  (returns the nearest neighbours of an atom)
+!!! get_nearest_neighbours_basis (returns the nearest neighbours of a basis)
+!!!##################
+!!! get_gvector_2body  (returns the g-vector for a 2-body interaction)
+!!! get_gvector_3body  (returns the g-vector for a 3-body interaction)
+!!! get_gvector_4body  (returns the g-vector for a 4-body interaction)
+!!!##################
 !!! shifter          (shifts the basis along the cell by an amount)
 !!! shift_region     (shifts the basis within a region along the cell by amount)
 !!! vacuumer         (adds a vacuum gap to the location specified)
-!!! set_vacuum
-!!! ortho_axis       (makes specified axis perpendicular to plane of other two)
+!!! set_vacuum       (set the vacuum gap in a region to a specified value)
+!!! vacater          (vacate a set of atoms from a basis)
 !!! transformer      (applies a transformation matrix to a lattice and basis)
+!!!##################
+!!! MATNORM          (normalises a 3x3 matrix)
+!!! ortho_axis       (makes specified axis perpendicular to plane of other two)
 !!! change_basis     (convert basis into direct coords wrt another lattice)
 !!! region_rot       (rotates a region specified along an axis about that axis)
 !!! normalise_basis  (convert basis coordinates to be within val-> val-1)
-!!! centre_of_geom   (prints centre of geom of a molecule
-!!! centre_of_mass   (prints centre of mass of a molecule)
+!!!##################
 !!! primitive_lat    (reorientates the lattice to the primitive lattice)
 !!! reducer
 !!! mkNiggli_lat
@@ -30,11 +49,10 @@
 !!! planecutter      (generates transformation mat to obtain miller plane)
 !!! bas_merge        (merges two supplied bases)
 !!! bas_lat_merge    (merges two supplied bases and lattices)
-!!! split_bas
-!!! get_bulk
-!!! get_centre_atom
+!!! split_bas        (split a basis into multiple sub-bases by region)
+!!!##################
+!!! get_bulk         (determines a bulk cell within a slab)
 !!! get_wyckoff      (returns an array of the similar atoms)
-!!! get_shortest_bond
 !!!#############################################################################
 module edit_geom
   use constants, only: pi,real12
@@ -55,6 +73,17 @@ module edit_geom
      real(real12) :: length
      integer, dimension(2,2) :: atoms
   end type bond_type
+
+  !! %isa = integer list of spec and atom
+  type neighbour_atom_type
+     integer :: num
+     integer, allocatable, dimension(:,:) :: isa !! set 2nd dimension to 2
+     real(real12), allocatable, dimension(:) :: sep
+  end type neighbour_atom_type
+
+  type neighbour_spec_type
+     type(neighbour_atom_type), allocatable, dimension(:) :: atom
+  end type neighbour_spec_type
 
   
   interface get_closest_atom
@@ -87,7 +116,7 @@ contains
 !!! d e f
 !!! NEW NAME: lat_low
 !!!#############################################################################
-  function MATNORM(lat) result(nlat)
+  pure function MATNORM(lat) result(nlat)
     implicit none
     real(real12), dimension(3,3) :: lat, nlat
     nlat(1,1)=sqrt(lat(1,1)**2+lat(1,2)**2+lat(1,3)**2)
@@ -119,7 +148,7 @@ contains
 !!! ... the nearest atom to that point either above ...
 !!! ... or below
 !!!#############################################################################
-  function min_dist(bas,axis,loc,above)
+  pure function min_dist(bas,axis,loc,above)
     implicit none
     integer :: is,axis
     real(real12) :: min_dist,pos
@@ -156,6 +185,75 @@ contains
     end do
 
   end function min_dist
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! Iterative min distance
+!!!#############################################################################
+  pure function min_dist_iterative(lat,vec) result(dist)
+    implicit none
+    integer :: i,j,k
+    real(real12) :: dtmp1,dist
+    real(real12) :: a_mag2,b_mag2,c_mag2
+    real(real12) :: ab_cosab,ac_cosac,bc_cosbc
+    integer, dimension(3) :: expansion
+
+    real(real12), dimension(3), intent(in) :: vec
+    real(real12), dimension(3,3), intent(in) :: lat
+
+
+   a_mag2 = dot_product(lat(1,:),lat(1,:))
+   b_mag2 = dot_product(lat(2,:),lat(2,:))
+   c_mag2 = dot_product(lat(3,:),lat(3,:))
+   ab_cosab = dot_product(lat(1,:),lat(2,:))
+   ac_cosac = dot_product(lat(1,:),lat(3,:))
+   bc_cosbc = dot_product(lat(2,:),lat(3,:))
+
+   dist = huge(1._real12)
+   expansion = [0,0,0]
+    do i=-10,10,1
+       do j=-10,10,1
+          do k=-10,10,1
+             dtmp1 = sqrt(&
+                  a_mag2 * (vec(1) + dble(i))**2._real12 + &
+                  b_mag2 * (vec(2) + dble(j))**2._real12 + &
+                  c_mag2 * (vec(3) + dble(k))**2._real12 + &
+                  2._real12 * ab_cosab * (vec(1) + i) * (vec(2) + j) + &
+                  2._real12 * ac_cosac * (vec(1) + i) * (vec(3) + k) + &
+                  2._real12 * bc_cosbc * (vec(2) + j) * (vec(3) + k)&
+                  )
+             if(dtmp1.lt.dist)then
+                dist = dtmp1
+                expansion = [i,j,k]
+             end if
+          end do
+       end do
+    end do
+
+  end function min_dist_iterative
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! Return the surface normal vector
+!!!#############################################################################
+  function get_surface_normal(lat,axis) result(normal)
+    implicit none
+    real(real12) :: component
+    integer, dimension(3) :: order=(/1,2,3/)
+    real(real12), dimension(3) :: normal
+
+    integer, intent(in) :: axis
+    real(real12), dimension(3,3), intent(in) :: lat
+
+    order = cshift(order,3-axis)
+    normal = cross(lat(order(1),:),lat(order(2),:))
+    component = dot_product(lat(3,:),normal) / modu(normal)**2._real12
+    normal = normal * component
+
+    return
+  end function get_surface_normal
 !!!#############################################################################
 
 
@@ -242,7 +340,7 @@ contains
     if(present(tol))then
        dtol = tol
     else
-       dtol = 1.D-5
+       dtol = 1.E-5
     end if
 
     if(present(labove))then
@@ -314,7 +412,7 @@ contains
     if(present(tol))then
        dtol = tol
     else
-       dtol = 1.D-5
+       dtol = 1.E-5
     end if
 
     if(present(labove))then
@@ -425,6 +523,665 @@ contains
 
 
 !!!#############################################################################
+!!! identify the shortest bond in the crystal, takes in crystal basis
+!!!#############################################################################
+  function get_shortest_bond(lat,bas) result(bond)
+    implicit none
+    integer :: is,js,ia,ja,ja_start
+    real(real12) :: dist,min_bond
+    type(bas_type), intent(in) :: bas
+    type(bond_type) :: bond
+    real(real12), dimension(3) :: vec
+    integer, dimension(2,2) :: atoms
+    real(real12), dimension(3,3) :: lat
+    
+    min_bond = 100._real12
+    atoms = 0
+    do is=1,bas%nspec
+       do js=is,bas%nspec
+          do ia=1,bas%spec(is)%num
+             if(is.eq.js)then
+                ja_start = ia+1
+             else
+                ja_start = 1
+             end if
+             do ja=ja_start,bas%spec(js)%num
+                vec = bas%spec(is)%atom(ia,:3) - bas%spec(js)%atom(ja,:3)
+                vec = vec - ceiling(vec - 0.5_real12)
+                vec = matmul(vec,lat)
+                dist = modu(vec)
+                if(dist.lt.min_bond)then
+                   min_bond = dist
+                   atoms(1,:) = (/is, ia/)
+                   atoms(2,:) = (/js, ja/)
+                end if
+             end do
+          end do
+       end do
+    end do
+    bond%length = min_bond
+    bond%atoms = atoms
+
+
+  end function get_shortest_bond
+!!!#############################################################################
+
+
+!!!##########################################################################!!!
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *  !!!
+!!!##########################################################################!!!
+!!!##########################################################################!!!
+
+
+!!!#############################################################################
+!!! get the neighbour fingerprint
+!!!#############################################################################
+  function get_neighbour_fingerprint(loc,lat,bas,cutoff,nbins,width) &
+      result(fingerprint)
+    implicit none
+    real(real12), dimension(3), intent(in) :: loc
+    real(real12), dimension(3,3), intent(in) :: lat
+    type(bas_type), intent(in) :: bas
+
+    integer, intent(in), optional :: nbins
+    real(real12), intent(in), optional :: cutoff, width
+
+    integer, allocatable, dimension(:,:) :: fingerprint
+
+    integer :: i,j,k
+    integer :: is,ia
+    integer :: amax,bmax,cmax
+    integer :: nbins_, bin
+    real(real12) :: cutoff_,width_
+    real(real12) :: dtmp1
+    real(real12), dimension(3) :: vtmp1,diff
+
+
+    if(present(cutoff))then
+      cutoff_ = cutoff
+    else
+      cutoff_ = 6._real12
+    end if
+    if(present(width))then
+      width_ = width
+    else
+      width_ = 0.1_real12
+    end if
+    if(present(nbins))then
+      nbins_ = nbins
+      width_ = cutoff_/nbins_
+    else
+      nbins_ = cutoff_/width_
+    end if
+
+    allocate(fingerprint(nbins_,bas%nspec))
+    fingerprint = 0._real12
+
+    !! this is not perfect
+    !! won't work for extremely acute/obtuse angle cells
+    !! (due to diagonal path being shorter than individual lattice vectors)
+    amax = ceiling(cutoff_/modu(lat(1,:)))
+    bmax = ceiling(cutoff_/modu(lat(2,:)))
+    cmax = ceiling(cutoff_/modu(lat(3,:)))
+
+    spec_loop: do is=1,bas%nspec
+      atom_loop: do ia=1,bas%spec(is)%num
+        diff = loc -  bas%spec(is)%atom(ia,:3)
+        diff = diff - ceiling(diff - 0.5_real12)
+        do i=-amax,amax+1,1
+          vtmp1(1) = diff(1) + real(i)
+          do j=-bmax,bmax+1,1
+            vtmp1(2) = diff(2) + real(j)
+            do k=-cmax,cmax+1,1
+              vtmp1(3) = diff(3) + real(k)
+              dtmp1 = modu(matmul(vtmp1,lat))
+              if(dtmp1.lt.cutoff_ + width_/2._real12)then
+                bin = nint(nbins_ * ( dtmp1 + width_/2._real12 ) / cutoff_)
+                if(bin.gt.nbins_) cycle
+                fingerprint(bin,is) = fingerprint(bin,is) + 1
+              end if
+            end do
+          end do
+        end do
+      end do atom_loop
+    end do spec_loop
+   
+ end function get_neighbour_fingerprint
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! get the list of nearest neighbours
+!!!#############################################################################
+  function get_nearest_neighbours_atom(lat,bas,is,ia,max,cutoff) result(neighbour)
+    implicit none
+    integer :: i,j,k
+    integer :: js,ja,dim,nneigh,natom,loc
+    integer :: amax,bmax,cmax
+    real(real12) :: dtmp1,tol
+    real(real12), dimension(3) :: vtmp1,diff
+    integer, allocatable, dimension(:,:) :: atom_list
+    real(real12), allocatable, dimension(:) :: sep_list
+
+    integer, intent(in) :: is,ia
+    real(real12), dimension(3,3), intent(in) :: lat
+    type(bas_type), intent(in) :: bas
+    integer, intent(in), optional :: max
+    real(real12), intent(in), optional :: cutoff
+
+    type(neighbour_atom_type) :: neighbour
+
+    if(present(cutoff))then
+       tol = cutoff
+    else
+       tol = 6._real12
+    end if
+    !! define these based on tol val
+    !! ... i.e. modu(lat(1,:)) compare to tol
+    amax = 1
+    bmax = 1
+    cmax = 1
+    nneigh = 0
+
+    natom = bas%natom*(2*amax+1)*(2*bmax+1)*(2*cmax+1)
+    allocate(atom_list(natom,2))
+    allocate(sep_list(natom))
+
+    spec_loop: do js=1,bas%nspec
+       atom_loop: do ja=1,bas%spec(js)%num
+          if(is.eq.js.and.ia.eq.ja) cycle atom_loop
+          diff = bas%spec(is)%atom(ia,:3) -  bas%spec(js)%atom(ja,:3)
+          diff = diff - ceiling(diff - 0.5_real12)
+          do i=-amax,amax,1
+             vtmp1(1) = diff(1) + real(i)
+             do j=-bmax,bmax,1
+                vtmp1(2) = diff(2) + real(j)
+                do k=-cmax,cmax,1
+                   vtmp1(3) = diff(3) + real(k)
+                   dtmp1 = modu(matmul(vtmp1,lat))
+                   if(dtmp1.le.tol)then
+                      nneigh = nneigh + 1
+                      atom_list(nneigh,:2) = [js,ja]
+                      sep_list(nneigh) = dtmp1
+                   end if
+                end do
+             end do
+          end do
+       end do atom_loop
+    end do spec_loop
+    
+    dim = nneigh
+    if(present(max))then
+       if(max.gt.0) dim = min(nneigh,max)
+    end if
+
+    neighbour%num = dim
+    allocate(neighbour%isa(dim,2))
+    allocate(neighbour%sep(dim))
+    do i=1,dim
+       loc = minloc(sep_list(1:nneigh),dim=1)
+       
+       neighbour%sep(i) = sep_list(loc)
+       neighbour%isa(i,:2) = atom_list(loc,:2)
+       sep_list(loc) = huge(1._real12)
+    end do
+
+    deallocate(atom_list)
+    deallocate(sep_list)
+
+
+  end function get_nearest_neighbours_atom
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! get the list of nearest neighbours
+!!!#############################################################################
+  function get_nearest_neighbours_basis(lat,bas,max,cutoff) result(neighbour_table)
+    implicit none
+    integer :: is,ia
+    integer :: nmax
+    real(real12) :: tol
+    
+    real(real12), dimension(3,3), intent(in) :: lat
+    type(bas_type), intent(in) :: bas
+    integer, intent(in), optional :: max
+    real(real12), intent(in), optional :: cutoff
+
+    type(neighbour_spec_type), allocatable, dimension(:) :: neighbour_table
+
+
+    if(present(max))then
+       nmax = max
+    else
+       nmax = -1
+    end if
+
+    if(present(cutoff))then
+       tol = cutoff
+    else
+       tol = 6._real12
+    end if
+
+
+    allocate(neighbour_table(bas%nspec))
+
+    do is=1,bas%nspec
+       allocate(neighbour_table(is)%atom(bas%spec(is)%num))
+       do ia=1,bas%spec(is)%num
+          neighbour_table(is)%atom(ia) = &
+               get_nearest_neighbours_atom(lat,bas,is,ia,nmax,tol)
+       end do
+    end do
+
+
+  end function get_nearest_neighbours_basis
+!!!#############################################################################
+
+
+!!!##########################################################################!!!
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *  !!!
+!!!##########################################################################!!!
+!!!##########################################################################!!!
+
+
+!!!#############################################################################
+!!! 2-body gvector radial descriptor
+!!!#############################################################################
+!!! Implementation follows original Behler and Parrinello paper
+  pure function get_gvector_2body(lat, bas, species_1, species_2, &
+       cutoff, nbins, width) &
+       result(gvector)
+    implicit none
+    real(real12), dimension(3,3), intent(in) :: lat
+    type(bas_type), intent(in) :: bas
+
+    integer, intent(in), optional :: nbins
+    real(real12), intent(in), optional :: cutoff, width
+    character(*), intent(in), optional :: species_1, species_2
+
+    real(real12), allocatable, dimension(:) :: gvector_tmp
+    real(real12), allocatable, dimension(:,:) :: gvector
+
+    integer :: i, j, k
+    integer :: is, js, ia, ja
+    integer :: amax, bmax, cmax
+    integer :: species_1_num = 0, species_2_num = 0
+    integer :: nbins_, bin
+    real(real12) :: cutoff_ = 6._real12, width_ = 0.1_real12, fc
+    real(real12) :: rtmp1, rtmp2, eta
+    real(real12), dimension(3) :: vtmp1, diff
+
+    type :: bond_type
+       integer, dimension(2) :: species
+       real(real12) :: value
+    end type bond_type
+
+    type(bond_type), dimension(:), allocatable :: bond_list
+
+    if(present(cutoff)) cutoff_ = cutoff
+    if(present(width)) width_ = width
+    if(present(nbins))then
+       nbins_ = nbins
+       width_ = cutoff_/nbins_
+    else
+       nbins_ = cutoff_/width_
+    end if
+
+    eta = 1._real12 / ( 2._real12 * width_**2._real12 )
+
+    if(present(species_1))then
+       species_1_num = maxloc(trim(bas%spec(:)%name).eq.trim(species_1))
+       allocate(gvector(nbins_,species_1_num:species_1_num), source=0._real12)
+    else
+      allocate(gvector(nbins_,bas%nspec), source=0._real12)
+    end if
+    if(present(species_2)) species_2_num = maxloc(trim(bas%spec(:)%name).eq.trim(species_2))
+
+    !! this is not perfect
+    !! won't work for extremely acute/obtuse angle cells
+    !! (due to diagonal path being shorter than individual lattice vectors)
+    amax = ceiling(cutoff_/modu(lat(1,:)))
+    bmax = ceiling(cutoff_/modu(lat(2,:)))
+    cmax = ceiling(cutoff_/modu(lat(3,:)))
+
+    allocate(bond_list(0)) !if doesn't work, allocate a dummy bond first
+    spec_loop1: do is=1,bas%nspec
+       if(present(species_1).and.species_1_num.ne.is) cycle spec_loop1
+       atom_loop1: do ia=1,bas%spec(is)%num
+          spec_loop2: do js=is,bas%nspec
+             if(present(species_2).and.species_2_num.ne.js) cycle spec_loop2
+             atom_loop2: do ja=1,bas%spec(is)%num
+                if(is.eq.js.and.ja.lt.ia) cycle atom_loop2
+                diff = bas%spec(is)%atom(ia,:3) -  bas%spec(js)%atom(ja,:3)
+                diff = diff - ceiling(diff - 0.5_real12)
+                do i=-amax,amax+1,1
+                   vtmp1(1) = diff(1) + real(i)
+                   do j=-bmax,bmax+1,1
+                      vtmp1(2) = diff(2) + real(j)
+                      do k=-cmax,cmax+1,1
+                         vtmp1(3) = diff(3) + real(k)
+                         rtmp1 = modu(matmul(vtmp1,lat))
+                         if(rtmp1.lt.cutoff_ + width_/2._real12)then
+                            bond_list = [ bond_list, bond_type([is,js],rtmp1) ]
+                         end if
+                      end do
+                   end do
+                end do
+             end do atom_loop2
+          end do spec_loop2
+       end do atom_loop1
+    end do spec_loop1
+
+    allocate(gvector_tmp(nbins_))
+    do i = 1, size(bond_list)
+       if(abs(bond_list(i)%value).lt.1.E-3) cycle
+       rtmp1 = bond_list(i)%value
+       scale = 1._real12
+       !! this is done before the lopp to help catch others just outside the cutoff
+       bin = nint(nbins_ * ( rtmp1 + width_/2._real12 ) /cutoff_)
+       do j = i+1, size(bond_list)
+          !! don't need to look at reverse of species, as the ordering will ...
+          !! always be enforced by the loop above, i.e. is <= js
+          if( bond_list(i)%species(1).ne.bond_list(j)%species(1) .or. &
+               bond_list(i)%species(2).ne.bond_list(j)%species(2) ) cycle
+          if(abs(bond_list(j)%value-rtmp1).lt.1.E-3)then !!MAKE THIS LINKED TO WIDTH?
+             bond_list(j)%value = 0._real12
+             scale = scale + 1._real12
+          end if          
+       end do
+       if(bin.gt.nbins_) cycle
+   
+       fc = 0.5_real12 * cos( pi * rtmp1 / cutoff_ ) + 0.5_real12
+       fc = fc * scale
+   
+       gvector_tmp = 0._real12
+       !! do forward loop to add gaussian for larger distances
+       do b = bin, nbins_, 1
+          rtmp2 = eta * ( rtmp1 - width_ * real(b) ) ** 2._real12
+          if(rtmp2.gt.16._real12) cycle
+          gvector_tmp(b) = gvector_tmp(b) + exp( -rtmp2 ) * fc
+       end do
+   
+       !! do backward loop to add gaussian for smaller distances
+       do b = bin-1, 1, -1
+          rtmp2 = eta * ( rtmp1 - width_ * real(b) ) ** 2._real12
+          if(rtmp2.gt.16._real12) cycle
+          gvector_tmp(b) = gvector_tmp(b) + exp( -rtmp2 ) * fc
+       end do
+      
+       gvector(:,bond_list(i)%species(1)) = &
+            gvector(:,bond_list(i)%species(1)) + gvector_tmp
+       gvector(:,bond_list(i)%species(2)) = &
+            gvector(:,bond_list(i)%species(2)) + gvector_tmp
+    end do
+
+  end function get_gvector_2body
+!!!-----------------------------------------------------------------------------
+  pure function get_gvector_2body_alt(lat, bas, species_1, species_2, &
+       cutoff, nbins, width) &
+       result(gvector)
+    implicit none
+    real(real12), dimension(3,3), intent(in) :: lat
+    type(bas_type), intent(in) :: bas
+
+    integer, intent(in), optional :: nbins
+    real(real12), intent(in), optional :: cutoff, width
+    character(*), intent(in) :: species_1, species_2
+
+    real(real12), allocatable, dimension(:) :: gvector
+
+    integer :: i, j, k
+    integer :: ia, ja
+    integer :: amax, bmax, cmax
+    integer :: species_1_num = 0, species_2_num = 0
+    integer :: nbins_, bin
+    real(real12) :: cutoff_ = 6._real12, width_ = 0.1_real12, fc
+    real(real12) :: rtmp1, rtmp2, eta
+    real(real12), dimension(3) :: vtmp1, diff
+
+    real(real12), dimension(:), allocatable :: bond_list
+
+    if(present(cutoff)) cutoff_ = cutoff
+    if(present(width)) width_ = width
+    if(present(nbins))then
+       nbins_ = nbins
+       width_ = cutoff_/nbins_
+    else
+       nbins_ = cutoff_/width_
+    end if
+
+    eta = 1._real12 / ( 2._real12 * width_**2._real12 )
+
+    species_1_num = maxloc(trim(bas%spec(:)%name).eq.trim(species_1))
+    species_2_num = maxloc(trim(bas%spec(:)%name).eq.trim(species_2))
+    allocate(gvector(nbins_,bas%nspec,bas%nspec), source=0._real12)
+
+    !! this is not perfect
+    !! won't work for extremely acute/obtuse angle cells
+    !! (due to diagonal path being shorter than individual lattice vectors)
+    amax = ceiling(cutoff_/modu(lat(1,:)))
+    bmax = ceiling(cutoff_/modu(lat(2,:)))
+    cmax = ceiling(cutoff_/modu(lat(3,:)))
+
+    allocate(bond_list(0)) !if doesn't work, allocate a dummy bond first
+    atom_loop1: do ia=1,bas%spec(species_1_num)%num
+       atom_loop2: do ja=1,bas%spec(species_2_num)%num
+          if(species_1_num.eq.species_2_num.and.ja.lt.ia) cycle atom_loop2
+          diff = bas%spec(species_1_num)%atom(ia,:3) -  &
+               bas%spec(species_2_num)%atom(ja,:3)
+          diff = diff - ceiling(diff - 0.5_real12)
+          do i=-amax,amax+1,1
+             vtmp1(1) = diff(1) + real(i)
+             do j=-bmax,bmax+1,1
+                vtmp1(2) = diff(2) + real(j)
+                do k=-cmax,cmax+1,1
+                   vtmp1(3) = diff(3) + real(k)
+                   rtmp1 = modu(matmul(vtmp1,lat))
+                   if(rtmp1.lt.cutoff_ + width_/2._real12)then
+                      bond_list = [ bond_list, rtmp1 ]
+                   end if
+                end do
+             end do
+          end do
+       end do atom_loop2
+    end do atom_loop1
+
+    do i = 1, size(bond_list)
+       if(abs(bond_list(i)).lt.1.E-3) cycle
+       rtmp1 = bond_list(i)
+       scale = 1._real12
+       !! this is done before the lopp to help catch others just outside the cutoff
+       bin = nint(nbins_ * ( rtmp1 + width_/2._real12 ) /cutoff_)
+       do j = i+1, size(bond_list)
+          if(abs(bond_list(j)-rtmp1).lt.1.E-3)then !!MAKE THIS LINKED TO WIDTH?
+             bond_list(j) = 0._real12
+             scale = scale + 1._real12
+          end if          
+       end do
+       if(bin.gt.nbins_) cycle
+   
+       fc = 0.5_real12 * cos( pi * rtmp1 / cutoff_ ) + 0.5_real12
+       fc = fc * scale
+   
+       !! do forward loop to add gaussian for larger distances
+       do b = bin, nbins_, 1
+          rtmp2 = eta * ( rtmp1 - width_ * real(b) ) ** 2._real12
+          if(rtmp2.gt.16._real12) cycle
+          gvector(b) = gvector(b) + exp( -rtmp2 ) * fc
+       end do
+   
+       !! do backward loop to add gaussian for smaller distances
+       do b = bin-1, 1, -1
+          rtmp2 = eta * ( rtmp1 - width_ * real(b) ) ** 2._real12
+          if(rtmp2.gt.16._real12) cycle
+          gvector(b) = gvector(b) + exp( -rtmp2 ) * fc
+       end do
+    end do
+
+  end function get_gvector_2body_alt
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! 3 body angular distribution function
+!!!#############################################################################
+!!! implemented as is done by Bircher et al. in their 2021 paper
+!!! https://doi.org/10.1088/2632-2153/abf817
+  pure function get_gvector_3body(lat, bas, species_1, x_min, x_max, &
+       theta_min, theta_max, &
+       nbins, width) &
+       result(gvector)
+    implicit none
+    real(real12), dimension(3,3), intent(in) :: lat
+    type(bas_type), intent(in) :: bas
+
+    integer, intent(in), optional :: nbins
+    real(real12), intent(in) :: x_min, x_max, theta_min, theta_max
+    real(real12), intent(in), optional :: cutoff, width
+    character(*), intent(in) :: species_1
+
+    real(real12), allocatable, dimension(:) :: gvector
+
+    integer :: i, j, k
+    integer :: is, ia
+    integer :: amax, bmax, cmax
+    integer :: nbins_, bin
+    integer :: species_1_num
+    real(real12) :: cutoff_ = 6._real12, width_ = 0.1_real12, fc
+    real(real12) :: rtmp1, rtmp2, eta, x0, dx
+    real(real12), dimension(3) :: vtmp1, diff
+
+    type :: bond_type
+       real(real12), dimension(3) :: vector
+    end type bond_type
+
+    type(bond_type), dimension(:), allocatable :: bond_list
+
+
+
+    if(present(cutoff)) cutoff_ = cutoff
+    if(present(width)) width_ = width
+    if(present(nbins))then
+       nbins_ = nbins
+       width_ = (theta_max - theta_min)/nbins_
+    else
+       nbins_ = (theta_max - theta_min)/width_
+    end if
+
+    eta = 1._real12 / ( 2._real12 * width_**2._real12 )
+
+    species_1_num = maxloc(trim(bas%spec(:)%name).eq.trim(species_1))
+    allocate(gvector(nbins_), source=0._real12)
+
+    x0 = 0.5_real12 * ( x_max + x_min )
+    dx = 0.5_real12 * ( x_max - x_min )
+    !! default theta_min = 0
+    !! default theta_max = pi
+    theta0 = 0.5_real12 * ( theta_min + theta_max )
+    dtheta = 0.5_real12 * ( theta_max - theta_min )
+
+    !! this is not perfect
+    !! won't work for extremely acute/obtuse angle cells
+    !! (due to diagonal path being shorter than individual lattice vectors)
+    amax = ceiling(cutoff_/modu(lat(1,:)))
+    bmax = ceiling(cutoff_/modu(lat(2,:)))
+    cmax = ceiling(cutoff_/modu(lat(3,:)))
+
+    atom_loop1: do ia=1,bas%spec(is)%num
+       allocate(bond_list(0))
+       spec_loop2: do js=is,bas%nspec
+          if(present(species_2).and.species_2_num.ne.js) cycle spec_loop2
+          atom_loop2: do ja=1,bas%spec(is)%num
+             if(is.eq.js.and.ja.lt.ia) cycle atom_loop2
+             diff = bas%spec(is)%atom(ia,:3) -  bas%spec(js)%atom(ja,:3)
+             diff = diff - ceiling(diff - 0.5_real12)
+             do i=-amax,amax+1,1
+                vtmp1(1) = diff(1) + real(i)
+                do j=-bmax,bmax+1,1
+                   vtmp1(2) = diff(2) + real(j)
+                   do k=-cmax,cmax+1,1
+                      vtmp1(3) = diff(3) + real(k)
+                      vector = matmul(vtmp1,lat)
+                      rtmp1 = modu(vector)
+                      if(rtmp1.lt.xmin.or.rtmp1.gt.xmax) cycle
+                      bond_list = [ bond_list, bond_type(vector) ]
+                   end do
+                end do
+             end do
+          end do atom_loop2
+       end do spec_loop2
+       do i = 1, size(bond_list)
+          fp1 = get_3body_cutoff_function( modu(bond_list(i)%vector), x0, dx )
+          do j = i+1, size(bond_list), 1
+             theta = get_angle( bond_list(i)%vector, bond_list(j)%vector)
+   
+             fp2 = get_3body_cutoff_function( modu(bond_list(j)%vector), x0, dx )
+             fp3 = get_3body_cutoff_function(theta, theta0, dtheta)
+             
+
+             fc = fp1 * fp2 * fp3
+   
+             if(fc.lt.1.E-3) cycle
+
+             !! do forward loop to add gaussian for larger distances
+             do b = bin, nbins_, 1
+                rtmp2 = eta * ( rtmp1 - width_ * real(b) ) ** 2._real12
+                if(rtmp2.gt.16._real12) cycle
+                gvector(b) = gvector(b) + exp( -rtmp2 ) * fc
+             end do
+
+             !! do backward loop to add gaussian for smaller distances
+             do b = bin-1, 1, -1
+                rtmp2 = eta * ( rtmp1 - width_ * real(b) ) ** 2._real12
+                if(rtmp2.gt.16._real12) cycle
+                gvector(b) = gvector(b) + exp( -rtmp2 ) * fc
+             end do
+
+          end do
+       end do
+       deallocate(bond_list)
+    end do atom_loop1
+
+  end function get_gvector_3body
+!!!#############################################################################
+  pure function get_3body_cutoff_function(x, x0, dx) result(output)
+    implicit none
+    real(real12), intent(in) :: x, x0, dx
+    real(real12) :: output
+    
+    if(x.ge.x0.and.x.le.x0+dx)then
+       output = get_fp2_function( ( x - x0 ) / ( 2._real12 * dx ) )
+    elseif(x.ge.x0-dx.and.x.le.x0)then
+       output = get_fp2_function( ( x0 - x ) / ( 2._real12 * dx ) )
+    else
+       output = 0._real12
+    end if
+
+  end function get_3body_cutoff_function
+  pure function get_fp2_function(x) result(output)
+    implicit none
+    real(real12), intent(in) :: x
+    real(real12) :: output
+
+    output = x ** 3._real12 * &
+             ( x * ( 15._real12 - 6._real12 * x ) - 10._real12 ) + 1._real12
+
+  end function get_fp2_function
+
+
+
+
+!!!##########################################################################!!!
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *  !!!
+!!!##########################################################################!!!
+!!!##########################################################################!!!
+
+
+!!!#############################################################################
 !!! Shifts the basis along a, b or c by amount 'shift'
 !!!#############################################################################
   subroutine shifter(bas,axis,shift,ltmp)
@@ -498,7 +1255,7 @@ contains
     real(real12),dimension(3,3) :: lat
 
 
-    tol=1.D-5
+    tol=1.E-5
     inc=add
     if(present(otol)) tol=otol
     cur_vac=min_dist(bas,axis,loc,.true.)-min_dist(bas,axis,loc,.false.)
@@ -674,7 +1431,7 @@ contains
     !!--------------------------------------------------------------------------
     !! Convert tolerance from Å to a fraction of each direction
     !!--------------------------------------------------------------------------
-    tol=1.D-3 !! in Å
+    tol=1.E-3 !! in Å
     do i=1,3
        tolvec(i)=tol/modu(slat(i,:))
     end do
@@ -936,7 +1693,7 @@ contains
     if(present(lfloor)) lfloor1=lfloor
     flr=ceil-1._real12
     lround1=.false.
-    dround=1.D-8
+    dround=1.E-8
     if(present(lround)) lround1=lround
 
     do is=1,bas%nspec
@@ -1084,8 +1841,8 @@ contains
        !tfmat=matmul(tfmat,transpose(tfmat))
        tmat2=matmul(special(i,:,:),transpose(special(i,:,:)))
        dtmp1=tmat2(1,1)/tmat1(1,1)
-       !if(all(abs(tfmat-nint(tfmat)).lt.1.D-8))then
-       if(all(abs(tmat1*dtmp1-tmat2).lt.real(1.D-6,real12)))then
+       !if(all(abs(tfmat-nint(tfmat)).lt.1.E-8))then
+       if(all(abs(tmat1*dtmp1-tmat2).lt.real(1.E-6,real12)))then
           do j=1,3
              plat(j,:)=scal(j)*special(i,j,:)
           end do
@@ -1408,7 +2165,7 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! Initialise variables and matrices
 !!!-----------------------------------------------------------------------------
-    tol=1.D-4
+    tol=1.E-4
     vec=invec
     lat=inlat
     invlat=inverse(lat)
@@ -1954,7 +2711,7 @@ contains
              atom_loop2: do ja=1,splitbas(2)%spec(is)%num
 
                 if( all( abs( ( splitbas(1)%spec(is)%atom(ia,:3) + transvec ) - &
-                     splitbas(2)%spec(is)%atom(ja,:3) ).lt.1.D-5 ) )then
+                     splitbas(2)%spec(is)%atom(ja,:3) ).lt.1.E-5 ) )then
                    write(0,*) ia,ja
                    cycle atom_loop1
 
@@ -2130,6 +2887,82 @@ contains
 
 
 !!!#############################################################################
+!!! returns the largest vacumm gap in the cell along a specified axis
+!!!#############################################################################
+  function get_largest_gap(lat,bas,axis,tol,return_lower) result(gap)
+    implicit none
+    integer :: i,init,iloc
+    real(real12) :: dtmp1,max_sep,dtol
+    logical :: l_lower
+    real(real12), dimension(2) :: gap
+    real(real12), allocatable, dimension(:) :: bas_list
+
+    integer, intent(in) :: axis
+    type(bas_type), intent(in) :: bas
+    real(real12), dimension(3,3), intent(in) :: lat
+
+    real(real12), optional, intent(in) :: tol
+    logical, optional, intent(in) :: return_lower
+
+
+!!!-----------------------------------------------------------------------------
+!!! handle optional arguments and set defaults if not present
+!!!-----------------------------------------------------------------------------
+    if(present(return_lower))then
+       l_lower=return_lower
+    else
+       l_lower=.true.
+    end if
+
+    if(present(tol))then
+       dtol = tol
+    else
+       dtol = 1.E-5_real12
+    end if
+
+!!!-----------------------------------------------------------------------------
+!!! Set up basis list that will order them wrt distance along 'axis'
+!!!-----------------------------------------------------------------------------
+    allocate(bas_list(bas%natom))
+    init = 1
+    do i=1,bas%nspec
+       bas_list(init:init+bas%spec(i)%num-1) = bas%spec(i)%atom(:,axis)
+       init = init + bas%spec(i)%num
+    end do
+    call sort1D(bas_list)
+
+!!!-----------------------------------------------------------------------------
+!!! cycle through basis to find largest gap
+!!!-----------------------------------------------------------------------------
+    max_sep = bas_list(1) - ( bas_list(bas%natom) - 1._real12 )
+    if(l_lower)then
+       iloc =  bas%natom
+    else
+       iloc = 1
+    end if
+    do i=1,bas%natom-1
+       dtmp1 = bas_list(i+1) - bas_list(i)
+       if(dtmp1.gt.max_sep)then
+          max_sep = dtmp1
+          if(l_lower)then
+             iloc = i
+          else
+             iloc = i + 1
+          end if
+       end if
+    end do
+
+!!!-----------------------------------------------------------------------------
+!!! set result variable with edge of gap and size of gap
+!!!-----------------------------------------------------------------------------
+    gap = [bas_list(iloc)+dtol,max_sep]
+
+
+  end function get_largest_gap
+!!!#############################################################################
+
+
+!!!#############################################################################
 !!! returns the wyckoff atom for each
 !!!#############################################################################
   function get_wyckoff(bas,axis) result(wyckoff)
@@ -2224,7 +3057,7 @@ contains
        !! Checks atoms within a region to see if they reproduce layer above
        !!-----------------------------------------------------------------------
        up_loc = lw_loc + transvec(axis)
-       !if(lw_loc.eq.up_loc) up_loc = up_loc + 1.D-8  !! IS THIS NEEDED?
+       !if(lw_loc.eq.up_loc) up_loc = up_loc + 1.E-8  !! IS THIS NEEDED?
        if(lw_loc.gt.up_loc)then
           write(0,'("ERROR: Internal error in get_wyckoff")')
           write(0,'(2X,"Error in subroutine get_wyckoff in mod_edit_geom.f90")')
@@ -2250,7 +3083,7 @@ contains
                 tmp_vec2 = tmp_vec2 - ceiling( tmp_vec2 - 0.5_real12 )
 
 
-                if( all( abs(tmp_vec2).lt.1.D-5 ) )then
+                if( all( abs(tmp_vec2).lt.1.E-5 ) )then
                    cycle atom_loop1
                 end if
 
@@ -2277,11 +3110,11 @@ contains
              if(bas%spec(is)%atom(ia,axis).lt.lw_loc2.or.&
                   bas%spec(is)%atom(ia,axis).ge.up_loc2) cycle atom_loop3
              tmp_vec1 = bas%spec(is)%atom(ia,:3) + transvec
-             if( all(bas%spec(is)%atom(:,axis).lt.tmp_vec1(axis)-1.D-5) ) cycle atom_loop3
+             if( all(bas%spec(is)%atom(:,axis).lt.tmp_vec1(axis)-1.E-5) ) cycle atom_loop3
              atom_loop4: do ja=1,bas%spec(is)%num
                 tmp_vec2 = tmp_vec1 - bas%spec(is)%atom(ja,:3)
                 tmp_vec2 = tmp_vec2 - ceiling( tmp_vec2 - 0.5_real12 )
-                if( all( abs(tmp_vec2).lt.1.D-5 ) )then
+                if( all( abs(tmp_vec2).lt.1.E-5 ) )then
                    cycle atom_loop3
                 end if
              end do atom_loop4
@@ -2335,7 +3168,7 @@ contains
              tmp_vec3 = tmp_vec3 - ceiling(tmp_vec3 - 0.5_real12)
              !THIS IS WHERE WE NEED TO MAKE IT RIGHT
              !! FIND THE GCD AND DIVIDE
-             if(all(abs(tmp_vec3).lt.1.D-5))then
+             if(all(abs(tmp_vec3).lt.1.E-5))then
                 if(wyckoff%spec(is)%atom(ja).ne.0)then
                    wyckoff%spec(is)%atom(ia) = wyckoff%spec(is)%atom(ja)
                 else
@@ -2364,51 +3197,6 @@ contains
 
 
   end function get_wyckoff
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! identify the shortest bond in the crystal, takes in crystal basis
-!!!#############################################################################
-  function get_shortest_bond(lat,bas) result(bond)
-    implicit none
-    integer :: is,js,ia,ja,ja_start
-    real(real12) :: dist,min_bond
-    type(bas_type), intent(in) :: bas
-    type(bond_type) :: bond
-    real(real12), dimension(3) :: vec
-    integer, dimension(2,2) :: atoms
-    real(real12), dimension(3,3) :: lat
-    
-    min_bond = 100._real12
-    atoms = 0
-    do is=1,bas%nspec
-       do js=is,bas%nspec
-          do ia=1,bas%spec(is)%num
-             if(is.eq.js)then
-                ja_start = ia+1
-             else
-                ja_start = 1
-             end if
-             do ja=ja_start,bas%spec(js)%num
-                vec = bas%spec(is)%atom(ia,:3) - bas%spec(js)%atom(ja,:3)
-                vec = vec - ceiling(vec - 0.5_real12)
-                vec = matmul(vec,lat)
-                dist = modu(vec)
-                if(dist.lt.min_bond)then
-                   min_bond = dist
-                   atoms(1,:) = (/is, ia/)
-                   atoms(2,:) = (/js, ja/)
-                end if
-             end do
-          end do
-       end do
-    end do
-    bond%length = min_bond
-    bond%atoms = atoms
-
-
-  end function get_shortest_bond
 !!!#############################################################################
 
   

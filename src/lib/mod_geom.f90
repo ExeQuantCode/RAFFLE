@@ -8,8 +8,6 @@ module geom
   private
 
   public :: get_bondlength, get_bondangle, get_dihedral_angle
-  public :: get_volume, get_sphere_overlap
-  public :: atomprojector
   public :: get_random_unit_cell
 
 
@@ -70,78 +68,6 @@ contains
   end function get_dihedral_angle
 !!!#############################################################################
 
-
-
-!!!#############################################################################
-!!! return the volume of the unit cell
-!!!#############################################################################
-  pure function get_volume(lat) result(vol)
-    implicit none
-    real(real12), dimension(3,3), intent(in) :: lat
-    real(real12), dimension(3) :: a,b,c, tmp
-    integer :: i
-    real(real12) :: vol
-    a=lat(:,1)
-    b=lat(:,2)
-    c=lat(:,3)
-    tmp=cross(b,c)
-    vol = 0._real12
-    do i=1,3
-       vol = vol + a(i) * tmp(i)
-    end do
-  end function get_volume
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! return the spherical overlap volume
-!!!#############################################################################
-  pure function get_sphere_overlap(r,rp,b) result(volume) 
-    implicit none
-    real(real12), intent(in) :: r,rp,b
-    real(real12) :: volume
-    real(real12) :: step1, step2, step3
-
-    step1=pi*(r+rp-b)**2
-    step2=(b**2)+(2*b*rp)-(3*(rp**2))+(2*b*r)+(6*rp*r)-3*(r**2)
-    step3=1.0_real12/(12.0*b)
-    volume = step1 * step2 * step3
-    if(volume.lt.0._real12) volume = 0._real12
-  end function get_sphere_overlap
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! return the projection of the atoms in the unit cell
-!!!#############################################################################
-  pure subroutine atomprojector(position,array,lattice,atomnumber,structures)
-    use atomtype
-    implicit none
-    type (atom), dimension(:,:), intent(out) :: array
-    real(real12), dimension(3), intent(in) :: position
-    integer, intent(in) :: atomnumber, structures
-    real(real12), dimension(3,3), intent(in) :: lattice
-    integer :: j,length,x,y,z,m
-    
-    m=0
-    do x=-1,1
-       do y=-1,1
-          do z=-1,1
-             if((x.eq.0).and.(y.eq.0).and.(z.eq.0)) cycle
-             m = m + 1
-             do j=1, 3
-                   array(1,m)%position(j)=position(j)+&
-                     &(x*lattice(j,1))+&
-                     &(y*lattice(j,2))+&
-                     &(z*lattice(j,3))
-             end do
-          end do
-       end do
-    end do
-
-  end subroutine atomprojector
-!!!#############################################################################
-  
 
 !!!#############################################################################
 !!! return a random unit cell

@@ -1,6 +1,5 @@
 program raffle
   use constants, only: real12, pi
-  use geom, only: get_sphere_overlap
   use inputs
   use help
   use gen

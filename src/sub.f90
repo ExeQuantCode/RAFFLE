@@ -1,8 +1,7 @@
 module help
   use constants, only: real12, pi
   use geom, only: &
-       get_bondlength, get_bondangle, get_dihedral_angle, &
-       atomprojector
+       get_bondlength, get_bondangle, get_dihedral_angle
   use atomtype
   use vasp_file_handler, only: unitcell
   use file_generator

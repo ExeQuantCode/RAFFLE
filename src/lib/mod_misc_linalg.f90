@@ -27,6 +27,8 @@
 !!! LUinv            (inverse of a matrix of any size using LUdecomposition)
 !!! LUdecompose      (decompose a matrix into upper and lower matrices. A=LU)
 !!!##################
+!!! get_spheres_overlap (get the overlap of two spheres)
+!!!##################
 !!! find_tf          (transformation matrix to move between two matrices)
 !!! simeq            (simultaneous equation solver)
 !!! IDW              (inverse distance weighting interpolate (Shepards' method))
@@ -44,29 +46,9 @@
 !!! initialise_tetrahedra   (initialise tetrahedra and their weights)
 !!!#############################################################################
 module misc_linalg
-  use constants, only: real12
+  use constants, only: real12, pi
   implicit none
   integer, parameter, private :: QuadInt_K = selected_int_kind (16)
-
-  !interface uvec
-  !   procedure ruvec,duvec
-  !end interface uvec
-  !
-  !interface modu
-  !   procedure rmodu,dmodu
-  !end interface modu
-  !
-  !interface proj
-  !   procedure rproj,dproj
-  !end interface proj
-  !
-  !interface cross
-  !   procedure rcross,dcross
-  !end interface cross
-  !
-  !interface signed_dist
-  !   procedure rsigned_dist,dsigned_dist
-  !end interface signed_dist
 
   interface gcd
      procedure gcd_vec,gcd_num
@@ -76,21 +58,20 @@ module misc_linalg
      procedure ivec_dmat_mul,rvec_dmat_mul
   end interface vec_mat_mul
 
-  !interface det
-  !   procedure idet,rdet,ddet,rec_det
-  !end interface det
-  !
-  !interface inverse_2x2
-  !   procedure rinverse_2x2,dinverse_2x2
-  !end interface inverse_2x2
-  !
-  !interface inverse_3x3
-  !   procedure rinverse_3x3,dinverse_3x3
-  !end interface inverse_3x3
-  !
-  !interface inverse
-  !   procedure rinverse,dinverse
-  !end interface inverse
+
+  private
+
+  public :: uvec, modu, proj, GramSchmidt, cross, cross_matrix, outer_product
+  public :: vec_mat_mul, get_vec_multiple
+  public :: signed_dist, get_angle, get_area, get_vol, trace, det
+  public :: inverse_2x2, inverse_3x3, inverse
+  public :: rec_det, LUdet, LUinv, LUdecompose
+  public :: get_spheres_overlap
+  public :: find_tf, simeq, IDW, IDW_arr_fmt, IDW_grid
+  public :: LLL_reduce, rotvec, rot_arb_lat
+  public :: gcd, lcm, get_frac_denom, reduce_vec_gcd
+  public :: gen_group
+  public :: initialise_tetrahedra
 
 
 !!!updated 2021/12/09
@@ -676,6 +657,59 @@ contains
 
     return
   end subroutine LUdecompose
+!!!#####################################################
+
+
+!!!#############################################################################
+!!!#############################################################################
+!!!  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *
+!!!#############################################################################
+!!!#############################################################################
+
+
+!!!#####################################################
+!!! get overlap of two spheres
+!!!#####################################################
+  pure function get_spheres_overlap(radius_1,radius_2,separation) &
+       result(overlap)
+    implicit none
+    real(real12), intent(in) :: radius_1, radius_2, separation
+    real(real12) :: overlap
+
+    real(real12) :: distance_1, distance_2, cap_volume1, cap_volume2
+
+
+    overlap = 0._real12
+
+    !! check for overlap
+    if (separation .ge. radius_1 + radius_2) return
+  
+    !! check for completely enclosed sphere
+    if ( separation + radius_1 .le. radius_2 .or. &
+         separation + radius_2 .le. radius_1) then
+        overlap = (4._real12/3._real12) * pi * &
+             min(radius_1, radius_2) ** 3._real12
+        return
+    end if
+  
+   !! get distance from centre of sphere to plane of intersection
+   distance_1 = ( radius_1 ** 2._real12 - &
+                  radius_2 ** 2._real12 + &
+                  separation ** 2._real12 ) / ( 2._real12 * separation )
+   distance_2 = separation - distance_1
+  
+   !! get the volume of the spherical caps
+   cap_volume1 = ( 1._real12 / 3._real12 ) * pi * &
+                 distance_1 ** 2._real12 * &
+                 ( 3._real12 * radius_1 - distance_1)
+   cap_volume2 = ( 1._real12 / 3._real12 ) * pi * &
+                 distance_2 ** 2._real12 * &
+                 ( 3._real12 * radius_2 - distance_2)
+  
+   !! get the volume of the intersection
+   overlap = cap_volume1 + cap_volume2
+
+  end function get_spheres_overlap
 !!!#####################################################
 
 

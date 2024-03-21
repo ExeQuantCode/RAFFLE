@@ -1,26 +1,14 @@
 program raffle
   use constants, only: real12, pi
   use inputs
-  use help
-  use gen
-  use atomtype
+  use evolve, only: bond_evolution
+  use gen, only: generation
   use rw_geom, only: bas_type
-
-  use read_chem, only: get_element_radius
+  use file_generator, only: regenerate_distribution_files
   implicit none
 
-
   integer :: i, nbin, nbin2, nbinf
-  real(real12), dimension(3) :: x1, x2, x3
-
-  type(unitcell), dimension(:), allocatable :: formula
-  real(real12), dimension(3) :: spacelist
   type(bas_type) :: bas
-  type(atom), dimension(:,:), allocatable :: atomlist, alistrep
-  real(real12) :: sigma, bond_test, returned_val
-  real(real12), dimension(:,:,:), allocatable :: radius_arr
-  !!For input
-  character(1024) :: dummy
 
 
 !!! Reads Input file !!! 
@@ -36,7 +24,7 @@ program raffle
   ! RESOLUTOIN OF REPEATED DON
   nbinf=2
   ! WIDTH OF GAUSSIAN FIT TO DON
-  sigma=sigma_don
+  ! sigma=sigma_don
 
 
 
@@ -103,7 +91,7 @@ program raffle
 !!!Set the number of atoms and generate the unit cell!!!
 !!!--------------------------------------------------!!!
 
-  call generation(alistrep, structno, options, element_list, stoichiometry_list)
+  call generation(structno, options, element_list, stoichiometry_list)
   write(*,*) "The structures requested have been successfully generated and saved"
 
 end program raffle

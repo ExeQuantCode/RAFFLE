@@ -211,13 +211,13 @@ contains
 !!!#############################################################################
 !!! touch POSCAR subdirectories within pos/ directory
 !!!#############################################################################
-  subroutine touchposdir(structures,prev_structures)
+  subroutine touchposdir(structure)
     implicit none
-    integer, intent(in) :: structures, prev_structures 
-    character(1024) :: tmp
+    integer, intent(in) :: structure 
+    character(1024) :: buffer
 
-    write(tmp,'("pos/POSCAR_",I0.3)') structures + prev_structures
-    call touch(trim(adjustl(tmp)))
+    write(buffer,'("pos/POSCAR_",I0.3)') structure
+    call touch(trim(adjustl(buffer)))
   end subroutine touchposdir
 !!!#############################################################################
 
@@ -372,15 +372,24 @@ contains
     character(3) :: dir_t
     integer :: n, gap_test
     n=1
+    select case(dir_t)
+    case("don")
+       dir_name="/DON_"
+       dir_append="/DON"
+    case("pos")
+       dir_name="/POSCAR_"
+       dir_append="/POSCAR"
+    case("bon")
+       dir_name="/BON_"
+       dir_append=""
+    case("bad")
+       dir_name="/BAD_"
+       dir_append=""
+    case default
+       write(*,*) "ERROR: INVALID DIRECTORY TYPE"
+       stop 1
+    end select
     mainloop : do while(n.ne.0)
-     if(dir_t.eq."don") dir_name="/DON_"     
-     if(dir_t.eq."pos") dir_name="/POSCAR_"
-     if(dir_t.eq."don") dir_append="/DON"
-     if(dir_t.eq."pos") dir_append="/POSCAR"
-     if(dir_t.eq."bon") dir_name="/BON_"
-     if(dir_t.eq."bon") dir_append=""
-     if(dir_t.eq."bad") dir_name="/BAD_"
-     if(dir_t.eq."bad") dir_append=""
      write(name,'(A3,A,I0.3,A7)') dir_t,trim(adjustl(dir_name)), n,dir_append
      name=trim(adjustl(name))
     

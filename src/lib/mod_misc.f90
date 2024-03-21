@@ -837,11 +837,12 @@ contains
 !!! grep 
 !!!#####################################################
 !!! searches a file untill it finds the mattching patern
-  subroutine grep(unit,input,lstart)
+  subroutine grep(unit,input,lstart,lline,success)
     integer :: unit,Reason
     character(*) :: input
     character(1024) :: buffer
-    logical, optional, intent(in) :: lstart
+    logical :: lline_ = .false., success_ = .false.
+    logical, optional, intent(in) :: lstart, lline
     !  character(1024), intent(out), optional :: linechar
     if(present(lstart))then
        if(lstart) rewind(unit)
@@ -849,11 +850,38 @@ contains
        rewind(unit)
     end if
 
-    greploop: do
-       read(unit,'(A100)',iostat=Reason) buffer
-       if(Reason.lt.0) return
-       if(index(trim(buffer),trim(input)).ne.0) exit greploop
-    end do greploop
+    if(present(lline)) lline_ = lline
+    if(lline_)then
+       wholeloop: do
+          read(unit,'(A100)',iostat=Reason) buffer
+          if(is_iostat_end(Reason))then
+             exit wholeloop
+          elseif(Reason.ne.0)then
+             write(0,*) "Error reading file"
+             stop 1
+          end if
+          if(index(trim(buffer),trim(input)).eq.1)then
+             success_ = .true.
+             exit wholeloop
+          end if
+       end do wholeloop
+    else
+       greploop: do
+          read(unit,'(A100)',iostat=Reason) buffer
+          if(is_iostat_end(Reason))then
+             exit greploop
+          elseif(Reason.ne.0)then
+             write(0,*) "Error reading file"
+             stop 1
+          end if
+          if(index(trim(buffer),trim(input)).ne.0)then
+            success_ = .true.
+            exit greploop
+         end if
+       end do greploop
+    end if
+
+    if(present(success)) success = success_
   end subroutine grep
 !!!#####################################################
 

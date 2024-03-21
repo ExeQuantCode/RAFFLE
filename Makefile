@@ -14,7 +14,6 @@ LIBS := mod_constants.f90 \
 	mod_edit_geom.f90 \
 	mod_vasp_file_handler.f90 \
 	mod_isolated.f90 \
-	mod_geom.f90 \
 	mod_file_generator.f90 \
 	mod_contributions.f90 \
 	mod_distributions.f90 \

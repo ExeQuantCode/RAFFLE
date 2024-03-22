@@ -339,10 +339,10 @@ contains
 !!!#####################################################
 !!! returns angle between two vectors
 !!!#####################################################
-  function get_angle(vec1,vec2) result(angle)
+  pure function get_angle(vec1,vec2) result(angle)
     implicit none
+    real(real12), dimension(3), intent(in) :: vec1,vec2
     real(real12) :: angle
-    real(real12), dimension(3) :: vec1,vec2
 
     angle = acos( dot_product(vec1,vec2)/&
          ( modu(vec1) * modu(vec2) ))
@@ -356,10 +356,11 @@ contains
 !!!#####################################################
 !!! returns area made by two vectors
 !!!#####################################################
-  function get_area(a,b) result(area)
+  pure function get_area(a,b) result(area)
     implicit none
+    real(real12), dimension(3), intent(in) :: a,b
     real(real12) :: area
-    real(real12), dimension(3) :: vec,a,b
+    real(real12), dimension(3) :: vec
 
     vec = cross(a,b)
     area = sqrt(dot_product(vec,vec))

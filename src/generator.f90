@@ -49,7 +49,6 @@ contains
     integer :: task_
     integer :: num_species, num_atoms, num_insert_atoms
     integer :: num_insert_species
-    integer :: num_host_species, num_host_atoms
 
     real(real12) :: rtmp1
     real(real12) :: posneg, meanvol, connectivity, volmin, total_volume
@@ -83,14 +82,10 @@ contains
     end do
     select case(task_)
     case(2)
-       num_host_atoms = get_num_atoms_from_poscar(filename_host)
        open(newunit = unit, file = trim(adjustl(filename_host)))
        call geom_read(unit,lattice_host, basis_host)
        close(unit)
        basis_store = bas_merge(basis_host,basis_store)
-       num_host_species = basis_host%nspec
-    case default
-       num_host_species=0
     end select
     num_species        = basis_store%nspec
     element_list       = basis_store%spec(:)%name
@@ -100,9 +95,6 @@ contains
     !! calls the function structurecounter, which provides information about the number of currently existing 
     !! structures in the directory
     radius_arr = get_element_radius(element_list)
-
-    !! task_=1 is a special task allowing a new poscar to be added in at user specification
-
 
     !!--------------------------------------------------------------------------
     !! set up isolated element calculations

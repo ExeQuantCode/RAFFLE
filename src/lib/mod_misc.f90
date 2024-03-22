@@ -842,6 +842,7 @@ contains
     character(*) :: input
     character(1024) :: buffer
     logical :: lline_ = .false., success_ = .false.
+    logical, optional, intent(out) :: success
     logical, optional, intent(in) :: lstart, lline
     !  character(1024), intent(out), optional :: linechar
     if(present(lstart))then

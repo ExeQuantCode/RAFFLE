@@ -1,5 +1,6 @@
 module evolver
   use constants, only: real12, pi
+  use misc, only: set
   use misc_linalg, only: get_angle, cross, modu
   use rw_geom, only: bas_type
   implicit none
@@ -12,7 +13,7 @@ module evolver
 
   type :: gvector_type
      integer :: num_atoms = 0
-     real(real12) :: energy = 0.0_real12
+     real(real12) :: energy = 0.0_real12 !! should be formation energy
      character(len=3), dimension(:), allocatable :: species
      real(real12), dimension(:,:), allocatable :: df_2body
      real(real12), dimension(:,:), allocatable :: df_3body
@@ -62,9 +63,11 @@ contains
     class(gvector_container_type), intent(inout) :: this
     type(gvector_type), dimension(..), intent(in) :: system
 
-    integer :: i, num_structures_previous
+    integer :: idx1, idx2
+    integer :: i, j, is, js, num_structures_previous
     real(real12) :: weight
     real(real12), dimension(:), allocatable :: height
+    integer, dimension(:,:), allocatable :: idx_list
     
 
     !!! SELECT TYPE OF THE SYSTEM
@@ -92,28 +95,59 @@ contains
        stop 1
     end select
 
+    !! get list of species in dataset
+    do i = 1, size(this%system)
+        this%total%species = [ this%total%species, this%system(i)%species ]
+    end do
+    call set(this%total%species)
+
     !!! EASIER TO STORE THE LIST OF LENGTHS, AND ANGLES, OR THE INDIVIDUAL SYSTEM GVECTORS?
     this%total%df_2body = 0._real12
     this%total%df_3body = 0._real12
     this%total%df_4body = 0._real12
     do i = 1, size(this%system)
+       
+       j = 0
+       allocate(idx_list(size(this%system(i)%species),size(this%system(i)%species)))
+       do is = 1, size(this%system(i)%species)
+          do js = is, size(this%system(i)%species), 1
+             j = j + 1
+             idx_list(is,js) = j
+             idx_list(js,is) = j
+          end do
+       end do
+       
+       j = 0
        weight = exp( this%total%energy - &
                       this%system(i)%energy / this%system(i)%num_atoms )
+       do is = 1, size(this%total%species)
+
+          idx1 = findloc(this%system(i)%species, this%total%species(is), dim=1)
+          if(idx1.eq.0) cycle
+
+          height = 1._real12 / ( 1._real12 + this%total%df_3body(:,is) )
+          this%total%df_3body(:,is) = this%total%df_3body(:,is) + &
+               height * weight * this%system(i)%df_3body(:,idx1)
+          
+          height = 1._real12 / ( 1._real12 + this%total%df_4body(:,is) )
+          this%total%df_4body(:,is) = this%total%df_4body(:,is) + &
+               height * weight * this%system(i)%df_4body(:,idx1)
+          
+          do js = is, size(this%total%species), 1
+             j = is * (js - 1) + js
+             idx2 = findloc(this%system(i)%species, this%total%species(js), dim=1)
+             height = 1._real12 / ( 1._real12 + this%total%df_2body(:,j) ) ** 2._real12
+             this%total%df_2body(:,j) = this%total%df_2body(:,j) + &
+                  height * weight * this%system(i)%df_2body(:,idx_list(idx1,idx2))
+ 
+          end do
+       end do
+       deallocate(idx_list)
        !! Need to consider the fact that some structures may not have all ...
        !! ... the species, so their gvectors will be ordered differently
        !! Also, height should be calculated per pair/species, not per system
        !! So loop needed in here to go over every pair/species
-       ! height = 1._real12 / ( 1._real12 + this%total%df_2body ) ** 2._real12
-       ! this%total%df_2body = this%total%df_2body + &
-       !                    height * weight * this%system(i)%df_2body
        ! 
-       ! height = 1._real12 / ( 1._real12 + this%total%df_3body )
-       ! this%total%df_3body = this%total%df_3body + &
-       !                    height * weight * this%system(i)%df_3body
-       ! 
-       ! height = 1._real12 / ( 1._real12 + this%total%df_4body )
-       ! this%total%df_4body = this%total%df_4body + &
-       !                    height * weight * this%system(i)%df_4body
     end do
 
   end subroutine evolve
@@ -173,12 +207,12 @@ contains
     i = 0
     num_pairs = gamma(real(basis%nspec + 2, real12)) / &
                 ( gamma(real(basis%nspec, real12)) * gamma( 3._real12 ) )
-    allocate(idx(num_pairs,2))
+    allocate(idx(2,num_pairs))
     this%species = basis%spec(:)%name !!! CHECK LENGTH OF %name !!!
     do is = 1, basis%nspec
        do js = is, basis%nspec, 1
           i = i + 1
-          idx(i,:) = [is, js]
+          idx(:,i) = [is, js]
        end do
     end do
 
@@ -276,12 +310,11 @@ contains
        end do
 
        do j = 1, num_pairs
-          if( is .eq. idx(j,1) .and. js .eq. idx(j,2) )then
+          if( is .eq. idx(1,j) .and. js .eq. idx(2,j) )then
              k = j
              cycle
           end if
        end do
-
        this%df_2body(:,k) = this%df_2body(:,k) + gvector_tmp * scale
     end do
 
@@ -317,6 +350,9 @@ contains
              else
                 cycle
              end if
+
+             !!! MAYBE MAKE A SUBLIST HERE OF ALL ANGLES FOR THAT SPECIES, ...
+             !!! ... THEN LOOP OVER THAT LIST
  
              !!------------------------------------------------------------------
              !! calculate the angle between the two bonds

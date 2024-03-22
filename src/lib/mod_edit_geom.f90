@@ -57,10 +57,10 @@
 module edit_geom
   use constants, only: pi,real12
   use rw_geom, only: bas_type,geom_write,convert_bas,clone_bas
-  use misc, only: swap
+  use misc, only: swap, sort1d
   use misc_linalg, only: cross,outer_product,cross_matrix,uvec,modu,&
        get_vol,det,inverse,inverse_3x3,LUinv,reduce_vec_gcd,get_vec_multiple,&
-       proj,GramSchmidt,LLL_reduce
+       proj,GramSchmidt,LLL_reduce, get_angle
   implicit none
 
   type wyck_atom_type
@@ -118,7 +118,8 @@ contains
 !!!#############################################################################
   pure function MATNORM(lat) result(nlat)
     implicit none
-    real(real12), dimension(3,3) :: lat, nlat
+    real(real12), dimension(3,3), intent(in) :: lat
+    real(real12), dimension(3,3) :: nlat
     nlat(1,1)=sqrt(lat(1,1)**2+lat(1,2)**2+lat(1,3)**2)
     nlat(1,2)=0.0
     nlat(1,3)=0.0
@@ -150,12 +151,14 @@ contains
 !!!#############################################################################
   pure function min_dist(bas,axis,loc,above)
     implicit none
-    integer :: is,axis
+    integer, intent(in) :: axis
+    type(bas_type), intent(in) :: bas
+    logical, intent(in), optional :: above
+
+    integer :: is
     real(real12) :: min_dist,pos
     real(real12), intent(in) :: loc
-    type(bas_type) :: bas
     logical :: labove
-    logical,optional :: above
 
 
     pos=loc
@@ -805,12 +808,12 @@ contains
     real(real12), allocatable, dimension(:) :: gvector_tmp
     real(real12), allocatable, dimension(:,:) :: gvector
 
-    integer :: i, j, k
+    integer :: i, j, k, b
     integer :: is, js, ia, ja
     integer :: amax, bmax, cmax
-    integer :: species_1_num = 0, species_2_num = 0
+    integer :: species_1_num, species_2_num
     integer :: nbins_, bin
-    real(real12) :: cutoff_ = 6._real12, width_ = 0.1_real12, fc
+    real(real12) :: cutoff_, width_, fc, scale
     real(real12) :: rtmp1, rtmp2, eta
     real(real12), dimension(3) :: vtmp1, diff
 
@@ -821,8 +824,16 @@ contains
 
     type(bond_type), dimension(:), allocatable :: bond_list
 
-    if(present(cutoff)) cutoff_ = cutoff
-    if(present(width)) width_ = width
+    if(present(cutoff))then
+       cutoff_ = cutoff
+    else
+       cutoff_ = 6._real12
+    end if
+    if(present(width))then
+       width_ = width
+    else
+       width_ = 0.1_real12
+    end if
     if(present(nbins))then
        nbins_ = nbins
        width_ = cutoff_/nbins_
@@ -833,12 +844,27 @@ contains
     eta = 1._real12 / ( 2._real12 * width_**2._real12 )
 
     if(present(species_1))then
-       species_1_num = maxloc(trim(bas%spec(:)%name).eq.trim(species_1))
+       do i = 1, bas%nspec
+          if(trim(bas%spec(i)%name).eq.trim(species_1))then
+             species_1_num = i
+             exit
+          end if
+       end do
        allocate(gvector(nbins_,species_1_num:species_1_num), source=0._real12)
     else
-      allocate(gvector(nbins_,bas%nspec), source=0._real12)
+       species_1_num = 0
+       allocate(gvector(nbins_,bas%nspec), source=0._real12)
     end if
-    if(present(species_2)) species_2_num = maxloc(trim(bas%spec(:)%name).eq.trim(species_2))
+    if(present(species_2))then
+       do i = 1, bas%nspec
+          if(trim(bas%spec(i)%name).eq.trim(species_2))then
+             species_2_num = i
+             exit
+          end if
+       end do
+    else
+       species_2_num = 0
+    end if
 
     !! this is not perfect
     !! won't work for extremely acute/obtuse angle cells
@@ -933,19 +959,27 @@ contains
 
     real(real12), allocatable, dimension(:) :: gvector
 
-    integer :: i, j, k
+    integer :: i, j, k, b
     integer :: ia, ja
     integer :: amax, bmax, cmax
-    integer :: species_1_num = 0, species_2_num = 0
+    integer :: species_1_num, species_2_num
     integer :: nbins_, bin
-    real(real12) :: cutoff_ = 6._real12, width_ = 0.1_real12, fc
+    real(real12) :: cutoff_, width_, fc, scale
     real(real12) :: rtmp1, rtmp2, eta
     real(real12), dimension(3) :: vtmp1, diff
 
     real(real12), dimension(:), allocatable :: bond_list
 
-    if(present(cutoff)) cutoff_ = cutoff
-    if(present(width)) width_ = width
+    if(present(cutoff))then
+       cutoff_ = cutoff
+    else
+       cutoff_ = 6._real12
+    end if
+    if(present(width))then
+       width_ = width
+    else
+       width_ = 0.1_real12
+    end if
     if(present(nbins))then
        nbins_ = nbins
        width_ = cutoff_/nbins_
@@ -955,9 +989,19 @@ contains
 
     eta = 1._real12 / ( 2._real12 * width_**2._real12 )
 
-    species_1_num = maxloc(trim(bas%spec(:)%name).eq.trim(species_1))
-    species_2_num = maxloc(trim(bas%spec(:)%name).eq.trim(species_2))
-    allocate(gvector(nbins_,bas%nspec,bas%nspec), source=0._real12)
+    do i = 1, bas%nspec
+       if(trim(bas%spec(i)%name).eq.trim(species_1))then
+          species_1_num = i
+          exit
+       end if
+    end do
+    do i = 1, bas%nspec
+       if(trim(bas%spec(i)%name).eq.trim(species_2))then
+          species_2_num = i
+          exit
+       end if
+    end do
+    allocate(gvector(nbins_), source=0._real12)
 
     !! this is not perfect
     !! won't work for extremely acute/obtuse angle cells
@@ -1040,19 +1084,20 @@ contains
 
     integer, intent(in), optional :: nbins
     real(real12), intent(in) :: x_min, x_max, theta_min, theta_max
-    real(real12), intent(in), optional :: cutoff, width
+    real(real12), intent(in), optional :: width
     character(*), intent(in) :: species_1
 
     real(real12), allocatable, dimension(:) :: gvector
 
-    integer :: i, j, k
-    integer :: is, ia
+    integer :: i, j, k, b
+    integer :: is, js, ia, ja
     integer :: amax, bmax, cmax
     integer :: nbins_, bin
     integer :: species_1_num
-    real(real12) :: cutoff_ = 6._real12, width_ = 0.1_real12, fc
-    real(real12) :: rtmp1, rtmp2, eta, x0, dx
-    real(real12), dimension(3) :: vtmp1, diff
+    real(real12) :: cutoff, width_, fc
+    real(real12) :: rtmp1, rtmp2, eta, x0, dx, dtheta, theta0, theta
+    real(real12) :: fp1, fp2, fp3
+    real(real12), dimension(3) :: vtmp1, vector, diff
 
     type :: bond_type
        real(real12), dimension(3) :: vector
@@ -1061,19 +1106,27 @@ contains
     type(bond_type), dimension(:), allocatable :: bond_list
 
 
-
-    if(present(cutoff)) cutoff_ = cutoff
-    if(present(width)) width_ = width
+    if(present(width))then
+       width_ = width
+    else
+       width_ = 0.1_real12
+    end if
     if(present(nbins))then
        nbins_ = nbins
        width_ = (theta_max - theta_min)/nbins_
     else
        nbins_ = (theta_max - theta_min)/width_
-    end if
+     end if
+     cutoff = x_max - x_min
 
     eta = 1._real12 / ( 2._real12 * width_**2._real12 )
 
-    species_1_num = maxloc(trim(bas%spec(:)%name).eq.trim(species_1))
+    do i = 1, bas%nspec
+       if(trim(bas%spec(i)%name).eq.trim(species_1))then
+          species_1_num = i
+          exit
+       end if
+    end do
     allocate(gvector(nbins_), source=0._real12)
 
     x0 = 0.5_real12 * ( x_max + x_min )
@@ -1086,14 +1139,13 @@ contains
     !! this is not perfect
     !! won't work for extremely acute/obtuse angle cells
     !! (due to diagonal path being shorter than individual lattice vectors)
-    amax = ceiling(cutoff_/modu(lat(1,:)))
-    bmax = ceiling(cutoff_/modu(lat(2,:)))
-    cmax = ceiling(cutoff_/modu(lat(3,:)))
+    amax = ceiling(cutoff/modu(lat(1,:)))
+    bmax = ceiling(cutoff/modu(lat(2,:)))
+    cmax = ceiling(cutoff/modu(lat(3,:)))
 
     atom_loop1: do ia=1,bas%spec(is)%num
        allocate(bond_list(0))
        spec_loop2: do js=is,bas%nspec
-          if(present(species_2).and.species_2_num.ne.js) cycle spec_loop2
           atom_loop2: do ja=1,bas%spec(is)%num
              if(is.eq.js.and.ja.lt.ia) cycle atom_loop2
              diff = bas%spec(is)%atom(ia,:3) -  bas%spec(js)%atom(ja,:3)
@@ -1106,7 +1158,7 @@ contains
                       vtmp1(3) = diff(3) + real(k)
                       vector = matmul(vtmp1,lat)
                       rtmp1 = modu(vector)
-                      if(rtmp1.lt.xmin.or.rtmp1.gt.xmax) cycle
+                      if(rtmp1.lt.x_min.or.rtmp1.gt.x_max) cycle
                       bond_list = [ bond_list, bond_type(vector) ]
                    end do
                 end do

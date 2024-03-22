@@ -59,7 +59,7 @@ program raffle
   case(2)
      write(*,*) "Running HOST_RSS"
   case(6)
-      call bond_evolution(1)
+      call bond_evolution()
       stop 0
   case default
      write(*,*) "Invalid option"

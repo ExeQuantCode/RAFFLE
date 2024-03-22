@@ -23,10 +23,11 @@ contains
     logical :: dir_e
     real(real12), dimension(:,:), allocatable :: gaussian
     real(real12), dimension(2) :: read_in, norma_vector
-    real(real12) :: sigma, bondcut, dist_height
+    real(real12) :: sigma, bondcut, dist_height, energy
     character(50) :: buffer1, buffer2
+    logical :: success
 
-    integer :: previous_structures_unit
+    integer :: previous_structures_unit, xml_unit
 
 
     
@@ -44,7 +45,7 @@ contains
        open(newunit=xml_unit, file=trim(adjustl(name)), status="old")
        call grep(xml_unit,'   <i name="e_fr_energy">',lline=.true., success=success)
        if(.not.success) cycle
-       call backspace(xml_unit)
+       backspace(xml_unit)
        read(xml_unit,*) buffer1, buffer2, energy
        close(xml_unit)
       

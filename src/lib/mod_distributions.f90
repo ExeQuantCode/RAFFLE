@@ -1,7 +1,7 @@
 module distributions
   use constants, only: real12
-  use atomtype
   use geom
+  use atomtype, only: atom
   implicit none
 
   type nearmatrix

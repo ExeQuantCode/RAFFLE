@@ -5,7 +5,6 @@ module buildmap
   use geom
   use vasp_file_handler, only: structurecounter, unitcell
   use contributions
-  use atomtype
   implicit none
 
 contains

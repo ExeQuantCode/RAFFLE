@@ -1,10 +1,10 @@
 module file_generator
   use constants, only: real12, pi
-  use atomtype
   use geom, only: get_bondlength, get_bondangle, get_dihedral_angle
   use vasp_file_handler, only: unitcell, &
-       poscar_read, atomrepeater
+       poscar_read
   use geom
+  use atomtype, only: atom
   implicit none
 
 contains
@@ -16,7 +16,6 @@ contains
   subroutine generatebondfiles( &
        stage,structures,prev_structures,&
        array,repeatedarray,eltot,stochio,atomnumber,structure_elements)
-    use atomtype
     implicit none
     character(1024) :: command,name,tmp, location_string, debug_string
     integer :: l,i,el,structures,prev_structures,stage, eltot, atomnumber, tmpint,m,j,k
@@ -617,11 +616,11 @@ contains
       
       
       
-       write(*,*) "MANUALLY CHANGE"
-       do i=1, sum(structure_stochiometry)
-          call atomrepeater(1,array(1,i)%position,array(1,i)%name,&
-               &repeatedarray,unit_cell,i,sum(structure_stochiometry)) 
-       end do
+       ! write(*,*) "MANUALLY CHANGE"
+       ! do i=1, sum(structure_stochiometry)
+       !    call atomrepeater(1,array(1,i)%position,array(1,i)%name,&
+       !         &repeatedarray,unit_cell,i,sum(structure_stochiometry)) 
+       ! end do
       
       
       
@@ -713,10 +712,10 @@ contains
           end do
        end do
       
-       do i=1, sum(structure_stochiometry)
-          call atomrepeater(1,array(1,i)%position,array(1,i)%name,&
-               &repeatedarray,unit_cell,i,sum(structure_stochiometry)) 
-       end do
+       ! do i=1, sum(structure_stochiometry)
+       !    call atomrepeater(1,array(1,i)%position,array(1,i)%name,&
+       !         &repeatedarray,unit_cell,i,sum(structure_stochiometry)) 
+       ! end do
       
        write(*,*) "YOU SHOULD ADD IN HERE A FUNCTION WHICH CERATES DYNAMIC BONDCUTOFF VALUES FOR DIFFERENT ELEMTNS."
        do i=1, sum(structure_stochiometry) 
@@ -808,10 +807,10 @@ contains
        write(*,*) bondcutoff
        stop
       
-       do i=1, sum(structure_stochiometry)
-          call atomrepeater(1,array(1,i)%position,array(1,i)%name,&
-               &repeatedarray,unit_cell,i,sum(structure_stochiometry)) 
-       end do
+       ! do i=1, sum(structure_stochiometry)
+       !    call atomrepeater(1,array(1,i)%position,array(1,i)%name,&
+       !         &repeatedarray,unit_cell,i,sum(structure_stochiometry)) 
+       ! end do
       
        write(*,*) "YOU SHOULD ADD IN HERE A FUNCTION WHICH CERATES DYNAMIC BONDCUTOFF VALUES FOR DIFFERENT ELEMTNS."
        do i=1, sum(structure_stochiometry) 

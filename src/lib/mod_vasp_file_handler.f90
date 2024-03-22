@@ -1,14 +1,12 @@
 module vasp_file_handler
   use constants, only: real12
   use misc, only: touch, icount
-  use atomtype
   implicit none
 
   private
 
   public :: unitcell
   public :: structurecounter
-  public :: atomrepeater
   public :: Incarwrite, kpoints_write, generate_potcar, poscar_read
   public :: touchposdir
   public :: get_num_atoms_from_poscar
@@ -22,37 +20,6 @@ module vasp_file_handler
 
 
 contains
-
-!!!#############################################################################
-!!! repeat the atoms in the unit cell out to a -1,0,1 grid
-!!!#############################################################################
-  subroutine atomrepeater(structures,position,element,array,unit,atomnumber,length)
-    use atomtype
-    implicit none
-    type (atom), dimension(:,:), allocatable :: array
-    real(real12), dimension(3) :: position
-    type(unitcell), dimension(:), allocatable :: unit
-
-    integer :: j,atomnumber,length,x,y,z,structures,m
-    character(3) :: element
-    m=((atomnumber-1)*27)
-    do x=-1,1
-       do y=-1,1
-          do z=-1,1
-             m = m + 1
-             do j=1, 3
-                array(structures,m)%position(j)=position(j) + &
-                     &(x*unit(structures)%cell(1,j)) + &
-                     &(y*unit(structures)%cell(2,j)) + &
-                     &(z*unit(structures)%cell(3,j))
-             end do
-             array(structures,m)%name=element
-          end do
-       end do
-    end do
-  end subroutine atomrepeater
-!!!#############################################################################
-
 
 !!!#############################################################################
 !!! write INCAR file

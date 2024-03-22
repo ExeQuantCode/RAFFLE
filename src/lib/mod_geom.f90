@@ -2,7 +2,6 @@ module geom
   use constants, only: real12, pi
   use misc_linalg, only: cross, get_angle
   use vasp_file_handler, only: unitcell
-  use atomtype
   implicit none
 
   private

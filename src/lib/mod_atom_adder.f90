@@ -3,10 +3,8 @@ module add_atom
   use misc_linalg, only: modu
   use rw_geom, only: bas_type
   use edit_geom, only: get_min_dist
-  use atomtype
-  use vasp_file_handler, only: unitcell, atomrepeater
+  use vasp_file_handler, only: unitcell
   use distributions, only: generate_bondlength_distribution
-  use geom
   use buildmap
   implicit none
 

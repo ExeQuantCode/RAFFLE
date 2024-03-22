@@ -297,7 +297,7 @@ contains
        !! calculate the gaussian for this bond
        !!-----------------------------------------------------------------------
        gvector_tmp = 0._real12
-       max_num_steps = ceiling( sqrt(16._real12/eta(1)) / width )
+       max_num_steps = ceiling( sqrt(16._real12/eta(1)) / width_(1) )
        loop_limits(:,1) = [ bin, min(nbins_(1), bin + max_num_steps), 1 ]
        loop_limits(:,2) = [ bin - 1, max(1, bin - max_num_steps), -1 ]
 
@@ -305,7 +305,7 @@ contains
        do concurrent ( j = 1:2 )
           do concurrent ( b = loop_limits(1,j):loop_limits(2,j) )
              gvector_tmp(b) = gvector_tmp(b) + &
-                  exp( -eta * ( rtmp1 - width * real(b) ) ** 2._real12 )
+                  exp( -eta(1) * ( rtmp1 - width_(1) * real(b) ) ** 2._real12 )
           end do
        end do
        get_pair_index_loop: do j = 1, num_pairs

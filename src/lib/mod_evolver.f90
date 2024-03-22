@@ -61,7 +61,7 @@ contains
   subroutine evolve(this, system)
     implicit none
     class(gvector_container_type), intent(inout) :: this
-    type(gvector_type), dimension(..), intent(in) :: system
+    type(gvector_type), dimension(..), intent(in), optional :: system
 
     integer :: idx1, idx2
     integer :: i, j, is, js, num_structures_previous
@@ -73,27 +73,29 @@ contains
     !!! SELECT TYPE OF THE SYSTEM
     !!! IF TYPE(gvector_type)
     !!! IF TYPE(bas_type)
-    select rank(system)
-    rank(0)
-       this%system = [ this%system, system ]
-       if( system%energy .lt. this%total%energy ) then
-          this%total%energy = system%energy / system%num_atoms
-          this%best_system = size(this%system)
-       end if
-    rank(1)
-       num_structures_previous = size(this%system)
-       this%system = [ this%system, system ]
-       do i = 1, size(system)
-          if( system(i)%energy .lt. this%total%energy ) then
-             this%total%energy = system(i)%energy
-             this%best_system = num_structures_previous + i
+    if(present(system))then
+       select rank(system)
+       rank(0)
+          this%system = [ this%system, system ]
+          if( system%energy .lt. this%total%energy ) then
+             this%total%energy = system%energy / system%num_atoms
+             this%best_system = size(this%system)
           end if
-       end do
-    rank default
-       write(*,*) "ERROR: Invalid rank for system"
-       write(*,*) "Expected rank 0 or 1, got ", rank(system)
-       stop 1
-    end select
+       rank(1)
+          num_structures_previous = size(this%system)
+          this%system = [ this%system, system ]
+          do i = 1, size(system)
+             if( system(i)%energy .lt. this%total%energy ) then
+                this%total%energy = system(i)%energy
+                this%best_system = num_structures_previous + i
+             end if
+          end do
+       rank default
+          write(*,*) "ERROR: Invalid rank for system"
+          write(*,*) "Expected rank 0 or 1, got ", rank(system)
+          stop 1
+       end select
+    end if
 
     !! get list of species in dataset
     do i = 1, size(this%system)

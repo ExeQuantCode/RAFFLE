@@ -177,11 +177,11 @@ contains
     integer :: is, js, ia, ja
     integer :: num_pairs
     integer :: amax, bmax, cmax
-    real(real12) :: rtmp1, rtmp2, fc, theta, phi, weight, scale
+    real(real12) :: rtmp1, rtmp2, fc, weight, scale
     real(real12), dimension(3) :: eta, limit
     real(real12), dimension(3) :: vtmp1, vtmp2, vtmp3, diff
     integer, allocatable, dimension(:,:) :: idx
-    real(real12), allocatable, dimension(:) :: gvector_tmp
+    real(real12), allocatable, dimension(:) :: gvector_tmp, angle
 
     type :: bond_type
        integer, dimension(2) :: species, atom !!! CONFIRM THIS ORDER IS KEPT
@@ -268,8 +268,6 @@ contains
        is = bond_list(i)%species(1)
        js = bond_list(i)%species(2)
        rtmp1 = modu(bond_list(i)%vector)
-       bin = nint(nbins_(1) * ( ( rtmp1 - cutoff_min(1)) + &
-                               width_(1)/2._real12 ) / limit(1) )
        !!-----------------------------------------------------------------------
        !! get number of equivalent bonds
        !!-----------------------------------------------------------------------
@@ -286,6 +284,8 @@ contains
           end if          
        end do
        !!-----------------------------------------------------------------------
+       bin = nint(nbins_(1) * ( ( rtmp1 - cutoff_min(1)) + &
+            width_(1)/2._real12 ) / limit(1) )
        if(bin.gt.nbins_(1).or.bin.lt.1) cycle
 
        fc = 0.5_real12 * cos( pi * ( rtmp1 - cutoff_min(1) ) / limit(1) ) + &
@@ -326,6 +326,7 @@ contains
     allocate(this%df_3body(nbins_(2), basis%nspec), source = 0._real12)
     allocate(gvector_tmp(nbins_(2)),                source = 0._real12)
     do is = 1, basis%nspec
+       allocate(angle(0))
        do i = 1, size(bond_list)
           if(abs(modu(bond_list(i)%vector)).lt.1.E-3) cycle
  
@@ -350,36 +351,46 @@ contains
              else
                 cycle
              end if
-
-             !!! MAYBE MAKE A SUBLIST HERE OF ALL ANGLES FOR THAT SPECIES, ...
-             !!! ... THEN LOOP OVER THAT LIST
  
              !!------------------------------------------------------------------
              !! calculate the angle between the two bonds
              !!------------------------------------------------------------------
-             theta = get_angle( vtmp1, vtmp2 )
- 
-             bin = nint(nbins_(2) * ( theta - cutoff_min(2) ) / limit(2) )
-             if(bin.gt.nbins_(2).or.bin.lt.1) cycle
-             !!------------------------------------------------------------------
-             !! calculate the gaussian for this bond
-             !!------------------------------------------------------------------
-             gvector_tmp = 0._real12
-             !! do forward loop to add gaussian for larger distances
-             do b = bin, nbins_(2), 1
-                rtmp2 = eta(2) * ( theta - width_(2) * real(b) ) ** 2._real12
-                if(rtmp2.gt.16._real12) cycle
-                gvector_tmp(b) = gvector_tmp(b) + exp( -rtmp2 )
-             end do
-             !! do backward loop to add gaussian for smaller distances
-             do b = bin-1, 1, -1
-                rtmp2 = eta(2) * ( theta - width_(2) * real(b) ) ** 2._real12
-                if(rtmp2.gt.16._real12) cycle
-                gvector_tmp(b) = gvector_tmp(b) + exp( -rtmp2 )
-             end do
-             this%df_3body(:,is) = this%df_3body(:,is) + gvector_tmp
+             angle = [ angle, get_angle( vtmp1, vtmp2 ) ]
+
           end do
        end do
+
+       do i = 1, size(angle)
+          if( abs(angle(i) + 1.E3_real12 ) .lt. 1.E-3 ) cycle
+          scale = 1._real12
+          do j = i + 1, size(angle)
+             if(abs(angle(i)-angle(j)) .lt. 1.E-3 )then
+                angle(j) = -1.E3_real12
+                scale = scale + 1._real12
+             end if
+          end do
+
+          bin = nint(nbins_(2) * ( angle(i) - cutoff_min(2) ) / limit(2) )
+          if(bin.gt.nbins_(2).or.bin.lt.1) cycle
+          !!------------------------------------------------------------------
+          !! calculate the gaussian for this bond
+          !!------------------------------------------------------------------
+          gvector_tmp = 0._real12
+          !! do forward loop to add gaussian for larger distances
+          do b = bin, nbins_(2), 1
+            rtmp2 = eta(2) * ( angle(i) - width_(2) * real(b) ) ** 2._real12
+            if(rtmp2.gt.16._real12) cycle
+            gvector_tmp(b) = gvector_tmp(b) + exp( -rtmp2 )
+          end do
+          !! do backward loop to add gaussian for smaller distances
+          do b = bin-1, 1, -1
+            rtmp2 = eta(2) * ( angle(i) - width_(2) * real(b) ) ** 2._real12
+            if(rtmp2.gt.16._real12) cycle
+            gvector_tmp(b) = gvector_tmp(b) + exp( -rtmp2 )
+          end do
+          this%df_3body(:,is) = this%df_3body(:,is) + gvector_tmp * scale
+       end do
+       deallocate(angle)
     end do
 
   
@@ -390,6 +401,7 @@ contains
     allocate(this%df_4body(nbins_(3),basis%nspec), source = 0._real12)
     allocate(gvector_tmp(nbins_(3)),               source = 0._real12)
     do is = 1, basis%nspec
+       allocate(angle(0))
        do i = 1, size(bond_list)
           if(abs(modu(bond_list(i)%vector)).lt.1.E-3) cycle
  
@@ -430,30 +442,43 @@ contains
                 !!------------------------------------------------------------------
                 !! calculate the angle between the two bonds
                 !!------------------------------------------------------------------
-                phi = get_angle( cross(vtmp1, vtmp2), vtmp3 )
+                angle = [ angle, get_angle( cross(vtmp1, vtmp2), vtmp3 ) ]
 
-                bin = nint(nbins_(3) * ( phi - cutoff_min(3) ) / limit(3) )
-                if(bin.gt.nbins_(3).or.bin.lt.1) cycle
-                !!------------------------------------------------------------------
-                !! calculate the gaussian for this bond
-                !!------------------------------------------------------------------
-                gvector_tmp = 0._real12
-                !! do forward loop to add gaussian for larger distances
-                do b = bin, nbins_(3), 1
-                   rtmp2 = eta(3) * ( phi - width_(3) * real(b) ) ** 2._real12
-                   if(rtmp2.gt.16._real12) cycle
-                   gvector_tmp(b) = gvector_tmp(b) + exp( -rtmp2 )
-                end do
-                !! do backward loop to add gaussian for smaller distances
-                do b = bin-1, 1, -1
-                   rtmp2 = eta(3) * ( theta - width_(3) * real(b) ) ** 2._real12
-                   if(rtmp2.gt.16._real12) cycle
-                   gvector_tmp(b) = gvector_tmp(b) + exp( -rtmp2 )
-                end do
-                this%df_4body(:,is) = this%df_4body(:,is) + gvector_tmp
              end do
           end do
        end do
+
+       do i = 1, size(angle)
+          if( abs(angle(i) + 1.E3_real12 ) .lt. 1.E-3 ) cycle
+          scale = 1._real12
+          do j = i + 1, size(angle)
+             if(abs(angle(i)-angle(j)) .lt. 1.E-3 )then
+                angle(j) = -1.E3_real12
+                scale = scale + 1._real12
+             end if
+          end do
+
+          bin = nint(nbins_(3) * ( angle(i) - cutoff_min(3) ) / limit(3) )
+          if(bin.gt.nbins_(3).or.bin.lt.1) cycle
+          !!------------------------------------------------------------------
+          !! calculate the gaussian for this bond
+          !!------------------------------------------------------------------
+          gvector_tmp = 0._real12
+          !! do forward loop to add gaussian for larger distances
+          do b = bin, nbins_(3), 1
+             rtmp2 = eta(3) * ( angle(i) - width_(3) * real(b) ) ** 2._real12
+             if(rtmp2.gt.16._real12) cycle
+             gvector_tmp(b) = gvector_tmp(b) + exp( -rtmp2 )
+          end do
+          !! do backward loop to add gaussian for smaller distances
+          do b = bin-1, 1, -1
+             rtmp2 = eta(3) * ( angle(i) - width_(3) * real(b) ) ** 2._real12
+             if(rtmp2.gt.16._real12) cycle
+             gvector_tmp(b) = gvector_tmp(b) + exp( -rtmp2 )
+          end do
+          this%df_4body(:,is) = this%df_4body(:,is) + gvector_tmp
+       end do
+       deallocate(angle)
     end do
 
   end subroutine calculate

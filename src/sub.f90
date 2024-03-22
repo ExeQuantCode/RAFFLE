@@ -30,7 +30,20 @@ contains
     integer :: previous_structures_unit, xml_unit
 
 
-    
+    !!! SCRAP ALL OF THIS
+    !!! Code should look in a directory called initial/seed/database/data (user defined)
+    !!! ... it should scrape that for structures and, for each one it encounters, ...
+    !!! ... get the energy and structure, then put it through the ...
+    !!! ... gvector_type%calculate procedure.
+    !!! Once done, it should then generate new structures in the iteration/ directory ...
+    !!! ... (user defined again).
+    !!! For each new run of the code, it should populate a new directory and ...
+    !!! ... add to the existing ones.
+    !!! Would the user give it a list of directories to search for structures?
+    !!! And it should check that output_dir never equals any of the input_dirs (or database_dirs)
+
+
+
     !! read in the number of previous structures
     write(name,'(A)') "prevstructures.txt" 
     open(previous_structures_unit,file=name,status="old") 
@@ -61,8 +74,7 @@ contains
     !! we have other codes for this
     !! read in the POSCAR (eventually from the xml file)
     !! calculate the neighbour tables
-
-
+=
 
 
 

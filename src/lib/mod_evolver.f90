@@ -172,7 +172,7 @@ contains
     real(real12), dimension(3) :: cutoff_min_ = [0._real12, 0._real12, 0._real12]
     real(real12), dimension(3) :: cutoff_max_ = [6._real12, pi, pi/2._real12]
 
-    integer :: bin
+    integer :: bin, max_num_steps
     integer :: i, j, k, b
     integer :: is, js, ia, ja
     integer :: num_pairs
@@ -180,8 +180,10 @@ contains
     real(real12) :: rtmp1, rtmp2, fc, weight, scale
     real(real12), dimension(3) :: eta, limit
     real(real12), dimension(3) :: vtmp1, vtmp2, vtmp3, diff
-    integer, allocatable, dimension(:,:) :: idx
     real(real12), allocatable, dimension(:) :: gvector_tmp, angle
+
+    integer, dimension(3,2) :: loop_limits
+    integer, allocatable, dimension(:,:) :: idx
 
     type :: bond_type
        integer, dimension(2) :: species, atom !!! CONFIRM THIS ORDER IS KEPT
@@ -257,6 +259,7 @@ contains
     eta = 1._real12 / ( 2._real12 * width_**2._real12 )
     this%num_atoms = basis%natom
 
+
     !!--------------------------------------------------------------------------
     !! build the 2-body gvectors (radial distribution functions)
     !!--------------------------------------------------------------------------
@@ -271,7 +274,6 @@ contains
        !!-----------------------------------------------------------------------
        !! get number of equivalent bonds
        !!-----------------------------------------------------------------------
-       !! this is done before the lopp to help catch others just outside the limit
        scale = 1._real12
        do j = i+1, size(bond_list)
           !! don't need to look at reverse of species, as the ordering will ...
@@ -295,26 +297,23 @@ contains
        !! calculate the gaussian for this bond
        !!-----------------------------------------------------------------------
        gvector_tmp = 0._real12
-       !! do forward loop to add gaussian for larger distances
-       do b = bin, nbins_(1), 1
-          rtmp2 = eta(1) * ( rtmp1 - width_(1) * real(b) ) ** 2._real12
-          if(rtmp2.gt.16._real12) cycle
-          gvector_tmp(b) = gvector_tmp(b) + exp( -rtmp2 ) * fc
-       end do
-   
-       !! do backward loop to add gaussian for smaller distances
-       do b = bin-1, 1, -1
-          rtmp2 = eta(1) * ( rtmp1 - width_(1) * real(b) ) ** 2._real12
-          if(rtmp2.gt.16._real12) cycle
-          gvector_tmp(b) = gvector_tmp(b) + exp( -rtmp2 ) * fc
-       end do
+       max_num_steps = ceiling( sqrt(16._real12/eta(1)) / width )
+       loop_limits(:,1) = [ bin, min(nbins_(1), bin + max_num_steps), 1 ]
+       loop_limits(:,2) = [ bin - 1, max(1, bin - max_num_steps), -1 ]
 
-       do j = 1, num_pairs
+       !! do forward and backward loops to add gaussian for larger distances
+       do concurrent ( j = 1:2 )
+          do concurrent ( b = loop_limits(1,j):loop_limits(2,j) )
+             gvector_tmp(b) = gvector_tmp(b) + &
+                  exp( -eta * ( rtmp1 - width * real(b) ) ** 2._real12 )
+          end do
+       end do
+       get_pair_index_loop: do j = 1, num_pairs
           if( is .eq. idx(1,j) .and. js .eq. idx(2,j) )then
              k = j
-             cycle
+             exit get_pair_index_loop
           end if
-       end do
+       end do get_pair_index_loop
        this%df_2body(:,k) = this%df_2body(:,k) + gvector_tmp * scale
     end do
 
@@ -327,6 +326,9 @@ contains
     allocate(gvector_tmp(nbins_(2)),                source = 0._real12)
     do is = 1, basis%nspec
        allocate(angle(0))
+       !!-----------------------------------------------------------------------
+       !! loop over all bonds to find the first bond
+       !!-----------------------------------------------------------------------
        do i = 1, size(bond_list)
           if(abs(modu(bond_list(i)%vector)).lt.1.E-3) cycle
  
@@ -339,7 +341,10 @@ contains
           else
              cycle
           end if
- 
+        
+          !!--------------------------------------------------------------------
+          !! loop over all bonds to find the second bond
+          !!--------------------------------------------------------------------
           do j = i + 1, size(bond_list)
              if(abs(modu(bond_list(j)%vector)).lt.1.E-3) cycle
              if( is .eq. bond_list(j)%species(1) .and. &
@@ -352,44 +357,16 @@ contains
                 cycle
              end if
  
-             !!------------------------------------------------------------------
+             !!-----------------------------------------------------------------
              !! calculate the angle between the two bonds
-             !!------------------------------------------------------------------
+             !!-----------------------------------------------------------------
              angle = [ angle, get_angle( vtmp1, vtmp2 ) ]
 
           end do
        end do
-
-       do i = 1, size(angle)
-          if( abs(angle(i) + 1.E3_real12 ) .lt. 1.E-3 ) cycle
-          scale = 1._real12
-          do j = i + 1, size(angle)
-             if(abs(angle(i)-angle(j)) .lt. 1.E-3 )then
-                angle(j) = -1.E3_real12
-                scale = scale + 1._real12
-             end if
-          end do
-
-          bin = nint(nbins_(2) * ( angle(i) - cutoff_min(2) ) / limit(2) )
-          if(bin.gt.nbins_(2).or.bin.lt.1) cycle
-          !!------------------------------------------------------------------
-          !! calculate the gaussian for this bond
-          !!------------------------------------------------------------------
-          gvector_tmp = 0._real12
-          !! do forward loop to add gaussian for larger distances
-          do b = bin, nbins_(2), 1
-            rtmp2 = eta(2) * ( angle(i) - width_(2) * real(b) ) ** 2._real12
-            if(rtmp2.gt.16._real12) cycle
-            gvector_tmp(b) = gvector_tmp(b) + exp( -rtmp2 )
-          end do
-          !! do backward loop to add gaussian for smaller distances
-          do b = bin-1, 1, -1
-            rtmp2 = eta(2) * ( angle(i) - width_(2) * real(b) ) ** 2._real12
-            if(rtmp2.gt.16._real12) cycle
-            gvector_tmp(b) = gvector_tmp(b) + exp( -rtmp2 )
-          end do
-          this%df_3body(:,is) = this%df_3body(:,is) + gvector_tmp * scale
-       end do
+       this%df_3body(:,is) = this%df_3body(:,is) + &
+            get_angle_gvector(angle, nbins_(2), eta(2), width_(2), &
+                              cutoff_min(2), limit(2))
        deallocate(angle)
     end do
 
@@ -402,6 +379,9 @@ contains
     allocate(gvector_tmp(nbins_(3)),               source = 0._real12)
     do is = 1, basis%nspec
        allocate(angle(0))
+       !!-----------------------------------------------------------------------
+       !! loop over all bonds to find the first bond
+       !!-----------------------------------------------------------------------
        do i = 1, size(bond_list)
           if(abs(modu(bond_list(i)%vector)).lt.1.E-3) cycle
  
@@ -414,7 +394,10 @@ contains
           else
              cycle
           end if
- 
+
+          !!--------------------------------------------------------------------
+          !! loop over all bonds to find the second bond
+          !!--------------------------------------------------------------------
           do j = i + 1, size(bond_list)
              if(abs(modu(bond_list(j)%vector)).lt.1.E-3) cycle
              if( is .eq. bond_list(j)%species(1) .and. &
@@ -427,6 +410,9 @@ contains
                 cycle
              end if
  
+             !!-----------------------------------------------------------------
+             !! loop over all bonds to find the third bond
+             !!-----------------------------------------------------------------
              do k = j + 1, size(bond_list)
                 if(abs(modu(bond_list(k)%vector)).lt.1.E-3) cycle
                 if( is .eq. bond_list(k)%species(1) .and. &
@@ -439,49 +425,73 @@ contains
                    cycle
                 end if
  
-                !!------------------------------------------------------------------
+                !!--------------------------------------------------------------
                 !! calculate the angle between the two bonds
-                !!------------------------------------------------------------------
+                !!--------------------------------------------------------------
                 angle = [ angle, get_angle( cross(vtmp1, vtmp2), vtmp3 ) ]
 
              end do
           end do
        end do
-
-       do i = 1, size(angle)
-          if( abs(angle(i) + 1.E3_real12 ) .lt. 1.E-3 ) cycle
-          scale = 1._real12
-          do j = i + 1, size(angle)
-             if(abs(angle(i)-angle(j)) .lt. 1.E-3 )then
-                angle(j) = -1.E3_real12
-                scale = scale + 1._real12
-             end if
-          end do
-
-          bin = nint(nbins_(3) * ( angle(i) - cutoff_min(3) ) / limit(3) )
-          if(bin.gt.nbins_(3).or.bin.lt.1) cycle
-          !!------------------------------------------------------------------
-          !! calculate the gaussian for this bond
-          !!------------------------------------------------------------------
-          gvector_tmp = 0._real12
-          !! do forward loop to add gaussian for larger distances
-          do b = bin, nbins_(3), 1
-             rtmp2 = eta(3) * ( angle(i) - width_(3) * real(b) ) ** 2._real12
-             if(rtmp2.gt.16._real12) cycle
-             gvector_tmp(b) = gvector_tmp(b) + exp( -rtmp2 )
-          end do
-          !! do backward loop to add gaussian for smaller distances
-          do b = bin-1, 1, -1
-             rtmp2 = eta(3) * ( angle(i) - width_(3) * real(b) ) ** 2._real12
-             if(rtmp2.gt.16._real12) cycle
-             gvector_tmp(b) = gvector_tmp(b) + exp( -rtmp2 )
-          end do
-          this%df_4body(:,is) = this%df_4body(:,is) + gvector_tmp
-       end do
+       this%df_4body(:,is) = this%df_4body(:,is) + &
+            get_angle_gvector(angle, nbins_(3), eta(3), width_(3), &
+                              cutoff_min(3), limit(3))
        deallocate(angle)
     end do
 
   end subroutine calculate
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! get the gvector for angle distributions
+!!!#############################################################################
+  pure function get_angle_gvector(angle, nbins, eta, width, cutoff_min, limit) &
+       result(gvector)
+    implicit none
+    integer, intent(in) :: nbins
+    real(real12), intent(in) :: eta, width, cutoff_min, limit
+    real(real12), dimension(:), intent(in) :: angle
+    real(real12), dimension(nbins) :: gvector
+
+    integer :: i, j, b, bin, max_num_steps
+    real(real12) :: scale
+    real(real12), dimension(nbins) :: gvector_tmp
+    real(real12), dimension(:), allocatable :: angle_copy
+    integer, dimension(3,2) :: loop_limits
+
+    angle_copy = angle
+    do i = 1, size(angle_copy)
+       if( abs(angle_copy(i) + 1.E3_real12 ) .lt. 1.E-3 ) cycle
+       scale = 1._real12
+       do j = i + 1, size(angle_copy)
+          if(abs(angle_copy(i)-angle_copy(j)) .lt. 1.E-3 )then
+             angle_copy(j) = -1.E3_real12
+             scale = scale + 1._real12
+          end if
+       end do
+ 
+       bin = nint(nbins * ( angle_copy(i) - cutoff_min ) / limit )
+       if(bin.gt.nbins.or.bin.lt.1) cycle
+       !!------------------------------------------------------------------
+       !! calculate the gaussian for this bond
+       !!------------------------------------------------------------------
+       gvector_tmp = 0._real12
+       ! max_num_steps = ceiling( abs( angle_copy(i) - sqrt(16._real12/eta) ) / width )
+       max_num_steps = ceiling( sqrt(16._real12/eta) / width )
+       loop_limits(:,1) = [ bin, min(nbins, bin + max_num_steps), 1 ]
+       loop_limits(:,2) = [ bin - 1, max(1, bin - max_num_steps), -1 ]
+
+       do concurrent ( j = 1:2 )
+          do concurrent ( b = loop_limits(1,j):loop_limits(2,j) )
+             gvector_tmp(b) = gvector_tmp(b) + &
+                  exp( -eta * ( angle_copy(i) - width * real(b) ) ** 2._real12 )
+          end do
+       end do
+       gvector(:) = gvector(:) + gvector_tmp * scale
+    end do
+
+  end function get_angle_gvector
 !!!#############################################################################
 
 end module evolver

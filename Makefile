@@ -12,7 +12,7 @@ LIBS := mod_constants.f90 \
 	mod_misc_linalg.f90 \
 	mod_rw_geom.f90 \
 	mod_edit_geom.f90 \
-    mod_elements.f90 \
+	mod_elements.f90 \
 	mod_evolver.f90 \
 	atom.f90 \
 	mod_vasp_file_handler.f90 \

@@ -44,7 +44,7 @@ contains
     real(real12), dimension(3,3) :: lattice_host
 
     real(real12), dimension(3,3) :: lattice
-    type(bas_type), allocatable :: basis, basis_store
+    type(bas_type) :: basis, basis_store
 
     integer, dimension(:,:), allocatable :: placement_list, placement_list_shuffled
 
@@ -65,10 +65,10 @@ contains
     real(real12), dimension(:,:,:), allocatable :: radius_arr
 
 
-
+    write(*,*) "HERE0"
     task_=task
     if(present(method_probab)) method_probab_ = method_probab
-
+    write(*,*) "HERE1"
 
 
     !!! THINK OF SOME WAY TO HANDLE THE HOST SEPARATELY
@@ -79,9 +79,14 @@ contains
     basis_store%spec(:)%name = element_list
     basis_store%spec(:)%num = stoichiometry_list
     basis_store%natom = num_insert_atoms
+    basis_store%nspec = num_insert_species
+    basis_store%sysname = "inserts"
+    write(*,*) "HERE2"
     allocate(placement_list(num_insert_atoms,2))
     k = 0
+    write(*,*) "HERE3"
     do i = 1, basis_store%nspec
+       allocate(basis_store%spec(i)%atom(basis_store%spec(i)%num,3), source = 0._real12)
        do j = 1, basis_store%spec(i)%num
           k = k + 1
           placement_list(k,1) = i
@@ -245,17 +250,17 @@ contains
           write(*,*) "ADD ATOM VOID"
           call add_atom_void( bins, &
                 lattice, basis, &
-                placement_list_shuffled(iplaced:,:))
+                placement_list_shuffled(iplaced+1:,:))
        else if(rtmp1.le.method_probab(2)) then 
           write(*,*) "Add Atom Pseudo"
           call add_atom_pseudo( bins, &
                 lattice, basis, &
-                placement_list_shuffled(iplaced:,:), radius_arr, placed)
+                placement_list_shuffled(iplaced+1:,:), radius_arr, placed)
        else if(rtmp1.le.method_probab(3)) then 
           write(*,*) "Add Atom Scan"
           call add_atom_scan( bins, &
                 lattice, basis, &
-                placement_list_shuffled(iplaced:,:), radius_arr, placed)
+                placement_list_shuffled(iplaced+1:,:), radius_arr, placed)
        end if
        if(.not. placed) cycle placement_loop
        iplaced = iplaced + 1

@@ -67,9 +67,11 @@ program raffle
   gvector_container = bond_evolution(input_dir="database/")
 
   call gvector_container%write_2body(file="2body.txt")
+  call gvector_container%write_3body(file="3body.txt")
+  call gvector_container%write_4body(file="4body.txt")
 
-  write(*,*) "Reached expected end"
-  stop 0
+  ! write(*,*) "Reached expected end"
+  ! stop 0
 
   !!--------------------------------------------------------------------------
   !! calculate the probability of each placement method
@@ -88,10 +90,10 @@ program raffle
 !!! change generation to stop using isolated calculation setup and just use the elements_database
 
 
-!!!--------------------------------------------------!!!
-!!!Set the number of atoms and generate the unit cell!!!
-!!!--------------------------------------------------!!!
-
+  write(*,*) "Generating the structures requested"
+  !!!--------------------------------------------------!!!
+  !!!Set the number of atoms and generate the unit cell!!!
+  !!!--------------------------------------------------!!!
   call generation( gvector_container, num_structures, task, &
        element_list, stoichiometry_list, &
        method_probab )

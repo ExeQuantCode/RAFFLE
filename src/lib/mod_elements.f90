@@ -64,6 +64,11 @@ contains
     if(allocated(elements_database)) deallocate(elements_database)
     allocate(elements_database(0))
     open(newunit=unit, file=file_, status='old', action='read')
+    read(unit, *) buffer
+    if(index(trim(adjustl(buffer)),"elements").ne.1)then
+       write(0,*) 'Invalid elements file'
+       stop 1
+    end if
     do
        read(unit, *, iostat=ierror) buffer
        if(is_iostat_end(ierror))then

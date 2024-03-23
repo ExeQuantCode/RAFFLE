@@ -12,6 +12,7 @@ module gen
        vdW, volvar, bins, vps_ratio, filename_host
   use add_atom, only: add_atom_void, add_atom_pseudo, add_atom_scan
   use read_chem, only: get_element_radius
+  use evolver, only: gvector_container_type
   implicit none
 
 
@@ -25,12 +26,13 @@ contains
 !!!#############################################################################
 !!! 
 !!!#############################################################################
-  subroutine generation(num_structures, task, &
+  subroutine generation(gvector_container, num_structures, task, &
        element_list, stoichiometry_list)
     implicit none
     integer, intent(inout) :: num_structures !! SHOULD NOT EVEN BE AN ARGUEMNT
     !! MAKE AN INPUT ARGUMENT THAT IS MAX_NUM_STRUCTURES
     integer, intent(in) :: task
+    type(gvector_container_type), intent(in) :: gvector_container
     integer, dimension(:), allocatable, intent(inout) :: stoichiometry_list
     character(3), dimension(:), allocatable, intent(inout) :: element_list
 

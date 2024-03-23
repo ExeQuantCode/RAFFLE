@@ -50,7 +50,7 @@ program raffle
 !!!--------------------------------------------------------------------------------------!
 
 
-  select case(options)
+  select case(task)
   case(0)
      write(*,*) "NOTHING WAS EVER SET UP FOR CASE 0"
   case(1)
@@ -59,13 +59,11 @@ program raffle
      stop 0
   case(2)
      write(*,*) "Running HOST_RSS"
-  case(6)
-      gvector_container = bond_evolution("database")
-      stop 0
   case default
      write(*,*) "Invalid option"
      stop 1
   end select
+  gvector_container = bond_evolution("database")
 
 !!! READ THE GVECTORS IN USING bond_evolution FUNCTION.
 !!! CALL generation AND PROVIDE THE GVECTORS TO GENERATE THE STRUCTURES
@@ -76,7 +74,7 @@ program raffle
 !!!Set the number of atoms and generate the unit cell!!!
 !!!--------------------------------------------------!!!
 
-  call generation(structno, options, element_list, stoichiometry_list)
+  call generation(gvector_container, num_structures, task, element_list, stoichiometry_list)
   write(*,*) "The structures requested have been successfully generated and saved"
 
 end program raffle

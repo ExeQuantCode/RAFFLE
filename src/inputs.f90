@@ -12,9 +12,9 @@ module inputs
   logical :: lseed
 
   integer :: seed !random seed
-  integer :: structno ! number of structures to generate
+  integer :: num_structures ! number of structures to generate
   integer :: num_species   ! total number of species to add
-  integer :: options ! options setting (defines the RAFFLE task)
+  integer :: task ! task setting (defines the RAFFLE task)
   integer, allocatable, dimension(:) :: stoichiometry_list ! stoichiometry of species to add
   character(3), allocatable, dimension(:) :: element_list !species names to add
 
@@ -36,7 +36,7 @@ module inputs
   integer :: c_min !lower cutoff in cell for atom placement
 
 
-!!!!options:
+!!!!task:
 !!!! 0) Run RSS
 !!!! 1) Regenerate DIst Files (WIP)
 !!!! 2) Run HOST_RSS
@@ -57,7 +57,7 @@ module inputs
   public :: sigma_don, sigma_bondlength
   public :: bins, vps_ratio
   public :: seed
-  public :: structno, num_species, options
+  public :: num_structures, num_species, task
   public :: stoichiometry_list, element_list
   public :: filename_host
   public :: c_cut, c_min
@@ -184,8 +184,8 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! set up namelists for input file
 !!!-----------------------------------------------------------------------------
-    namelist /setup/        options,filename_host,seed,vps_ratio,bins
-    namelist /structure/    structno,num_species,elements,stoichiometry
+    namelist /setup/        task,filename_host,seed,vps_ratio,bins
+    namelist /structure/    num_structures,num_species,elements,stoichiometry
     namelist /volume/       vdW, volvar, minbond, maxbond
     namelist /distribution/ c_min,c_cut,sigma_don,sigma_bondlength,&
          enable_self_bonding

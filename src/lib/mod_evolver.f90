@@ -35,7 +35,7 @@ module evolver
      integer :: best_system = 0
      real(real12) :: best_energy = 0.0_real12
      integer, dimension(3) :: nbins = -1
-     real(real12), dimension(3) :: width = [ 0.05_real12, pi/8._real12, pi/16._real12 ]
+     real(real12), dimension(3) :: width = [ 0.05_real12, pi/24._real12, pi/32._real12 ]
      real(real12), dimension(3) :: cutoff_min = [ 0._real12, 0._real12, 0._real12 ]
      real(real12), dimension(3) :: cutoff_max = [ 6._real12, pi, pi/2._real12 ]
      type(gvector_base_type) :: total !! name it best instead?
@@ -47,6 +47,8 @@ module evolver
      procedure, pass(this) :: set_best_energy
      procedure, pass(this) :: evolve
      procedure, pass(this) :: write_2body
+     procedure, pass(this) :: write_3body
+     procedure, pass(this) :: write_4body
   !   procedure :: read
   end type gvector_container_type
 
@@ -100,6 +102,59 @@ contains
 
   end subroutine write_2body
 !!!#############################################################################
+
+
+!!!#############################################################################
+!!! write the 3body gvectors to a file
+!!!#############################################################################
+    subroutine write_3body(this, file)
+    implicit none
+    class(gvector_container_type), intent(in) :: this
+    character(*), intent(in) :: file
+
+    integer :: unit, i, j
+
+
+    open(newunit=unit, file=file)
+    do i = 1,  size(this%total%df_3body, dim=2)
+       write(unit,'("# ",A)') this%species_info(i)%name
+       do j = 1, size(this%total%df_3body, dim=1)
+          write(unit,*) this%cutoff_min(2) + this%width(2) * ( j - 1 ), &
+                        this%total%df_3body(j,i)
+       end do
+       write(unit,*)
+    end do
+    close(unit)
+
+  end subroutine write_3body
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! write the 3body gvectors to a file
+!!!#############################################################################
+    subroutine write_4body(this, file)
+    implicit none
+    class(gvector_container_type), intent(in) :: this
+    character(*), intent(in) :: file
+
+    integer :: unit, i, j
+
+
+    open(newunit=unit, file=file)
+    do i = 1,  size(this%total%df_4body, dim=2)
+       write(unit,'("# ",A)') this%species_info(i)%name
+       do j = 1, size(this%total%df_4body, dim=1)
+          write(unit,*) this%cutoff_min(3) + this%width(3) * ( j - 1 ), &
+                        this%total%df_4body(j,i)
+       end do
+       write(unit,*)
+    end do
+    close(unit)
+
+  end subroutine write_4body
+!!!#############################################################################
+
 
 !!!#############################################################################
 !!! add system (basis or gvector) to the container
@@ -292,7 +347,7 @@ contains
     if(present(system)) call this%add(system)
     do i = 1, 3
        if(this%nbins(i).eq.-1)then
-          this%nbins(i) = &
+          this%nbins(i) = 1 + &
                ( this%cutoff_max(i) - this%cutoff_min(i) ) / this%width(i)
        end if
     end do
@@ -426,9 +481,9 @@ contains
     if(present(width)) width_ = width
     if(present(nbins))then
        nbins_ = nbins
-       width_ = (cutoff_max_ - cutoff_min_)/nbins_
+       width_ = (cutoff_max_ - cutoff_min_)/real( nbins_ - 1, real12) !!! NEED TO ADD ONE BIN !!!
     else
-       nbins_ = (cutoff_max_ - cutoff_min_)/width_
+       nbins_ = 1 + (cutoff_max_ - cutoff_min_)/width_
     end if
     limit = cutoff_max_ - cutoff_min_
 
@@ -541,7 +596,6 @@ contains
 
        fc = 0.5_real12 * cos( pi * ( rtmp1 - cutoff_min(1) ) / limit(1) ) + &
             0.5_real12
-       fc = 1._real12
 
        !!-----------------------------------------------------------------------
        !! calculate the gaussian for this bond

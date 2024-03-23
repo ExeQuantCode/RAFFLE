@@ -1,4 +1,4 @@
-module evolve
+module read_structures
   use constants, only: real12
   use misc, only: grep
   use rw_geom, only: bas_type, geom_read
@@ -16,10 +16,11 @@ contains
 !!!#############################################################################
 !!! read in the structures from the input directories and generate the gvectors
 !!!#############################################################################
-  subroutine bond_evolution(input_dir, elements_file)
+  function bond_evolution(input_dir, elements_file) result(gvector_container)
     implicit none
     character(1024), dimension(..), intent(in) :: input_dir
-    character(1024), intent(in), optional :: elements_file    
+    character(1024), intent(in), optional :: elements_file  
+    type(gvector_container_type) :: gvector_container  
 
     character(1024) :: name
     integer :: i
@@ -30,7 +31,6 @@ contains
     integer :: xml_unit, unit, ierror
     integer :: num_directories
     type(bas_type) :: basis
-    type(gvector_container_type) :: gvector_container
     type(gvector_type) :: gvector
     real(real12), dimension(3,3) :: lattice
     character(100), dimension(:), allocatable :: structure_list
@@ -117,7 +117,7 @@ contains
     ! sigma=0.05 ! 3-body
     ! sigma=0.05 ! 4-body
 
-  end subroutine bond_evolution
+  end function bond_evolution
 !!!#############################################################################
 
-end module evolve
+end module read_structures

@@ -7,8 +7,7 @@ module gen
   use isolated, only: generate_isolated_calculations
   use vasp_file_handler, only: &
        touchposdir, &
-       incarwrite, kpoints_write, generate_potcar, &
-       get_num_atoms_from_poscar
+       incarwrite, kpoints_write, generate_potcar
   use inputs, only: &
        vdW, volvar, bins, vps_ratio, filename_host
   use add_atom, only: add_atom_void, add_atom_pseudo, add_atom_scan

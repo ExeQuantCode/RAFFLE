@@ -3,8 +3,7 @@ module add_atom
   use misc_linalg, only: modu
   use rw_geom, only: bas_type
   use edit_geom, only: get_min_dist
-  use vasp_file_handler, only: unitcell
-  use buildmap
+  use buildmap, only: buildmap_POINT
   implicit none
 
 contains

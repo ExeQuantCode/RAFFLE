@@ -1,13 +1,15 @@
 program raffle
   use constants, only: real12, pi
   use inputs
-  use evolve, only: bond_evolution
+  use read_structures, only: bond_evolution
   use gen, only: generation
   use rw_geom, only: bas_type
+  use evolver, only: gvector_container_type
   implicit none
 
   integer :: i, nbin, nbin2, nbinf
   type(bas_type) :: bas
+  type(gvector_container_type) :: gvector_container
 
 
 !!! Reads Input file !!! 
@@ -58,12 +60,16 @@ program raffle
   case(2)
      write(*,*) "Running HOST_RSS"
   case(6)
-      call bond_evolution("database")
+      gvector_container = bond_evolution("database")
       stop 0
   case default
      write(*,*) "Invalid option"
      stop 1
   end select
+
+!!! READ THE GVECTORS IN USING bond_evolution FUNCTION.
+!!! CALL generation AND PROVIDE THE GVECTORS TO GENERATE THE STRUCTURES
+!!! change generation to stop using isolated calculation setup and just use the elements_database
 
 
 !!!--------------------------------------------------!!!

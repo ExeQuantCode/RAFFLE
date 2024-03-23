@@ -8,7 +8,6 @@ module vasp_file_handler
   public :: unitcell
   public :: structurecounter
   public :: Incarwrite, kpoints_write, generate_potcar, poscar_read
-  public :: touchposdir
   public :: get_num_atoms_from_poscar
 
 
@@ -172,20 +171,6 @@ contains
     write(unit, '(I0,X,I0,X,I0)') 0, 0, 0
     close(unit) 
   end subroutine kpoints_write
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! touch POSCAR subdirectories within pos/ directory
-!!!#############################################################################
-  subroutine touchposdir(structure)
-    implicit none
-    integer, intent(in) :: structure 
-    character(1024) :: buffer
-
-    write(buffer,'("pos/POSCAR_",I0.3)') structure
-    call touch(trim(adjustl(buffer)))
-  end subroutine touchposdir
 !!!#############################################################################
 
 

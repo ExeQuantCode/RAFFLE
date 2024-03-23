@@ -6,7 +6,6 @@ module gen
   use edit_geom, only: bas_merge
   use isolated, only: generate_isolated_calculations
   use vasp_file_handler, only: &
-       touchposdir, &
        incarwrite, kpoints_write, generate_potcar
   use inputs, only: &
        vdW, volvar, bins, vps_ratio, filename_host
@@ -27,12 +26,13 @@ contains
 !!! 
 !!!#############################################################################
   subroutine generation(gvector_container, num_structures, task, &
-       element_list, stoichiometry_list)
+       element_list, stoichiometry_list, output_dir)
     implicit none
     integer, intent(inout) :: num_structures !! SHOULD NOT EVEN BE AN ARGUEMNT
     !! MAKE AN INPUT ARGUMENT THAT IS MAX_NUM_STRUCTURES
     integer, intent(in) :: task
     type(gvector_container_type), intent(in) :: gvector_container
+    character(len=1024), intent(in), optional :: output_dir
     integer, dimension(:), allocatable, intent(inout) :: stoichiometry_list
     character(3), dimension(:), allocatable, intent(inout) :: element_list
 
@@ -55,7 +55,7 @@ contains
     real(real12) :: posneg, meanvol, connectivity, volmin, total_volume
     real(real12) :: normalisation_a
     logical :: placed
-    character(1024) :: buffer
+    character(1024) :: buffer, output_dir_ = "iteration1"
 
     real(real12), dimension(3) :: method_probab
     real(real12), dimension(:,:,:), allocatable :: radius_arr
@@ -97,16 +97,17 @@ contains
     !! structures in the directory
     radius_arr = get_element_radius(element_list)
 
-    !!--------------------------------------------------------------------------
-    !! set up isolated element calculations
-    !!--------------------------------------------------------------------------
-    call generate_isolated_calculations(element_list)
+    ! !!--------------------------------------------------------------------------
+    ! !! set up isolated element calculations
+    ! !!--------------------------------------------------------------------------
+    ! call generate_isolated_calculations(element_list)
 
 
     !!--------------------------------------------------------------------------
     !! create the 'pos' and 'don' directories
     !!--------------------------------------------------------------------------
-    call touch("pos")
+    if(present(output_dir)) output_dir_ = output_dir
+    call touch(output_dir_)
     call touch("don")
 
 
@@ -190,22 +191,21 @@ contains
     !!--------------------------------------------------------------------------
     BIGLOOP: do istructure = 1, num_structures
 
-       call touchposdir(istructure)
        basis = generate_structure(basis_store, basis_host, lattice, &
             placement_list, radius_arr, method_probab)
 
        !!-----------------------------------------------------------------------
        !! write generated POSCAR
        !!-----------------------------------------------------------------------
-       write(buffer,'(A11,I0.3,A7)')"pos/POSCAR_",istructure,"/POSCAR"
-       open(newunit = structure_unit, file=buffer)
+       write(buffer,'(A,"/struc",I0.3)') trim(output_dir_),istructure
+       call touch(buffer)
+       open(newunit = structure_unit, file=buffer//"/POSCAR")
        call geom_write(structure_unit, lattice_host, basis)
        close(structure_unit)
     
        !!-----------------------------------------------------------------------
        !! write additional VASP files
        !!-----------------------------------------------------------------------
-       write(buffer,'(A11,I0.3)')"pos/POSCAR_",istructure
        call Incarwrite(adjustl(buffer),500, 20*num_atoms)
        call kpoints_write(buffer,3,3,3)
        call generate_potcar(buffer, element_list)

@@ -506,6 +506,7 @@ contains
     !! calculate the gaussian width
     !!--------------------------------------------------------------------------
     eta = 1._real12 / ( 2._real12 * width_**2._real12 )
+    max_num_steps = ceiling( sqrt(16._real12/eta(1)) / width_(1) )
 
 
     !!--------------------------------------------------------------------------
@@ -540,18 +541,18 @@ contains
 
        fc = 0.5_real12 * cos( pi * ( rtmp1 - cutoff_min(1) ) / limit(1) ) + &
             0.5_real12
+       fc = 1._real12
 
        !!-----------------------------------------------------------------------
        !! calculate the gaussian for this bond
        !!-----------------------------------------------------------------------
        gvector_tmp = 0._real12
-       max_num_steps = ceiling( sqrt(16._real12/eta(1)) / width_(1) )
        loop_limits(:,1) = [ bin, min(nbins_(1), bin + max_num_steps), 1 ]
        loop_limits(:,2) = [ bin - 1, max(1, bin - max_num_steps), -1 ]
 
        !! do forward and backward loops to add gaussian for larger distances
        do concurrent ( j = 1:2 )
-          do concurrent ( b = loop_limits(1,j):loop_limits(2,j) )
+          do concurrent ( b = loop_limits(1,j):loop_limits(2,j):loop_limits(3,j) )
              gvector_tmp(b) = gvector_tmp(b) + &
                   exp( -eta(1) * ( rtmp1 - width_(1) * real(b) ) ** 2._real12 )
           end do
@@ -709,6 +710,9 @@ contains
     integer, dimension(3,2) :: loop_limits
 
 
+    ! max_num_steps = ceiling( abs( angle_copy(i) - sqrt(16._real12/eta) ) / width )
+    max_num_steps = ceiling( sqrt(16._real12/eta) / width )
+
     !!--------------------------------------------------------------------------
     !! calculate the gvector for a list of angles
     !!--------------------------------------------------------------------------
@@ -738,8 +742,6 @@ contains
        !! calculate the gaussian for this bond
        !!-----------------------------------------------------------------------
        gvector_tmp = 0._real12
-       ! max_num_steps = ceiling( abs( angle_copy(i) - sqrt(16._real12/eta) ) / width )
-       max_num_steps = ceiling( sqrt(16._real12/eta) / width )
        loop_limits(:,1) = [ bin, min(nbins, bin + max_num_steps), 1 ]
        loop_limits(:,2) = [ bin - 1, max(1, bin - max_num_steps), -1 ]
 
@@ -748,7 +750,7 @@ contains
        !! do forward and backward loops to add gaussian from its centre
        !!-----------------------------------------------------------------------
        do concurrent ( j = 1:2 )
-          do concurrent ( b = loop_limits(1,j):loop_limits(2,j) )
+          do concurrent ( b = loop_limits(1,j):loop_limits(2,j):loop_limits(3,j) )
              gvector_tmp(b) = gvector_tmp(b) + &
                   exp( -eta * ( angle_copy(i) - width * real(b) ) ** 2._real12 )
           end do

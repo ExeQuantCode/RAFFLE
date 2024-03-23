@@ -197,7 +197,7 @@ contains
        !!-----------------------------------------------------------------------
        write(buffer,'(A,"/struc",I0.3)') trim(output_dir_),istructure
        call touch(buffer)
-       open(newunit = structure_unit, file=buffer//"/POSCAR")
+       open(newunit = structure_unit, file=trim(buffer)//"/POSCAR")
        call geom_write(structure_unit, lattice_host, basis)
        close(structure_unit)
     
@@ -250,7 +250,7 @@ contains
           write(*,*) "ADD ATOM VOID"
           call add_atom_void( bins, &
                 lattice, basis, &
-                placement_list_shuffled(iplaced+1:,:))
+                placement_list_shuffled(iplaced+1:,:), placed)
        else if(rtmp1.le.method_probab(2)) then 
           write(*,*) "Add Atom Pseudo"
           call add_atom_pseudo( bins, &
@@ -262,6 +262,9 @@ contains
                 lattice, basis, &
                 placement_list_shuffled(iplaced+1:,:), radius_arr, placed)
        end if
+       write(*,*) "placed", placed
+       write(*,*) "iplaced", iplaced
+       write(*,*) "method", rtmp1, method_probab
        if(.not. placed) cycle placement_loop
        iplaced = iplaced + 1
 

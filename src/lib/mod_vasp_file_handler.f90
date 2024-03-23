@@ -5,17 +5,7 @@ module vasp_file_handler
 
   private
 
-  public :: unitcell
-  public :: structurecounter
-  public :: Incarwrite, kpoints_write, generate_potcar, poscar_read
-  public :: get_num_atoms_from_poscar
-
-
-
-
-  type unitcell 
-     real(real12), dimension(3,3) :: cell 
-  end type unitcell
+  public :: Incarwrite, kpoints_write, generate_potcar
 
 
 contains
@@ -35,7 +25,7 @@ contains
     write(*,*) "The name of the new file will be", trim(adjustl(name))
     
     !write(*,*) trim(adjustl(name))
-    open(newunit=unit,file=trim(adjustl(name)))!"pos/POSCAR_001")!trim(name))
+    open(newunit=unit,file=trim(adjustl(name)))
     
     write(unit, *)"SYSTEM = RSS"
     write(unit, *)"### sys ###"
@@ -163,7 +153,7 @@ contains
     name=" "
     !write(*,*) filepath
     write(name,'(A,A8)') trim(filepath), "/KPOINTS"
-    open(newunit=unit,file=trim(adjustl(name)), status='new')!"pos/POSCAR_001")!trim(name))
+    open(newunit=unit,file=trim(adjustl(name)), status='new')
     write(unit, '(A7)') "KPOINTS"
     write(unit, '(A1)') "0" 
     write(unit, '(A1)') "G" 
@@ -171,226 +161,6 @@ contains
     write(unit, '(I0,X,I0,X,I0)') 0, 0, 0
     close(unit) 
   end subroutine kpoints_write
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! read POSCAR file
-!!!#############################################################################
-  subroutine poscar_read(pathway,unit_cell,structure_elements,structure_stochiometry, structure_factor,&
-    &coordinate_type,atomic_positions, header)
-   use atomtype 
-   implicit none 
-   character(1024), intent(out) :: coordinate_type, header 
-   character(1024) :: read_in, tmp
-   character(1024), intent(in) :: pathway
-   character(3), dimension(:), allocatable, intent(out) :: structure_elements
-   character(3), dimension(:), allocatable :: temp_names
-   integer, dimension(:), allocatable, intent(out) :: structure_stochiometry 
-   integer :: loop, status, size,eltot, i, j,k,l,m
-   integer, parameter :: line_buf_len= 1024*4
-   character(LEN=line_buf_len) :: InS
-   type(unitcell), dimension(1), intent(out) :: unit_cell 
-   real(real12), dimension(:,:), intent(out), allocatable :: atomic_positions
-   real(real12), dimension(:,:), allocatable :: temp_positions
-   real(real12), intent(out) :: structure_factor 
-   logical :: file_e  
-   
-   eltot=0
-   allocate(structure_elements(1))
-   inquire(file=trim(adjustl(pathway)), exist=file_e)
-   write(*,*) file_e
-   if(file_e) then 
-    open(102,file=pathway)
-   
-    read(102,*) header
-    read(102,*) structure_factor
-    do loop=1, 3
-       read(102,*) unit_cell(1)%cell(loop,1), unit_cell(1)%cell(loop,2), unit_cell(1)%cell(loop,3)
-    end do
-    read(102,'(A)') tmp
-    write(*,*) tmp
-    write(read_in,'(X,A)') trim(adjustl(tmp))
-    write(*,*) read_in
-    do i=1,len(read_in)-1
-       if(i.eq.1) then
-          if((scan(read_in(i:i+1)," ").eq.0).or.&
-               &((scan(read_in(i:i+1)," ").eq.2))) then
-             eltot=eltot+1
-             if(scan(read_in(i:i+1)," ").eq.0) then
-                allocate(temp_names(eltot))
-   
-                do j=1, eltot-1
-                   temp_names(j)=structure_elements(j)
-                end do
-                temp_names(eltot)=read_in(i:i+1)
-                deallocate(structure_elements)
-                allocate(structure_elements(eltot))
-                structure_elements=temp_names
-                deallocate(temp_names)
-   
-             end if
-             if((scan(read_in(i:i+1)," ").eq.2).and.(scan(read_in(i-1:i)," ").eq.1)) then
-                allocate(temp_names(eltot))
-   
-                do j=1, eltot-1
-                   temp_names(j)=structure_elements(j)
-                end do
-                temp_names(eltot)=read_in(i:i)
-                deallocate(structure_elements)
-                allocate(structure_elements(eltot))
-                structure_elements=temp_names
-                deallocate(temp_names)
-             end if
-          else
-          end if
-       else
-          if((scan(read_in(i:i+1)," ").eq.0).or.&
-               &((scan(read_in(i:i+1)," ").eq.2).and.(scan(read_in(i-1:i)," ")&
-               &.eq.1))) then
-             eltot=eltot+1
-             !write(*,*) tmp(i:i+1)
-             if(scan(read_in(i:i+1)," ").eq.0) then
-                allocate(temp_names(eltot))
-   
-                do j=1, eltot-1
-                   temp_names(j)=structure_elements(j)
-                end do
-                temp_names(eltot)=read_in(i:i+1)
-                deallocate(structure_elements)
-                allocate(structure_elements(eltot))
-                structure_elements=temp_names
-                deallocate(temp_names)
-   
-   
-             end if
-             if((scan(read_in(i:i+1)," ").eq.2).and.(scan(read_in(i-1:i)," ").eq.1)) then
-                allocate(temp_names(eltot))
-   
-                do j=1, eltot-1
-                   temp_names(j)=structure_elements(j)
-                end do
-                temp_names(eltot)=read_in(i:i)
-                deallocate(structure_elements)
-                allocate(structure_elements(eltot))
-                structure_elements=temp_names
-                deallocate(temp_names)
-   
-             end if
-          else
-          end if
-       end if
-    end do
-    allocate(structure_stochiometry(eltot))
-   
-    read(102,*) structure_stochiometry 
-    read(102,*) coordinate_type
-    allocate(temp_positions(sum(structure_stochiometry),3))
-    allocate(atomic_positions(sum(structure_stochiometry),3))
-    if(coordinate_type.eq."Cartesian") then 
-       do i=1, sum(structure_stochiometry)
-          read(102,*) atomic_positions(i,1),atomic_positions(i,2),atomic_positions(i,3)
-       end do
-    else
-       write(*,*) coordinate_type
-       do i=1, sum(structure_stochiometry)
-   
-          read(102,*) temp_positions(i,1),temp_positions(i,2),temp_positions(i,3)
-   
-       end do
-       do i=1, sum(structure_stochiometry)
-          atomic_positions(i,:)=matmul(temp_positions(i,:),unit_cell(1)%cell) 
-          !temp_positions(i,1)*unit_cell(1,1)+temp_positions(i,2)*unit_cell() 
-          !write(*,*) atomic_positions(i,:)
-          !write(*,*) temp_positions(i,:) 
-          !write(*,*) unit_cell(i)%cell 
-          !call sleep(5) 
-       end do
-    end if
-   else
-    write(*,*) "ERROR: NOT FOUND"
-   end if
-   
-   end subroutine poscar_read
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! count number of structures in a directory
-!!!#############################################################################
-  function structurecounter(dir_t)  result(n)
-    logical :: file_exists
-    character(1024) :: name, dir_name, dir_append
-    character(3) :: dir_t
-    integer :: n, gap_test
-    n=1
-    select case(dir_t)
-    case("don")
-       dir_name="/DON_"
-       dir_append="/DON"
-    case("pos")
-       dir_name="/POSCAR_"
-       dir_append="/POSCAR"
-    case("bon")
-       dir_name="/BON_"
-       dir_append=""
-    case("bad")
-       dir_name="/BAD_"
-       dir_append=""
-    case default
-       write(*,*) "ERROR: INVALID DIRECTORY TYPE"
-       stop 1
-    end select
-    mainloop : do while(n.ne.0)
-     write(name,'(A3,A,I0.3,A7)') dir_t,trim(adjustl(dir_name)), n,dir_append
-     name=trim(adjustl(name))
-    
-     INQUIRE(FILE=name, EXIST=file_exists)
-     if(file_exists) then 
-        n=n+1
-        cycle 
-     else 
-        do gap_test=1, 1000
-           write(name,'(A3,A,I0.3,A7)') dir_t,trim(adjustl(dir_name)), n+gap_test,dir_append
-           INQUIRE(FILE=name, EXIST=file_exists)
-           if(file_exists) then
-              n=n+gap_test
-              cycle mainloop 
-           end if
-        end do
-        n=n-1
-    
-    
-        exit
-     end if
-    end do mainloop
-  end function structurecounter
-!!!#############################################################################
-   
-
-!!!#############################################################################
-!!! get number of atoms from POSCAR file
-!!!#############################################################################
-  function get_num_atoms_from_poscar(filename_host) result(num_atoms)
-    implicit none
-    character(1024), intent(in) :: filename_host
-    integer :: num_atoms
-
-    integer :: unit, i
-    character(1024) :: buffer
-    integer, dimension(:), allocatable :: num_species_list
-
-
-    open(newunit=unit, file=trim(adjustl(filename_host)))
-    do i = 1, 6
-       read(unit, * )
-    end do
-    read(unit,'(A)') buffer
-    close(unit)
-    allocate(num_species_list(icount(buffer)))
-    read(buffer,*) num_species_list
-    num_atoms = sum(num_species_list)
-  end function get_num_atoms_from_poscar
 !!!#############################################################################
 
 end module vasp_file_handler

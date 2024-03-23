@@ -34,8 +34,8 @@ module evolver
   type :: gvector_container_type
      integer :: best_system = 0
      real(real12) :: best_energy = 0.0_real12
-     integer, dimension(3) :: nbins
-     real(real12), dimension(3) :: width = [ 0.25_real12, pi/8._real12, pi/16._real12 ]
+     integer, dimension(3) :: nbins = -1
+     real(real12), dimension(3) :: width = [ 0.05_real12, pi/8._real12, pi/16._real12 ]
      real(real12), dimension(3) :: cutoff_min = [ 0._real12, 0._real12, 0._real12 ]
      real(real12), dimension(3) :: cutoff_max = [ 6._real12, pi, pi/2._real12 ]
      type(gvector_base_type) :: total !! name it best instead?
@@ -91,9 +91,7 @@ contains
             this%species_info(idx(1,i))%name, &
             this%species_info(idx(2,i))%name
        do j = 1, size(this%total%df_2body, dim=1)
-          write(unit,*) this%cutoff_min(1) + &
-                        this%width(1) * ( j - 1 ) / &
-                        real(this%nbins(1), real12), &
+          write(unit,*) this%cutoff_min(1) + this%width(1) * ( j - 1 ), &
                         this%total%df_2body(j,i)
        end do
        write(unit,*)
@@ -195,8 +193,8 @@ contains
     integer :: i, num_structures_previous
     type(gvector_type) :: system
 
-    call system%calculate(lattice, basis, this%nbins, this%width, &
-                     this%cutoff_min, this%cutoff_max)
+    call system%calculate(lattice, basis, width = this%width, &
+                     cutoff_min = this%cutoff_min, cutoff_max = this%cutoff_max)
 
     if(.not.allocated(this%system))then
        this%system = [ system ]
@@ -292,6 +290,12 @@ contains
     !! if present, add the system to the container
     !!--------------------------------------------------------------------------
     if(present(system)) call this%add(system)
+    do i = 1, 3
+       if(this%nbins(i).eq.-1)then
+          this%nbins(i) = &
+               ( this%cutoff_max(i) - this%cutoff_min(i) ) / this%width(i)
+       end if
+    end do
 
 
     !!--------------------------------------------------------------------------
@@ -485,7 +489,9 @@ contains
                          rtmp1 = modu(matmul(vtmp1,lattice))
                          if( rtmp1 .gt. cutoff_min_(1) - width_(1)/2._real12 .and. &
                              rtmp1 .lt. cutoff_max_(1) + width_(1)/2._real12 )then
-                            bond_list = [ bond_list, bond_type([is,js], [ia,ja], .false., rtmp1) ]
+                            bond_list = [ bond_list, bond_type( &
+                                 [is,js], &
+                                 [ia,ja], .false., matmul(vtmp1,lattice)) ]
                          end if
                       end do
                    end do

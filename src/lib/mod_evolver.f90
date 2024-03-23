@@ -46,6 +46,7 @@ module evolver
      procedure, pass(this) :: set_species_list
      procedure, pass(this) :: set_best_energy
      procedure, pass(this) :: evolve
+     procedure, pass(this) :: write_2body
   !   procedure :: read
   end type gvector_container_type
 
@@ -58,6 +59,49 @@ module evolver
 
 
 contains
+
+!!!#############################################################################
+!!! write the 2body gvectors to a file
+!!!#############################################################################
+  subroutine write_2body(this, file)
+    implicit none
+    class(gvector_container_type), intent(in) :: this
+    character(*), intent(in) :: file
+
+    integer :: unit, i, j, is, js
+    integer :: num_pairs
+    integer, allocatable, dimension(:,:) :: idx
+
+
+    num_pairs = gamma(real(size(this%species_info) + 2, real12)) / &
+                ( gamma(real(size(this%species_info), real12)) * &
+                  gamma( 3._real12 ) )
+    allocate(idx(2,num_pairs))
+    i = 0 
+    do is = 1, size(this%species_info)
+       do js = is, size(this%species_info), 1
+          i = i + 1
+          idx(:,i) = [is, js]
+       end do
+    end do
+
+    open(newunit=unit, file=file)
+    do i = 1,  size(this%total%df_2body, dim=2)
+       write(unit,'("# ",A,2X,A)') &
+            this%species_info(idx(1,i))%name, &
+            this%species_info(idx(2,i))%name
+       do j = 1, size(this%total%df_2body, dim=1)
+          write(unit,*) this%cutoff_min(1) + &
+                        this%width(1) * ( j - 1 ) / &
+                        real(this%nbins(1), real12), &
+                        this%total%df_2body(j,i)
+       end do
+       write(unit,*)
+    end do
+    close(unit)
+
+  end subroutine write_2body
+!!!#############################################################################
 
 !!!#############################################################################
 !!! add system (basis or gvector) to the container
@@ -154,7 +198,11 @@ contains
     call system%calculate(lattice, basis, this%nbins, this%width, &
                      this%cutoff_min, this%cutoff_max)
 
-    this%system = [ this%system, system ]
+    if(.not.allocated(this%system))then
+       this%system = [ system ]
+    else
+       this%system = [ this%system, system ]
+    end if
   end subroutine add_basis
 !!!#############################################################################
 
@@ -183,7 +231,8 @@ contains
     !!--------------------------------------------------------------------------
     !! get list of species in dataset
     !!--------------------------------------------------------------------------
-    do i = 1, size(this%system)
+    species_list = [ this%system(1)%species ]
+    do i = 2, size(this%system),1
        species_list = [ species_list, this%system(i)%species ]
     end do
     call set(species_list)
@@ -233,7 +282,7 @@ contains
     type(gvector_type), dimension(..), intent(in), optional :: system
 
     integer :: idx1, idx2
-    integer :: i, j, is, js, num_structures_previous
+    integer :: i, j, is, js, num_structures_previous, num_pairs
     real(real12) :: weight, energy
     real(real12), dimension(:), allocatable :: height
     integer, dimension(:,:), allocatable :: idx_list
@@ -248,9 +297,14 @@ contains
     !!--------------------------------------------------------------------------
     !! initialise the total gvectors
     !!--------------------------------------------------------------------------
-    this%total%df_2body = 0._real12
-    this%total%df_3body = 0._real12
-    this%total%df_4body = 0._real12
+    num_pairs = gamma(real(size(this%species_info) + 2, real12)) / &
+                ( gamma(real(size(this%species_info), real12)) * &
+                  gamma( 3._real12 ) )
+    allocate(this%total%df_2body(this%nbins(1),num_pairs), source = 0._real12)
+    allocate(this%total%df_3body(this%nbins(2),size(this%species_info)), &
+         source = 0._real12)
+    allocate(this%total%df_4body(this%nbins(3),size(this%species_info)), &
+         source = 0._real12)
 
 
     !!--------------------------------------------------------------------------

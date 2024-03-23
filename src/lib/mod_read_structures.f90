@@ -18,22 +18,22 @@ contains
 !!!#############################################################################
   function bond_evolution(input_dir, elements_file) result(gvector_container)
     implicit none
-    character(1024), dimension(..), intent(in) :: input_dir
+    character(*), dimension(..), intent(in) :: input_dir
     character(1024), intent(in), optional :: elements_file  
     type(gvector_container_type) :: gvector_container  
 
-    character(1024) :: name
+    character(256) :: name
     integer :: i
     real(real12) :: energy
     character(50) :: buffer
-    logical :: success
+    logical :: success, file_exists
 
     integer :: xml_unit, unit, ierror
     integer :: num_directories
     type(bas_type) :: basis
     type(gvector_type) :: gvector
     real(real12), dimension(3,3) :: lattice
-    character(100), dimension(:), allocatable :: structure_list
+    character(256), dimension(:), allocatable :: structure_list
 
 
     !!! SCRAP ALL OF THIS
@@ -50,11 +50,15 @@ contains
     select rank(input_dir)
     rank(0)
        num_directories = 1
-       call execute_command_line("ls "//trim(adjustl(input_dir))//">structures.txt",wait=.TRUE.)
-       open(newunit=unit, file="structures.txt", status="new")
+       call execute_command_line("ls "//trim(adjustl(input_dir))//"/. >structures.txt",wait=.TRUE.)
+       open(newunit=unit, file="structures.txt", status="old")
+       read(unit,*,iostat=ierror) name
+       name = trim(adjustl(input_dir))//trim(adjustl(name))
+       structure_list = [ name ]
        do
           read(unit,*,iostat=ierror) name
-          structure_list = [ structure_list, input_dir//trim(name) ]
+          name = trim(adjustl(input_dir))//trim(adjustl(name))
+          structure_list = [ structure_list, name ]
           if(is_iostat_end(ierror)) exit
        end do
        close(unit)
@@ -63,9 +67,13 @@ contains
        do i = 1, num_directories
          call execute_command_line("ls "//trim(adjustl(input_dir(i)))//">structures.txt",wait=.TRUE.)
          open(newunit=unit, file="structures.txt", status="new")
+         read(unit,*,iostat=ierror) name
+         name = trim(adjustl(input_dir(i)))//trim(adjustl(name))
+         structure_list = [ name ]
          do
             read(unit,*,iostat=ierror) name
-            structure_list = [ structure_list, input_dir(i)//trim(name) ]
+            name = trim(adjustl(input_dir(i)))//trim(adjustl(name))
+            structure_list = [ structure_list, name ]
             if(is_iostat_end(ierror)) exit
          end do
          close(unit)
@@ -75,6 +83,11 @@ contains
 
     do i = 1, size(structure_list)
        write(name,'(A,"/vasprun.xml")') trim(adjustl(structure_list(i)))
+
+       inquire(file=trim(adjustl(structure_list(i)))//"/POSCAR", exist=file_exists)
+       if(.not.file_exists) cycle
+       inquire(file=trim(adjustl(structure_list(i)))//"/OUTCAR", exist=file_exists)
+       if(.not.file_exists) cycle
 
        open(newunit=unit, file=trim(adjustl(structure_list(i)))//"/POSCAR")
        call geom_read(unit, lattice, basis)

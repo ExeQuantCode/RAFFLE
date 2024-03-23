@@ -65,12 +65,13 @@ contains
     allocate(elements_database(0))
     open(newunit=unit, file=file_, status='old', action='read')
     read(unit, *) buffer
-    if(index(trim(adjustl(buffer)),"elements").ne.1)then
+    if(index(trim(adjustl(buffer)),"element").ne.1)then
        write(0,*) 'Invalid elements file'
+       write(0,*) 'Expected "elements" in header, found "', trim(buffer), '"'
        stop 1
     end if
     do
-       read(unit, *, iostat=ierror) buffer
+       read(unit, '(A)', iostat=ierror) buffer
        if(is_iostat_end(ierror))then
           exit
        elseif(ierror .ne. 0)then
@@ -79,7 +80,6 @@ contains
        end if
        buffer = trim(adjustl(buffer))
        if(trim(buffer) .eq. "" .or. buffer(1:1) .eq. "!") cycle
-       
        read(buffer, *) element%name, element%energy, element%mass, element%charge
        elements_database = [elements_database, element]
     end do

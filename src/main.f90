@@ -64,7 +64,12 @@ program raffle
      write(*,*) "Invalid option"
      stop 1
   end select
-  gvector_container = bond_evolution("database")
+  gvector_container = bond_evolution(input_dir="database/")
+
+  call gvector_container%write_2body(file="2body.txt")
+
+  write(*,*) "Reached expected end"
+  stop 0
 
   !!--------------------------------------------------------------------------
   !! calculate the probability of each placement method

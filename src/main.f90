@@ -10,6 +10,7 @@ program raffle
   integer :: i, nbin, nbin2, nbinf
   type(bas_type) :: bas
   type(gvector_container_type) :: gvector_container
+  real(real12), dimension(3) :: method_probab
 
 
 !!! Reads Input file !!! 
@@ -65,6 +66,18 @@ program raffle
   end select
   gvector_container = bond_evolution("database")
 
+  !!--------------------------------------------------------------------------
+  !! calculate the probability of each placement method
+  !!--------------------------------------------------------------------------
+  method_probab(1) = &
+       real(vps_ratio(1)/(vps_ratio(1)+vps_ratio(2)+vps_ratio(3)),real12)
+  method_probab(2) = method_probab(1) + &
+       real(vps_ratio(2)/(vps_ratio(1)+vps_ratio(2)+vps_ratio(3)),real12)
+  method_probab(3) = method_probab(2) + &
+       real(vps_ratio(3)/(vps_ratio(1)+vps_ratio(2)+vps_ratio(3)),real12)
+  write(*,*) method_probab
+
+
 !!! READ THE GVECTORS IN USING bond_evolution FUNCTION.
 !!! CALL generation AND PROVIDE THE GVECTORS TO GENERATE THE STRUCTURES
 !!! change generation to stop using isolated calculation setup and just use the elements_database
@@ -74,7 +87,9 @@ program raffle
 !!!Set the number of atoms and generate the unit cell!!!
 !!!--------------------------------------------------!!!
 
-  call generation(gvector_container, num_structures, task, element_list, stoichiometry_list)
+  call generation( gvector_container, num_structures, task, &
+       element_list, stoichiometry_list, &
+       method_probab )
   write(*,*) "The structures requested have been successfully generated and saved"
 
 end program raffle

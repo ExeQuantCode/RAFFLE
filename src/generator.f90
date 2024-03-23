@@ -5,10 +5,8 @@ module gen
   use rw_geom, only: bas_type, geom_read, geom_write, clone_bas
   use edit_geom, only: bas_merge
   use isolated, only: generate_isolated_calculations
-  use vasp_file_handler, only: &
-       incarwrite, kpoints_write, generate_potcar
-  use inputs, only: &
-       vdW, volvar, bins, vps_ratio, filename_host
+  use vasp_file_handler, only: incarwrite, kpoints_write, generate_potcar
+  use inputs, only: vdW, volvar, bins, filename_host
   use add_atom, only: add_atom_void, add_atom_pseudo, add_atom_scan
   use read_chem, only: get_element_radius
   use evolver, only: gvector_container_type
@@ -19,6 +17,11 @@ module gen
 
   public :: generation
 
+  !!! MOVE HOST STRUCTURE TO A BASIS THAT IS AN OPTIONAL ARGUMENT FOR THE ...
+  !!! ... GENERATION PROCEDURE
+  !!! that way, remove it from the inputs use
+  !!! move bins, vdw, volvar
+
 
 contains 
 
@@ -26,7 +29,7 @@ contains
 !!! 
 !!!#############################################################################
   subroutine generation(gvector_container, num_structures, task, &
-       element_list, stoichiometry_list, output_dir)
+       element_list, stoichiometry_list, method_probab, output_dir)
     implicit none
     integer, intent(inout) :: num_structures !! SHOULD NOT EVEN BE AN ARGUEMNT
     !! MAKE AN INPUT ARGUMENT THAT IS MAX_NUM_STRUCTURES
@@ -35,6 +38,7 @@ contains
     character(len=1024), intent(in), optional :: output_dir
     integer, dimension(:), allocatable, intent(inout) :: stoichiometry_list
     character(3), dimension(:), allocatable, intent(inout) :: element_list
+    real(real12), dimension(3), intent(in), optional :: method_probab
 
     type(bas_type) :: basis_host
     real(real12), dimension(3,3) :: lattice_host
@@ -57,12 +61,15 @@ contains
     logical :: placed
     character(1024) :: buffer, output_dir_ = "iteration1"
 
-    real(real12), dimension(3) :: method_probab
+    real(real12), dimension(3) :: method_probab_ = [0.33_real12, 0.66_real12, 1.0_real12]
     real(real12), dimension(:,:,:), allocatable :: radius_arr
 
 
 
     task_=task
+    if(present(method_probab)) method_probab_ = method_probab
+
+
 
     !!! THINK OF SOME WAY TO HANDLE THE HOST SEPARATELY
     !!! THAT CAN SIGNIFICANTLY REDUCE DATA USAGE
@@ -174,25 +181,12 @@ contains
 
 
     !!--------------------------------------------------------------------------
-    !! calculate the probability of each placement method
-    !!--------------------------------------------------------------------------
-    method_probab(1) = &
-         real(vps_ratio(1)/(vps_ratio(1)+vps_ratio(2)+vps_ratio(3)),real12)
-    method_probab(2) = method_probab(1) + &
-         real(vps_ratio(2)/(vps_ratio(1)+vps_ratio(2)+vps_ratio(3)),real12)
-    method_probab(3) = method_probab(2) + &
-         real(vps_ratio(3)/(vps_ratio(1)+vps_ratio(2)+vps_ratio(3)),real12)
-
-    write(*,*) method_probab
-
-
-    !!--------------------------------------------------------------------------
     !! generate the structures
     !!--------------------------------------------------------------------------
     BIGLOOP: do istructure = 1, num_structures
 
        basis = generate_structure(basis_store, basis_host, lattice, &
-            placement_list, radius_arr, method_probab)
+            placement_list, radius_arr, method_probab_)
 
        !!-----------------------------------------------------------------------
        !! write generated POSCAR

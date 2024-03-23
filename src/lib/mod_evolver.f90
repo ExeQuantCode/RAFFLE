@@ -3,6 +3,7 @@ module evolver
   use misc, only: set
   use misc_linalg, only: get_angle, cross, modu
   use rw_geom, only: bas_type
+  use elements, only: element_type, load_elements, elements_database
   implicit none
 
   private
@@ -10,48 +11,197 @@ module evolver
 
   public :: gvector_type, gvector_container_type
   
-
-  type :: gvector_type
-     integer :: num_atoms = 0
-     real(real12) :: energy = 0.0_real12 !! should be formation energy
-     character(len=3), dimension(:), allocatable :: species
+  
+  type :: gvector_base_type
      real(real12), dimension(:,:), allocatable :: df_2body
      real(real12), dimension(:,:), allocatable :: df_3body
      real(real12), dimension(:,:), allocatable :: df_4body
+  end type gvector_base_type
+
+  type, extends(gvector_base_type) :: gvector_type
+     integer :: num_atoms = 0
+     real(real12) :: energy = 0.0_real12 !! should be formation energy
+     integer, dimension(:), allocatable :: stoichiometry
+     character(len=3), dimension(:), allocatable :: species
    contains
      procedure, pass(this) :: calculate
   end type gvector_type
 
-!!! KEEP THE GVECTOR AS A DERIVED TYPE
 
   !! should gvector be for the entire prediction, or one for each system?
   !! if one for each system, do not contain nbins, width, as this would ...
   !! ... result in lots of duplicated data
   type :: gvector_container_type
      integer :: best_system = 0
-     integer :: nbins_2body, nbins_3body, nbins_4body
-     real(real12) :: width_2body, width_3body, width_4body
-     real(real12) :: r_max = 6._real12, r_min = 0._real12
-     real(real12) :: theta_max = pi, theta_min = 0._real12
-     real(real12) :: phi_max = pi/2._real12, phi_min = 0._real12
-     type(gvector_type) :: total !! name it best instead?
+     real(real12) :: best_energy = 0.0_real12
+     integer, dimension(3) :: nbins
+     real(real12), dimension(3) :: width = [ 0.25_real12, pi/8._real12, pi/16._real12 ]
+     real(real12), dimension(3) :: cutoff_min = [ 0._real12, 0._real12, 0._real12 ]
+     real(real12), dimension(3) :: cutoff_max = [ 6._real12, pi, pi/2._real12 ]
+     type(gvector_base_type) :: total !! name it best instead?
      type(gvector_type), dimension(:), allocatable :: system
+     type(element_type), dimension(:), allocatable :: species_info
    contains
+     procedure, pass(this) :: add, add_basis
+     procedure, pass(this) :: set_species_list
      procedure, pass(this) :: evolve
   !   procedure :: read
   end type gvector_container_type
 
   !interface gvector_container_type
   !   module function init_gvector( &
-  !        nbins_2body, nbins_3body, nbins_4body, &
-  !        width_2body, width_3body, width_4body, &
-  !        r_max, r_min, theta_max, theta_min, phi_max, phi_min &
+  !        nbins, width, cutoff_min, cutoff_max &
   !        ) result(gvector)
   !   end function init_gvector
   !end interface gvector_container_type
 
 
 contains
+
+!!!#############################################################################
+!!! add system (basis or gvector) to the container
+!!!#############################################################################
+  subroutine add(this, system, lattice)
+    implicit none
+    class(gvector_container_type), intent(inout) :: this
+    class(*), dimension(..), intent(in) :: system
+    real(real12), dimension(..), intent(in), optional :: lattice
+
+    integer :: i, num_structures_previous
+    character(128) :: buffer
+
+
+    select rank(system)
+    rank(0)
+       select type(system)
+       type is (gvector_type)
+          this%system = [ this%system, system ]
+          if( system%energy .lt. this%best_energy ) then
+             this%best_energy = system%energy / system%num_atoms
+             this%best_system = size(this%system)
+          end if
+       type is (bas_type)
+          if(.not. present(lattice))then
+             write(*,*) "ERROR: Lattice vectors not provided"
+             stop 1
+          end if
+          select rank(lattice)
+          rank(2)
+             call this%add_basis(lattice(:,:), system)
+          rank default
+             write(*,*) "ERROR: Invalid rank for lattice"
+             write(buffer,*) rank(lattice)
+             write(*,*) "Expected rank 2, got ", trim(buffer)
+             stop 1
+          end select
+       class default
+          write(*,*) "ERROR: Invalid type for system"
+          write(*,*) "Expected type gvector_type or bas_type"
+          stop 1
+       end select
+    rank(1)
+       num_structures_previous = size(this%system)
+       select type(system)
+       type is (gvector_type)
+          this%system = [ this%system, system ]
+          do i = 1, size(system)
+             if( system(i)%energy .lt. this%best_energy ) then
+                this%best_energy = system(i)%energy
+                this%best_system = num_structures_previous + i
+             end if
+          end do
+       type is (bas_type)
+          if(.not. present(lattice))then
+             write(*,*) "ERROR: Lattice vectors not provided"
+             stop 1
+          end if
+          select rank(lattice)
+          rank(2)
+             do i = 1, size(system)
+                call this%add_basis(lattice(:,:), system(i))
+             end do
+          rank(3)
+             do i = 1, size(system)
+                call this%add_basis(lattice(:,:,i), system(i))
+             end do
+          rank default
+             write(*,*) "ERROR: Invalid rank for lattice"
+             write(buffer,*) rank(lattice)
+             write(*,*) "Expected rank 2, got ", trim(buffer)
+             stop 1
+          end select
+       class default
+          write(*,*) "ERROR: Invalid type for system"
+          write(*,*) "Expected type gvector_type or bas_type"
+          stop 1
+       end select
+    rank default
+       write(*,*) "ERROR: Invalid rank for system"
+       write(buffer,*) rank(system)
+       write(*,*) "Expected rank 0 or 1, got ", trim(buffer)
+       stop 1
+    end select
+    call this%set_species_list()
+
+  end subroutine add
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! generate gvectors from basis and add to the container
+!!!#############################################################################
+  subroutine add_basis(this, lattice, basis)
+    implicit none
+    class(gvector_container_type), intent(inout) :: this
+    type(bas_type), intent(in) :: basis
+    real(real12), dimension(3,3), intent(in) :: lattice
+
+    integer :: i, num_structures_previous
+    type(gvector_type) :: system
+
+    call system%calculate(lattice, basis, this%nbins, this%width, &
+                     this%cutoff_min, this%cutoff_max)
+
+    this%system = [ this%system, system ]
+    if( system%energy .lt. this%best_energy ) then
+       this%best_energy = system%energy / system%num_atoms
+       this%best_system = size(this%system)
+    end if
+  end subroutine add_basis
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! 
+!!!#############################################################################
+  subroutine set_species_list(this, species_file)
+    implicit none
+    class(gvector_container_type), intent(inout) :: this
+    character(*), intent(in), optional :: species_file
+
+    integer :: i, unit
+    character(len=3), dimension(:), allocatable :: species_list
+
+
+    if(present(species_file))then
+       call load_elements(species_file)
+    elseif(.not.allocated(elements_database))then
+       call load_elements()
+    end if
+
+    !! get list of species in dataset
+    do i = 1, size(this%system)
+       species_list = [ species_list, this%system(i)%species ]
+    end do
+    call set(species_list)
+    allocate(this%species_info(size(species_list)))
+    do i = 1, size(species_list)
+       call this%species_info(i)%set(species_list(i))
+    end do
+    
+  end subroutine set_species_list
+!!!#############################################################################
+
 
 !!!#############################################################################
 !!! 
@@ -70,38 +220,8 @@ contains
     integer, dimension(:,:), allocatable :: idx_list
     
 
-    !!! SELECT TYPE OF THE SYSTEM
-    !!! IF TYPE(gvector_type)
-    !!! IF TYPE(bas_type)
-    if(present(system))then
-       select rank(system)
-       rank(0)
-          this%system = [ this%system, system ]
-          if( system%energy .lt. this%total%energy ) then
-             this%total%energy = system%energy / system%num_atoms
-             this%best_system = size(this%system)
-          end if
-       rank(1)
-          num_structures_previous = size(this%system)
-          this%system = [ this%system, system ]
-          do i = 1, size(system)
-             if( system(i)%energy .lt. this%total%energy ) then
-                this%total%energy = system(i)%energy
-                this%best_system = num_structures_previous + i
-             end if
-          end do
-       rank default
-          write(*,*) "ERROR: Invalid rank for system"
-          write(*,*) "Expected rank 0 or 1, got ", rank(system)
-          stop 1
-       end select
-    end if
+    if(present(system)) call this%add(system)
 
-    !! get list of species in dataset
-    do i = 1, size(this%system)
-        this%total%species = [ this%total%species, this%system(i)%species ]
-    end do
-    call set(this%total%species)
 
     !!! EASIER TO STORE THE LIST OF LENGTHS, AND ANGLES, OR THE INDIVIDUAL SYSTEM GVECTORS?
     this%total%df_2body = 0._real12
@@ -120,11 +240,11 @@ contains
        end do
        
        j = 0
-       weight = exp( this%total%energy - &
+       weight = exp( this%best_energy - &
                       this%system(i)%energy / this%system(i)%num_atoms )
-       do is = 1, size(this%total%species)
+       do is = 1, size(this%species_info)
 
-          idx1 = findloc(this%system(i)%species, this%total%species(is), dim=1)
+          idx1 = findloc(this%system(i)%species, this%species_info(is)%name, dim=1)
           if(idx1.eq.0) cycle
 
           height = 1._real12 / ( 1._real12 + this%total%df_3body(:,is) )
@@ -135,9 +255,9 @@ contains
           this%total%df_4body(:,is) = this%total%df_4body(:,is) + &
                height * weight * this%system(i)%df_4body(:,idx1)
           
-          do js = is, size(this%total%species), 1
+          do js = is, size(this%species_info), 1
              j = is * (js - 1) + js
-             idx2 = findloc(this%system(i)%species, this%total%species(js), dim=1)
+             idx2 = findloc(this%system(i)%species, this%species_info(js)%name, dim=1)
              height = 1._real12 / ( 1._real12 + this%total%df_2body(:,j) ) ** 2._real12
              this%total%df_2body(:,j) = this%total%df_2body(:,j) + &
                   height * weight * this%system(i)%df_2body(:,idx_list(idx1,idx2))
@@ -154,6 +274,7 @@ contains
 
   end subroutine evolve
 !!!#############################################################################
+
 
 !!!#############################################################################
 !!! 
@@ -220,6 +341,10 @@ contains
        end do
     end do
 
+    this%stoichiometry = basis%spec(:)%num
+    this%energy = basis%energy / basis%natom
+    this%num_atoms = basis%natom
+
     !! this is not perfect
     !! won't work for extremely acute/obtuse angle cells
     !! (due to diagonal path being shorter than individual lattice vectors)
@@ -259,7 +384,6 @@ contains
     !! calculate the gaussian width
     !!--------------------------------------------------------------------------
     eta = 1._real12 / ( 2._real12 * width_**2._real12 )
-    this%num_atoms = basis%natom
 
 
     !!--------------------------------------------------------------------------

@@ -63,12 +63,13 @@ contains
 !!!#############################################################################
 !!! add atom to unit cell considering the void space
 !!!#############################################################################
-  subroutine add_atom_void (bin_size, lattice, basis, atom_ignore_list)
+  subroutine add_atom_void (bin_size, lattice, basis, atom_ignore_list, placed)
     implicit none
     type(bas_type), intent(inout) :: basis
     integer, dimension(3), intent(in) :: bin_size
     integer, dimension(:,:), intent(in) :: atom_ignore_list
     real(real12), dimension(3,3), intent(in) :: lattice
+    logical, intent(out) :: placed
     
     integer :: i, j, k, l
     real(real12), dimension(3) :: best_location
@@ -97,6 +98,8 @@ contains
 
     basis%spec(atom_ignore_list(1,1))%atom(atom_ignore_list(1,2),:) = &
          best_location
+    write(*,*) "SUCCESS", best_location
+    placed = .true.
 
   end subroutine add_atom_void
 !!!#############################################################################

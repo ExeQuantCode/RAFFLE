@@ -172,7 +172,7 @@ contains
 
 
 !!!#############################################################################
-!!! 
+!!! set the species list for the container
 !!!#############################################################################
   subroutine set_species_list(this, species_file)
     implicit none
@@ -204,10 +204,9 @@ contains
 
 
 !!!#############################################################################
-!!! 
+!!! generate the evolved gvectors
 !!!#############################################################################
-  !!! TAKE gvector_type OR bas_type AND WORK FROM THERE
-  !!! THEREFORE, ALSO ALLOWS FOR xml FILE
+!!! EASIER TO STORE THE LIST OF LENGTHS, AND ANGLES, OR THE INDIVIDUAL SYSTEM GVECTORS?
   subroutine evolve(this, system)
     implicit none
     class(gvector_container_type), intent(inout) :: this
@@ -220,15 +219,27 @@ contains
     integer, dimension(:,:), allocatable :: idx_list
     
 
+    !!--------------------------------------------------------------------------
+    !! if present, add the system to the container
+    !!--------------------------------------------------------------------------
     if(present(system)) call this%add(system)
 
 
-    !!! EASIER TO STORE THE LIST OF LENGTHS, AND ANGLES, OR THE INDIVIDUAL SYSTEM GVECTORS?
+    !!--------------------------------------------------------------------------
+    !! initialise the total gvectors
+    !!--------------------------------------------------------------------------
     this%total%df_2body = 0._real12
     this%total%df_3body = 0._real12
     this%total%df_4body = 0._real12
+
+
+    !!--------------------------------------------------------------------------
+    !! loop over all systems to calculate the total gvectors
+    !!--------------------------------------------------------------------------
     do i = 1, size(this%system)
-       
+       !!-----------------------------------------------------------------------
+       !! get the list of 2-body species pairs the system
+       !!-----------------------------------------------------------------------
        j = 0
        allocate(idx_list(size(this%system(i)%species),size(this%system(i)%species)))
        do is = 1, size(this%system(i)%species)
@@ -239,9 +250,16 @@ contains
           end do
        end do
        
-       j = 0
+
+       !!-----------------------------------------------------------------------
+       !! calculate the weight for the system
+       !!-----------------------------------------------------------------------
        weight = exp( this%best_energy - &
                       this%system(i)%energy / this%system(i)%num_atoms )
+       j = 0
+       !!-----------------------------------------------------------------------
+       !! loop over all species in the system to add the gvectors
+       !!-----------------------------------------------------------------------
        do is = 1, size(this%species_info)
 
           idx1 = findloc(this%system(i)%species, this%species_info(is)%name, dim=1)
@@ -265,19 +283,21 @@ contains
           end do
        end do
        deallocate(idx_list)
-       !! Need to consider the fact that some structures may not have all ...
-       !! ... the species, so their gvectors will be ordered differently
-       !! Also, height should be calculated per pair/species, not per system
-       !! So loop needed in here to go over every pair/species
-       ! 
     end do
+
+
+    !!--------------------------------------------------------------------------
+    !! deallocate the individual gvectors
+    !!--------------------------------------------------------------------------
+    deallocate(this%system)
+
 
   end subroutine evolve
 !!!#############################################################################
 
 
 !!!#############################################################################
-!!! 
+!!! calculate the gvectors for a system from its lattice and basis
 !!!#############################################################################
   subroutine calculate(this, lattice, basis, &
        nbins, width, cutoff_min, cutoff_max)
@@ -316,6 +336,9 @@ contains
     type(bond_type), dimension(:), allocatable :: bond_list
 
 
+    !!--------------------------------------------------------------------------
+    !! initialise optional variables
+    !!--------------------------------------------------------------------------
     if(present(cutoff_min)) cutoff_min_ = cutoff_min
     if(present(cutoff_max)) cutoff_max_ = cutoff_max
     if(present(width)) width_ = width
@@ -328,6 +351,9 @@ contains
     limit = cutoff_max_ - cutoff_min_
 
 
+    !!--------------------------------------------------------------------------
+    !! get the number of pairs of species
+    !!--------------------------------------------------------------------------
     !! combination calculator with repetition
     i = 0
     num_pairs = gamma(real(basis%nspec + 2, real12)) / &
@@ -341,10 +367,18 @@ contains
        end do
     end do
 
+
+    !!--------------------------------------------------------------------------
+    !! get the stoichiometry, energy, and number of atoms
+    !!--------------------------------------------------------------------------
     this%stoichiometry = basis%spec(:)%num
-    this%energy = basis%energy / basis%natom
+    this%energy = basis%energy
     this%num_atoms = basis%natom
 
+
+    !!--------------------------------------------------------------------------
+    !! get the maximum number of lattice vectors to consider
+    !!--------------------------------------------------------------------------
     !! this is not perfect
     !! won't work for extremely acute/obtuse angle cells
     !! (due to diagonal path being shorter than individual lattice vectors)
@@ -352,6 +386,10 @@ contains
     bmax = ceiling(cutoff_max_(1)/modu(lattice(2,:)))
     cmax = ceiling(cutoff_max_(1)/modu(lattice(3,:)))
 
+
+    !!--------------------------------------------------------------------------
+    !! build the bond list
+    !!--------------------------------------------------------------------------
     allocate(bond_list(0)) !if doesn't work, allocate a dummy bond first
     spec_loop1: do is=1,basis%nspec
        atom_loop1: do ia=1,basis%spec(is)%num
@@ -586,9 +624,16 @@ contains
     real(real12), dimension(:), allocatable :: angle_copy
     integer, dimension(3,2) :: loop_limits
 
+
+    !!--------------------------------------------------------------------------
+    !! calculate the gvector for a list of angles
+    !!--------------------------------------------------------------------------
     angle_copy = angle
     do i = 1, size(angle_copy)
        if( abs(angle_copy(i) + 1.E3_real12 ) .lt. 1.E-3 ) cycle
+       !!-----------------------------------------------------------------------
+       !! remove duplicates
+       !!-----------------------------------------------------------------------
        scale = 1._real12
        do j = i + 1, size(angle_copy)
           if(abs(angle_copy(i)-angle_copy(j)) .lt. 1.E-3 )then
@@ -596,18 +641,28 @@ contains
              scale = scale + 1._real12
           end if
        end do
- 
+
+
+       !!-----------------------------------------------------------------------
+       !! get the bin closest to the angle
+       !!-----------------------------------------------------------------------
        bin = nint(nbins * ( angle_copy(i) - cutoff_min ) / limit )
        if(bin.gt.nbins.or.bin.lt.1) cycle
-       !!------------------------------------------------------------------
+
+
+       !!-----------------------------------------------------------------------
        !! calculate the gaussian for this bond
-       !!------------------------------------------------------------------
+       !!-----------------------------------------------------------------------
        gvector_tmp = 0._real12
        ! max_num_steps = ceiling( abs( angle_copy(i) - sqrt(16._real12/eta) ) / width )
        max_num_steps = ceiling( sqrt(16._real12/eta) / width )
        loop_limits(:,1) = [ bin, min(nbins, bin + max_num_steps), 1 ]
        loop_limits(:,2) = [ bin - 1, max(1, bin - max_num_steps), -1 ]
 
+
+       !!-----------------------------------------------------------------------
+       !! do forward and backward loops to add gaussian from its centre
+       !!-----------------------------------------------------------------------
        do concurrent ( j = 1:2 )
           do concurrent ( b = loop_limits(1,j):loop_limits(2,j) )
              gvector_tmp(b) = gvector_tmp(b) + &

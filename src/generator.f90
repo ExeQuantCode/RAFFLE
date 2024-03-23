@@ -4,7 +4,7 @@ module gen
   use misc_linalg, only: get_spheres_overlap
   use rw_geom, only: bas_type, geom_read, geom_write, clone_bas
   use edit_geom, only: bas_merge
-  use isolated, only: generate_isolated_calculations
+  ! use isolated, only: generate_isolated_calculations
   use vasp_file_handler, only: incarwrite, kpoints_write, generate_potcar
   use inputs, only: vdW, volvar, bins, filename_host
   use add_atom, only: add_atom_void, add_atom_pseudo, add_atom_scan
@@ -111,11 +111,10 @@ contains
 
 
     !!--------------------------------------------------------------------------
-    !! create the 'pos' and 'don' directories
+    !! create the output directory
     !!--------------------------------------------------------------------------
     if(present(output_dir)) output_dir_ = output_dir
     call touch(output_dir_)
-    call touch("don")
 
 
     !!--------------------------------------------------------------------------

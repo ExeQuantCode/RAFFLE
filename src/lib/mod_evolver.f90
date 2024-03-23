@@ -44,6 +44,7 @@ module evolver
    contains
      procedure, pass(this) :: add, add_basis
      procedure, pass(this) :: set_species_list
+     procedure, pass(this) :: set_best_energy
      procedure, pass(this) :: evolve
   !   procedure :: read
   end type gvector_container_type
@@ -76,10 +77,6 @@ contains
        select type(system)
        type is (gvector_type)
           this%system = [ this%system, system ]
-          if( system%energy .lt. this%best_energy ) then
-             this%best_energy = system%energy / system%num_atoms
-             this%best_system = size(this%system)
-          end if
        type is (bas_type)
           if(.not. present(lattice))then
              write(*,*) "ERROR: Lattice vectors not provided"
@@ -104,12 +101,6 @@ contains
        select type(system)
        type is (gvector_type)
           this%system = [ this%system, system ]
-          do i = 1, size(system)
-             if( system(i)%energy .lt. this%best_energy ) then
-                this%best_energy = system(i)%energy
-                this%best_system = num_structures_previous + i
-             end if
-          end do
        type is (bas_type)
           if(.not. present(lattice))then
              write(*,*) "ERROR: Lattice vectors not provided"
@@ -142,6 +133,7 @@ contains
        stop 1
     end select
     call this%set_species_list()
+    call this%set_best_energy()
 
   end subroutine add
 !!!#############################################################################
@@ -163,10 +155,6 @@ contains
                      this%cutoff_min, this%cutoff_max)
 
     this%system = [ this%system, system ]
-    if( system%energy .lt. this%best_energy ) then
-       this%best_energy = system%energy / system%num_atoms
-       this%best_system = size(this%system)
-    end if
   end subroutine add_basis
 !!!#############################################################################
 
@@ -183,13 +171,18 @@ contains
     character(len=3), dimension(:), allocatable :: species_list
 
 
+    !!--------------------------------------------------------------------------
+    !! load the elements database
+    !!--------------------------------------------------------------------------
     if(present(species_file))then
        call load_elements(species_file)
     elseif(.not.allocated(elements_database))then
        call load_elements()
     end if
 
+    !!--------------------------------------------------------------------------
     !! get list of species in dataset
+    !!--------------------------------------------------------------------------
     do i = 1, size(this%system)
        species_list = [ species_list, this%system(i)%species ]
     end do
@@ -204,6 +197,33 @@ contains
 
 
 !!!#############################################################################
+!!! set the best energy and system
+!!!#############################################################################
+  subroutine set_best_energy(this)
+    implicit none
+    class(gvector_container_type), intent(inout) :: this
+
+    integer :: i, is, idx
+    real(real12) :: energy
+
+    do i = 1, size(this%system)
+       energy = this%system(i)%energy
+       do is = 1, size(this%species_info)
+          idx = findloc(this%system(i)%species, this%species_info(is)%name, dim=1)
+          energy = energy - this%system(i)%stoichiometry(idx) * this%species_info(is)%energy
+       end do
+       energy = energy / this%system(i)%num_atoms
+       if( energy .lt. this%best_energy ) then
+          this%best_energy = energy
+          this%best_system = i
+       end if
+    end do
+
+  end subroutine set_best_energy
+!!!#############################################################################
+
+
+!!!#############################################################################
 !!! generate the evolved gvectors
 !!!#############################################################################
 !!! EASIER TO STORE THE LIST OF LENGTHS, AND ANGLES, OR THE INDIVIDUAL SYSTEM GVECTORS?
@@ -214,7 +234,7 @@ contains
 
     integer :: idx1, idx2
     integer :: i, j, is, js, num_structures_previous
-    real(real12) :: weight
+    real(real12) :: weight, energy
     real(real12), dimension(:), allocatable :: height
     integer, dimension(:,:), allocatable :: idx_list
     
@@ -254,8 +274,13 @@ contains
        !!-----------------------------------------------------------------------
        !! calculate the weight for the system
        !!-----------------------------------------------------------------------
-       weight = exp( this%best_energy - &
-                      this%system(i)%energy / this%system(i)%num_atoms )
+       energy = this%system(i)%energy
+       do is = 1, size(this%species_info)
+          idx1 = findloc(this%system(i)%species, this%species_info(is)%name, dim=1)
+          energy = energy - this%system(i)%stoichiometry(idx1) * this%species_info(is)%energy
+       end do
+       energy = energy / this%system(i)%num_atoms
+       weight = exp( this%best_energy - energy )
        j = 0
        !!-----------------------------------------------------------------------
        !! loop over all species in the system to add the gvectors
@@ -290,7 +315,6 @@ contains
     !! deallocate the individual gvectors
     !!--------------------------------------------------------------------------
     deallocate(this%system)
-
 
   end subroutine evolve
 !!!#############################################################################

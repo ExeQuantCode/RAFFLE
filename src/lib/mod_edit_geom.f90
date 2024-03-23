@@ -438,7 +438,6 @@ contains
 
     min_bond=huge(0._real12)
     vsave = 0._real12
-    write(0,*) "tester"
     do js=1,bas%nspec
        atmloop: do ja=1,bas%spec(js)%num
           if(present(ignore_list))then
@@ -475,7 +474,6 @@ contains
           end if
        end do atmloop
     end do
-
 
   end function get_min_dist
 !!!#############################################################################

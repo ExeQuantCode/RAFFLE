@@ -3,8 +3,6 @@ module evolve
   use misc, only: grep
   use rw_geom, only: bas_type, geom_read
   use evolver, only: gvector_container_type, gvector_type
-  use file_generator
-  use contributions
   implicit none
 
 
@@ -16,21 +14,20 @@ module evolve
 contains
 
 !!!#############################################################################
-!!! 
+!!! read in the structures from the input directories and generate the gvectors
 !!!#############################################################################
-  subroutine bond_evolution(input_dir)
+  subroutine bond_evolution(input_dir, elements_file)
     implicit none
     character(1024), dimension(..), intent(in) :: input_dir
-    character(1024) :: name, read_element_pairing, read_element
-    integer :: prev_structures, i, nbin, stat, exitst, exitst2, exitst3
-    logical :: dir_e
-    real(real12), dimension(:,:), allocatable :: gaussian
-    real(real12), dimension(2) :: read_in, norma_vector
-    real(real12) :: sigma, bondcut, dist_height, energy
-    character(50) :: buffer1, buffer2
+    character(1024), intent(in), optional :: elements_file    
+
+    character(1024) :: name
+    integer :: i
+    real(real12) :: energy
+    character(50) :: buffer
     logical :: success
 
-    integer :: previous_structures_unit, xml_unit, unit, ierror
+    integer :: xml_unit, unit, ierror
     integer :: num_directories
     type(bas_type) :: basis
     type(gvector_container_type) :: gvector_container
@@ -86,22 +83,18 @@ contains
        open(newunit=unit, file=trim(adjustl(structure_list(i)))//"/OUTCAR")
        call grep(unit, 'free  energy   TOTEN  =', lline=.true., success=success)
        backspace(unit)
-       read(unit,*) buffer1, buffer1, buffer1, buffer1, energy
+       read(unit,*) buffer, buffer, buffer, buffer, energy
        close(unit)
+       basis%energy = energy
 
-       call gvector%calculate(lattice, basis)
-       gvector%energy = energy
-
-       !!! NO ADD SET UP YET, WORK ON THIS !!!
-       !!! Better yet, make it also make calculate as well, just by providing a basis !!!
-       !call gvector_container%add(gvector)
+       call gvector_container%add(basis, lattice)
 
 
        !open(newunit=xml_unit, file=trim(adjustl(structure_list(i)))//"/vasprun.xml")
        !call grep(xml_unit,'   <i name="e_fr_energy">',lline=.true., success=success)
        !if(.not.success) cycle
        !backspace(xml_unit)
-       !read(xml_unit,*) buffer1, buffer2, energy
+       !read(xml_unit,*) buffer, buffer, energy
        !close(xml_unit)
       
        !!! STORE THE ENERGY IN AN ARRAY
@@ -112,18 +105,10 @@ contains
  
     end do
 
-
-    !!! BEFORE HERE, NEED TO CALCULATE FORMATION ENERGY FOR EACH STRUCTURE !!!
-    ! need to read in an isolated energy file (or bulks, it can be user choice)
-
+    if(present(elements_file)) then
+       call gvector_container%set_species_list(elements_file)
+    end if
     call gvector_container%evolve()
-    ! once the total has been calculated, deallocate the rest
-
-
-    !!!! JUST WORK OUT THE GVECTORS HERE !!!!
-    !! we have other codes for this
-    !! read in the POSCAR (eventually from the xml file)
-    !! calculate the neighbour tables
 
 
     ! bondcut=5

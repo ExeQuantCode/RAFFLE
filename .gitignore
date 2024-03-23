@@ -4,3 +4,4 @@ bin/
 obj/
 *.mod
 DTESTING/
+DTEST/

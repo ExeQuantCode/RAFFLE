@@ -162,10 +162,10 @@ contains
 !!!#############################################################################
 !!! set the species list for the container
 !!!#############################################################################
-  subroutine set_species_list(this, species_file)
+  subroutine set_species_list(this, elements_file)
     implicit none
     class(gvector_container_type), intent(inout) :: this
-    character(*), intent(in), optional :: species_file
+    character(*), intent(in), optional :: elements_file
 
     integer :: i, unit
     character(len=3), dimension(:), allocatable :: species_list
@@ -174,8 +174,8 @@ contains
     !!--------------------------------------------------------------------------
     !! load the elements database
     !!--------------------------------------------------------------------------
-    if(present(species_file))then
-       call load_elements(species_file)
+    if(present(elements_file))then
+       call load_elements(elements_file)
     elseif(.not.allocated(elements_database))then
        call load_elements()
     end if

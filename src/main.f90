@@ -76,12 +76,11 @@ program raffle
   !!--------------------------------------------------------------------------
   !! calculate the probability of each placement method
   !!--------------------------------------------------------------------------
-  method_probab(1) = &
-       real(vps_ratio(1)/(vps_ratio(1)+vps_ratio(2)+vps_ratio(3)),real12)
+  method_probab(1) = vps_ratio(1)/real(sum(vps_ratio),real12)
   method_probab(2) = method_probab(1) + &
-       real(vps_ratio(2)/(vps_ratio(1)+vps_ratio(2)+vps_ratio(3)),real12)
+       vps_ratio(2)/real(sum(vps_ratio),real12)
   method_probab(3) = method_probab(2) + &
-       real(vps_ratio(3)/(vps_ratio(1)+vps_ratio(2)+vps_ratio(3)),real12)
+       vps_ratio(3)/real(sum(vps_ratio),real12)
   write(*,*) method_probab
 
 

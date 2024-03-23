@@ -31,6 +31,7 @@ module rw_geom
      type(spec_type), allocatable, dimension(:) :: spec
      integer :: nspec
      integer :: natom
+     real(real12) :: energy
      logical :: lcart=.false.
      character(len=1024) :: sysname
   end type bas_type

@@ -16,7 +16,9 @@
 !!! get_vec_multiple (determines the scaling factor between two vectors)
 !!!##################
 !!! signed_dist      (get Signed Distance between a plane and a point)
+!!! get_distance     (get the distance between two points)
 !!! get_angle        (get the angle between two vectors)
+!!! get_dihedral_angle (get the dihedral angle between two planes)
 !!! get_area         (get the area made by two vectors)
 !!! get_vol          (get the volume of a matrix)
 !!! trace            (trace of a matrix of any size)
@@ -50,6 +52,14 @@ module misc_linalg
   implicit none
   integer, parameter, private :: QuadInt_K = selected_int_kind (16)
 
+  interface get_angle
+     procedure get_angle_from_points, get_angle_from_vectors
+  end interface get_angle
+
+  interface get_dihedral_angle
+     procedure get_dihedral_angle_from_points, get_dihedral_angle_from_vectors
+  end interface get_dihedral_angle
+
   interface gcd
      procedure gcd_vec,gcd_num
   end interface gcd
@@ -63,7 +73,9 @@ module misc_linalg
 
   public :: uvec, modu, proj, GramSchmidt, cross, cross_matrix, outer_product
   public :: vec_mat_mul, get_vec_multiple
-  public :: signed_dist, get_angle, get_area, get_vol, trace, det
+  public :: signed_dist
+  public :: get_distance, get_angle, get_dihedral_angle, get_area, get_vol
+  public :: trace, det
   public :: inverse_2x2, inverse_3x3, inverse
   public :: rec_det, LUdet, LUinv, LUdecompose
   public :: get_spheres_overlap
@@ -337,9 +349,24 @@ contains
 
 
 !!!#####################################################
+!!! returns distance between two points
+!!!#####################################################
+  pure function get_distance(point1,point2) result(distance)
+    implicit none
+    real(real12) :: distance
+    real(real12), dimension(3), intent(in) :: point1,point2
+
+    distance = modu(point1-point2)
+
+    return
+  end function get_distance
+!!!#####################################################
+
+
+!!!#####################################################
 !!! returns angle between two vectors
 !!!#####################################################
-  pure function get_angle(vec1,vec2) result(angle)
+  pure function get_angle_from_vectors(vec1,vec2) result(angle)
     implicit none
     real(real12), dimension(3), intent(in) :: vec1,vec2
     real(real12) :: angle
@@ -349,7 +376,48 @@ contains
     if (isnan(angle)) angle = 0._real12
 
     return
-  end function get_angle
+  end function get_angle_from_vectors
+!!!-----------------------------------------------------
+!!! get the angle between vectors point1point2 and point2point3
+!!! i.e. follow the path of point1 -> point2 -> point3
+!!!-----------------------------------------------------
+  pure function get_angle_from_points(point1, point2, point3) result(angle)
+    implicit none
+    real(real12), dimension(3), intent(in) :: point1, point2, point3
+    real(real12) :: angle
+
+    angle = acos( ( dot_product( point2 - point1, point3 - point2 ) ) / &
+         ( modu( point2 - point1 ) * modu( point3 - point2 ) ) )
+    if(isnan(angle)) angle = 0._real12
+  end function get_angle_from_points
+!!!#####################################################
+
+
+!!!#####################################################
+!!! returns the dihedral angle between the plane defined by the vectors ...
+!!! vec1 x vec2 and the vector vec3
+!!!#####################################################
+  pure function get_dihedral_angle_from_vectors(vec1,vec2,vec3) result(angle)
+    implicit none
+    real(real12), dimension(3), intent(in) :: vec1,vec2,vec3
+    real(real12) :: angle
+
+    angle = get_angle(cross(vec1, vec2), vec3)
+
+  end function get_dihedral_angle_from_vectors
+!!!-----------------------------------------------------
+!!! get the angle between the plane defined by ...
+!!! ... point1point2point3 and the vector point2point4
+!!!-----------------------------------------------------
+  pure function get_dihedral_angle_from_points(point1, point2, point3, point4) &
+         result(angle)
+     implicit none
+     real(real12), dimension(3), intent(in) :: point1, point2, point3, point4
+     real(real12) :: angle
+  
+     angle = get_angle(cross(point2 - point1, point3 - point2), point4 - point2)
+  
+  end function get_dihedral_angle_from_points
 !!!#####################################################
 
 

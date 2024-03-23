@@ -1,10 +1,10 @@
 module buildmap
   use constants, only: real12
+  use misc_linalg, only: get_distance, get_angle, get_dihedral_angle
   use rw_geom, only: bas_type
   use edit_geom, only: get_min_dist_between_two_atoms
-  use geom
-  use vasp_file_handler, only: structurecounter, unitcell
-  use contributions
+  use contributions, only: get_2body_contribution, get_3body_contribution, &
+       get_4body_contribution
   implicit none
 
 contains
@@ -70,12 +70,14 @@ contains
     !!!! This has been left out to ease on computation. Could be reimplemented but increases cost dramatically to consider ALL atoms
             !call get_contribution (trim(adjustl(&
             !     &atomlist(structures,atom_number_previous+1)%name)),&
-            !     &trim(adjustl(alistrep(structures,atom_number_previous+1)%name)),get_bondlength(position,&
+            !     &trim(adjustl(alistrep(structures,atom_number_previous+1)%name)),get_distance(position,&
             !     &position_storage(1,:)),contribution)
             cycle
          end if
-         contribution = get_3body_contribution( &
-               trim(adjustl(basis%spec(atom_ignore_list(1,1))%name)),bondlength)
+         contribution = get_2body_contribution( &
+               trim(adjustl(basis%spec(atom_ignore_list(1,1))%name)),&
+               trim(adjustl(basis%spec(is)%name)),&
+               bondlength)
    
          viability_2body = viability_2body + contribution
 
@@ -95,7 +97,7 @@ contains
                end do
                position_storage(2,:) = basis%spec(js)%atom(ja,:)
 
-               if(get_bondlength(position,position_storage(2,:)).lt.&
+               if(get_distance(position,position_storage(2,:)).lt.&
                     radius_arr(1,atom_ignore_list(1,1),js)*lowtol) then
                   viability_2body = 0._real12
                   viability_3body = 0._real12
@@ -104,22 +106,22 @@ contains
                end if
                !!! ARE WE NOT DOUBLE COUNTING HERE!?!
                !!! by looking at the angle between p1, p2, and p3
-               if(get_bondlength(position_storage(1,:),position_storage(2,:)).lt.&
+               if(get_distance(position_storage(1,:),position_storage(2,:)).lt.&
                     radius_arr(1,is,js)*uptol) then
    
                   contribution = get_3body_contribution( &
                        trim(adjustl(basis%spec(atom_ignore_list(1,1))%name)),&
-                       get_bondangle( &
+                       get_angle( &
                        position,position_storage(1,:),position_storage(2,:)))
 
                   viability_3body = ( viability_3body * &
                        contribution ** (1._real12/(repeat_power)))
-               else if(get_bondlength(position,position_storage(2,:)).lt.&
+               else if(get_distance(position,position_storage(2,:)).lt.&
                     radius_arr(1,atom_ignore_list(1,1),js)*uptol) then 
    
                   contribution = get_3body_contribution( &
                        trim(adjustl(basis%spec(atom_ignore_list(1,1))%name)),&
-                       get_bondangle(&
+                       get_angle(&
                        position_storage(1,:),position,position_storage(2,:)))
       
                   viability_3body = ( viability_3body * &
@@ -130,7 +132,7 @@ contains
                !!! ... THIRD ATOM IS WITHIN THE TOLERANCE
                !!! I have removed the second check as this, again, is just checking ...
                !!! ... the effect of a periodic image
-               if((get_bondlength(position_storage(1,:),position_storage(2,:)).ge.&
+               if((get_distance(position_storage(1,:),position_storage(2,:)).ge.&
                     radius_arr(1,is,js)*uptol)) cycle
                   
                !! loops over all atoms currently in the system
@@ -148,14 +150,14 @@ contains
                         if(all(atom_ignore_list(i,:).eq.[ks,ka])) cycle atom_loop1
                      end do
                      position_storage(3,:) = basis%spec(js)%atom(ja,:)
-                     if(get_bondlength(position,position_storage(3,:)).lt.&
+                     if(get_distance(position,position_storage(3,:)).lt.&
                           radius_arr(1,atom_ignore_list(1,1),ks)*lowtol) then
                         viability_2body = 0._real12
                         viability_3body = 0._real12
                         viability_4body = 0._real12
                         exit species_loop1
                      end if
-                     if(get_bondlength(position_storage(1,:),position_storage(3,:)).lt.&
+                     if(get_distance(position_storage(1,:),position_storage(3,:)).lt.&
                           radius_arr(1,is,ks)*uptol) then
                         contribution = get_4body_contribution( &
                              trim(adjustl(basis%spec(atom_ignore_list(1,1))%name)),&

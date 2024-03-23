@@ -4,7 +4,6 @@ module add_atom
   use rw_geom, only: bas_type
   use edit_geom, only: get_min_dist
   use vasp_file_handler, only: unitcell
-  use distributions, only: generate_bondlength_distribution
   use buildmap
   implicit none
 

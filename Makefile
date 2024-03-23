@@ -14,19 +14,16 @@ LIBS := mod_constants.f90 \
 	mod_edit_geom.f90 \
     mod_elements.f90 \
 	mod_evolver.f90 \
+	atom.f90 \
 	mod_vasp_file_handler.f90 \
 	mod_isolated.f90 \
-	mod_geom.f90 \
-	mod_file_generator.f90 \
 	mod_contributions.f90 \
-	mod_distributions.f90 \
 	mod_buildmap.f90 \
 	mod_atom_adder.f90 \
 	mod_read_chemfile.f90
 OBJS := $(addprefix $(LIB_DIR)/,$(LIBS))
 #$(info VAR is $(OBJS))
 SRCS := inputs.f90 \
-	atom.f90 \
 	sub.f90 \
 	generator.f90 \
 	main.f90

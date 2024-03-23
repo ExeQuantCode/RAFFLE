@@ -4,7 +4,6 @@ program raffle
   use evolve, only: bond_evolution
   use gen, only: generation
   use rw_geom, only: bas_type
-  use file_generator, only: regenerate_distribution_files
   implicit none
 
   integer :: i, nbin, nbin2, nbinf
@@ -54,7 +53,7 @@ program raffle
      write(*,*) "NOTHING WAS EVER SET UP FOR CASE 0"
   case(1)
      write(*,*) "Regenerating Distribution Files"
-     call regenerate_distribution_files (1)
+     write(*,*) "DEPRECATED"
      stop 0
   case(2)
      write(*,*) "Running HOST_RSS"

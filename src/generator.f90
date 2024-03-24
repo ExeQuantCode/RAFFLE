@@ -58,17 +58,15 @@ contains
     real(real12) :: rtmp1
     real(real12) :: posneg, meanvol, connectivity, volmin, total_volume
     real(real12) :: normalisation_a
-    logical :: placed
+    logical :: placed, success
     character(1024) :: buffer, output_dir_ = "iteration1"
 
     real(real12), dimension(3) :: method_probab_ = [0.33_real12, 0.66_real12, 1.0_real12]
     real(real12), dimension(:,:,:), allocatable :: radius_arr
 
 
-    write(*,*) "HERE0"
     task_=task
     if(present(method_probab)) method_probab_ = method_probab
-    write(*,*) "HERE1"
 
 
     !!! THINK OF SOME WAY TO HANDLE THE HOST SEPARATELY
@@ -81,17 +79,9 @@ contains
     basis_store%natom = num_insert_atoms
     basis_store%nspec = num_insert_species
     basis_store%sysname = "inserts"
-    write(*,*) "HERE2"
-    allocate(placement_list(num_insert_atoms,2))
-    k = 0
-    write(*,*) "HERE3"
+
     do i = 1, basis_store%nspec
        allocate(basis_store%spec(i)%atom(basis_store%spec(i)%num,3), source = 0._real12)
-       do j = 1, basis_store%spec(i)%num
-          k = k + 1
-          placement_list(k,1) = i
-          placement_list(k,2) = j
-       end do
     end do
     select case(task_)
     case(2)
@@ -100,6 +90,24 @@ contains
        close(unit)
        basis_store = bas_merge(basis_host,basis_store)
     end select
+
+    allocate(placement_list(num_insert_atoms,2))
+    k = 0
+    spec_loop1: do i = 1, basis_store%nspec
+       success = .false.
+       do j = 1, size(element_list)
+          if(trim(basis_store%spec(i)%name).eq.trim(element_list(j))) &
+               success = .true.
+       end do
+       if(.not.success) cycle
+       do j = 1, basis_store%spec(i)%num
+          if(j.le.basis_host%spec(i)%num) cycle
+          k = k + 1
+          placement_list(k,1) = i
+          placement_list(k,2) = j
+       end do
+    end do spec_loop1
+
     num_species        = basis_store%nspec
     element_list       = basis_store%spec(:)%name
     stoichiometry_list = basis_store%spec(:)%num
@@ -189,7 +197,7 @@ contains
     !!--------------------------------------------------------------------------
     BIGLOOP: do istructure = 1, num_structures
 
-       basis = generate_structure(basis_store, basis_host, lattice, &
+       basis = generate_structure(basis_store, basis_host, lattice_host, &
             placement_list, radius_arr, method_probab_)
 
        !!-----------------------------------------------------------------------

@@ -77,17 +77,18 @@ contains
     real(real12), dimension(3) :: tmpvector
 
 
-    best_location_bond = 0._real12
+    best_location_bond = -huge(1._real12)
+    
    
     do i = 0, bin_size(1) - 1, 1
        do j = 0, bin_size(2) - 1, 1
           do k = 0, bin_size(3) - 1, 1
-             tmpvector = [( sum( [i,j,k] * &
-                  lattice(:,l)/real(bin_size(l),real12) ), l = 1, 3 )]
+             tmpvector = [i, j, k] / real(bin_size,real12)
+             !tmpvector = [( sum( [i,j,k] * &
+             !     lattice(:,l)/real(bin_size(l),real12) ), l = 1, 3 )]
              smallest_bond = modu(get_min_dist(&
                   lattice, basis, tmpvector, .false., &
                   ignore_list = atom_ignore_list))
-
              if( smallest_bond .gt. best_location_bond ) then
                 best_location_bond = smallest_bond
                 best_location = tmpvector
@@ -98,7 +99,6 @@ contains
 
     basis%spec(atom_ignore_list(1,1))%atom(atom_ignore_list(1,2),:) = &
          best_location
-    write(*,*) "SUCCESS", best_location
     placed = .true.
 
   end subroutine add_atom_void

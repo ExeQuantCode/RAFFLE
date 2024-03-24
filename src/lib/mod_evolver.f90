@@ -49,6 +49,8 @@ module evolver
      procedure, pass(this) :: write_2body
      procedure, pass(this) :: write_3body
      procedure, pass(this) :: write_4body
+     procedure, pass(this) :: get_pair_index
+     procedure, pass(this) :: get_bin
   !   procedure :: read
   end type gvector_container_type
 
@@ -324,6 +326,53 @@ contains
   end subroutine set_best_energy
 !!!#############################################################################
 
+!!!#############################################################################
+!!! get index corresponding to element pair
+!!!#############################################################################
+  pure function get_pair_index(this, species1, species2) result(idx)
+    implicit none
+    class(gvector_container_type), intent(in) :: this
+    character(len=3), intent(in) :: species1, species2
+    integer :: idx
+
+    integer :: is, js
+
+    is = findloc(this%species_info(:)%name, species1, dim=1)
+    js = findloc(this%species_info(:)%name, species2, dim=1)
+    ! if( is .eq. 0 .or. js .eq. 0 )then
+    !    write(*,*) "ERROR: Species not found in species list"
+    !    write(*,*) "Species 1: ", species1
+    !    write(*,*) "Species 2: ", species2
+    !    stop 1
+    ! end if
+    idx = min( is, js ) * ( max( is, js ) - 1 ) + max( is, js )
+
+  end function get_pair_index
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! get bin number associated with input value
+!!!#############################################################################
+  pure function get_bin(this, value, dim) result(bin)
+    implicit none
+    class(gvector_container_type), intent(in) :: this
+    real(real12), intent(in) :: value
+    integer, intent(in) :: dim
+    integer :: bin
+
+    if(value .lt. this%cutoff_min(dim) - this%width(dim) .or. &
+         value .gt. this%cutoff_max(dim) + this%width(dim))then
+       bin = 0
+    else
+       bin = nint( ( this%nbins(dim) - 1 ) * &
+                   ( value - this%cutoff_min(dim) ) / &
+                   ( this%cutoff_max(dim) - this%cutoff_min(dim) ) ) + 1
+    end if
+
+  end function get_bin
+!!!#############################################################################
+
 
 !!!#############################################################################
 !!! generate the evolved gvectors
@@ -590,8 +639,7 @@ contains
           end if          
        end do
        !!-----------------------------------------------------------------------
-       bin = nint(nbins_(1) * ( ( rtmp1 - cutoff_min(1)) + &
-            width_(1)/2._real12 ) / limit(1) )
+       bin = nint(( nbins_(1) - 1 ) * ( rtmp1 - cutoff_min(1) ) / limit(1) ) + 1
        if(bin.gt.nbins_(1).or.bin.lt.1) cycle
 
        fc = 0.5_real12 * cos( pi * ( rtmp1 - cutoff_min(1) ) / limit(1) ) + &
@@ -788,7 +836,7 @@ contains
        !!-----------------------------------------------------------------------
        !! get the bin closest to the angle
        !!-----------------------------------------------------------------------
-       bin = nint(nbins * ( angle_copy(i) - cutoff_min ) / limit )
+       bin = nint(( nbins - 1 ) * ( angle_copy(i) - cutoff_min ) / limit ) + 1
        if(bin.gt.nbins.or.bin.lt.1) cycle
 
 

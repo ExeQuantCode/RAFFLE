@@ -4,17 +4,20 @@ module add_atom
   use rw_geom, only: bas_type
   use edit_geom, only: get_min_dist
   use buildmap, only: buildmap_POINT
+  use evolver, only: gvector_container_type
   implicit none
 
 contains
 
 
 !!!#############################################################################
-!!! add atom to unit cell using the scan method (v2????)
+!!! add atom to unit cell using the scan method
 !!!#############################################################################
-  subroutine add_atom_scan (bin_size, lattice, basis, atom_ignore_list, &
+  subroutine add_atom_scan (bin_size, gvector_container, &
+       lattice, basis, atom_ignore_list, &
        radius_arr, placed)
     implicit none
+    type(gvector_container_type), intent(in) :: gvector_container
     type(bas_type), intent(inout) :: basis
     logical, intent(out) :: placed
     integer, dimension(3), intent(in) :: bin_size
@@ -41,7 +44,7 @@ contains
              tmpvector = [( sum( [i,j,k] * &
                   lattice(:,l)/real(bin_size(l),real12) ), l = 1, 3 )]
              suitability_grid(i,j,k) = &
-                  buildmap_POINT( &
+                  buildmap_POINT( gvector_container, &
                   tmpvector, lattice, basis, atom_ignore_list, radius_arr, &
                   1.1_real12, 0.95_real12)
           end do
@@ -108,9 +111,11 @@ contains
 !!!#############################################################################
 !!! add atom to unit cell using a pseudo-random walk method
 !!!#############################################################################
-  subroutine add_atom_pseudo (bin_size, lattice, basis, atom_ignore_list, &
+  subroutine add_atom_pseudo (bin_size, gvector_container, &
+       lattice, basis, atom_ignore_list, &
        radius_arr, placed)
     implicit none
+    type(gvector_container_type), intent(in) :: gvector_container
     type(bas_type), intent(inout) :: basis
     logical, intent(out) :: placed
     integer, dimension(3), intent(in) :: bin_size
@@ -141,7 +146,7 @@ contains
        end do
        testvector(:) = matmul(lattice,tmpvector(:))
 
-       calculated_value = buildmap_POINT( &
+       calculated_value = buildmap_POINT( gvector_container, &
             testvector, lattice, basis, atom_ignore_list, &
             radius_arr, uptol, lowtol)
      
@@ -178,6 +183,7 @@ contains
        testvector(:) = matmul(lattice,testvector(:))
 
        calculated_test = buildmap_POINT( &
+            gvector_container, &
             testvector, lattice, basis, atom_ignore_list, &
             radius_arr, uptol, lowtol)
      

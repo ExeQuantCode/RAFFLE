@@ -17,7 +17,6 @@ LIBS := mod_constants.f90 \
 	atom.f90 \
 	mod_vasp_file_handler.f90 \
 	mod_isolated.f90 \
-	mod_contributions.f90 \
 	mod_buildmap.f90 \
 	mod_atom_adder.f90 \
 	mod_read_chemfile.f90 \

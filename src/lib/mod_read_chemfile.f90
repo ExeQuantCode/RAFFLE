@@ -16,6 +16,7 @@ contains
     integer :: unit
     integer :: num_elements
     character(3) :: element_1, element_2
+    character(1024) :: buffer
     real(real12) :: r_vdw, r_cov, c1, c2
     integer :: increment, i, j, ierror
   
@@ -38,8 +39,8 @@ contains
        elseif(ierror.ne.0) then
           stop 1
        end if
-       write(*,'(A," ",A," ",F0.3," ",F0.3)') &
-            trim(adjustl(element_1)), trim(adjustl(element_2)), r_cov, r_vdw
+       ! write(*,'(A," ",A," ",F0.3," ",F0.3)') &
+       !      trim(adjustl(element_1)), trim(adjustl(element_2)), r_cov, r_vdw
        do i=1, num_elements 
           do j=1, num_elements
              if(element(i).eq.trim(adjustl(element_1))) then;
@@ -55,7 +56,7 @@ contains
                       radius(4,i,j) = c2
                       radius(4,j,i) = c1
                       radius(3,j,i) = c2 
-                      write(*,*) element(i),c1,",",element(j),c2
+                      ! write(*,*) element(i),c1,",",element(j),c2
                    end if
                    continue
                 end if

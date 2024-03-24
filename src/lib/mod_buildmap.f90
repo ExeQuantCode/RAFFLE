@@ -3,8 +3,7 @@ module buildmap
   use misc_linalg, only: get_distance, get_angle, get_dihedral_angle
   use rw_geom, only: bas_type
   use edit_geom, only: get_min_dist_between_two_atoms
-  use contributions, only: get_2body_contribution, get_3body_contribution, &
-       get_4body_contribution
+  use evolver, only: gvector_container_type
   implicit none
 
 contains
@@ -13,10 +12,12 @@ contains
 !!! builds a map of the system and returns the value of the map at a given point
 !!!#############################################################################
 !!! output = suitability of tested point
-  function buildmap_POINT(position, lattice, basis, atom_ignore_list, &
+  function buildmap_POINT(gvector_container, &
+       position, lattice, basis, atom_ignore_list, &
        radius_arr, uptol, lowtol) &
        result(output)
     implicit none
+    type(gvector_container_type), intent(in) :: gvector_container
     real(real12), intent(in) :: uptol, lowtol
     type(bas_type), intent(in) :: basis
     real(real12), dimension(3), intent(inout) :: position
@@ -27,6 +28,7 @@ contains
   
     integer :: i
     integer :: is, ia, js, ja, ks, ka
+    integer :: pair_index, bin
     real(real12) :: contribution, repeat_power, bondlength
     real(real12) :: viability_2body = 0._real12 !! 2-body is addition
     real(real12) :: viability_3body = 1._real12 !! 3-body is multiplication
@@ -38,6 +40,8 @@ contains
     repeat_power = 1._real12
     
     species_loop1: do is=1, basis%nspec
+      pair_index = gvector_container%get_pair_index( &
+           basis%spec(atom_ignore_list(1,1))%name, basis%spec(is)%name )
       !! loops over all atoms currently in the system
       !! 2-body map
       !! checks bondlength between the current atom and all other atoms
@@ -74,10 +78,13 @@ contains
             !     &position_storage(1,:)),contribution)
             cycle
          end if
-         contribution = get_2body_contribution( &
-               trim(adjustl(basis%spec(atom_ignore_list(1,1))%name)),&
-               trim(adjustl(basis%spec(is)%name)),&
-               bondlength)
+
+         bin = nint( gvector_container%nbins(1) * &
+                     ( ( bondlength - gvector_container%cutoff_min(1) ) + &
+                       gvector_container%width(1)/2._real12 ) / &
+                       gvector_container%cutoff_max(1) - gvector_container%cutoff_min(1) )
+         if(bin.eq.0) cycle
+         contribution = gvector_container%total%df_2body(pair_index,bin)
    
          viability_2body = viability_2body + contribution
 
@@ -109,21 +116,28 @@ contains
                if(get_distance(position_storage(1,:),position_storage(2,:)).lt.&
                     radius_arr(1,is,js)*uptol) then
    
-                  contribution = get_3body_contribution( &
-                       trim(adjustl(basis%spec(atom_ignore_list(1,1))%name)),&
-                       get_angle( &
-                       position,position_storage(1,:),position_storage(2,:)))
+                  bin = gvector_container%get_bin( &
+                       get_angle( position, &
+                                  position_storage(1,:), &
+                                  position_storage(2,:) ), &
+                       dim = 2 )
+                  if(bin.eq.0) cycle
+                  contribution = gvector_container%total%df_3body(is,bin)
 
                   viability_3body = ( viability_3body * &
                        contribution ** (1._real12/(repeat_power)))
                else if(get_distance(position,position_storage(2,:)).lt.&
                     radius_arr(1,atom_ignore_list(1,1),js)*uptol) then 
    
-                  contribution = get_3body_contribution( &
-                       trim(adjustl(basis%spec(atom_ignore_list(1,1))%name)),&
-                       get_angle(&
-                       position_storage(1,:),position,position_storage(2,:)))
-      
+                  !!!! IS THIS ELSE IF NEEDED?????
+
+                  bin = gvector_container%get_bin( &
+                       get_angle( position_storage(1,:), &
+                                  position, &
+                                  position_storage(2,:) ), &
+                       dim = 2 )
+                  if(bin.eq.0) cycle
+                  contribution = gvector_container%total%df_3body(is,bin)
                   viability_3body = ( viability_3body * &
                         contribution ** (1._real12/repeat_power))
                end if
@@ -159,11 +173,18 @@ contains
                      end if
                      if(get_distance(position_storage(1,:),position_storage(3,:)).lt.&
                           radius_arr(1,is,ks)*uptol) then
-                        contribution = get_4body_contribution( &
-                             trim(adjustl(basis%spec(atom_ignore_list(1,1))%name)),&
-                             get_dihedral_angle(&
-                             position,position_storage(1,:),&
-                             position_storage(2,:),position_storage(3,:)))
+
+
+                        bin = gvector_container%get_bin( &
+                                 get_dihedral_angle( &
+                                            position, &
+                                            position_storage(1,:), &
+                                            position_storage(2,:), &
+                                            position_storage(3,:)), &
+                                 dim = 2 )
+                        if(bin.eq.0) cycle
+                        contribution = gvector_container%total%df_4body(is,bin)
+
                         if(contribution.eq.0) then
                            viability_2body = 0._real12
                            viability_3body = 0._real12

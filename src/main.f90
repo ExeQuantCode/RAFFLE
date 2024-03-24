@@ -70,8 +70,6 @@ program raffle
   call gvector_container%write_3body(file="3body.txt")
   call gvector_container%write_4body(file="4body.txt")
 
-  ! write(*,*) "Reached expected end"
-  ! stop 0
 
   !!--------------------------------------------------------------------------
   !! calculate the probability of each placement method

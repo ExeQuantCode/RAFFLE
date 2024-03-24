@@ -31,7 +31,7 @@ contains
   subroutine generation(gvector_container, num_structures, task, &
        element_list, stoichiometry_list, method_probab, output_dir)
     implicit none
-    integer, intent(inout) :: num_structures !! SHOULD NOT EVEN BE AN ARGUEMNT
+    integer, intent(inout) :: num_structures
     !! MAKE AN INPUT ARGUMENT THAT IS MAX_NUM_STRUCTURES
     integer, intent(in) :: task
     type(gvector_container_type), intent(in) :: gvector_container
@@ -197,7 +197,7 @@ contains
     !!--------------------------------------------------------------------------
     BIGLOOP: do istructure = 1, num_structures
 
-       basis = generate_structure(basis_store, basis_host, lattice_host, &
+       basis = generate_structure(gvector_container, basis_store, basis_host, lattice_host, &
             placement_list, radius_arr, method_probab_)
 
        !!-----------------------------------------------------------------------
@@ -226,9 +226,10 @@ contains
 !!!#############################################################################
 !!! 
 !!!#############################################################################
-  function generate_structure(basis_initial, basis_host, lattice, &
+  function generate_structure(gvector_container, basis_initial, basis_host, lattice, &
        placement_list, radius_arr, method_probab) result(basis)
     implicit none
+    type(gvector_container_type), intent(in) :: gvector_container
     type(bas_type), intent(in) :: basis_initial, basis_host
     real(real12), dimension(3,3), intent(in) :: lattice
     integer, dimension(:,:), intent(in) :: placement_list
@@ -262,11 +263,13 @@ contains
        else if(rtmp1.le.method_probab(2)) then 
           write(*,*) "Add Atom Pseudo"
           call add_atom_pseudo( bins, &
+                gvector_container, &
                 lattice, basis, &
                 placement_list_shuffled(iplaced+1:,:), radius_arr, placed)
        else if(rtmp1.le.method_probab(3)) then 
           write(*,*) "Add Atom Scan"
           call add_atom_scan( bins, &
+                gvector_container, &
                 lattice, basis, &
                 placement_list_shuffled(iplaced+1:,:), radius_arr, placed)
        end if

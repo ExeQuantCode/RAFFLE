@@ -327,8 +327,8 @@ contains
   function get_min_bond(lat,bas,is,ia,axis,labove,tol) result(vsave)
     implicit none
     integer :: js,ja
-    integer :: iaxis
-    real(real12) :: dtmp1,min_bond,dtol
+    integer :: axis_
+    real(real12) :: dtmp1,min_bond,tol_
     logical :: labove_
     real(real12), dimension(3) :: vdtmp1, vsave
 
@@ -341,9 +341,9 @@ contains
     logical, intent(in), optional :: labove
 
     if(present(tol))then
-       dtol = tol
+       tol_ = tol
     else
-       dtol = 1.E-5
+       tol_ = 1.E-5
     end if
 
     if(present(labove))then
@@ -353,9 +353,9 @@ contains
     end if
 
     if(present(axis))then
-       iaxis=axis
+       axis_=axis
     else
-       iaxis=0
+       axis_=0
     end if
 
     min_bond=huge(0._real12)
@@ -364,12 +364,12 @@ contains
        atmloop: do ja=1,bas%spec(js)%num
           if(is.eq.js.and.ia.eq.ja) cycle atmloop
           vdtmp1 = bas%spec(js)%atom(ja,:3) - bas%spec(is)%atom(ia,:3)
-          if(iaxis.gt.0)then
-             if(abs(vdtmp1(iaxis)).lt.dtol) cycle atmloop
+          if(axis_.gt.0)then
+             if(abs(vdtmp1(axis_)).lt.tol_) cycle atmloop
              if(labove_)then
-                vdtmp1(iaxis) = 1._real12 + vdtmp1(iaxis)
+                vdtmp1(axis_) = 1._real12 + vdtmp1(axis_)
              else
-                vdtmp1(iaxis) = vdtmp1(iaxis) - 1._real12
+                vdtmp1(axis_) = vdtmp1(axis_) - 1._real12
              end if
           end if
           vdtmp1 = &
@@ -393,13 +393,14 @@ contains
 !!! returns minimum bond for a specified atom
 !!!#############################################################################
   function get_min_dist(lat,bas,loc,lignore_close,axis,labove,lreal,tol, &
-       ignore_list) result(vsave)
+       ignore_list) result(output)
     implicit none
     integer :: js,ja,i
-    integer :: iaxis
-    real(real12) :: dtmp1,min_bond,dtol
-    logical :: labove_,lreal_
-    real(real12), dimension(3) :: vdtmp1,vdtmp2,vsave
+    integer :: axis_ = 0
+    real(real12) :: dtmp1,min_bond
+    real(real12) :: tol_ = 1.E-5
+    logical :: labove_ = .false.,lreal_ = .true.
+    real(real12), dimension(3) :: vdtmp1,vdtmp2,output
 
     logical, intent(in) :: lignore_close
     type(bas_type), intent(in) :: bas
@@ -412,64 +413,43 @@ contains
     integer, dimension(:,:), intent(in), optional :: ignore_list
 
     !! CORRECT tol TO ACCOUNT FOR LATTICE SIZE
-    if(present(tol))then
-       dtol = tol
-    else
-       dtol = 1.E-5
-    end if
+    if(present(tol)) tol_ = tol
 
-    if(present(labove))then
-       labove_=labove
-    else
-       labove_=.false.
-    end if
+    if(present(labove)) labove_ = labove
 
-    if(present(lreal))then
-       lreal_=lreal
-    else
-       lreal_=.true.
-    end if
+    if(present(lreal)) lreal_ = lreal
 
-    if(present(axis))then
-       iaxis=axis
-    else
-       iaxis=0
-    end if
+    if(present(axis)) axis_=axis
 
     min_bond=huge(0._real12)
-    vsave = 0._real12
-    do js=1,bas%nspec
+    output = 0._real12
+    do js = 1, bas%nspec
        atmloop: do ja=1,bas%spec(js)%num
           if(present(ignore_list))then
              do i = 1, size(ignore_list,1), 1
-                if(any(ignore_list(i,:).eq.[js,ja])) cycle atmloop
+                if(all(ignore_list(i,:).eq.[js,ja])) cycle atmloop
              end do
           end if
           vdtmp1 = bas%spec(js)%atom(ja,:3) - loc
-          write(0,*) js,ja, vdtmp1
-          if(lignore_close.and.modu(vdtmp1).lt.dtol) cycle atmloop
-          if(iaxis.gt.0)then
-             if(abs(vdtmp1(iaxis)).lt.dtol) cycle atmloop
+          if(lignore_close.and.modu(vdtmp1).lt.tol_) cycle atmloop
+          if(axis_.gt.0)then
+             if(abs(vdtmp1(axis_)).lt.tol_) cycle atmloop
              if(labove_)then
-                vdtmp1(iaxis) = 1._real12 + vdtmp1(iaxis)
+                vdtmp1(axis_) = 1._real12 + vdtmp1(axis_)
              else
-                vdtmp1(iaxis) = vdtmp1(iaxis) - 1._real12
+                vdtmp1(axis_) = vdtmp1(axis_) - 1._real12
              end if
+          else
+             vdtmp1 = vdtmp1 - ceiling(vdtmp1 - 0.5_real12)
           end if
-          write(0,*) js,ja, vdtmp1
-          vdtmp2 = &
-               vdtmp1(1)*lat(1,:3) + &
-               vdtmp1(2)*lat(2,:3) + &
-               vdtmp1(3)*lat(3,:3)
+          vdtmp2 = matmul(vdtmp1,lat)
           dtmp1 = modu(vdtmp2)
-          write(0,*) dtmp1,min_bond
           if(dtmp1.lt.min_bond)then
-             write(0,*) dtmp1.lt.min_bond
              min_bond = dtmp1
              if(lreal_)then
-                vsave = vdtmp1
+                output = vdtmp2
              else
-                vsave = vdtmp2
+                output = vdtmp1
              end if
           end if
        end do atmloop
@@ -2942,7 +2922,7 @@ contains
   function get_largest_gap(lat,bas,axis,tol,return_lower) result(gap)
     implicit none
     integer :: i,init,iloc
-    real(real12) :: dtmp1,max_sep,dtol
+    real(real12) :: dtmp1,max_sep,tol_
     logical :: l_lower
     real(real12), dimension(2) :: gap
     real(real12), allocatable, dimension(:) :: bas_list
@@ -2965,9 +2945,9 @@ contains
     end if
 
     if(present(tol))then
-       dtol = tol
+       tol_ = tol
     else
-       dtol = 1.E-5_real12
+       tol_ = 1.E-5_real12
     end if
 
 !!!-----------------------------------------------------------------------------
@@ -3005,7 +2985,7 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! set result variable with edge of gap and size of gap
 !!!-----------------------------------------------------------------------------
-    gap = [bas_list(iloc)+dtol,max_sep]
+    gap = [bas_list(iloc)+tol_,max_sep]
 
 
   end function get_largest_gap
@@ -3256,7 +3236,7 @@ contains
   subroutine share_strain(lat1,lat2,bulk_mod1,bulk_mod2,axis,lcompensate)
     implicit none
     integer :: i
-    integer :: iaxis
+    integer :: axis_
     real(real12) :: area1,area2,delta1,delta2
     integer, dimension(3) :: abc=(/1,2,3/)
     real(real12), dimension(3) :: strain
@@ -3267,10 +3247,10 @@ contains
     integer, optional, intent(in) :: axis
     logical, optional, intent(in) :: lcompensate
 
-    iaxis=3
-    if(present(axis)) iaxis=axis
+    axis_=3
+    if(present(axis)) axis_=axis
  
-    abc=cshift(abc,3-iaxis)
+    abc=cshift(abc,3-axis_)
     area1 = modu(cross(lat1(abc(1),:),lat1(abc(2),:)))
     area2 = modu(cross(lat2(abc(1),:),lat2(abc(2),:)))
     delta1 = - (1._real12 - area2/area1)/(1._real12 + (area2/area1)*(bulk_mod1/bulk_mod2))
@@ -3279,7 +3259,7 @@ contains
     write(0,*) "deltas", delta1,delta2
     write(0,*) "modulus", bulk_mod1,bulk_mod2
     do i=1,3
-       if(i.eq.iaxis) cycle
+       if(i.eq.axis_) cycle
        strain(:) = lat1(i,:)-lat2(i,:)
        lat1(i,:) = lat1(i,:) * (1._real12 + delta1)
        lat2(i,:) = lat1(i,:)

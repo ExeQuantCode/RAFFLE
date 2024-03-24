@@ -65,9 +65,10 @@ contains
     allocate(elements_database(0))
     open(newunit=unit, file=file_, status='old', action='read')
     read(unit, *) buffer
-    if(index(trim(adjustl(buffer)),"element").ne.1)then
+    if(  index(trim(adjustl(buffer)),"#").ne.1 .and. &
+         index(trim(adjustl(buffer)),"element").eq.0)then
        write(0,*) 'Invalid elements file'
-       write(0,*) 'Expected "elements" in header, found "', trim(buffer), '"'
+       write(0,*) 'Expected "element" in header, found "', trim(buffer), '"'
        stop 1
     end if
     do

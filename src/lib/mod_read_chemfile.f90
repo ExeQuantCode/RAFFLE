@@ -23,7 +23,14 @@ contains
     num_elements = size(element)
     allocate(radius(4,num_elements,num_elements), source = 0._real12)
 
-    open(newunit=unit, file="chem.in", status="old") 
+    open(newunit=unit, file="chem.in", status="old")
+    read(unit, *) buffer
+    if(  index(trim(adjustl(buffer)),"#").ne.1 .and. &
+         index(trim(adjustl(buffer)),"element_1").eq.0)then
+       write(0,*) 'Invalid elements file'
+       write(0,*) 'Expected "element_1" in header, found "', trim(buffer), '"'
+       stop 1
+    end if
     do 
        read(unit, *, iostat=ierror) element_1, element_2, r_cov, r_vdw, c1, c2
        if(is_iostat_end(ierror))then

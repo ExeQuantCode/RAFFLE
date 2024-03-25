@@ -9,6 +9,7 @@ LIB_DIR := ./lib
 BUILD_DIR = ./obj
 LIBS := mod_constants.f90 \
 	mod_misc.f90 \
+	mod_misc_maths.f90 \
 	mod_misc_linalg.f90 \
 	mod_rw_geom.f90 \
 	mod_edit_geom.f90 \

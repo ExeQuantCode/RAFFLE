@@ -1,6 +1,7 @@
 module evolver
   use constants, only: real12, pi
   use misc, only: set
+  use misc_maths, only: lnsum
   use misc_linalg, only: get_angle, cross, modu
   use rw_geom, only: bas_type
   use elements, only: element_type, load_elements, elements_database
@@ -291,6 +292,7 @@ contains
        species_list = [ species_list, this%system(i)%species ]
     end do
     call set(species_list)
+    if(allocated(this%species_info)) deallocate(this%species_info)
     allocate(this%species_info(size(species_list)))
     do i = 1, size(species_list)
        call this%species_info(i)%set(species_list(i))
@@ -502,14 +504,15 @@ contains
     real(real12), dimension(3) :: cutoff_max_ = [6._real12, pi, pi/2._real12]
 
     integer :: bin, max_num_steps
-    integer :: i, j, k, b
+    integer :: i, j, k, b, itmp1
     integer :: is, js, ia, ja
-    integer :: num_pairs
+    integer :: num_pairs, num_angles
     integer :: amax, bmax, cmax
     real(real12) :: rtmp1, rtmp2, fc, weight, scale
     real(real12), dimension(3) :: eta, limit
     real(real12), dimension(3) :: vtmp1, vtmp2, vtmp3, diff
     real(real12), allocatable, dimension(:) :: gvector_tmp, angle
+    integer, dimension(:), allocatable :: idx_list
 
     integer, dimension(3,2) :: loop_limits
     integer, allocatable, dimension(:,:) :: idx
@@ -729,7 +732,22 @@ contains
     allocate(this%df_4body(nbins_(3),basis%nspec), source = 0._real12)
     allocate(gvector_tmp(nbins_(3)),               source = 0._real12)
     do is = 1, basis%nspec
-       allocate(angle(0))
+       num_angles = 0
+       do i = 2, size(bond_list) - 1, 1
+          ia = bond_list(i)%atom(1)
+          itmp1 = count( &
+             [ ( ( bond_list(j)%species(1) .eq. is .and. &
+                   bond_list(j)%atom(1) .eq. ia ) .or. &
+                 ( bond_list(j)%species(2) .eq. is .and. &
+                   bond_list(j)%atom(2) .eq. ia ), &
+                     j = i+1, size(bond_list) - 1, 1 ) ] )
+          num_angles = num_angles + &
+               nint(exp(lnsum(itmp1) - lnsum(itmp1 - 2) - lnsum(2)))
+       end do
+       allocate(angle(num_angles))
+       num_angles = 0
+       write(*,*) size(angle)
+
        !!-----------------------------------------------------------------------
        !! loop over all bonds to find the first bond
        !!-----------------------------------------------------------------------
@@ -745,45 +763,48 @@ contains
           else
              cycle
           end if
+          !!! make list of indices where species is in bond_list(i)%species and atom is in bond_list(i)%atom
+          allocate(idx_list(0))
+          do j = i + 1, size(bond_list)
+             if(abs(modu(bond_list(j)%vector)).lt.1.E-3) cycle
+             if( ( is .eq. bond_list(j)%species(1) .and. &
+                   ia .eq. bond_list(j)%atom(1)  ) .or. &
+                 ( is .eq. bond_list(j)%species(2) .and. &
+                     ia .eq. bond_list(j)%atom(2) ) ) then
+                idx_list = [ idx_list, j ]
+             end if
+          end do
 
           !!--------------------------------------------------------------------
           !! loop over all bonds to find the second bond
           !!--------------------------------------------------------------------
-          do j = i + 1, size(bond_list)
-             if(abs(modu(bond_list(j)%vector)).lt.1.E-3) cycle
-             if( is .eq. bond_list(j)%species(1) .and. &
-                 ia .eq. bond_list(j)%atom(1) )then
-                vtmp2 = bond_list(j)%vector
-             elseif( is .eq. bond_list(j)%species(2) .and. &
-                     ia .eq. bond_list(j)%atom(2) )then
-                vtmp2 = -bond_list(j)%vector
-             else
-                cycle
-             end if
+          do j = 1, size(idx_list)
  
              !!-----------------------------------------------------------------
              !! loop over all bonds to find the third bond
              !!-----------------------------------------------------------------
-             do k = j + 1, size(bond_list)
-                if(abs(modu(bond_list(k)%vector)).lt.1.E-3) cycle
-                if( is .eq. bond_list(k)%species(1) .and. &
-                    ia .eq. bond_list(k)%atom(1) )then
-                   vtmp3 = bond_list(k)%vector
-                elseif( is .eq. bond_list(k)%species(2) .and. &
-                        ia .eq. bond_list(k)%atom(2) )then
-                   vtmp3 = -bond_list(j)%vector
-                else
-                   cycle
-                end if
+             do k = j + 1, size(idx_list)
  
                 !!--------------------------------------------------------------
                 !! calculate the angle between the two bonds
                 !!--------------------------------------------------------------
-                angle = [ angle, get_angle( cross(vtmp1, vtmp2), vtmp3 ) ]
+                num_angles = num_angles + 1
+                angle(num_angles) = &
+                          get_angle( cross(vtmp1, &
+                                           bond_list(idx_list(j))%vector), &
+                                     bond_list(idx_list(k))%vector )
+                if(angle(num_angles) .gt. pi/2._real12) &
+                     angle(num_angles) = pi - angle(num_angles)
 
              end do
           end do
+          deallocate(idx_list)
        end do
+       write(*,*) "4 BODY TESTING", num_angles, size(angle)
+       if(num_angles.gt.size(angle))then
+          write(*,*) "ERROR: Number of angles exceeds allocated array"
+          stop 1
+       end if
        this%df_4body(:,is) = this%df_4body(:,is) + &
             get_angle_gvector(angle, nbins_(3), eta(3), width_(3), &
                               cutoff_min(3), limit(3))
@@ -797,7 +818,7 @@ contains
 !!!#############################################################################
 !!! get the gvector for angle distributions
 !!!#############################################################################
-  pure function get_angle_gvector(angle, nbins, eta, width, cutoff_min, limit) &
+  function get_angle_gvector(angle, nbins, eta, width, cutoff_min, limit) &
        result(gvector)
     implicit none
     integer, intent(in) :: nbins
@@ -807,6 +828,7 @@ contains
 
     integer :: i, j, b, bin, max_num_steps
     real(real12) :: scale
+    integer, dimension(:), allocatable :: scale_list
     real(real12), dimension(nbins) :: gvector_tmp
     real(real12), dimension(:), allocatable :: angle_copy
     integer, dimension(3,2) :: loop_limits
@@ -819,18 +841,20 @@ contains
     !! calculate the gvector for a list of angles
     !!--------------------------------------------------------------------------
     angle_copy = angle
+    !!  order the angle list, and remove duplicates within a tolerance
+    !call set(angle_copy, 1.E-3, scale_list)
     do i = 1, size(angle_copy)
-       if( abs(angle_copy(i) + 1.E3_real12 ) .lt. 1.E-3 ) cycle
-       !!-----------------------------------------------------------------------
-       !! remove duplicates
-       !!-----------------------------------------------------------------------
-       scale = 1._real12
-       do j = i + 1, size(angle_copy)
-          if(abs(angle_copy(i)-angle_copy(j)) .lt. 1.E-3 )then
-             angle_copy(j) = -1.E3_real12
-             scale = scale + 1._real12
-          end if
-       end do
+        if( angle_copy(i) .lt. -1.E-3 ) cycle
+        !!-----------------------------------------------------------------------
+        !! remove duplicates
+        !!-----------------------------------------------------------------------
+        scale = 1._real12
+        do j = i + 1, size(angle_copy)
+           if(abs(angle_copy(i)-angle_copy(j)) .lt. 1.E-3 )then
+              angle_copy(j) = -1.E3_real12
+              scale = scale + 1._real12
+           end if
+        end do
 
 
        !!-----------------------------------------------------------------------
@@ -857,7 +881,7 @@ contains
                   exp( -eta * ( angle_copy(i) - width * real(b) ) ** 2._real12 )
           end do
        end do
-       gvector(:) = gvector(:) + gvector_tmp * scale
+       gvector(:) = gvector(:) + gvector_tmp * scale!real(scale_list(i), real12)
     end do
 
   end function get_angle_gvector

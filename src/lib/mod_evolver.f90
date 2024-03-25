@@ -746,7 +746,6 @@ contains
        end do
        allocate(angle(num_angles))
        num_angles = 0
-       write(*,*) size(angle)
 
        !!-----------------------------------------------------------------------
        !! loop over all bonds to find the first bond

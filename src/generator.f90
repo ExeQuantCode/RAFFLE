@@ -212,9 +212,9 @@ contains
        !!-----------------------------------------------------------------------
        !! write additional VASP files
        !!-----------------------------------------------------------------------
-       call Incarwrite(adjustl(buffer),500, 20*num_atoms)
-       call kpoints_write(buffer,3,3,3)
-       call generate_potcar(buffer, element_list)
+       !call Incarwrite(adjustl(buffer),500, 20*num_atoms)
+       !call kpoints_write(buffer,3,3,3)
+       !call generate_potcar(buffer, element_list)
 
     end do BIGLOOP
     write(*,*) "Finished generating structures"

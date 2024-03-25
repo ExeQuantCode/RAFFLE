@@ -462,7 +462,8 @@ contains
 !!!#############################################################################
 !!! get the shortest distance between two atoms in a periodic cell
 !!!#############################################################################
-  function get_min_dist_between_two_atoms(lat,bas,atom_1,atom_2) result(dist)
+  pure function get_min_dist_between_two_atoms(lat,bas,atom_1,atom_2) &
+       result(dist)
     implicit none
     type(bas_type), intent(in) :: bas
     integer, dimension(2), intent(in) :: atom_1,atom_2
@@ -484,7 +485,8 @@ contains
 !!!#############################################################################
 !!! get the shortest distance between a point and an atom in a periodic cell
 !!!#############################################################################
-  function get_min_dist_between_point_and_atom(lat,bas,loc,atom) result(dist)
+  pure function get_min_dist_between_point_and_atom(lat,bas,loc,atom) &
+       result(dist)
     implicit none
     type(bas_type), intent(in) :: bas
     integer, dimension(2), intent(in) :: atom

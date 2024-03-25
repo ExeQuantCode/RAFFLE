@@ -94,12 +94,16 @@ contains
        close(unit)
 
        open(newunit=unit, file=trim(adjustl(structure_list(i)))//"/OUTCAR")
-       call grep(unit, 'free  energy   TOTEN  =', lline=.true., success=success)
+       call grep(unit, 'free  energy   TOTEN  =', lline=.false., success=success)
+       if(.not.success) cycle
        backspace(unit)
        read(unit,*) buffer, buffer, buffer, buffer, energy
        close(unit)
        basis%energy = energy
 
+       write(*,*) &
+            "Found structure: ", trim(adjustl(structure_list(i))), &
+            " with energy: ", energy
        call gvector_container%add(basis, lattice)
 
 

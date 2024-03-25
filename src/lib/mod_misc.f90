@@ -300,20 +300,20 @@ contains
     implicit none
     integer :: i,dim,loc
     integer :: ibuff
-    logical :: udef_reverse
+    logical :: reverse_
     integer, dimension(:) :: arr1
     integer, dimension(:),intent(inout),optional :: arr2
     logical, optional, intent(in) :: reverse
 
     if(present(reverse))then
-       udef_reverse=reverse
+       reverse_=reverse
     else
-       udef_reverse=.false.
+       reverse_=.false.
     end if
 
     dim=size(arr1,dim=1)
     do i=1,dim
-       if(udef_reverse)then
+       if(reverse_)then
           loc=maxloc(arr1(i:dim),dim=1)+i-1          
        else
           loc=minloc(arr1(i:dim),dim=1)+i-1
@@ -337,27 +337,28 @@ contains
     implicit none
     integer :: i,dim,loc
     real(real12) :: rbuff
-    logical :: udef_reverse
+    logical :: reverse_
     real(real12), dimension(:) :: arr1
     integer, dimension(:),intent(inout),optional :: arr2
     logical, optional, intent(in) :: reverse
 
     if(present(reverse))then
-       udef_reverse=reverse
+       reverse_=reverse
     else
-       udef_reverse=.false.
+       reverse_=.false.
     end if
 
     dim=size(arr1,dim=1)
     do i=1,dim
-       if(udef_reverse)then
+       select case(reverse_)
+       case(.true.)
           loc=maxloc(arr1(i:dim),dim=1)+i-1          
-       else
+       case default
           loc=minloc(arr1(i:dim),dim=1)+i-1
-       end if
-       rbuff=arr1(i)
-       arr1(i)=arr1(loc)
-       arr1(loc)=rbuff
+       end select
+       rbuff     = arr1(i)
+       arr1(i)   = arr1(loc)
+       arr1(loc) = rbuff
 
        if(present(arr2)) then
           rbuff=arr2(i)
@@ -368,6 +369,42 @@ contains
 
     return
   end subroutine rsort1D
+!!!#####################################################
+
+
+!!!#####################################################
+!!! quicksort an array from min to max
+!!!#####################################################
+  pure recursive subroutine quicksort(arr, low, high)
+    implicit none
+    real(real12), dimension(:), intent(inout) :: arr
+    integer, intent(in) :: low, high
+    integer :: i, j
+    real(real12) :: pivot, temp
+
+    if (low .lt. high) then
+        pivot = arr((low + high) / 2)
+        i = low
+        j = high
+        do
+            do while (arr(i) .lt. pivot)
+                i = i + 1
+            end do
+            do while (arr(j) .gt. pivot)
+                j = j - 1
+            end do
+            if (i .le. j) then
+                temp = arr(i)
+                arr(i) = arr(j)
+                arr(j) = temp
+                i = i + 1
+                j = j - 1
+            end if
+        end do
+        call quicksort(arr, low, j)
+        call quicksort(arr, i, high)
+    end if
+  end subroutine quicksort
 !!!#####################################################
 
 
@@ -435,33 +472,40 @@ contains
   end subroutine iset
 !!!-----------------------------------------------------
 !!!-----------------------------------------------------
-  subroutine rset(arr, tol)
+  subroutine rset(arr, tol, count_list)
     implicit none
     integer :: i,n
-    real(real12) :: tiny
+    real(real12) :: tol_
     real(real12), allocatable, dimension(:) :: tmp_arr
+    integer, allocatable, dimension(:) :: count_list_
     
     real(real12), allocatable, dimension(:) :: arr
     real(real12), optional :: tol
+    integer, dimension(:), allocatable, optional :: count_list
 
     if(present(tol))then
-       tiny = tol
+       tol_ = tol
     else
-       tiny = 1.D-4
+       tol_ = 1.E-4_real12
     end if
     
-    call sort1D(arr)
+    call quicksort(arr, 1, size(arr))
     allocate(tmp_arr(size(arr)))
+    allocate(count_list_(size(arr)), source = 1)
 
     tmp_arr(1) = arr(1)
     n=1
     do i=2,size(arr)
-       if(abs(arr(i)-tmp_arr(n)).lt.tiny) cycle
+       if(abs(arr(i)-tmp_arr(n)).lt.tol_)then
+          count_list_(i) = count_list_(i) + 1
+          cycle
+       end if
        n = n + 1
        tmp_arr(n) = arr(i)
     end do
     deallocate(arr); allocate(arr(n))
     arr(:n) = tmp_arr(:n)
+    if(present(count_list)) count_list = count_list_(:n)
     
   end subroutine rset
 !!!-----------------------------------------------------
@@ -564,7 +608,7 @@ contains
   subroutine sort_col(arr1,col,reverse)
     implicit none
     integer :: i,dim,loc
-    logical :: udef_reverse
+    logical :: reverse_
     real(real12), allocatable, dimension(:) :: dbuff
     real(real12), dimension(:,:) :: arr1
 
@@ -573,16 +617,16 @@ contains
 
 
     if(present(reverse))then
-       udef_reverse=reverse
+       reverse_=reverse
     else
-       udef_reverse=.false.
+       reverse_=.false.
     end if
 
     allocate(dbuff(size(arr1,dim=2)))
 
     dim=size(arr1,dim=1)
     do i=1,dim
-       if(udef_reverse)then
+       if(reverse_)then
           loc=maxloc(arr1(i:dim,col),dim=1)+i-1          
        else
           loc=minloc(arr1(i:dim,col),dim=1)+i-1

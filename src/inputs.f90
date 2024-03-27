@@ -31,6 +31,7 @@ module inputs
   integer, dimension(3) :: bins
   integer, dimension(3) :: vps_ratio
 
+  character(1024) :: database_format !format of input file (POSCAR, XYZ, etc.
   character(1024) :: filename_host !host structure filename
   integer :: c_cut !upper cutoff in cell for atom placement
   integer :: c_min !lower cutoff in cell for atom placement
@@ -60,6 +61,7 @@ module inputs
   public :: num_structures, num_species, task
   public :: stoichiometry_list, element_list
   public :: filename_host
+  public :: database_format
   public :: c_cut, c_min
 
   public :: set_global_vars
@@ -180,11 +182,10 @@ contains
 
     character(*), intent(in) :: file_name
 
-
 !!!-----------------------------------------------------------------------------
 !!! set up namelists for input file
 !!!-----------------------------------------------------------------------------
-    namelist /setup/        task,filename_host,seed,vps_ratio,bins
+    namelist /setup/        task,filename_host,seed,vps_ratio,bins,database_format
     namelist /structure/    num_structures,num_species,elements,stoichiometry
     namelist /volume/       vdW, volvar, minbond, maxbond
     namelist /distribution/ c_min,c_cut,sigma_don,sigma_bondlength,&
@@ -198,6 +199,7 @@ contains
     call file_check(unit,file_name)
 
 
+    database_format = "vasprun.xml"
 !!!-----------------------------------------------------------------------------
 !!! read namelists from input file
 !!!-----------------------------------------------------------------------------

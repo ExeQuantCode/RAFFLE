@@ -64,7 +64,11 @@ program raffle
      write(*,*) "Invalid option"
      stop 1
   end select
-  gvector_container = bond_evolution(input_dir="database/", element_file="elements.dat", element_list = element_list)
+  gvector_container = bond_evolution( &
+       input_dir="database/", &
+       element_file="elements.dat", &
+       element_list = element_list, &
+       file_format=database_format )
 
   call gvector_container%write_2body(file="2body.txt")
   call gvector_container%write_3body(file="3body.txt")

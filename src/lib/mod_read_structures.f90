@@ -17,16 +17,17 @@ contains
 !!!#############################################################################
 !!! read in the structures from the input directories and generate the gvectors
 !!!#############################################################################
-  function bond_evolution(input_dir, element_file, element_list) &
+  function bond_evolution(input_dir, element_file, element_list, file_format) &
        result(gvector_container)
     implicit none
     character(*), dimension(..), intent(in) :: input_dir
     character(*), intent(in), optional :: element_file  
     type(gvector_container_type) :: gvector_container
     character(len=3), dimension(:), intent(in), optional :: element_list
+    character(*), intent(in), optional :: file_format
 
     character(256) :: name
-    integer :: i
+    integer :: i, ifile_format
     real(real12) :: energy
     character(50) :: buffer
     logical :: success, file_exists
@@ -37,6 +38,21 @@ contains
     type(gvector_type) :: gvector
     real(real12), dimension(3,3) :: lattice
     character(256), dimension(:), allocatable :: structure_list
+
+
+    if(present(file_format)) then
+       select case(trim(adjustl(file_format)))
+       case('vasprun.xml','xml','vasprun')
+          ifile_format = 0
+       case('POSCAR','OUTCAR')
+          ifile_format = 1
+       case default
+          write(*,*) "Unknown file format: ", file_format
+          stop
+       end select
+    else
+       ifile_format = 0
+    end if
 
 
     !!! SCRAP ALL OF THIS
@@ -92,24 +108,28 @@ contains
        inquire(file=trim(adjustl(structure_list(i)))//"/OUTCAR", exist=file_exists)
        if(.not.file_exists) cycle
 
-       !open(newunit=unit, file=trim(adjustl(structure_list(i)))//"/POSCAR")
-       !call geom_read(unit, lattice, basis)
-       !close(unit)
-       open(newunit=unit, file=trim(adjustl(structure_list(i)))//"/vasprun.xml")
-       basis%energy = get_energy_from_vasprun(unit, success)
-       if(.not.success) cycle
-       rewind(unit)
-       call get_structure_from_vasprun(unit, lattice, basis, success)
-       if(.not.success) cycle
-       close(unit)
 
-       !open(newunit=unit, file=trim(adjustl(structure_list(i)))//"/OUTCAR")
-       !call grep(unit, 'free  energy   TOTEN  =', lline=.false., success=success)
-       !if(.not.success) cycle
-       !backspace(unit)
-       !read(unit,*) buffer, buffer, buffer, buffer, energy
-       !close(unit)
-       !basis%energy = energy
+       select case(ifile_format)
+       case(0) ! vasprun.xml
+          open(newunit=unit, file=trim(adjustl(structure_list(i)))//"/vasprun.xml")
+          basis%energy = get_energy_from_vasprun(unit, success)
+          if(.not.success) cycle
+          rewind(unit)
+          call get_structure_from_vasprun(unit, lattice, basis, success)
+          if(.not.success) cycle
+          close(unit)
+       case(1)
+          open(newunit=unit, file=trim(adjustl(structure_list(i)))//"/POSCAR")
+          call geom_read(unit, lattice, basis)
+          close(unit)
+          open(newunit=unit, file=trim(adjustl(structure_list(i)))//"/OUTCAR")
+          call grep(unit, 'free  energy   TOTEN  =', lline=.false., success=success)
+          if(.not.success) cycle
+          backspace(unit)
+          read(unit,*) buffer, buffer, buffer, buffer, energy
+          close(unit)
+          basis%energy = energy
+       end select
 
        write(*,*) &
             "Found structure: ", trim(adjustl(structure_list(i))), &

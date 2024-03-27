@@ -57,6 +57,7 @@ contains
     end if
     do
        read(unit, '(A)', iostat=ierror) line
+       if(is_iostat_end(ierror)) exit
        if(ierror .ne. 0) then
           write(0,*) 'Error reading vasprun.xml'
           stop
@@ -115,7 +116,7 @@ contains
 
     allocate(energy_list(0))
     do
-       call find_section(unit, section_list(2:), found_)
+       call find_section(unit, section_list(2:), found_, depth=1)
        if (.not. found_) exit
        read(unit, '(A)', iostat=ierror) line
        if(ierror .ne. 0) then

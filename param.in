@@ -1,6 +1,7 @@
 &setup
   task = 2,
   filename_host = "POSCAR_host",
+  database_format = "vasprun.xml",
   seed = 1,
   vps_ratio = 1 0 0,
   bins = 4 4 10

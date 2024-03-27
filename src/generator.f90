@@ -245,7 +245,7 @@ contains
     real(real12), dimension(3) :: method_probab
     type(bas_type) :: basis
 
-    integer :: i, j, iplaced
+    integer :: i, j, iplaced, void_ticker
     integer :: num_insert_atoms
     real(real12) :: rtmp1
     logical :: placed
@@ -269,6 +269,7 @@ contains
     method_probab_ = method_probab
 
     iplaced = 0
+    void_ticker = 0
     placement_loop: do while (iplaced.lt.num_insert_atoms)
 
     !!! CHANGE THESE PLACEMENT SUBROUTINES TO FUNCTIONS THAT OUTPUT THE COORDINATE
@@ -285,6 +286,7 @@ contains
                 gvector_container, &
                 lattice, basis, &
                 placement_list_shuffled(iplaced+1:,:), radius_arr, placed)
+          if(.not. placed) void_ticker = void_ticker + 1
        else if(rtmp1.le.method_probab_(3)) then 
           write(*,*) "Add Atom Scan"
           call add_atom_scan( viable_gridpoints, &
@@ -292,9 +294,15 @@ contains
                 lattice, basis, &
                 placement_list_shuffled(iplaced+1:,:), radius_arr, placed)
        end if
+       if(.not. placed) then
+          if(void_ticker.gt.10) &
+               call add_atom_void( bins, lattice, basis, &
+                                  placement_list_shuffled(iplaced+1:,:), placed)
+          void_ticker = 0
+          if(.not.placed) cycle placement_loop
+       end if
        write(*,'(A)',ADVANCE='NO') achar(13)
        write(*,*) "placed", placed
-       if(.not. placed) cycle placement_loop
        iplaced = iplaced + 1
        if(allocated(viable_gridpoints)) &
             call update_viable_gridpoints(viable_gridpoints, lattice, basis, &
@@ -306,6 +314,8 @@ contains
           method_probab_ = method_probab_ / method_probab_(2)
           method_probab_(3) = method_probab_(2)
        end if
+
+       !!! MAKE A VOID ATOM ADDER WHEN PSEUDO FAILS TOO MUCH
 
     end do placement_loop
 

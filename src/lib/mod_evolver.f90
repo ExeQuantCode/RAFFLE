@@ -549,7 +549,7 @@ contains
     if(present(width)) width_ = width
     if(present(nbins))then
        nbins_ = nbins
-       width_ = (cutoff_max_ - cutoff_min_)/real( nbins_ - 1, real12) !!! NEED TO ADD ONE BIN !!!
+       width_ = ( cutoff_max_ - cutoff_min_ )/real( nbins_ - 1, real12 )
     else
        nbins_ = 1 + (cutoff_max_ - cutoff_min_)/width_
     end if
@@ -564,7 +564,7 @@ contains
     num_pairs = gamma(real(basis%nspec + 2, real12)) / &
                 ( gamma(real(basis%nspec, real12)) * gamma( 3._real12 ) )
     allocate(idx(2,num_pairs))
-    this%species = basis%spec(:)%name !!! CHECK LENGTH OF %name !!!
+    this%species = basis%spec(:)%name
     do is = 1, basis%nspec
        do js = is, basis%nspec, 1
           i = i + 1
@@ -610,8 +610,10 @@ contains
                       do k=-cmax,cmax+1,1
                          vtmp1(3) = diff(3) + real(k, real12)
                          rtmp1 = modu(matmul(vtmp1,lattice))
-                         if( rtmp1 .gt. cutoff_min_(1) - width_(1)/2._real12 .and. &
-                             rtmp1 .lt. cutoff_max_(1) + width_(1)/2._real12 )then
+                         if( rtmp1 .gt. cutoff_min_(1) - &
+                                        width_(1)/2._real12 .and. &
+                             rtmp1 .lt. cutoff_max_(1) + &
+                                        width_(1)/2._real12 )then
                             bond_list = [ bond_list, bond_type( &
                                  [is,js], &
                                  [ia,ja], .false., matmul(vtmp1,lattice)) ]
@@ -675,7 +677,8 @@ contains
 
        !! do forward and backward loops to add gaussian for larger distances
        do concurrent ( j = 1:2 )
-          do concurrent ( b = loop_limits(1,j):loop_limits(2,j):loop_limits(3,j) )
+          do concurrent ( b = &
+                            loop_limits(1,j):loop_limits(2,j):loop_limits(3,j) )
              gvector_tmp(b) = gvector_tmp(b) + &
                   exp( -eta(1) * ( rtmp1 - width_(1) * real(b) ) ** 2._real12 )
           end do
@@ -686,7 +689,8 @@ contains
              exit get_pair_index_loop
           end if
        end do get_pair_index_loop
-       this%df_2body(:,k) = this%df_2body(:,k) + gvector_tmp * scale * sqrt(eta(1)) / size(bond_list)
+       this%df_2body(:,k) = this%df_2body(:,k) + &
+            gvector_tmp * scale * sqrt( eta(1) ) / size( bond_list )
     end do
 
 
@@ -737,8 +741,9 @@ contains
           end do
        end do
        this%df_3body(:,is) = this%df_3body(:,is) + &
-            get_angle_gvector(angle, nbins_(2), eta(2), width_(2), &
-                              cutoff_min(2), limit(2)) * sqrt(eta(2)) / size(angle)
+            get_angle_gvector( angle, nbins_(2), eta(2), width_(2), &
+                               cutoff_min(2), &
+                               limit(2) ) * sqrt( eta(2) ) / size( angle )
        deallocate(angle)
     end do
 
@@ -823,8 +828,9 @@ contains
           stop 1
        end if
        this%df_4body(:,is) = this%df_4body(:,is) + &
-            get_angle_gvector(angle, nbins_(3), eta(3), width_(3), &
-                              cutoff_min(3), limit(3)) * sqrt(eta(3)) / num_angles
+            get_angle_gvector( angle, nbins_(3), eta(3), width_(3), &
+                               cutoff_min(3), &
+                               limit(3) ) * sqrt( eta(3) ) / num_angles
        deallocate(angle)
     end do
 

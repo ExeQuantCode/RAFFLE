@@ -5,7 +5,7 @@ module gen
   use rw_geom, only: bas_type, geom_read, geom_write, clone_bas
   use edit_geom, only: bas_merge
   ! use isolated, only: generate_isolated_calculations
-  use vasp_file_handler, only: incarwrite, kpoints_write, generate_potcar
+  !use vasp_file_handler, only: incarwrite, kpoints_write, generate_potcar
   use inputs, only: vdW, volvar, bins, filename_host
   use add_atom, only: add_atom_void, add_atom_pseudo, add_atom_scan, &
        get_viable_gridpoints, update_viable_gridpoints
@@ -276,7 +276,7 @@ contains
     !!! THEN, THIS LOOP ACTUALLY PLACES IT AT THE END
        call random_number(rtmp1)
        if(rtmp1.le.method_probab_(1)) then 
-          write(*,*) "ADD ATOM VOID"
+          write(*,*) "Add Atom Void"
           call add_atom_void( bins, &
                 lattice, basis, &
                 placement_list_shuffled(iplaced+1:,:), placed)
@@ -314,8 +314,6 @@ contains
           method_probab_ = method_probab_ / method_probab_(2)
           method_probab_(3) = method_probab_(2)
        end if
-
-       !!! MAKE A VOID ATOM ADDER WHEN PSEUDO FAILS TOO MUCH
 
     end do placement_loop
 

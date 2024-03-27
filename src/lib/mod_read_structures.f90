@@ -1,7 +1,8 @@
 module read_structures
   use constants, only: real12
   use misc, only: grep
-  use rw_geom, only: bas_type, geom_read
+  use rw_geom, only: bas_type, geom_read, geom_write
+   use rw_vasprun, only: get_energy_from_vasprun, get_structure_from_vasprun
   use evolver, only: gvector_container_type, gvector_type
   implicit none
 
@@ -91,17 +92,24 @@ contains
        inquire(file=trim(adjustl(structure_list(i)))//"/OUTCAR", exist=file_exists)
        if(.not.file_exists) cycle
 
-       open(newunit=unit, file=trim(adjustl(structure_list(i)))//"/POSCAR")
-       call geom_read(unit, lattice, basis)
+       !open(newunit=unit, file=trim(adjustl(structure_list(i)))//"/POSCAR")
+       !call geom_read(unit, lattice, basis)
+       !close(unit)
+       open(newunit=unit, file=trim(adjustl(structure_list(i)))//"/vasprun.xml")
+       basis%energy = get_energy_from_vasprun(unit, success)
+       if(.not.success) cycle
+       rewind(unit)
+       call get_structure_from_vasprun(unit, lattice, basis, success)
+       if(.not.success) cycle
        close(unit)
 
-       open(newunit=unit, file=trim(adjustl(structure_list(i)))//"/OUTCAR")
-       call grep(unit, 'free  energy   TOTEN  =', lline=.false., success=success)
-       if(.not.success) cycle
-       backspace(unit)
-       read(unit,*) buffer, buffer, buffer, buffer, energy
-       close(unit)
-       basis%energy = energy
+       !open(newunit=unit, file=trim(adjustl(structure_list(i)))//"/OUTCAR")
+       !call grep(unit, 'free  energy   TOTEN  =', lline=.false., success=success)
+       !if(.not.success) cycle
+       !backspace(unit)
+       !read(unit,*) buffer, buffer, buffer, buffer, energy
+       !close(unit)
+       !basis%energy = energy
 
        write(*,*) &
             "Found structure: ", trim(adjustl(structure_list(i))), &

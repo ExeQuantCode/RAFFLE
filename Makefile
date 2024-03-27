@@ -8,6 +8,7 @@ SRC_DIR := ./src
 LIB_DIR := ./lib
 BUILD_DIR = ./obj
 LIBS := mod_constants.f90 \
+	mod_rw_vasprun.f90 \
 	mod_misc.f90 \
 	mod_misc_maths.f90 \
 	mod_misc_linalg.f90 \

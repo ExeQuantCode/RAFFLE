@@ -35,7 +35,8 @@ contains
     real(real12) :: viability_2body !! 2-body is addition
     real(real12) :: viability_3body !! 3-body is multiplication
     real(real12) :: viability_4body !! 4-body is multiplication
-    real(real12), dimension(3,3) :: position_storage
+    real(real12), dimension(3) :: &
+         position_storage1, position_storage2, position_storage3
   
 
     output = 0._real12
@@ -51,11 +52,11 @@ contains
       !! 2-body map
       !! checks bondlength between the current atom and all other atoms
       atom_loop1: do ia = 1, basis%spec(is)%num
-         do i = 2, size(atom_ignore_list,dim=1)
+         do i = 1, size(atom_ignore_list,dim=1), 1
             if(all(atom_ignore_list(i,:).eq.[is,ia])) cycle atom_loop1
          end do
          !!! NEED TO HAVE A LOOP FOR REPEATING CELLS
-         position_storage(1,:) = basis%spec(is)%atom(ia,:)
+         position_storage1 = basis%spec(is)%atom(ia,:)
          contribution=0
          !!! ONLY NEEDS TO CHECK FOR THE SMALLEST BONDLENGTH BETWEEN A ...
          !!! ... PERIODIC ATOM AND THE CURRENT ATOM
@@ -76,12 +77,9 @@ contains
             cycle atom_loop1
          end if
 
-         bin = nint( gvector_container%nbins(1) * &
-                     ( ( bondlength - gvector_container%cutoff_min(1) ) + &
-                       gvector_container%width(1)/2._real12 ) / &
-                       gvector_container%cutoff_max(1) - gvector_container%cutoff_min(1) )
+         bin = gvector_container%get_bin(bondlength, dim = 1)
          if(bin.eq.0) cycle
-         contribution = gvector_container%total%df_2body(pair_index,bin)
+         contribution = gvector_container%total%df_2body(bin, pair_index)
    
          viability_2body = viability_2body + contribution
 
@@ -99,32 +97,32 @@ contains
               do i = 2, size(atom_ignore_list,dim=1)
                  if(all(atom_ignore_list(i,:).eq.[js,ja])) cycle atom_loop1
               end do
-              position_storage(2,:) = basis%spec(js)%atom(ja,:)
-              if(get_distance(position,position_storage(2,:)).lt.&
+              position_storage2 = basis%spec(js)%atom(ja,:)
+              if(get_distance(position,position_storage2).lt.&
                    radius_arr(1,atom_ignore_list(1,1),js)*lowtol) return
               !!! ARE WE NOT DOUBLE COUNTING HERE!?!
               !!! by looking at the angle between p1, p2, and p3
-              if(get_distance(position_storage(1,:),position_storage(2,:)).lt.&
+              if(get_distance(position_storage1,position_storage2).lt.&
                    radius_arr(1,is,js)*uptol) then
                  bin = gvector_container%get_bin( &
                       get_angle( position, &
-                                 position_storage(1,:), &
-                                 position_storage(2,:) ), &
+                                 position_storage1, &
+                                 position_storage2 ), &
                       dim = 2 )
                  if(bin.eq.0) cycle
-                 contribution = gvector_container%total%df_3body(is,bin)
+                 contribution = gvector_container%total%df_3body(bin,is)
                  viability_3body = ( viability_3body * &
                       contribution ** (1._real12/(repeat_power)))
-              else if(get_distance(position,position_storage(2,:)).lt.&
+              else if(get_distance(position,position_storage2).lt.&
                    radius_arr(1,atom_ignore_list(1,1),js)*uptol) then 
                  !!!! IS THIS ELSE IF NEEDED?????
                  bin = gvector_container%get_bin( &
-                      get_angle( position_storage(1,:), &
+                      get_angle( position_storage1, &
                                  position, &
-                                 position_storage(2,:) ), &
+                                 position_storage2 ), &
                       dim = 2 )
                  if(bin.eq.0) cycle
-                 contribution = gvector_container%total%df_3body(is,bin)
+                 contribution = gvector_container%total%df_3body(bin,is)
                  viability_3body = ( viability_3body * &
                        contribution ** (1._real12/repeat_power))
               end if
@@ -132,7 +130,7 @@ contains
               !!! ... THIRD ATOM IS WITHIN THE TOLERANCE
               !!! I have removed the second check as this, again, is just checking ...
               !!! ... the effect of a periodic image
-              if((get_distance(position_storage(1,:),position_storage(2,:)).ge.&
+              if((get_distance(position_storage1,position_storage2).ge.&
                    radius_arr(1,is,js)*uptol)) cycle
                  
               !! loops over all atoms currently in the system
@@ -146,20 +144,20 @@ contains
                     do i = 2, size(atom_ignore_list,dim=1)
                        if(all(atom_ignore_list(i,:).eq.[ks,ka])) cycle atom_loop1
                     end do
-                    position_storage(3,:) = basis%spec(js)%atom(ja,:)
-                    if(get_distance(position,position_storage(3,:)).lt.&
+                    position_storage3 = basis%spec(js)%atom(ja,:)
+                    if(get_distance(position,position_storage3).lt.&
                          radius_arr(1,atom_ignore_list(1,1),ks)*lowtol) return
-                    if(get_distance(position_storage(1,:),position_storage(3,:)).lt.&
+                    if(get_distance(position_storage1,position_storage3).lt.&
                          radius_arr(1,is,ks)*uptol) then
                        bin = gvector_container%get_bin( &
                                 get_dihedral_angle( &
                                            position, &
-                                           position_storage(1,:), &
-                                           position_storage(2,:), &
-                                           position_storage(3,:)), &
-                                dim = 2 )
+                                           position_storage1, &
+                                           position_storage2, &
+                                           position_storage3), &
+                                dim = 3 )
                        if(bin.eq.0) cycle
-                       contribution = gvector_container%total%df_4body(is,bin)
+                       contribution = gvector_container%total%df_4body(bin,is)
                        if(abs(contribution).lt.1.E-6) return
                        !Here have taken a large root of value return, to ...
                        !...account for sumamtion of atoms in 3D.
@@ -172,7 +170,7 @@ contains
            end do atom_loop2
          end do species_loop2
       end do atom_loop1
-   end do species_loop1        
+   end do species_loop1
 
    if(abs(viability_2body).lt.1.E-6) viability_2body = 1._real12
    output = viability_2body * viability_4body * viability_3body

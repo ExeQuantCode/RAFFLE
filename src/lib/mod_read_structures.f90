@@ -16,11 +16,13 @@ contains
 !!!#############################################################################
 !!! read in the structures from the input directories and generate the gvectors
 !!!#############################################################################
-  function bond_evolution(input_dir, elements_file) result(gvector_container)
+  function bond_evolution(input_dir, element_file, element_list) &
+       result(gvector_container)
     implicit none
     character(*), dimension(..), intent(in) :: input_dir
-    character(1024), intent(in), optional :: elements_file  
-    type(gvector_container_type) :: gvector_container  
+    character(*), intent(in), optional :: element_file  
+    type(gvector_container_type) :: gvector_container
+    character(len=3), dimension(:), intent(in), optional :: element_list
 
     character(256) :: name
     integer :: i
@@ -122,8 +124,8 @@ contains
  
     end do
 
-    if(present(elements_file)) then
-       call gvector_container%set_species_list(elements_file)
+    if(present(element_file).and.present(element_list)) then
+       call gvector_container%set_species_list(element_file, element_list)
     end if
     call gvector_container%evolve()
 

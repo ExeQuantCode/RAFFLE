@@ -7,7 +7,8 @@ module gen
   ! use isolated, only: generate_isolated_calculations
   use vasp_file_handler, only: incarwrite, kpoints_write, generate_potcar
   use inputs, only: vdW, volvar, bins, filename_host
-  use add_atom, only: add_atom_void, add_atom_pseudo, add_atom_scan
+  use add_atom, only: add_atom_void, add_atom_pseudo, add_atom_scan, &
+       get_viable_gridpoints, update_viable_gridpoints
   use read_chem, only: get_element_radius
   use evolver, only: gvector_container_type
   implicit none
@@ -100,12 +101,20 @@ contains
                success = .true.
        end do
        if(.not.success) cycle
-       do j = 1, basis_store%spec(i)%num
-          if(j.le.basis_host%spec(i)%num) cycle
-          k = k + 1
-          placement_list(k,1) = i
-          placement_list(k,2) = j
-       end do
+       if(i.gt.basis_host%nspec)then
+          do j = 1, basis_store%spec(i)%num
+             k = k + 1
+             placement_list(k,1) = i
+             placement_list(k,2) = j
+          end do
+       else
+          do j = 1, basis_store%spec(i)%num
+             if(j.le.basis_host%spec(i)%num) cycle
+             k = k + 1
+             placement_list(k,1) = i
+             placement_list(k,2) = j
+          end do
+       end if
     end do spec_loop1
 
     num_species        = basis_store%nspec
@@ -242,7 +251,10 @@ contains
     logical :: placed
     integer, dimension(size(placement_list,1),size(placement_list,2)) :: &
          placement_list_shuffled
+    real(real12), dimension(3) :: method_probab_
     real(real12), dimension(:,:,:) :: radius_arr
+    real(real12), dimension(:,:), allocatable :: viable_gridpoints
+
 
 
     call clone_bas(basis_initial, basis)
@@ -251,33 +263,49 @@ contains
     placement_list_shuffled = placement_list
     call shuffle(placement_list_shuffled,1) !!! NEED TO SORT OUT RANDOM SEED
 
+    viable_gridpoints = get_viable_gridpoints(bins, lattice, basis, &
+         radius_arr, placement_list_shuffled)
+
+    method_probab_ = method_probab
+
     iplaced = 0
     placement_loop: do while (iplaced.lt.num_insert_atoms)
 
+    !!! CHANGE THESE PLACEMENT SUBROUTINES TO FUNCTIONS THAT OUTPUT THE COORDINATE
+    !!! THEN, THIS LOOP ACTUALLY PLACES IT AT THE END
        call random_number(rtmp1)
-       if(rtmp1.le.method_probab(1)) then 
+       if(rtmp1.le.method_probab_(1)) then 
           write(*,*) "ADD ATOM VOID"
           call add_atom_void( bins, &
                 lattice, basis, &
                 placement_list_shuffled(iplaced+1:,:), placed)
-       else if(rtmp1.le.method_probab(2)) then 
+       else if(rtmp1.le.method_probab_(2)) then 
           write(*,*) "Add Atom Pseudo"
           call add_atom_pseudo( bins, &
                 gvector_container, &
                 lattice, basis, &
                 placement_list_shuffled(iplaced+1:,:), radius_arr, placed)
-       else if(rtmp1.le.method_probab(3)) then 
+       else if(rtmp1.le.method_probab_(3)) then 
           write(*,*) "Add Atom Scan"
-          call add_atom_scan( bins, &
+          call add_atom_scan( viable_gridpoints, &
                 gvector_container, &
                 lattice, basis, &
                 placement_list_shuffled(iplaced+1:,:), radius_arr, placed)
        end if
+       write(*,'(A)',ADVANCE='NO') achar(13)
        write(*,*) "placed", placed
-       write(*,*) "iplaced", iplaced
-       write(*,*) "method", rtmp1, method_probab
        if(.not. placed) cycle placement_loop
        iplaced = iplaced + 1
+       if(allocated(viable_gridpoints)) &
+            call update_viable_gridpoints(viable_gridpoints, lattice, basis, &
+                             [ placement_list_shuffled(iplaced,:) ], radius_arr)
+       if(.not.allocated(viable_gridpoints).and. &
+            abs( method_probab_(3) - method_probab_(2) ) .gt. 1.E-3) then
+          write(*,*) "WARNING: No more viable gridpoints"
+          write(*,*) "Suppressing SCAN method"
+          method_probab_ = method_probab_ / method_probab_(2)
+          method_probab_(3) = method_probab_(2)
+       end if
 
     end do placement_loop
 

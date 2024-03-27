@@ -36,6 +36,7 @@ module evolver
      integer :: best_system = 0
      real(real12) :: best_energy = 0.0_real12
      integer, dimension(3) :: nbins = -1
+     real(real12), dimension(3) :: sigma
      real(real12), dimension(3) :: width = [ 0.05_real12, pi/24._real12, pi/32._real12 ]
      real(real12), dimension(3) :: cutoff_min = [ 0._real12, 0._real12, 0._real12 ]
      real(real12), dimension(3) :: cutoff_max = [ 6._real12, pi, pi/2._real12 ]
@@ -266,10 +267,11 @@ contains
 !!!#############################################################################
 !!! set the species list for the container
 !!!#############################################################################
-  subroutine set_species_list(this, elements_file)
+  subroutine set_species_list(this, element_file, element_list)
     implicit none
     class(gvector_container_type), intent(inout) :: this
-    character(*), intent(in), optional :: elements_file
+    character(*), intent(in), optional :: element_file
+    character(len=3), dimension(:), intent(in), optional :: element_list
 
     integer :: i, unit
     character(len=3), dimension(:), allocatable :: species_list
@@ -278,8 +280,8 @@ contains
     !!--------------------------------------------------------------------------
     !! load the elements database
     !!--------------------------------------------------------------------------
-    if(present(elements_file))then
-       call load_elements(elements_file)
+    if(present(element_file))then
+       call load_elements(element_file)
     elseif(.not.allocated(elements_database))then
        call load_elements()
     end if
@@ -291,6 +293,9 @@ contains
     do i = 2, size(this%system),1
        species_list = [ species_list, this%system(i)%species ]
     end do
+    if(present(element_list))then
+       species_list = [ species_list, element_list ]
+    end if
     call set(species_list)
     if(allocated(this%species_info)) deallocate(this%species_info)
     allocate(this%species_info(size(species_list)))
@@ -315,8 +320,10 @@ contains
     do i = 1, size(this%system)
        energy = this%system(i)%energy
        do is = 1, size(this%species_info)
-          idx = findloc(this%system(i)%species, this%species_info(is)%name, dim=1)
-          energy = energy - this%system(i)%stoichiometry(idx) * this%species_info(is)%energy
+          idx = findloc( this%system(i)%species, &
+                         this%species_info(is)%name, dim=1)
+          energy = energy - this%system(i)%stoichiometry(idx) * &
+                            this%species_info(is)%energy
        end do
        energy = energy / this%system(i)%num_atoms
        if( energy .lt. this%best_energy ) then
@@ -327,6 +334,7 @@ contains
 
   end subroutine set_best_energy
 !!!#############################################################################
+
 
 !!!#############################################################################
 !!! get index corresponding to element pair
@@ -339,15 +347,14 @@ contains
 
     integer :: is, js
 
-    is = findloc(this%species_info(:)%name, species1, dim=1)
-    js = findloc(this%species_info(:)%name, species2, dim=1)
-    ! if( is .eq. 0 .or. js .eq. 0 )then
-    !    write(*,*) "ERROR: Species not found in species list"
-    !    write(*,*) "Species 1: ", species1
-    !    write(*,*) "Species 2: ", species2
-    !    stop 1
-    ! end if
-    idx = min( is, js ) * ( max( is, js ) - 1 ) + max( is, js )
+    is = findloc([ this%species_info(:)%name ], species1, dim=1)
+    js = findloc([ this%species_info(:)%name ], species2, dim=1)
+    !! This comes from subtraction of nth triangular numbers
+    !! nth triangular number: N_n = n(n+1)/2 = ( n^2 + n ) / 2
+    !! idx = N_n - N_{n-is+1} + ( js - is + 1)
+    !! idx = ( n - is/2 ) * ( is - 1 ) + js
+    idx = nint( ( size(this%species_info) - min( is, js ) / 2._real12 ) * &
+          ( is - 1._real12 ) + js )
 
   end function get_pair_index
 !!!#############################################################################
@@ -425,7 +432,8 @@ contains
        !! get the list of 2-body species pairs the system
        !!-----------------------------------------------------------------------
        j = 0
-       allocate(idx_list(size(this%system(i)%species),size(this%system(i)%species)))
+       allocate(idx_list(size(this%system(i)%species),&
+                         size(this%system(i)%species)))
        do is = 1, size(this%system(i)%species)
           do js = is, size(this%system(i)%species), 1
              j = j + 1
@@ -439,9 +447,15 @@ contains
        !! calculate the weight for the system
        !!-----------------------------------------------------------------------
        energy = this%system(i)%energy
-       do is = 1, size(this%species_info)
-          idx1 = findloc(this%system(i)%species, this%species_info(is)%name, dim=1)
-          energy = energy - this%system(i)%stoichiometry(idx1) * this%species_info(is)%energy
+       do is = 1, size(this%system(i)%species)
+          idx1 = findloc( [ this%species_info(:)%name ], &
+                          this%system(i)%species(is), dim=1)
+          if(idx1.lt.1)then
+             write(0,*) "ERROR: Species not found in species list"
+             stop 1
+          end if
+          energy = energy - this%system(i)%stoichiometry(is) * &
+               this%species_info(idx1)%energy
        end do
        energy = energy / this%system(i)%num_atoms
        weight = exp( this%best_energy - energy )
@@ -449,25 +463,27 @@ contains
        !!-----------------------------------------------------------------------
        !! loop over all species in the system to add the gvectors
        !!-----------------------------------------------------------------------
-       do is = 1, size(this%species_info)
+       do is = 1, size(this%system(i)%species)
 
-          idx1 = findloc(this%system(i)%species, this%species_info(is)%name, dim=1)
-          if(idx1.eq.0) cycle
+          idx1 = findloc( [ this%species_info(:)%name ], &
+                          this%system(i)%species(is), dim=1)
 
-          height = 1._real12 / ( 1._real12 + this%total%df_3body(:,is) )
-          this%total%df_3body(:,is) = this%total%df_3body(:,is) + &
-               height * weight * this%system(i)%df_3body(:,idx1)
+          height = 1._real12 / ( 1._real12 + this%total%df_3body(:,idx1) )
+          this%total%df_3body(:,idx1) = this%total%df_3body(:,idx1) + &
+               height * weight * this%system(i)%df_3body(:,is)
           
-          height = 1._real12 / ( 1._real12 + this%total%df_4body(:,is) )
-          this%total%df_4body(:,is) = this%total%df_4body(:,is) + &
-               height * weight * this%system(i)%df_4body(:,idx1)
+          height = 1._real12 / ( 1._real12 + this%total%df_4body(:,idx1) )
+          this%total%df_4body(:,idx1) = this%total%df_4body(:,idx1) + &
+               height * weight * this%system(i)%df_4body(:,is)
           
-          do js = is, size(this%species_info), 1
-             j = is * (js - 1) + js
-             idx2 = findloc(this%system(i)%species, this%species_info(js)%name, dim=1)
-             height = 1._real12 / ( 1._real12 + this%total%df_2body(:,j) ) ** 2._real12
+          do js = is, size(this%system(i)%species), 1
+             idx2 = findloc( [ this%species_info(:)%name ], &
+                             this%system(i)%species(js), dim=1)
+             j = idx1 * (idx2 - 1) + idx2
+             height = 1._real12 / &
+                  ( 1._real12 + this%total%df_2body(:,j) ) ** 2._real12
              this%total%df_2body(:,j) = this%total%df_2body(:,j) + &
-                  height * weight * this%system(i)%df_2body(:,idx_list(idx1,idx2))
+                  height * weight * this%system(i)%df_2body(:,idx_list(is,js))
  
           end do
        end do
@@ -509,7 +525,7 @@ contains
     integer :: num_pairs, num_angles
     integer :: amax, bmax, cmax
     real(real12) :: rtmp1, rtmp2, fc, weight, scale
-    real(real12), dimension(3) :: eta, limit
+    real(real12), dimension(3) :: eta, limit, sigma
     real(real12), dimension(3) :: vtmp1, vtmp2, vtmp3, diff
     real(real12), allocatable, dimension(:) :: gvector_tmp, angle
     integer, dimension(:), allocatable :: idx_list
@@ -612,7 +628,9 @@ contains
     !!--------------------------------------------------------------------------
     !! calculate the gaussian width
     !!--------------------------------------------------------------------------
-    eta = 1._real12 / ( 2._real12 * width_**2._real12 )
+    sigma = 5._real12 * width !!! RANDOM SCALING FACTOR
+    write(*,*) sigma
+    eta = 1._real12 / ( 2._real12 * sigma**2._real12 ) !changed from width to sigma
     max_num_steps = ceiling( sqrt(16._real12/eta(1)) / width_(1) )
 
 
@@ -668,7 +686,7 @@ contains
              exit get_pair_index_loop
           end if
        end do get_pair_index_loop
-       this%df_2body(:,k) = this%df_2body(:,k) + gvector_tmp * scale
+       this%df_2body(:,k) = this%df_2body(:,k) + gvector_tmp * scale * sqrt(eta(1)) / size(bond_list)
     end do
 
 
@@ -720,7 +738,7 @@ contains
        end do
        this%df_3body(:,is) = this%df_3body(:,is) + &
             get_angle_gvector(angle, nbins_(2), eta(2), width_(2), &
-                              cutoff_min(2), limit(2))
+                              cutoff_min(2), limit(2)) * sqrt(eta(2)) / size(angle)
        deallocate(angle)
     end do
 
@@ -806,9 +824,10 @@ contains
        end if
        this%df_4body(:,is) = this%df_4body(:,is) + &
             get_angle_gvector(angle, nbins_(3), eta(3), width_(3), &
-                              cutoff_min(3), limit(3))
+                              cutoff_min(3), limit(3)) * sqrt(eta(3)) / num_angles
        deallocate(angle)
     end do
+
 
   end subroutine calculate
 !!!#############################################################################
@@ -882,6 +901,7 @@ contains
        end do
        gvector(:) = gvector(:) + gvector_tmp * scale!real(scale_list(i), real12)
     end do
+    gvector = gvector 
 
   end function get_angle_gvector
 !!!#############################################################################

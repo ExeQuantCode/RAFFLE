@@ -98,22 +98,8 @@ contains
               position_storage2 = basis%spec(js)%atom(ja,:)
               if(get_distance(position,position_storage2).lt.&
                    radius_arr(1,atom_ignore_list(1,1),js)*lowtol) return
-              !!! ARE WE NOT DOUBLE COUNTING HERE!?!
-              !!! by looking at the angle between p1, p2, and p3
-              if(get_distance(position_storage1,position_storage2).lt.&
-                   radius_arr(1,is,js)*uptol) then
-                 bin = gvector_container%get_bin( &
-                      get_angle( position, &
-                                 position_storage1, &
-                                 position_storage2 ), &
-                      dim = 2 )
-                 if(bin.eq.0) cycle
-                 contribution = gvector_container%total%df_3body(bin,is)
-                 viability_3body = ( viability_3body * &
-                      contribution ** (1._real12/(repeat_power)))
-              else if(get_distance(position,position_storage2).lt.&
-                   radius_arr(1,atom_ignore_list(1,1),js)*uptol) then 
-                 !!!! IS THIS ELSE IF NEEDED?????
+              if(get_distance(position,position_storage2).lt.&
+                   radius_arr(1,atom_ignore_list(1,1),js)*uptol) then
                  bin = gvector_container%get_bin( &
                       get_angle( position_storage1, &
                                  position, &

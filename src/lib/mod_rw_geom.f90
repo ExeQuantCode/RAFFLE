@@ -24,7 +24,7 @@ module rw_geom
   type spec_type
      real(real12), allocatable ,dimension(:,:) :: atom
      real(real12) :: mass
-     character(len=5) :: name
+     character(len=3) :: name
      integer :: num
   end type spec_type
   type bas_type

@@ -89,11 +89,9 @@ contains
          !! i.e. nested loop here
          !!! NEEDS TO BE SPECIES AND ATOM
          !!! SHOULD BE ITS OWN PROCEDURE
-         species_loop2: do js = 1, basis%nspec
+         species_loop2: do js = is, basis%nspec, 1
            atom_loop2: do ja = 1, basis%spec(js)%num
-              !!! NAH, DON'T NEED TO LOOP ITSELF ANYMORE AS CHECKS NEED TO ...
-              !!! ... BE MADE WITH PERIODIC IMAGES
-              !if(all([is,l].eq.[js,ja])) cycle
+              if(js.eq.is .and. ja.lt.ia) cycle
               do i = 2, size(atom_ignore_list,dim=1)
                  if(all(atom_ignore_list(i,:).eq.[js,ja])) cycle atom_loop1
               end do
@@ -139,7 +137,7 @@ contains
               !! i.e. nested loop here
               !!! NEEDS TO BE SPECIES AND ATOM
               !!! SHOULD BE ITS OWN PROCEDURE
-              species_loop3: do ks = 1, basis%nspec
+              species_loop3: do ks = 1, basis%nspec, 1
                  atom_loop3: do ka = 1, basis%spec(ks)%num
                     do i = 2, size(atom_ignore_list,dim=1)
                        if(all(atom_ignore_list(i,:).eq.[ks,ka])) cycle atom_loop1

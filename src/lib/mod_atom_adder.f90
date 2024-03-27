@@ -41,7 +41,7 @@ contains
     placed = .false.
     !! run buildmap_point for a set of points in the unit cell
     allocate(suitability_grid(size(gridpoints,dim=2)))
-    do i = 1, size(gridpoints,2)!concurrent( i = 1:size(gridpoints,dim=2) )
+    do concurrent( i = 1:size(gridpoints,dim=2) )
        suitability_grid(i) = buildmap_POINT( gvector_container, &
             gridpoints(:,i), lattice, basis, &
             atom_ignore_list, radius_arr, &

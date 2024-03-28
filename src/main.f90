@@ -1,7 +1,7 @@
 program raffle
   use constants, only: real12, pi
   use inputs
-  use read_structures, only: bond_evolution
+  use read_structures, only: get_evolved_gvectors_from_data
   use gen, only: generation
   use rw_geom, only: bas_type
   use evolver, only: gvector_container_type
@@ -64,7 +64,7 @@ program raffle
      write(*,*) "Invalid option"
      stop 1
   end select
-  gvector_container = bond_evolution( &
+  gvector_container = get_evolved_gvectors_from_data( &
        input_dir="database/", &
        element_file="elements.dat", &
        element_list = element_list, &

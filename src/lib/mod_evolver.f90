@@ -734,9 +734,14 @@ module evolver
              exit get_pair_index_loop
           end if
        end do get_pair_index_loop
+       itmp1 = count( [ ( ( bond_list(j)%species(1) .eq. is .and. &
+                            bond_list(j)%species(2) .eq. js ) .or. &
+                          ( bond_list(j)%species(2) .eq. is .and. &
+                            bond_list(j)%species(1) .eq. js ), &
+                              j = 1, size(bond_list), 1 ) ] )
        this%df_2body(:,k) = this%df_2body(:,k) + &
             gvector_tmp * scale * sqrt( eta(1) * pi ) / &
-            ( size( bond_list ) * width_(1) )
+            ( itmp1 * width_(1) )
     end do
 
 
@@ -807,7 +812,7 @@ module evolver
        this%df_3body(:,is) = this%df_3body(:,is) + &
             get_angle_gvector( angle, nbins_(2), eta(2), width_(2), &
                                cutoff_min(2), &
-                               limit(2) ) !/ size( angle )
+                               limit(2) )
        deallocate(angle)
     end do
 
@@ -899,7 +904,7 @@ module evolver
        this%df_4body(:,is) = this%df_4body(:,is) + &
             get_angle_gvector( angle, nbins_(3), eta(3), width_(3), &
                                cutoff_min(3), &
-                               limit(3) ) !/ num_angles
+                               limit(3) )
        deallocate(angle)
     end do
 

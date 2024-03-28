@@ -711,26 +711,27 @@ module evolver
           end if          
        end do
        !!-----------------------------------------------------------------------
-       bin = nint(( nbins_(1) - 1 ) * ( rtmp1 - cutoff_min(1) ) / limit(1) ) + 1
+       bin = nint( ( rtmp1 - cutoff_min_(1) ) / width_(1) ) + 1
        if(bin.gt.nbins_(1).or.bin.lt.1) cycle
 
-       fc = 0.5_real12 * cos( pi * ( rtmp1 - cutoff_min(1) ) / limit(1) ) + &
+       fc = 0.5_real12 * cos( pi * ( rtmp1 - cutoff_min_(1) ) / limit(1) ) + &
             0.5_real12
 
        !!-----------------------------------------------------------------------
        !! calculate the gaussian for this bond
        !!-----------------------------------------------------------------------
        gvector_tmp = 0._real12
-       loop_limits(:,1) = [ bin, min(nbins_(1), bin + max_num_steps), 1 ]
+       loop_limits(:,1) = [ bin, min(nbins_(1), (bin + max_num_steps) ), 1 ]
        loop_limits(:,2) = [ bin - 1, max(1, bin - max_num_steps), -1 ]
-
+       
        !! do forward and backward loops to add gaussian for larger distances
        do concurrent ( j = 1:2 )
           do concurrent ( b = &
                             loop_limits(1,j):loop_limits(2,j):loop_limits(3,j) )
              gvector_tmp(b) = gvector_tmp(b) + &
                   exp( -eta(1) * ( rtmp1 - &
-                                   width_(1) * real(b, real12) ) ** 2._real12 )
+                                   ( width_(1) * real(b-1, real12) + &
+                                     cutoff_min_(1) ) ) ** 2._real12 )
           end do
        end do
        get_pair_index_loop: do j = 1, num_pairs
@@ -745,8 +746,7 @@ module evolver
                             bond_list(j)%species(1) .eq. js ), &
                               j = 1, size(bond_list), 1 ) ] )
        this%df_2body(:,k) = this%df_2body(:,k) + &
-            gvector_tmp * scale * sqrt( eta(1) / pi ) / &
-            ( itmp1 * width_(1) )
+            gvector_tmp * scale * sqrt( eta(1) / pi ) / real(itmp1,real12) ! / width_(1)
     end do
 
 
@@ -962,7 +962,7 @@ module evolver
        !!-----------------------------------------------------------------------
        !! get the bin closest to the angle
        !!-----------------------------------------------------------------------
-       bin = nint(( nbins - 1 ) * ( angle_copy(i) - cutoff_min ) / limit ) + 1
+       bin = nint( ( angle_copy(i) - cutoff_min ) / width ) + 1
        if(bin.gt.nbins.or.bin.lt.1) cycle
 
 
@@ -981,12 +981,13 @@ module evolver
           do concurrent ( b = loop_limits(1,j):loop_limits(2,j):loop_limits(3,j) )
              gvector_tmp(b) = gvector_tmp(b) + &
                   exp( -eta * ( angle_copy(i) - &
-                                width * real(b, real12) ) ** 2._real12 )
+                                   ( width * real(b-1, real12) + &
+                                     cutoff_min ) ) ** 2._real12 )
           end do
        end do
        gvector(:) = gvector(:) + gvector_tmp * scale!real(scale_list(i), real12)
     end do
-    gvector = gvector * sqrt( eta / pi ) / ( size(angle_copy) * width )
+    gvector = gvector * sqrt( eta / pi ) / real(size(angle_copy),real12) ! / width
 
   end function get_angle_gvector
 !!!#############################################################################

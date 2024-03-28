@@ -579,7 +579,7 @@ module evolver
     integer, allocatable, dimension(:,:) :: idx
 
     type :: bond_type
-       integer, dimension(2) :: species, atom !!! CONFIRM THIS ORDER IS KEPT
+       integer, dimension(2) :: species, atom
        logical :: skip = .false.
        real(real12), dimension(3) :: vector
     end type bond_type
@@ -725,7 +725,8 @@ module evolver
           do concurrent ( b = &
                             loop_limits(1,j):loop_limits(2,j):loop_limits(3,j) )
              gvector_tmp(b) = gvector_tmp(b) + &
-                  exp( -eta(1) * ( rtmp1 - width_(1) * real(b) ) ** 2._real12 )
+                  exp( -eta(1) * ( rtmp1 - &
+                                   width_(1) * real(b, real12) ) ** 2._real12 )
           end do
        end do
        get_pair_index_loop: do j = 1, num_pairs
@@ -740,7 +741,7 @@ module evolver
                             bond_list(j)%species(1) .eq. js ), &
                               j = 1, size(bond_list), 1 ) ] )
        this%df_2body(:,k) = this%df_2body(:,k) + &
-            gvector_tmp * scale * sqrt( eta(1) * pi ) / &
+            gvector_tmp * scale * sqrt( eta(1) / pi ) / &
             ( itmp1 * width_(1) )
     end do
 
@@ -975,12 +976,13 @@ module evolver
        do concurrent ( j = 1:2 )
           do concurrent ( b = loop_limits(1,j):loop_limits(2,j):loop_limits(3,j) )
              gvector_tmp(b) = gvector_tmp(b) + &
-                  exp( -eta * ( angle_copy(i) - width * real(b) ) ** 2._real12 )
+                  exp( -eta * ( angle_copy(i) - &
+                                width * real(b, real12) ) ** 2._real12 )
           end do
        end do
        gvector(:) = gvector(:) + gvector_tmp * scale!real(scale_list(i), real12)
     end do
-    gvector = gvector * sqrt( eta * pi ) / ( size(angle_copy) * width )
+    gvector = gvector * sqrt( eta / pi ) / ( size(angle_copy) * width )
 
   end function get_angle_gvector
 !!!#############################################################################

@@ -77,6 +77,8 @@ contains
     case(5)
        call XYZ_geom_read(UNIT,dim)
        write(0,'("WARNING: XYZ file format does not contain lattice data")')
+    case(6)
+       call extXYZ_geom_read(UNIT,dim)
     end select
     call clone_bas(basis,bas,lattice,lat)
     deallocate(basis%spec)
@@ -116,6 +118,8 @@ contains
     case(5)
        write(0,'("ERROR: XYZ format doesn''t need lattice")')       
        call XYZ_geom_write(UNIT,bas)
+    case(6)
+       call extXYZ_geom_write(UNIT,lat,bas)
     end select
 
 
@@ -779,6 +783,136 @@ contains
 
 
  end subroutine XYZ_geom_write
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! reads lattice and basis from an extended xyz file
+!!!#############################################################################
+ subroutine extXYZ_geom_read(UNIT,length)
+   implicit none
+   integer :: UNIT,Reason
+   integer :: index1, index2
+   integer, intent(in), optional :: length
+   integer, allocatable, dimension(:) :: tmp_num
+   real(real12), dimension(3) :: vec
+   real(real12), allocatable, dimension(:,:,:) :: tmp_bas
+   character(len=5) :: ctmp
+   character(len=5), allocatable, dimension(:) :: tmp_spec
+   character(len=1024) :: buffer
+   integer :: i,j,dim
+
+   dim=3
+   basis%lcart=.true.
+   if(present(length)) dim=length
+
+
+!!!-----------------------------------------------------------------------------
+!!! read system information
+!!!-----------------------------------------------------------------------------
+   read(UNIT,*,iostat=Reason) basis%natom
+   if(Reason.ne.0)then
+      write(0,'(" The file is not in xyz format.")')
+      write(0,'(" Exiting code ...")')
+      call exit()
+   end if
+   read(UNIT,'(A)',iostat=Reason) buffer
+   if(Reason.ne.0)then
+      write(0,'(" The file is not in xyz format.")')
+      write(0,'(" Exiting code ...")')
+      call exit()
+   end if
+   index1 = index(buffer,'Lattice="') + 8
+   index2 = index(buffer(index1:),'"') + index1 - 2
+   read(buffer(index1:index2),*) ( ( lattice(i,j), j = 1, 3), i = 1, 3)
+
+   index1 = index(buffer,'free_energy=') + 6
+   read(buffer(index1:),*) basis%energy
+
+
+!!!-----------------------------------------------------------------------------
+!!! read basis
+!!!-----------------------------------------------------------------------------
+   allocate(tmp_spec(basis%natom))
+   allocate(tmp_num(basis%natom))
+   allocate(tmp_bas(basis%natom,basis%natom,dim))
+   tmp_num(:)=0
+   tmp_spec=""
+   tmp_bas=0
+   basis%nspec=0
+   do i=1,basis%natom
+      read(UNIT,*,iostat=Reason) ctmp,vec(1:3)
+      if(.not.any(tmp_spec(1:basis%nspec).eq.ctmp))then
+         basis%nspec=basis%nspec+1
+         tmp_spec(basis%nspec)=ctmp
+         tmp_bas(basis%nspec,1,1:3)=vec(1:3)
+         tmp_num(basis%nspec)=1
+      else
+         checkspec: do j=1,basis%nspec
+            if(tmp_spec(j).eq.ctmp)then
+               tmp_num(j)=tmp_num(j)+1
+               tmp_bas(j,tmp_num(j),1:3)=vec(1:3)
+               exit checkspec
+            end if
+         end do checkspec
+      end if
+   end do
+
+
+!!!-----------------------------------------------------------------------------
+!!! move basis from temporary basis to main basis.
+!!! done to allow for correct allocation of number of and per species
+!!!-----------------------------------------------------------------------------
+   allocate(basis%spec(basis%nspec))
+   basis%spec(1:basis%nspec)%name=tmp_spec(1:basis%nspec)
+   basis%sysname = ""
+   do i=1,basis%nspec
+      basis%spec(i)%name=tmp_spec(i)
+      basis%spec(i)%num=tmp_num(i)
+      allocate(basis%spec(i)%atom(tmp_num(i),dim))
+      basis%spec(i)%atom(:,:)=0
+      basis%spec(i)%atom(1:tmp_num(i),1:3)=tmp_bas(i,1:tmp_num(i),1:3)
+      write(buffer,'(I0,A)') basis%spec(i)%num,trim(basis%spec(i)%name)
+      basis%sysname = basis%sysname//trim(buffer)
+      if(i.lt.basis%nspec) basis%sysname = basis%sysname//"_"
+   end do
+
+ end subroutine extXYZ_geom_read
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! generates cartesian basis
+!!!#############################################################################
+ subroutine extXYZ_geom_write(UNIT,lat_write,bas_write)
+   implicit none
+   integer :: i,j,UNIT
+   type(bas_type) :: bas_write
+   real(real12), dimension(3,3) :: lat_write
+
+
+   write(UNIT,'("I0")') bas_write%natom
+   write(UNIT,'(A,8(F0.8,1X),F0.8,A)', advance="no") &
+        'Lattice="',((lat_write(i,j),j=1,3),i=1,3),'"'
+   write(UNIT,'(A,F0.8)', advance="no") ' free_energy=',bas_write%energy
+   write(UNIT,'(A)', advance="no") ' pbc="T T T"'
+   if(bas_write%lcart)then
+      do i=1,bas_write%nspec
+         do j=1,bas_write%spec(i)%num
+            write(UNIT,'(A8,3(1X, F16.8))') &
+               bas_write%spec(i)%name,bas_write%spec(i)%atom(j,1:3)
+         end do
+      end do
+   else
+      do i=1,bas_write%nspec
+         do j=1,bas_write%spec(i)%num
+            write(UNIT,'(A8,3(1X, F16.8))') bas_write%spec(i)%name, &
+               matmul(bas_write%spec(i)%atom(j,1:3),lat_write)
+         end do
+      end do
+   end if
+
+ end subroutine extXYZ_geom_write
 !!!#############################################################################
 
 

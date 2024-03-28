@@ -1,15 +1,15 @@
 module read_structures
   use constants, only: real12
   use misc, only: grep
-  use rw_geom, only: bas_type, geom_read, geom_write
-   use rw_vasprun, only: get_energy_from_vasprun, get_structure_from_vasprun
+  use rw_geom, only: bas_type, geom_read, geom_write, igeom_input
+  use rw_vasprun, only: get_energy_from_vasprun, get_structure_from_vasprun
   use evolver, only: gvector_container_type, gvector_type
   implicit none
 
 
   private
 
-  public :: bond_evolution
+  public :: get_evolved_gvectors_from_data
 
 
 contains
@@ -17,7 +17,8 @@ contains
 !!!#############################################################################
 !!! read in the structures from the input directories and generate the gvectors
 !!!#############################################################################
-  function bond_evolution(input_dir, element_file, element_list, file_format) &
+  function get_evolved_gvectors_from_data(input_dir, &
+       element_file, element_list, file_format) &
        result(gvector_container)
     implicit none
     character(*), dimension(..), intent(in) :: input_dir
@@ -33,7 +34,7 @@ contains
     logical :: success, file_exists
 
     integer :: xml_unit, unit, ierror
-    integer :: num_directories
+    integer :: num_directories, num_files
     type(bas_type) :: basis
     type(gvector_type) :: gvector
     real(real12), dimension(3,3) :: lattice
@@ -46,6 +47,10 @@ contains
           ifile_format = 0
        case('POSCAR','OUTCAR')
           ifile_format = 1
+          igeom_input = 1
+       case('xyz','extxyz')
+          ifile_format = 2
+          igeom_input = 6
        case default
           write(*,*) "Unknown file format: ", file_format
           stop
@@ -55,59 +60,27 @@ contains
     end if
 
 
-    !!! SCRAP ALL OF THIS
-    !!! Code should look in a directory called initial/seed/database/data (user defined)
-    !!! ... it should scrape that for structures and, for each one it encounters, ...
-    !!! ... get the energy and structure, then put it through the ...
-    !!! ... gvector_type%calculate procedure.
-    !!! Once done, it should then generate new structures in the iteration/ directory ...
-    !!! ... (user defined again).
     !!! For each new run of the code, it should populate a new directory and ...
     !!! ... add to the existing ones.
-    !!! Would the user give it a list of directories to search for structures?
     !!! And it should check that output_dir never equals any of the input_dirs (or database_dirs)
     select rank(input_dir)
     rank(0)
        num_directories = 1
-       call execute_command_line("ls "//trim(adjustl(input_dir))//"/. >structures.txt",wait=.TRUE.)
-       open(newunit=unit, file="structures.txt", status="old")
-       read(unit,*,iostat=ierror) name
-       name = trim(adjustl(input_dir))//trim(adjustl(name))
-       structure_list = [ name ]
-       do
-          read(unit,*,iostat=ierror) name
-          name = trim(adjustl(input_dir))//trim(adjustl(name))
-          structure_list = [ structure_list, name ]
-          if(is_iostat_end(ierror)) exit
-       end do
-       close(unit)
+       structure_list = [ get_structure_list( input_dir, ifile_format ) ]
     rank(1)
        num_directories = size(input_dir)
        do i = 1, num_directories
-         call execute_command_line("ls "//trim(adjustl(input_dir(i)))//">structures.txt",wait=.TRUE.)
-         open(newunit=unit, file="structures.txt", status="new")
-         read(unit,*,iostat=ierror) name
-         name = trim(adjustl(input_dir(i)))//trim(adjustl(name))
-         structure_list = [ name ]
-         do
-            read(unit,*,iostat=ierror) name
-            name = trim(adjustl(input_dir(i)))//trim(adjustl(name))
-            structure_list = [ structure_list, name ]
-            if(is_iostat_end(ierror)) exit
-         end do
-         close(unit)
+         if(i.eq.1)then
+            structure_list = get_structure_list( input_dir(i), ifile_format )
+         else
+            structure_list = [ structure_list, &
+                               get_structure_list( input_dir(i), ifile_format )]
+         end if
        end do
     end select
 
 
     do i = 1, size(structure_list)
-       write(name,'(A,"/vasprun.xml")') trim(adjustl(structure_list(i)))
-
-       inquire(file=trim(adjustl(structure_list(i)))//"/POSCAR", exist=file_exists)
-       if(.not.file_exists) cycle
-       inquire(file=trim(adjustl(structure_list(i)))//"/OUTCAR", exist=file_exists)
-       if(.not.file_exists) cycle
-
 
        select case(ifile_format)
        case(0) ! vasprun.xml
@@ -129,26 +102,33 @@ contains
           read(unit,*) buffer, buffer, buffer, buffer, energy
           close(unit)
           basis%energy = energy
+       case(2)
+          open(newunit=unit, file=trim(adjustl(structure_list(i))))
+          do
+             read(unit,'(A)',iostat=ierror) buffer
+             if(ierror .ne. 0) exit
+             if(trim(buffer).eq."") cycle
+             backspace(unit)
+             call geom_read(unit, lattice, basis)
+
+             write(*,*) &
+                  "Found structure: ", trim(adjustl(basis%sysname)), &
+                  " in file: ", trim(adjustl(structure_list(i))), &
+                  " with energy: ", basis%energy
+             call gvector_container%add(basis, lattice)
+          end do
+          cycle
        end select
 
        write(*,*) &
             "Found structure: ", trim(adjustl(structure_list(i))), &
-            " with energy: ", energy
+            " with energy: ", basis%energy
        call gvector_container%add(basis, lattice)
-
-
-       !open(newunit=xml_unit, file=trim(adjustl(structure_list(i)))//"/vasprun.xml")
-       !call grep(xml_unit,'   <i name="e_fr_energy">',lline=.true., success=success)
-       !if(.not.success) cycle
-       !backspace(xml_unit)
-       !read(xml_unit,*) buffer, buffer, energy
-       !close(xml_unit)
       
        !!! STORE THE ENERGY IN AN ARRAY
-       ! either energy[], or store it alongside the basis, probably the latter
        ! probably new structure format of crystal
        ! where crystal contains lattice, basis, and energy
-       !!! DO SOMETHING ABOUT NESTED RELAXATIONS 
+       !!! DO SOMETHING ABOUT NESTED RELAXATIONS
  
     end do
 
@@ -164,7 +144,64 @@ contains
     ! sigma=0.05 ! 3-body
     ! sigma=0.05 ! 4-body
 
-  end function bond_evolution
+  end function get_evolved_gvectors_from_data
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! get the list of structures from the input directories
+!!!#############################################################################
+  function get_structure_list(input_dir, ifile_format) result(structure_list)
+    implicit none
+    character(*), intent(in) :: input_dir
+    integer, intent(in) :: ifile_format
+    character(256), dimension(:), allocatable :: structure_list
+
+    integer :: unit, ierror
+    character(256) :: name
+    logical :: file_exists, addit_file_exists, structures_found
+
+
+    structures_found = .false.
+    call execute_command_line( &
+         "ls "//trim(adjustl(input_dir))//"/. >structures.txt", wait = .TRUE. )
+    open(newunit=unit, file="structures.txt", status="old")
+    do
+       read(unit,'(A)',iostat=ierror) name
+       if(is_iostat_end(ierror)) exit
+       name = trim(adjustl(input_dir))//trim(adjustl(name))
+       select case(ifile_format)
+       case(0)
+          inquire(file=trim(name)//"/vasprun.xml", exist=file_exists)
+       case(1)
+          inquire(file=trim(name)//"/POSCAR", exist=file_exists)
+          inquire(file=trim(name)//"/OUTCAR", exist=addit_file_exists)
+          file_exists = file_exists.and.addit_file_exists
+       case(2)
+          inquire(file=trim(name), exist=file_exists)
+          file_exists = file_exists.and.(index(name, ".xyz") .gt. 0)
+          if(.not.file_exists)then
+             inquire(file=trim(name)//"/data.xyz", exist=file_exists)
+             if(file_exists) name = trim(name)//"/data.xyz"
+          end if
+       end select
+       if(.not.file_exists) cycle
+       if(structures_found) then
+          structure_list = [ structure_list, name ]
+       else
+          structure_list = [ name ]
+          structures_found = .true.
+       end if
+    end do
+    close(unit)
+
+    if(.not.structures_found) then
+       write(*,*) "No structures found in directory: ", input_dir, &
+            " with format: ", ifile_format
+       stop
+    end if
+
+  end function get_structure_list
 !!!#############################################################################
 
 end module read_structures

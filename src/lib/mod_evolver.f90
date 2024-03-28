@@ -38,7 +38,7 @@ module evolver
      integer, dimension(3) :: nbins = -1
      real(real12), dimension(3) :: sigma = [ 0.1_real12, 0.05_real12, 0.05_real12 ]
      real(real12), dimension(3) :: width = [ 0.025_real12, pi/24._real12, pi/32._real12 ]
-     real(real12), dimension(3) :: cutoff_min = [ 0._real12, 0._real12, 0._real12 ]
+     real(real12), dimension(3) :: cutoff_min = [ 0.5_real12, 0._real12, 0._real12 ]
      real(real12), dimension(3) :: cutoff_max = [ 6._real12, pi, pi/2._real12 ]
      type(gvector_base_type) :: total !! name it best instead?
      type(gvector_type), dimension(:), allocatable :: system
@@ -56,15 +56,57 @@ module evolver
   !   procedure :: read
   end type gvector_container_type
 
-  !interface gvector_container_type
-  !   module function init_gvector( &
-  !        nbins, width, cutoff_min, cutoff_max &
-  !        ) result(gvector)
-  !   end function init_gvector
-  !end interface gvector_container_type
+  interface gvector_container_type
+    module function init_gvector_container( &
+         nbins, width, sigma, cutoff_min, cutoff_max &
+         ) result(gvector_container)
+         integer, dimension(3), intent(in), optional :: nbins
+         real(real12), dimension(3), intent(in), optional :: width, sigma
+         real(real12), dimension(3), intent(in), optional :: cutoff_min, cutoff_max
+         type(gvector_container_type) :: gvector_container
+    end function init_gvector_container
+  end interface gvector_container_type
 
 
-contains
+  contains
+!!!#############################################################################
+!!! initialise gvector container type
+!!!#############################################################################
+  module function init_gvector_container(nbins, width, sigma, cutoff_min, cutoff_max) &
+       result(gvector_container)
+    implicit none
+    integer, dimension(3), intent(in), optional :: nbins
+    real(real12), dimension(3), intent(in), optional :: width, sigma
+    real(real12), dimension(3), intent(in), optional :: cutoff_min, cutoff_max
+    type(gvector_container_type) :: gvector_container
+
+    if(present(nbins))then
+       if(all(nbins .gt. 0)) gvector_container%nbins = nbins
+    end if
+
+    if(present(width))then
+       if(all(width.ge.0._real12)) gvector_container%width = width
+    end if
+
+    if(present(sigma))then
+       if(all(sigma.ge.0._real12)) gvector_container%sigma = sigma
+    end if
+
+    if(present(cutoff_min))then
+       if(all(cutoff_min.ge.0._real12)) gvector_container%cutoff_min = cutoff_min
+    end if
+    if(present(cutoff_max))then
+       if(all(cutoff_max.ge.0._real12)) gvector_container%cutoff_max = cutoff_max
+    end if
+    if(any(gvector_container%cutoff_max .le. gvector_container%cutoff_min))then
+       write(0,*) "ERROR: cutoff_max <= cutoff_min"
+       write(0,*) "cutoff min: ", gvector_container%cutoff_min
+       write(0,*) "cutoff max: ", gvector_container%cutoff_max
+       stop 1
+    end if
+
+  end function init_gvector_container
+!!!#############################################################################
 
 !!!#############################################################################
 !!! write the 2body gvectors to a file
@@ -619,8 +661,9 @@ contains
                              rtmp1 .lt. cutoff_max_(1) + &
                                         width_(1)/2._real12 )then
                             bond_list = [ bond_list, bond_type( &
-                                 [is,js], &
-                                 [ia,ja], .false., matmul(vtmp1,lattice)) ]
+                                 species=[is,js], &
+                                 atom=[ia,ja], skip=.false., &
+                                 vector=matmul(vtmp1,lattice)) ]
                          end if
                       end do
                    end do
@@ -643,6 +686,8 @@ contains
     !!--------------------------------------------------------------------------
     allocate(this%df_2body(nbins_(1),num_pairs), source = 0._real12)
     allocate(gvector_tmp(nbins_(1)),             source = 0._real12)
+    write(*,*) "LOOKY", &
+         count( [ ( abs(modu(bond_list(i)%vector)).lt.1.E-3, i = 1,size(bond_list) ) ] )
     do i = 1, size(bond_list)
        if(bond_list(i)%skip) cycle
        if(abs(modu(bond_list(i)%vector)).lt.1.E-3) cycle
@@ -692,7 +737,8 @@ contains
           end if
        end do get_pair_index_loop
        this%df_2body(:,k) = this%df_2body(:,k) + &
-            gvector_tmp * scale * sqrt( eta(1) ) / size( bond_list )
+            gvector_tmp * scale * sqrt( eta(1) * pi ) / &
+            ( size( bond_list ) * width_(1) )
     end do
 
 
@@ -703,7 +749,24 @@ contains
     allocate(this%df_3body(nbins_(2), basis%nspec), source = 0._real12)
     allocate(gvector_tmp(nbins_(2)),                source = 0._real12)
     do is = 1, basis%nspec
-       allocate(angle(0))
+       num_angles = 0
+       do i = 2, size(bond_list) - 1, 1
+          ia = bond_list(i)%atom(1)
+          itmp1 = count( &
+             [ ( ( bond_list(j)%species(1) .eq. is .and. &
+                   bond_list(j)%atom(1) .eq. ia ) .or. &
+                 ( bond_list(j)%species(2) .eq. is .and. &
+                   bond_list(j)%atom(2) .eq. ia ), &
+                     j = i + 1, size(bond_list), 1 ) ] )
+          num_angles = num_angles + itmp1 !&
+              ! nint(exp( lnsum(itmp1 ) - lnsum(itmp1 - 1) - lnsum(1) ))
+       end do
+       allocate(angle(num_angles))
+       num_angles = 0
+      !  write(*,*) "LOOK",[ ( abs(modu(bond_list(i)%vector)).lt.1.E-3, i = 1,size(bond_list) ) ]
+       write(*,*) "LOOKY", &
+            count( [ ( abs(modu(bond_list(i)%vector)).lt.1.E-3, i = 1,size(bond_list) ) ] )
+
        !!-----------------------------------------------------------------------
        !! loop over all bonds to find the first bond
        !!-----------------------------------------------------------------------
@@ -738,14 +801,20 @@ contains
              !!-----------------------------------------------------------------
              !! calculate the angle between the two bonds
              !!-----------------------------------------------------------------
-             angle = [ angle, get_angle( vtmp1, vtmp2 ) ]
+             num_angles = num_angles + 1
+             !angle(num_angles) = get_angle( vtmp1, vtmp2 )
 
           end do
        end do
+       if(num_angles.ne.size(angle))then
+          write(0,*) "ERROR: Number of 3-body angles exceeds allocated array"
+          write(0,'("Expected ",I0," got ",I0)') size(angle), num_angles
+          stop 1
+       end if
        this%df_3body(:,is) = this%df_3body(:,is) + &
             get_angle_gvector( angle, nbins_(2), eta(2), width_(2), &
                                cutoff_min(2), &
-                               limit(2) ) * sqrt( eta(2) ) / size( angle )
+                               limit(2) ) !/ size( angle )
        deallocate(angle)
     end do
 
@@ -824,18 +893,17 @@ contains
           end do
           deallocate(idx_list)
        end do
-       write(*,*) "4 BODY TESTING", num_angles, size(angle)
-       if(num_angles.gt.size(angle))then
-          write(*,*) "ERROR: Number of angles exceeds allocated array"
+       if(num_angles.ne.size(angle))then
+          write(*,*) "ERROR: Number of 4-body angles exceeds allocated array"
+          write(0,'("Expected ",I0," got ",I0)') size(angle), num_angles
           stop 1
        end if
        this%df_4body(:,is) = this%df_4body(:,is) + &
             get_angle_gvector( angle, nbins_(3), eta(3), width_(3), &
                                cutoff_min(3), &
-                               limit(3) ) * sqrt( eta(3) ) / num_angles
+                               limit(3) ) !/ num_angles
        deallocate(angle)
     end do
-
 
   end subroutine calculate
 !!!#############################################################################
@@ -909,7 +977,7 @@ contains
        end do
        gvector(:) = gvector(:) + gvector_tmp * scale!real(scale_list(i), real12)
     end do
-    gvector = gvector 
+    gvector = gvector * sqrt( eta * pi ) / ( size(angle_copy) * width )
 
   end function get_angle_gvector
 !!!#############################################################################

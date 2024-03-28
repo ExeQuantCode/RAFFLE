@@ -49,17 +49,16 @@ program raffle
 !!!-----------------------------------------------------------------------------
 !!! read structures from the database and generate gvectors
 !!!-----------------------------------------------------------------------------
-  if(all(cutoff_min_list.ge.0._real12)) &
-       gvector_container%cutoff_min = cutoff_min_list
-  if(all(cutoff_max_list.ge.0._real12)) &
-       gvector_container%cutoff_max = cutoff_max_list
-  if(all(sigma_list.ge.0._real12)) gvector_container%sigma = sigma_list
-  if(all(width_list.ge.0._real12)) gvector_container%width = width_list
   gvector_container = get_evolved_gvectors_from_data( &
        input_dir    = database_list, &
        element_file = "elements.dat", &
        element_list = element_list, &
-       file_format=database_format )
+       file_format  = database_format, &
+       gvector_container_template = gvector_container_type(&
+            width = width_list, &
+            sigma = sigma_list, &
+            cutoff_min = cutoff_min_list, &
+            cutoff_max = cutoff_max_list ) )
 
   call gvector_container%write_2body(file="2body.txt")
   call gvector_container%write_3body(file="3body.txt")

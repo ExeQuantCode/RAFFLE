@@ -2,6 +2,7 @@
   task = 2,
   filename_host = "POSCAR_host",
   database_format = "vasprun.xml",
+  database = "database",
   seed = 1,
   vps_ratio = 1 0 0,
   bins = 4 4 10
@@ -22,9 +23,6 @@
 /
 
 &distribution
-  c_min=-1,
-  c_cut=101,
-  sigma_don=0.2,
-  sigma_bondlength=0.1,
-  enable_self_bonding = .true.
+  cutoff_min = 0.5 0.0 0.0,
+  sigma = 0.1 0.1 0.1
 /

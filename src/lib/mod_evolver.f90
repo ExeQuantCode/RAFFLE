@@ -36,8 +36,8 @@ module evolver
      integer :: best_system = 0
      real(real12) :: best_energy = 0.0_real12
      integer, dimension(3) :: nbins = -1
-     real(real12), dimension(3) :: sigma
-     real(real12), dimension(3) :: width = [ 0.05_real12, pi/24._real12, pi/32._real12 ]
+     real(real12), dimension(3) :: sigma = [ 0.1_real12, 0.05_real12, 0.05_real12 ]
+     real(real12), dimension(3) :: width = [ 0.025_real12, pi/24._real12, pi/32._real12 ]
      real(real12), dimension(3) :: cutoff_min = [ 0._real12, 0._real12, 0._real12 ]
      real(real12), dimension(3) :: cutoff_max = [ 6._real12, pi, pi/2._real12 ]
      type(gvector_base_type) :: total !! name it best instead?
@@ -253,7 +253,9 @@ contains
     type(gvector_type) :: system
 
     call system%calculate(lattice, basis, width = this%width, &
-                     cutoff_min = this%cutoff_min, cutoff_max = this%cutoff_max)
+                     sigma = this%sigma, &
+                     cutoff_min = this%cutoff_min, &
+                     cutoff_max = this%cutoff_max)
 
     if(.not.allocated(this%system))then
        this%system = [ system ]
@@ -504,18 +506,19 @@ contains
 !!! calculate the gvectors for a system from its lattice and basis
 !!!#############################################################################
   subroutine calculate(this, lattice, basis, &
-       nbins, width, cutoff_min, cutoff_max)
+       nbins, width, sigma, cutoff_min, cutoff_max)
     implicit none
     class(gvector_type), intent(inout) :: this
     real(real12), dimension(3,3), intent(in) :: lattice
     type(bas_type), intent(in) :: basis
 
     integer, dimension(3), intent(in), optional :: nbins
-    real(real12), dimension(3), intent(in), optional :: width
+    real(real12), dimension(3), intent(in), optional :: width, sigma
     real(real12), dimension(3), intent(in), optional :: cutoff_min, cutoff_max
 
     integer, dimension(3) :: nbins_
-    real(real12), dimension(3) :: width_ = [0.25_real12, pi/8._real12, pi/16._real12] !!! RANDOMLY CHOSEN DEFAULTS FOR NOW
+    real(real12), dimension(3) :: sigma_ = [0.1_real12, 0.05_real12, 0.05_real12] !!! RANDOMLY CHOSEN DEFAULTS FOR NOW
+    real(real12), dimension(3) :: width_ = [0.25_real12, pi/24._real12, pi/32._real12] !!! RANDOMLY CHOSEN DEFAULTS FOR NOW
     real(real12), dimension(3) :: cutoff_min_ = [0._real12, 0._real12, 0._real12]
     real(real12), dimension(3) :: cutoff_max_ = [6._real12, pi, pi/2._real12]
 
@@ -525,7 +528,7 @@ contains
     integer :: num_pairs, num_angles
     integer :: amax, bmax, cmax
     real(real12) :: rtmp1, rtmp2, fc, weight, scale
-    real(real12), dimension(3) :: eta, limit, sigma
+    real(real12), dimension(3) :: eta, limit
     real(real12), dimension(3) :: vtmp1, vtmp2, vtmp3, diff
     real(real12), allocatable, dimension(:) :: gvector_tmp, angle
     integer, dimension(:), allocatable :: idx_list
@@ -547,6 +550,7 @@ contains
     if(present(cutoff_min)) cutoff_min_ = cutoff_min
     if(present(cutoff_max)) cutoff_max_ = cutoff_max
     if(present(width)) width_ = width
+    if(present(sigma)) sigma_ = sigma
     if(present(nbins))then
        nbins_ = nbins
        width_ = ( cutoff_max_ - cutoff_min_ )/real( nbins_ - 1, real12 )
@@ -630,9 +634,7 @@ contains
     !!--------------------------------------------------------------------------
     !! calculate the gaussian width
     !!--------------------------------------------------------------------------
-    sigma = 5._real12 * width !!! RANDOM SCALING FACTOR
-    write(*,*) sigma
-    eta = 1._real12 / ( 2._real12 * sigma**2._real12 ) !changed from width to sigma
+    eta = 1._real12 / ( 2._real12 * sigma_**2._real12 )
     max_num_steps = ceiling( sqrt(16._real12/eta(1)) / width_(1) )
 
 

@@ -686,8 +686,6 @@ module evolver
     !!--------------------------------------------------------------------------
     allocate(this%df_2body(nbins_(1),num_pairs), source = 0._real12)
     allocate(gvector_tmp(nbins_(1)),             source = 0._real12)
-    write(*,*) "LOOKY", &
-         count( [ ( abs(modu(bond_list(i)%vector)).lt.1.E-3, i = 1,size(bond_list) ) ] )
     do i = 1, size(bond_list)
        if(bond_list(i)%skip) cycle
        if(abs(modu(bond_list(i)%vector)).lt.1.E-3) cycle
@@ -750,29 +748,25 @@ module evolver
     allocate(gvector_tmp(nbins_(2)),                source = 0._real12)
     do is = 1, basis%nspec
        num_angles = 0
-       do i = 2, size(bond_list) - 1, 1
+       !! number of comibnations without repetitions:
+       !! = n! / (n - r)! r!
+       !! as r = 1, this simplifies to n
+       do i = 1, size(bond_list), 1
           ia = bond_list(i)%atom(1)
-          itmp1 = count( &
+          num_angles = num_angles + count( &
              [ ( ( bond_list(j)%species(1) .eq. is .and. &
                    bond_list(j)%atom(1) .eq. ia ) .or. &
                  ( bond_list(j)%species(2) .eq. is .and. &
                    bond_list(j)%atom(2) .eq. ia ), &
                      j = i + 1, size(bond_list), 1 ) ] )
-          num_angles = num_angles + itmp1 !&
-              ! nint(exp( lnsum(itmp1 ) - lnsum(itmp1 - 1) - lnsum(1) ))
        end do
        allocate(angle(num_angles))
        num_angles = 0
-      !  write(*,*) "LOOK",[ ( abs(modu(bond_list(i)%vector)).lt.1.E-3, i = 1,size(bond_list) ) ]
-       write(*,*) "LOOKY", &
-            count( [ ( abs(modu(bond_list(i)%vector)).lt.1.E-3, i = 1,size(bond_list) ) ] )
 
        !!-----------------------------------------------------------------------
        !! loop over all bonds to find the first bond
        !!-----------------------------------------------------------------------
        do i = 1, size(bond_list)
-          if(abs(modu(bond_list(i)%vector)).lt.1.E-3) cycle
- 
           if( is .eq. bond_list(i)%species(1) )then
              vtmp1 = bond_list(i)%vector
              ia = bond_list(i)%atom(1)
@@ -787,7 +781,6 @@ module evolver
           !! loop over all bonds to find the second bond
           !!--------------------------------------------------------------------
           do j = i + 1, size(bond_list)
-             if(abs(modu(bond_list(j)%vector)).lt.1.E-3) cycle
              if( is .eq. bond_list(j)%species(1) .and. &
                  ia .eq. bond_list(j)%atom(1) )then
                 vtmp2 = bond_list(j)%vector
@@ -802,7 +795,7 @@ module evolver
              !! calculate the angle between the two bonds
              !!-----------------------------------------------------------------
              num_angles = num_angles + 1
-             !angle(num_angles) = get_angle( vtmp1, vtmp2 )
+             angle(num_angles) = get_angle( vtmp1, vtmp2 )
 
           end do
        end do
@@ -827,14 +820,16 @@ module evolver
     allocate(gvector_tmp(nbins_(3)),               source = 0._real12)
     do is = 1, basis%nspec
        num_angles = 0
-       do i = 2, size(bond_list) - 1, 1
+       !! number of comibnations without repetitions:
+       !! = n! / (n - r)! r!
+       do i = 1, size(bond_list), 1
           ia = bond_list(i)%atom(1)
           itmp1 = count( &
              [ ( ( bond_list(j)%species(1) .eq. is .and. &
                    bond_list(j)%atom(1) .eq. ia ) .or. &
                  ( bond_list(j)%species(2) .eq. is .and. &
                    bond_list(j)%atom(2) .eq. ia ), &
-                     j = i+1, size(bond_list) - 1, 1 ) ] )
+                     j = i+1, size(bond_list), 1 ) ] )
           num_angles = num_angles + &
                nint(exp(lnsum(itmp1) - lnsum(itmp1 - 2) - lnsum(2)))
        end do
@@ -886,6 +881,9 @@ module evolver
                           get_angle( cross(vtmp1, &
                                            bond_list(idx_list(j))%vector), &
                                      bond_list(idx_list(k))%vector )
+
+                !! angle never greater than 90, as this corresponds to ...
+                !! ... perpendicular to plane
                 if(angle(num_angles) .gt. pi/2._real12) &
                      angle(num_angles) = pi - angle(num_angles)
 

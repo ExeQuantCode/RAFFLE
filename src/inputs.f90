@@ -6,7 +6,7 @@
 !!! module defines all global variables
 !!!#############################################################################
 module inputs
-  use misc, only: file_check,flagmaker
+  use misc, only: file_check,flagmaker, icount
   use constants, only: real12, ierror, pi
   implicit none
   logical :: lseed
@@ -23,18 +23,15 @@ module inputs
   integer :: minbond
   integer :: maxbond
 
-  real(real12) :: sigma_bondlength
-  real(real12) :: sigma_don
-
- logical :: enable_self_bonding
+  real(real12), dimension(3) :: cutoff_min_list, cutoff_max_list
+  real(real12), dimension(3) :: width_list, sigma_list
 
   integer, dimension(3) :: bins
   integer, dimension(3) :: vps_ratio
 
+  character(1024), dimension(:), allocatable :: database_list ! list of directories containing input database
   character(1024) :: database_format !format of input file (POSCAR, XYZ, etc.
   character(1024) :: filename_host !host structure filename
-  integer :: c_cut !upper cutoff in cell for atom placement
-  integer :: c_min !lower cutoff in cell for atom placement
 
 
 !!!!task:
@@ -53,16 +50,14 @@ module inputs
 
   private
 
-  public :: enable_self_bonding
   public :: vdW, volvar, minbond, maxbond
-  public :: sigma_don, sigma_bondlength
   public :: bins, vps_ratio
   public :: seed
   public :: num_structures, num_species, task
   public :: stoichiometry_list, element_list
   public :: filename_host
-  public :: database_format
-  public :: c_cut, c_min
+  public :: database_format, database_list
+  public :: cutoff_min_list, cutoff_max_list, width_list, sigma_list
 
   public :: set_global_vars
 
@@ -87,7 +82,6 @@ contains
 !!!-----------------------------------------------------------------------------
     input_file = ""
     seed = 1
-    sigma_don = 0.2
 
 !!!-----------------------------------------------------------------------------
 !!! Reads flags and assigns to variables
@@ -178,18 +172,19 @@ contains
     implicit none
     integer :: Reason,unit
     character(1) :: fs
-    character(1024) :: stoichiometry, elements
+    character(1024) :: stoichiometry, elements, database
+    real(real12), dimension(3) :: cutoff_min, cutoff_max, width, sigma
 
     character(*), intent(in) :: file_name
 
 !!!-----------------------------------------------------------------------------
 !!! set up namelists for input file
 !!!-----------------------------------------------------------------------------
-    namelist /setup/        task,filename_host,seed,vps_ratio,bins,database_format
+    namelist /setup/        task, filename_host, seed, vps_ratio, bins, &
+                            database_format, database
     namelist /structure/    num_structures,num_species,elements,stoichiometry
     namelist /volume/       vdW, volvar, minbond, maxbond
-    namelist /distribution/ c_min,c_cut,sigma_don,sigma_bondlength,&
-         enable_self_bonding
+    namelist /distribution/ cutoff_min, cutoff_max, width, sigma
 
 
 !!!-----------------------------------------------------------------------------
@@ -199,6 +194,10 @@ contains
     call file_check(unit,file_name)
 
 
+    cutoff_min = -1._real12
+    cutoff_max = -1._real12
+    width = -1._real12
+    sigma = -1._real12
     database_format = "vasprun.xml"
 !!!-----------------------------------------------------------------------------
 !!! read namelists from input file
@@ -216,6 +215,12 @@ contains
        stop "THERE WAS AN ERROR IN READING DISTRIBUTION SETTINGS"
     end if
 
+    if(trim(database).ne."")then
+       allocate(database_list(icount(database)))
+       read(database,*) database_list
+    end if
+
+
     if(trim(stoichiometry).ne."")then
        allocate(stoichiometry_list(num_species))
        read(stoichiometry,*) stoichiometry_list
@@ -225,6 +230,11 @@ contains
        allocate(element_list(num_species))
        read(elements,*) element_list
     end if
+
+    cutoff_min_list = cutoff_min
+    cutoff_max_list = cutoff_max
+    width_list = width
+    sigma_list = sigma
 
 !!!-----------------------------------------------------------------------------
 !!! close input file

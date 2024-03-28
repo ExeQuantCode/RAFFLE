@@ -34,7 +34,7 @@ contains
     logical :: success, file_exists
 
     integer :: xml_unit, unit, ierror
-    integer :: num_directories, num_files
+    integer :: num_files
     type(bas_type) :: basis
     type(gvector_type) :: gvector
     real(real12), dimension(3,3) :: lattice
@@ -65,13 +65,11 @@ contains
     !!! And it should check that output_dir never equals any of the input_dirs (or database_dirs)
     select rank(input_dir)
     rank(0)
-       num_directories = 1
        structure_list = [ get_structure_list( input_dir, ifile_format ) ]
     rank(1)
-       num_directories = size(input_dir)
-       do i = 1, num_directories
+       do i = 1, size(input_dir)
          if(i.eq.1)then
-            structure_list = get_structure_list( input_dir(i), ifile_format )
+            structure_list = [ get_structure_list( input_dir(i), ifile_format ) ]
          else
             structure_list = [ structure_list, &
                                get_structure_list( input_dir(i), ifile_format )]
@@ -169,7 +167,7 @@ contains
     do
        read(unit,'(A)',iostat=ierror) name
        if(is_iostat_end(ierror)) exit
-       name = trim(adjustl(input_dir))//trim(adjustl(name))
+       name = trim(adjustl(input_dir))//"/"//trim(adjustl(name))
        select case(ifile_format)
        case(0)
           inquire(file=trim(name)//"/vasprun.xml", exist=file_exists)
@@ -196,9 +194,10 @@ contains
     close(unit)
 
     if(.not.structures_found) then
-       write(*,*) "No structures found in directory: ", input_dir, &
-            " with format: ", ifile_format
-       stop
+       write(*,'("No structures found in directory: """,A, &
+            &""" with format: ",I0)') &
+            trim(input_dir), ifile_format
+       stop 0
     end if
 
   end function get_structure_list

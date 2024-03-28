@@ -222,21 +222,21 @@ module evolver
           this%system = [ this%system, system ]
        type is (bas_type)
           if(.not. present(lattice))then
-             write(*,*) "ERROR: Lattice vectors not provided"
+             write(0,*) "ERROR: Lattice vectors not provided"
              stop 1
           end if
           select rank(lattice)
           rank(2)
              call this%add_basis(lattice(:,:), system)
           rank default
-             write(*,*) "ERROR: Invalid rank for lattice"
+             write(0,*) "ERROR: Invalid rank for lattice"
              write(buffer,*) rank(lattice)
-             write(*,*) "Expected rank 2, got ", trim(buffer)
+             write(0,*) "Expected rank 2, got ", trim(buffer)
              stop 1
           end select
        class default
-          write(*,*) "ERROR: Invalid type for system"
-          write(*,*) "Expected type gvector_type or bas_type"
+          write(0,*) "ERROR: Invalid type for system"
+          write(0,*) "Expected type gvector_type or bas_type"
           stop 1
        end select
     rank(1)
@@ -246,7 +246,7 @@ module evolver
           this%system = [ this%system, system ]
        type is (bas_type)
           if(.not. present(lattice))then
-             write(*,*) "ERROR: Lattice vectors not provided"
+             write(0,*) "ERROR: Lattice vectors not provided"
              stop 1
           end if
           select rank(lattice)
@@ -259,20 +259,20 @@ module evolver
                 call this%add_basis(lattice(:,:,i), system(i))
              end do
           rank default
-             write(*,*) "ERROR: Invalid rank for lattice"
+             write(0,*) "ERROR: Invalid rank for lattice"
              write(buffer,*) rank(lattice)
-             write(*,*) "Expected rank 2, got ", trim(buffer)
+             write(0,*) "Expected rank 2, got ", trim(buffer)
              stop 1
           end select
        class default
-          write(*,*) "ERROR: Invalid type for system"
-          write(*,*) "Expected type gvector_type or bas_type"
+          write(0,*) "ERROR: Invalid type for system"
+          write(0,*) "Expected type gvector_type or bas_type"
           stop 1
        end select
     rank default
-       write(*,*) "ERROR: Invalid rank for system"
+       write(0,*) "ERROR: Invalid rank for system"
        write(buffer,*) rank(system)
-       write(*,*) "Expected rank 0 or 1, got ", trim(buffer)
+       write(0,*) "Expected rank 0 or 1, got ", trim(buffer)
        stop 1
     end select
     call this%set_species_list()
@@ -363,11 +363,15 @@ module evolver
 
     do i = 1, size(this%system)
        energy = this%system(i)%energy
-       do is = 1, size(this%species_info)
-          idx = findloc( this%system(i)%species, &
-                         this%species_info(is)%name, dim=1)
-          energy = energy - this%system(i)%stoichiometry(idx) * &
-                            this%species_info(is)%energy
+       do is = 1, size(this%system(i)%species)
+          idx = findloc( [ this%species_info(:)%name ], &
+                           this%system(i)%species(is), dim=1 )
+          if(idx.lt.1)then
+             write(0,*) "ERROR: Species not found in species_info"
+             stop 1
+          end if
+          energy = energy - this%system(i)%stoichiometry(is) * &
+                            this%species_info(idx)%energy
        end do
        energy = energy / this%system(i)%num_atoms
        if( energy .lt. this%best_energy ) then
@@ -467,7 +471,7 @@ module evolver
     allocate(this%total%df_4body(this%nbins(3),size(this%species_info)), &
          source = 0._real12)
 
-
+    call this%set_best_energy()
     !!--------------------------------------------------------------------------
     !! loop over all systems to calculate the total gvectors
     !!--------------------------------------------------------------------------
@@ -864,7 +868,7 @@ module evolver
              if( ( is .eq. bond_list(j)%species(1) .and. &
                    ia .eq. bond_list(j)%atom(1)  ) .or. &
                  ( is .eq. bond_list(j)%species(2) .and. &
-                     ia .eq. bond_list(j)%atom(2) ) ) then
+                   ia .eq. bond_list(j)%atom(2) ) ) then
                 idx_list = [ idx_list, j ]
              end if
           end do
@@ -898,7 +902,7 @@ module evolver
           deallocate(idx_list)
        end do
        if(num_angles.ne.size(angle))then
-          write(*,*) "ERROR: Number of 4-body angles exceeds allocated array"
+          write(0,*) "ERROR: Number of 4-body angles exceeds allocated array"
           write(0,'("Expected ",I0," got ",I0)') size(angle), num_angles
           stop 1
        end if

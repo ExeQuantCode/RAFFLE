@@ -515,7 +515,8 @@ module evolver
     class(gvector_container_type), intent(inout) :: this
 
     integer :: i, num_pairs
-    real(real12) :: eta
+    real(real12) :: eta, weight, height
+    !real(real12), dimension(42) :: bonds_cubic
 
     num_pairs = nint( gamma(real(size(this%element_info) + 2, real12)) / &
          ( gamma(real(size(this%element_info), real12)) * gamma( 3._real12 ) ) )
@@ -525,16 +526,24 @@ module evolver
     allocate(this%total%df_4body(this%nbins(3),size(this%element_info)), &
          source = 1._real12/this%nbins(3))
 
+    this%total%df_2body(:,:) = 1._real12 / this%nbins(1)
     !! make it extra broad
-    eta = 1._real12 / ( 2._real12 * ( 2._real12 * this%sigma(1) )**2._real12 )
-    do i = 1, num_pairs
-       this%total%df_2body(:,i) = get_gvector( &
-                          [ this%bond_info(i)%radius_covalent ], &
-                          this%nbins(1), eta, this%width(1), &
-                          this%cutoff_min(1), &
-                          ( this%cutoff_max(1) - this%cutoff_min(1) ) &
-       )
-    end do
+    !bonds_cubic(:6) = 1._real12
+    !bonds_cubic(7:14) = sqrt(2._real12)
+    !bonds_cubic(15:22) = sqrt(3._real12)
+    !bonds_cubic(23:30) = 2._real12
+    !bonds_cubic(31:42) = sqrt(5._real12)
+    !weight = exp( this%best_energy )
+    !height = 1._real12 / this%nbins(1)
+    !eta = 1._real12 / ( 2._real12 * ( this%sigma(1) )**2._real12 )
+    !do i = 1, num_pairs
+    !   this%total%df_2body(:,i) = weight * height * get_gvector( &
+    !                      bonds_cubic * this%bond_info(i)%radius_covalent , &
+    !                      this%nbins(1), eta, this%width(1), &
+    !                      this%cutoff_min(1), &
+    !                      ( this%cutoff_max(1) - this%cutoff_min(1) ) &
+    !   )
+    !end do
 
   end subroutine initialise_gvectors
 !!!#############################################################################
@@ -569,6 +578,12 @@ module evolver
 
 
     !!--------------------------------------------------------------------------
+    !! get the energy from the lowest formation energy system
+    !!--------------------------------------------------------------------------
+    call this%set_best_energy()
+
+
+    !!--------------------------------------------------------------------------
     !! initialise the total gvectors
     !!--------------------------------------------------------------------------
     if(.not.allocated(this%total%df_2body))then
@@ -576,7 +591,6 @@ module evolver
     end if
 
 
-    call this%set_best_energy()
     !!--------------------------------------------------------------------------
     !! loop over all systems to calculate the total gvectors
     !!--------------------------------------------------------------------------

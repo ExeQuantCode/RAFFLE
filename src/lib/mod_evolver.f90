@@ -534,7 +534,6 @@ module evolver
                           this%cutoff_min(1), &
                           ( this%cutoff_max(1) - this%cutoff_min(1) ) &
        )
-       write(*,*) "LOOKY HERE", this%bond_info(i)%radius_covalent, eta
     end do
 
   end subroutine initialise_gvectors
@@ -1045,6 +1044,7 @@ module evolver
 
     ! max_num_steps = ceiling( abs( vector_copy(i) - sqrt(16._real12/eta) ) / width )
     max_num_steps = ceiling( sqrt(16._real12/eta) / width )
+    gvector = 0._real12
 
     !!--------------------------------------------------------------------------
     !! calculate the gvector for a list of vectors

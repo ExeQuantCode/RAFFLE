@@ -17,9 +17,7 @@
 
 &volume
   vdW=100,
-  volvar=10,
-  minbond=80,
-  maxbond=120
+  volvar=10
 /
 
 &distribution

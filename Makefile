@@ -18,7 +18,6 @@ LIBS := mod_constants.f90 \
 	mod_evolver.f90 \
 	mod_buildmap.f90 \
 	mod_atom_adder.f90 \
-	mod_read_chemfile.f90 \
 	mod_read_structures.f90
 OBJS := $(addprefix $(LIB_DIR)/,$(LIBS))
 #$(info VAR is $(OBJS))

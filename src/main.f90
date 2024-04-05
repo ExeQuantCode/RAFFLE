@@ -52,6 +52,7 @@ program raffle
   gvector_container = get_evolved_gvectors_from_data( &
        input_dir    = database_list, &
        element_file = "elements.dat", &
+       bond_file    = "chem.in", &
        element_list = element_list, &
        file_format  = database_format, &
        gvector_container_template = gvector_container_type(&

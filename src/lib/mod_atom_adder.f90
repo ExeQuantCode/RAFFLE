@@ -22,7 +22,7 @@ contains
 !!!#############################################################################
   subroutine add_atom_scan (gridpoints, gvector_container, &
        lattice, basis, atom_ignore_list, &
-       radius_arr, placed)
+       radius_list, placed)
     implicit none
     type(gvector_container_type), intent(in) :: gvector_container
     type(bas_type), intent(inout) :: basis
@@ -30,7 +30,7 @@ contains
     integer, dimension(:,:), intent(in) :: atom_ignore_list
     real(real12), dimension(3,3) :: lattice
     real(real12), dimension(:,:), intent(in) :: gridpoints
-    real(real12), dimension(:,:,:) :: radius_arr
+    real(real12), dimension(:) :: radius_list
 
     integer :: el_correct_read,i, j, k,n,l
     integer :: best_gridpoint
@@ -44,7 +44,7 @@ contains
     do concurrent( i = 1:size(gridpoints,dim=2) )
        suitability_grid(i) = buildmap_POINT( gvector_container, &
             gridpoints(:,i), lattice, basis, &
-            atom_ignore_list, radius_arr, &
+            atom_ignore_list, radius_list, &
             1.1_real12, 0.95_real12)
     end do
     if(abs(maxval(suitability_grid)).lt.1.E-6) return
@@ -106,7 +106,7 @@ contains
 !!!#############################################################################
   subroutine add_atom_pseudo (bin_size, gvector_container, &
        lattice, basis, atom_ignore_list, &
-       radius_arr, placed)
+       radius_list, placed)
     implicit none
     type(gvector_container_type), intent(in) :: gvector_container
     type(bas_type), intent(inout) :: basis
@@ -114,7 +114,7 @@ contains
     integer, dimension(:,:), intent(in) :: atom_ignore_list
     integer, dimension(3), intent(in) :: bin_size
     real(real12), dimension(3,3), intent(in) :: lattice
-    real(real12), dimension(:,:,:), intent(in) :: radius_arr
+    real(real12), dimension(:), intent(in) :: radius_list
 
     integer :: i, j, k, l
     real(real12) :: rtmp1, crude_norm
@@ -141,7 +141,7 @@ contains
 
        calculated_value = buildmap_POINT( gvector_container, &
             tmpvector, lattice, basis, &
-            atom_ignore_list, radius_arr, &
+            atom_ignore_list, radius_list, &
             1.1_real12, 0.95_real12)
 
        call random_number(rtmp1)
@@ -170,7 +170,7 @@ contains
 
        calculated_test = buildmap_POINT( gvector_container, &
             testvector, lattice, basis, &
-            atom_ignore_list, radius_arr, &
+            atom_ignore_list, radius_list, &
             1.1_real12, 0.95_real12)
      
        if(calculated_test.lt.calculated_value) then 
@@ -223,19 +223,27 @@ contains
 !!! i.e. only return gridpoints that are not too close to an existing atom
 !!!#############################################################################
   function get_viable_gridpoints(bin_size, lattice, basis, &
-       radius_arr, atom_ignore_list) result(points)
+       radius_list, atom_ignore_list) result(points)
    implicit none
    type(bas_type), intent(in) :: basis
    integer, dimension(3), intent(in) :: bin_size
    integer, dimension(:,:), intent(in) :: atom_ignore_list
    real(real12), dimension(3,3), intent(in) :: lattice
-   real(real12), dimension(:,:,:), intent(in) :: radius_arr
+   real(real12), dimension(:), intent(in) :: radius_list
 
+   integer, dimension(:), allocatable :: pair_index
    real(real12), dimension(:,:), allocatable :: points_tmp, points
 
    integer :: i, j, k, l, is, ia, num_points
    
+
    allocate(points_tmp(3,product(bin_size)))
+
+   !! get list of element pair indices
+   allocate(pair_index(basis%nspec), source = 0)
+   do is = 1, basis%nspec
+      pair_index(is) = ( basis%nspec - is/2 ) * ( is - 1 ) + is
+   end do
 
    num_points = 0
    grid_loop1: do i = 0, bin_size(1) - 1, 1
@@ -248,8 +256,8 @@ contains
                   end do
                   if( get_min_dist_between_point_and_atom( &
                        lattice, basis, &
-                       [i, j, k] / real(bin_size,real12), &
-                       [is,ia] ) .lt. radius_arr(is,1,1) * 0.95_real12 ) &
+                       [i, j, k] / real(bin_size,real12), [is,ia] ) .lt. &
+                       radius_list(pair_index(is)) * 0.95_real12 ) &
                        cycle grid_loop3
                end do
             end do
@@ -268,16 +276,17 @@ contains
 !!! update the viable gridpoints for adding an atom
 !!! i.e. remove gridpoints that are too close to an existing atom
 !!!#############################################################################
-  subroutine update_viable_gridpoints(points, lattice, basis, atom, radius_arr)
+  subroutine update_viable_gridpoints(points, lattice, basis, atom, radius)
     implicit none
     type(bas_type), intent(in) :: basis
     integer, dimension(2) :: atom
     real(real12), dimension(:,:), allocatable, intent(inout) :: points
     real(real12), dimension(3,3), intent(in) :: lattice
-    real(real12), dimension(:,:,:), intent(in) :: radius_arr
+    real(real12), intent(in) :: radius
 
-    integer :: i, num_points
+    integer :: i, pair_index, num_points
     real(real12), dimension(:,:), allocatable :: points_tmp
+
 
     if(.not.allocated(points)) return
     num_points = size(points,dim=2)
@@ -287,7 +296,7 @@ contains
        i = i + 1
        if( get_min_dist_between_point_and_atom( &
              lattice, basis, points(:,i), atom ) .lt. &
-             radius_arr(atom(1),1,1) * 0.95_real12 ) then
+             radius * 0.95_real12 ) then
           num_points = num_points - 1
           points_tmp(:,i:num_points) = points_tmp(:,i+1:num_points+1)
           i = i - 1

@@ -4,7 +4,10 @@ module evolver
   use misc_maths, only: lnsum
   use misc_linalg, only: get_angle, cross, modu
   use rw_geom, only: bas_type
-  use elements, only: element_type, load_elements, elements_database
+  use elements, only: &
+       element_type, element_bond_type, &
+       load_elements, load_element_bonds, &
+       element_database, element_bond_database
   implicit none
 
   private
@@ -42,11 +45,14 @@ module evolver
      real(real12), dimension(3) :: cutoff_max = [ 6._real12, pi, pi/2._real12 ]
      type(gvector_base_type) :: total !! name it best instead?
      type(gvector_type), dimension(:), allocatable :: system
-     type(element_type), dimension(:), allocatable :: species_info
+     type(element_type), dimension(:), allocatable :: element_info
+     type(element_bond_type), dimension(:), allocatable :: bond_info
    contains
      procedure, pass(this) :: add, add_basis
-     procedure, pass(this) :: set_species_list
+     procedure, pass(this) :: set_element_info
+     procedure, pass(this) :: set_bond_info
      procedure, pass(this) :: set_best_energy
+     procedure, pass(this) :: initialise_gvectors
      procedure, pass(this) :: evolve
      procedure, pass(this) :: write_2body
      procedure, pass(this) :: write_3body
@@ -121,13 +127,13 @@ module evolver
     integer, allocatable, dimension(:,:) :: idx
 
 
-    num_pairs = gamma(real(size(this%species_info) + 2, real12)) / &
-                ( gamma(real(size(this%species_info), real12)) * &
+    num_pairs = gamma(real(size(this%element_info) + 2, real12)) / &
+                ( gamma(real(size(this%element_info), real12)) * &
                   gamma( 3._real12 ) )
     allocate(idx(2,num_pairs))
     i = 0 
-    do is = 1, size(this%species_info)
-       do js = is, size(this%species_info), 1
+    do is = 1, size(this%element_info)
+       do js = is, size(this%element_info), 1
           i = i + 1
           idx(:,i) = [is, js]
        end do
@@ -136,8 +142,8 @@ module evolver
     open(newunit=unit, file=file)
     do i = 1,  size(this%total%df_2body, dim=2)
        write(unit,'("# ",A,2X,A)') &
-            this%species_info(idx(1,i))%name, &
-            this%species_info(idx(2,i))%name
+            this%element_info(idx(1,i))%name, &
+            this%element_info(idx(2,i))%name
        do j = 1, size(this%total%df_2body, dim=1)
           write(unit,*) this%cutoff_min(1) + this%width(1) * ( j - 1 ), &
                         this%total%df_2body(j,i)
@@ -163,7 +169,7 @@ module evolver
 
     open(newunit=unit, file=file)
     do i = 1,  size(this%total%df_3body, dim=2)
-       write(unit,'("# ",A)') this%species_info(i)%name
+       write(unit,'("# ",A)') this%element_info(i)%name
        do j = 1, size(this%total%df_3body, dim=1)
           write(unit,*) this%cutoff_min(2) + this%width(2) * ( j - 1 ), &
                         this%total%df_3body(j,i)
@@ -189,7 +195,7 @@ module evolver
 
     open(newunit=unit, file=file)
     do i = 1,  size(this%total%df_4body, dim=2)
-       write(unit,'("# ",A)') this%species_info(i)%name
+       write(unit,'("# ",A)') this%element_info(i)%name
        do j = 1, size(this%total%df_4body, dim=1)
           write(unit,*) this%cutoff_min(3) + this%width(3) * ( j - 1 ), &
                         this%total%df_4body(j,i)
@@ -275,7 +281,7 @@ module evolver
        write(0,*) "Expected rank 0 or 1, got ", trim(buffer)
        stop 1
     end select
-    call this%set_species_list()
+    call this%set_element_info()
     call this%set_best_energy()
 
   end subroutine add
@@ -311,14 +317,14 @@ module evolver
 !!!#############################################################################
 !!! set the species list for the container
 !!!#############################################################################
-  subroutine set_species_list(this, element_file, element_list)
+  subroutine set_element_info(this, element_file, element_list)
     implicit none
     class(gvector_container_type), intent(inout) :: this
     character(*), intent(in), optional :: element_file
     character(len=3), dimension(:), intent(in), optional :: element_list
 
     integer :: i, unit
-    character(len=3), dimension(:), allocatable :: species_list
+    character(len=3), dimension(:), allocatable :: element_list_
 
 
     !!--------------------------------------------------------------------------
@@ -326,28 +332,98 @@ module evolver
     !!--------------------------------------------------------------------------
     if(present(element_file))then
        call load_elements(element_file)
-    elseif(.not.allocated(elements_database))then
+    elseif(.not.allocated(element_database))then
        call load_elements()
     end if
 
     !!--------------------------------------------------------------------------
     !! get list of species in dataset
     !!--------------------------------------------------------------------------
-    species_list = [ this%system(1)%species ]
+    element_list_ = [ this%system(1)%species ]
     do i = 2, size(this%system),1
-       species_list = [ species_list, this%system(i)%species ]
+       element_list_ = [ element_list_, this%system(i)%species ]
     end do
     if(present(element_list))then
-       species_list = [ species_list, element_list ]
+       element_list_ = [ element_list_, element_list ]
     end if
-    call set(species_list)
-    if(allocated(this%species_info)) deallocate(this%species_info)
-    allocate(this%species_info(size(species_list)))
-    do i = 1, size(species_list)
-       call this%species_info(i)%set(species_list(i))
+    call set(element_list_)
+    if(allocated(this%element_info)) deallocate(this%element_info)
+    allocate(this%element_info(size(element_list_)))
+    do i = 1, size(element_list_)
+       call this%element_info(i)%set(element_list_(i))
     end do
     
-  end subroutine set_species_list
+  end subroutine set_element_info
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set the element bond list for the container
+!!!#############################################################################
+  subroutine set_bond_info(this, bond_file)
+    implicit none
+    class(gvector_container_type), intent(inout) :: this
+    character(*), intent(in), optional :: bond_file
+
+    integer :: i, j, k
+    integer :: num_elements, num_pairs
+
+
+    !!--------------------------------------------------------------------------
+    !! load the element bonds database
+    !!--------------------------------------------------------------------------
+    if(present(bond_file))then
+       call load_element_bonds(bond_file)
+    elseif(.not.allocated(element_bond_database))then
+       call load_element_bonds()
+    end if
+
+
+    !!--------------------------------------------------------------------------
+    !! allocate the bond information array
+    !!--------------------------------------------------------------------------
+    num_elements = size(this%element_info)
+    num_pairs = nint(gamma(real(num_elements + 2, real12)) / &
+         ( gamma(real(num_elements, real12)) * gamma( 3._real12 ) ) )
+    allocate(this%bond_info(num_pairs))
+
+
+    !!--------------------------------------------------------------------------
+    !! loop over all pairs of elements to set the bond information
+    !!--------------------------------------------------------------------------
+    num_pairs = 0
+    pair_loop1: do i = 1, num_elements 
+       pair_loop2: do j = i, num_elements
+          num_pairs = num_pairs + 1
+          do k = 1, size(element_bond_database)
+             if( this%element_info(i)%name .eq. &
+                      element_bond_database(k)%element(1) .and. &
+                 this%element_info(j)%name .eq. &
+                      element_bond_database(k)%element(2) ) then
+                this%bond_info(num_pairs) = element_bond_database(k)
+                cycle pair_loop2
+             elseif( this%element_info(i)%name .eq. &
+                      element_bond_database(k)%element(2) .and. &
+                 this%element_info(j)%name .eq. &
+                      element_bond_database(k)%element(1) ) then
+                this%bond_info(num_pairs) = element_bond_database(k)
+                this%bond_info(num_pairs)%coordination = &
+                     this%bond_info(num_pairs)%coordination(2:1:-1)
+                this%bond_info(num_pairs)%element = &
+                     this%bond_info(num_pairs)%element(2:1:-1)
+                cycle pair_loop2
+             end if
+          end do
+          !! check if all pairs were found
+          write(0,*) 'Error reading element bond data'
+          write(0,*) 'Could not find bond data for ', &
+                     this%element_info(i)%name, ' and ', &
+                     this%element_info(j)%name
+          stop 1
+       end do pair_loop2
+    end do pair_loop1
+
+  end subroutine set_bond_info
 !!!#############################################################################
 
 
@@ -364,14 +440,14 @@ module evolver
     do i = 1, size(this%system)
        energy = this%system(i)%energy
        do is = 1, size(this%system(i)%species)
-          idx = findloc( [ this%species_info(:)%name ], &
+          idx = findloc( [ this%element_info(:)%name ], &
                            this%system(i)%species(is), dim=1 )
           if(idx.lt.1)then
-             write(0,*) "ERROR: Species not found in species_info"
+             write(0,*) "ERROR: Species not found in element_info"
              stop 1
           end if
           energy = energy - this%system(i)%stoichiometry(is) * &
-                            this%species_info(idx)%energy
+                            this%element_info(idx)%energy
        end do
        energy = energy / this%system(i)%num_atoms
        if( energy .lt. this%best_energy ) then
@@ -395,13 +471,13 @@ module evolver
 
     integer :: is, js
 
-    is = findloc([ this%species_info(:)%name ], species1, dim=1)
-    js = findloc([ this%species_info(:)%name ], species2, dim=1)
+    is = findloc([ this%element_info(:)%name ], species1, dim=1)
+    js = findloc([ this%element_info(:)%name ], species2, dim=1)
     !! This comes from subtraction of nth triangular numbers
     !! nth triangular number: N_n = n(n+1)/2 = ( n^2 + n ) / 2
     !! idx = N_n - N_{n-is+1} + ( js - is + 1)
     !! idx = ( n - is/2 ) * ( is - 1 ) + js
-    idx = nint( ( size(this%species_info) - min( is, js ) / 2._real12 ) * &
+    idx = nint( ( size(this%element_info) - min( is, js ) / 2._real12 ) * &
           ( is - 1._real12 ) + js )
 
   end function get_pair_index
@@ -432,6 +508,40 @@ module evolver
 
 
 !!!#############################################################################
+!!! initialise the gvectors
+!!!#############################################################################
+  subroutine initialise_gvectors(this)
+    implicit none
+    class(gvector_container_type), intent(inout) :: this
+
+    integer :: i, num_pairs
+    real(real12) :: eta
+
+    num_pairs = nint( gamma(real(size(this%element_info) + 2, real12)) / &
+         ( gamma(real(size(this%element_info), real12)) * gamma( 3._real12 ) ) )
+    allocate(this%total%df_2body(this%nbins(1),num_pairs), source = 0._real12)
+    allocate(this%total%df_3body(this%nbins(2),size(this%element_info)), &
+         source = 1._real12/this%nbins(2))
+    allocate(this%total%df_4body(this%nbins(3),size(this%element_info)), &
+         source = 1._real12/this%nbins(3))
+
+    !! make it extra broad
+    eta = 1._real12 / ( 2._real12 * ( 2._real12 * this%sigma(1) )**2._real12 )
+    do i = 1, num_pairs
+       this%total%df_2body(:,i) = get_gvector( &
+                          [ this%bond_info(i)%radius_covalent ], &
+                          this%nbins(1), eta, this%width(1), &
+                          this%cutoff_min(1), &
+                          ( this%cutoff_max(1) - this%cutoff_min(1) ) &
+       )
+       write(*,*) "LOOKY HERE", this%bond_info(i)%radius_covalent, eta
+    end do
+
+  end subroutine initialise_gvectors
+!!!#############################################################################
+
+
+!!!#############################################################################
 !!! generate the evolved gvectors
 !!!#############################################################################
 !!! EASIER TO STORE THE LIST OF LENGTHS, AND ANGLES, OR THE INDIVIDUAL SYSTEM GVECTORS?
@@ -441,7 +551,7 @@ module evolver
     type(gvector_type), dimension(..), intent(in), optional :: system
 
     integer :: idx1, idx2
-    integer :: i, j, is, js, num_structures_previous, num_pairs
+    integer :: i, j, is, js, num_structures_previous
     real(real12) :: weight, energy
     real(real12), dimension(:), allocatable :: height
     integer, dimension(:,:), allocatable :: idx_list
@@ -462,14 +572,10 @@ module evolver
     !!--------------------------------------------------------------------------
     !! initialise the total gvectors
     !!--------------------------------------------------------------------------
-    num_pairs = gamma(real(size(this%species_info) + 2, real12)) / &
-                ( gamma(real(size(this%species_info), real12)) * &
-                  gamma( 3._real12 ) )
-    allocate(this%total%df_2body(this%nbins(1),num_pairs), source = 0._real12)
-    allocate(this%total%df_3body(this%nbins(2),size(this%species_info)), &
-         source = 0._real12)
-    allocate(this%total%df_4body(this%nbins(3),size(this%species_info)), &
-         source = 0._real12)
+    if(.not.allocated(this%total%df_2body))then
+       call this%initialise_gvectors()
+    end if
+
 
     call this%set_best_energy()
     !!--------------------------------------------------------------------------
@@ -490,30 +596,31 @@ module evolver
           end do
        end do
        
-
+       
        !!-----------------------------------------------------------------------
        !! calculate the weight for the system
        !!-----------------------------------------------------------------------
        energy = this%system(i)%energy
        do is = 1, size(this%system(i)%species)
-          idx1 = findloc( [ this%species_info(:)%name ], &
+          idx1 = findloc( [ this%element_info(:)%name ], &
                           this%system(i)%species(is), dim=1)
           if(idx1.lt.1)then
              write(0,*) "ERROR: Species not found in species list"
              stop 1
           end if
           energy = energy - this%system(i)%stoichiometry(is) * &
-               this%species_info(idx1)%energy
+               this%element_info(idx1)%energy
        end do
        energy = energy / this%system(i)%num_atoms
        weight = exp( this%best_energy - energy )
        j = 0
+
        !!-----------------------------------------------------------------------
        !! loop over all species in the system to add the gvectors
        !!-----------------------------------------------------------------------
        do is = 1, size(this%system(i)%species)
 
-          idx1 = findloc( [ this%species_info(:)%name ], &
+          idx1 = findloc( [ this%element_info(:)%name ], &
                           this%system(i)%species(is), dim=1)
 
           height = 1._real12 / ( 1._real12 + this%total%df_3body(:,idx1) )
@@ -525,7 +632,7 @@ module evolver
                height * weight * this%system(i)%df_4body(:,is)
           
           do js = is, size(this%system(i)%species), 1
-             idx2 = findloc( [ this%species_info(:)%name ], &
+             idx2 = findloc( [ this%element_info(:)%name ], &
                              this%system(i)%species(js), dim=1)
              j = idx1 * (idx2 - 1) + idx2
              height = 1._real12 / &
@@ -815,7 +922,7 @@ module evolver
           stop 1
        end if
        this%df_3body(:,is) = this%df_3body(:,is) + &
-            get_angle_gvector( angle, nbins_(2), eta(2), width_(2), &
+            get_gvector( angle, nbins_(2), eta(2), width_(2), &
                                cutoff_min(2), &
                                limit(2) )
        deallocate(angle)
@@ -907,7 +1014,7 @@ module evolver
           stop 1
        end if
        this%df_4body(:,is) = this%df_4body(:,is) + &
-            get_angle_gvector( angle, nbins_(3), eta(3), width_(3), &
+            get_gvector( angle, nbins_(3), eta(3), width_(3), &
                                cutoff_min(3), &
                                limit(3) )
        deallocate(angle)
@@ -918,51 +1025,51 @@ module evolver
 
 
 !!!#############################################################################
-!!! get the gvector for angle distributions
+!!! get the gvector for a distribution of values
 !!!#############################################################################
-  function get_angle_gvector(angle, nbins, eta, width, cutoff_min, limit) &
+  function get_gvector(vector, nbins, eta, width, cutoff_min, limit) &
        result(gvector)
     implicit none
     integer, intent(in) :: nbins
     real(real12), intent(in) :: eta, width, cutoff_min, limit
-    real(real12), dimension(:), intent(in) :: angle
+    real(real12), dimension(:), intent(in) :: vector
     real(real12), dimension(nbins) :: gvector
 
     integer :: i, j, b, bin, max_num_steps
     real(real12) :: scale
     integer, dimension(:), allocatable :: scale_list
     real(real12), dimension(nbins) :: gvector_tmp
-    real(real12), dimension(:), allocatable :: angle_copy
+    real(real12), dimension(:), allocatable :: vector_copy
     integer, dimension(3,2) :: loop_limits
 
 
-    ! max_num_steps = ceiling( abs( angle_copy(i) - sqrt(16._real12/eta) ) / width )
+    ! max_num_steps = ceiling( abs( vector_copy(i) - sqrt(16._real12/eta) ) / width )
     max_num_steps = ceiling( sqrt(16._real12/eta) / width )
 
     !!--------------------------------------------------------------------------
-    !! calculate the gvector for a list of angles
+    !! calculate the gvector for a list of vectors
     !!--------------------------------------------------------------------------
-    angle_copy = angle
-    !!  order the angle list, and remove duplicates within a tolerance
-    !call set(angle_copy, 1.E-3, scale_list)
-    do i = 1, size(angle_copy)
-        if( angle_copy(i) .lt. -1.E-3 ) cycle
+    vector_copy = vector
+    !!  order the vector list, and remove duplicates within a tolerance
+    !call set(vector_copy, 1.E-3, scale_list)
+    do i = 1, size(vector_copy)
+        if( vector_copy(i) .lt. -1.E-3 ) cycle
         !!-----------------------------------------------------------------------
         !! remove duplicates
         !!-----------------------------------------------------------------------
         scale = 1._real12
-        do j = i + 1, size(angle_copy)
-           if(abs(angle_copy(i)-angle_copy(j)) .lt. 1.E-3 )then
-              angle_copy(j) = -1.E3_real12
+        do j = i + 1, size(vector_copy)
+           if(abs(vector_copy(i)-vector_copy(j)) .lt. 1.E-3 )then
+              vector_copy(j) = -1.E3_real12
               scale = scale + 1._real12
            end if
         end do
 
 
        !!-----------------------------------------------------------------------
-       !! get the bin closest to the angle
+       !! get the bin closest to the value
        !!-----------------------------------------------------------------------
-       bin = nint( ( angle_copy(i) - cutoff_min ) / width ) + 1
+       bin = nint( ( vector_copy(i) - cutoff_min ) / width ) + 1
        if(bin.gt.nbins.or.bin.lt.1) cycle
 
 
@@ -980,16 +1087,16 @@ module evolver
        do concurrent ( j = 1:2 )
           do concurrent ( b = loop_limits(1,j):loop_limits(2,j):loop_limits(3,j) )
              gvector_tmp(b) = gvector_tmp(b) + &
-                  exp( -eta * ( angle_copy(i) - &
+                  exp( -eta * ( vector_copy(i) - &
                                    ( width * real(b-1, real12) + &
                                      cutoff_min ) ) ** 2._real12 )
           end do
        end do
        gvector(:) = gvector(:) + gvector_tmp * scale!real(scale_list(i), real12)
     end do
-    gvector = gvector * sqrt( eta / pi ) / real(size(angle_copy),real12) ! / width
+    gvector = gvector * sqrt( eta / pi ) / real(size(vector_copy),real12) ! / width
 
-  end function get_angle_gvector
+  end function get_gvector
 !!!#############################################################################
 
 end module evolver

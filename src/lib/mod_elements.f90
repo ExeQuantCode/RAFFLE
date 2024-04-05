@@ -4,7 +4,9 @@ module elements
 
   private
 
-  public :: element_type, elements_database, load_elements
+  public :: element_type, element_bond_type
+  public :: element_database, element_bond_database
+  public :: load_elements, load_element_bonds
 
 
   type :: element_type
@@ -15,8 +17,17 @@ module elements
    contains
      procedure, pass(this) :: set
   end type element_type
-  type(element_type), dimension(:), allocatable :: elements_database
+  type(element_type), dimension(:), allocatable :: element_database
 
+
+  type :: element_bond_type
+     real(real12) :: radius_covalent
+     real(real12) :: radius_vdw
+     integer, dimension(2) :: coordination
+     character(3), dimension(2) :: element
+   end type element_bond_type
+   type(element_bond_type), dimension(:), allocatable :: element_bond_database
+  
 
 contains
 
@@ -30,12 +41,12 @@ contains
 
     integer :: i
 
-    do i = 1, size(elements_database)
-       if(elements_database(i)%name .eq. name)then
-          this%name = elements_database(i)%name
-          this%mass = elements_database(i)%mass
-          this%charge = elements_database(i)%charge
-          this%energy = elements_database(i)%energy
+    do i = 1, size(element_database)
+       if(element_database(i)%name .eq. name)then
+          this%name = element_database(i)%name
+          this%mass = element_database(i)%mass
+          this%charge = element_database(i)%charge
+          this%energy = element_database(i)%energy
           return
        end if
     end do
@@ -61,8 +72,8 @@ contains
 
     if (present(file)) file_ = file
 
-    if(allocated(elements_database)) deallocate(elements_database)
-    allocate(elements_database(0))
+    if(allocated(element_database)) deallocate(element_database)
+    allocate(element_database(0))
     open(newunit=unit, file=file_, status='old', action='read')
     read(unit, *) buffer
     if(  index(trim(adjustl(buffer)),"#").ne.1 .and. &
@@ -82,11 +93,72 @@ contains
        buffer = trim(adjustl(buffer))
        if(trim(buffer) .eq. "" .or. buffer(1:1) .eq. "!") cycle
        read(buffer, *) element%name, element%energy, element%mass, element%charge
-       elements_database = [elements_database, element]
+       element_database = [element_database, element]
     end do
     close(unit)
 
   end subroutine load_elements
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! get element bond data from file
+!!!#############################################################################
+  subroutine load_element_bonds(file)
+    implicit none
+    character(*), intent(in), optional :: file
+
+    integer :: unit
+    integer :: i, ierror
+    type(element_bond_type) :: bond
+    character(1024) :: buffer, file_ = "chem.in"
+
+
+    if (present(file)) file_ = file
+    if(allocated(element_bond_database)) deallocate(element_bond_database)
+    allocate(element_bond_database(0))
+
+
+    !! open file containing element bond data
+    open(newunit=unit, file=file, status="old")
+    read(unit, *) buffer
+    if(  index(trim(adjustl(buffer)),"#").ne.1 .and. &
+         index(trim(adjustl(buffer)),"element_1").eq.0)then
+       write(0,*) 'Invalid elements file'
+       write(0,*) 'Expected "element_1" in header, found "', trim(buffer), '"'
+       stop 1
+    end if
+
+
+    !! read element bond data
+    do 
+       read(unit, '(A)', iostat=ierror) buffer
+       if(is_iostat_end(ierror))then
+          exit
+       elseif(ierror.ne.0) then
+          stop 1
+       end if
+       buffer = trim(adjustl(buffer))
+       if(trim(buffer) .eq. "" .or. buffer(1:1) .eq. "!") cycle
+       read(buffer, *) &
+            bond%element(:), &
+            bond%radius_covalent, bond%radius_vdw, &
+            bond%coordination(:)
+       check_loop: do i = 1, size(element_bond_database)
+          if( ( element_bond_database(i)%element(1) .eq. bond%element(1) .and. &
+                element_bond_database(i)%element(2) .eq. bond%element(2) ) .or. &
+              ( element_bond_database(i)%element(1) .eq. bond%element(2) .and. &
+                element_bond_database(i)%element(2) .eq. bond%element(1) ) ) then
+             write(0,*) 'Error reading element bond data'
+             write(0,*) 'Duplicate entry for ', bond%element(1), bond%element(2)
+             stop 1
+          end if
+       end do check_loop
+       element_bond_database = [element_bond_database, bond]
+    end do
+    close(unit)
+
+  end subroutine load_element_bonds
 !!!#############################################################################
 
 end module elements

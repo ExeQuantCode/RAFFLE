@@ -9,6 +9,22 @@ module inputs
   use misc, only: file_check,flagmaker, icount
   use constants, only: real12, ierror, pi
   implicit none
+  
+
+  private
+
+  public :: vdW, volvar
+  public :: bins, vps_ratio
+  public :: seed
+  public :: num_structures, num_species, task
+  public :: stoichiometry_list, element_list
+  public :: filename_host
+  public :: database_format, database_list
+  public :: cutoff_min_list, cutoff_max_list, width_list, sigma_list
+
+  public :: set_global_vars
+
+
   logical :: lseed
 
   integer :: seed !random seed
@@ -18,10 +34,7 @@ module inputs
   integer, allocatable, dimension(:) :: stoichiometry_list ! stoichiometry of species to add
   character(3), allocatable, dimension(:) :: element_list !species names to add
 
-  integer :: vdW    
-  integer :: volvar 
-  integer :: minbond
-  integer :: maxbond
+  integer :: vdW, volvar
 
   real(real12), dimension(3) :: cutoff_min_list, cutoff_max_list
   real(real12), dimension(3) :: width_list, sigma_list
@@ -32,34 +45,6 @@ module inputs
   character(1024), dimension(:), allocatable :: database_list ! list of directories containing input database
   character(1024) :: database_format !format of input file (POSCAR, XYZ, etc.
   character(1024) :: filename_host !host structure filename
-
-
-!!!!task:
-!!!! 0) Run RSS
-!!!! 1) Regenerate DIst Files (WIP)
-!!!! 2) Run HOST_RSS
-!!!! 3) Test
-!!!! 4) Sphere_Overlap
-!!!! 5) Bondangle_test 
-!!!! 6) Run evo (Should be run after any set created)
-!!!! 7) Add new poscar  
-!!!! 8) Run evo, but don't regen energies or evolve distributions (only reformat gaussians) 
-!!!! 9) Run evo, don't get energies but do evolve distributions
-  
-  
-
-  private
-
-  public :: vdW, volvar, minbond, maxbond
-  public :: bins, vps_ratio
-  public :: seed
-  public :: num_structures, num_species, task
-  public :: stoichiometry_list, element_list
-  public :: filename_host
-  public :: database_format, database_list
-  public :: cutoff_min_list, cutoff_max_list, width_list, sigma_list
-
-  public :: set_global_vars
 
 
 !!!updated  2023/06/16
@@ -183,7 +168,7 @@ contains
     namelist /setup/        task, filename_host, seed, vps_ratio, bins, &
                             database_format, database
     namelist /structure/    num_structures,num_species,elements,stoichiometry
-    namelist /volume/       vdW, volvar, minbond, maxbond
+    namelist /volume/       vdW, volvar
     namelist /distribution/ cutoff_min, cutoff_max, width, sigma
 
 
@@ -209,6 +194,10 @@ contains
     read(unit,NML=structure,iostat=Reason)
     if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
        stop "THERE WAS AN ERROR IN READING STRUCTURE SETTINGS"
+    end if
+    read(unit,NML=volume,iostat=Reason)
+    if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
+       stop "THERE WAS AN ERROR IN READING VOLUME SETTINGS"
     end if
     read(unit,NML=distribution,iostat=Reason)
     if(.not.is_iostat_end(Reason).and.Reason.ne.0)then

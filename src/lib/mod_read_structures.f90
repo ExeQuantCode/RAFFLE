@@ -148,13 +148,6 @@ contains
     end if
     call gvector_container%evolve()
 
-
-    ! bondcut=5
-    ! nbin=1000
-    ! sigma=0.1 ! 2-body
-    ! sigma=0.05 ! 3-body
-    ! sigma=0.05 ! 4-body
-
   end function get_evolved_gvectors_from_data
 !!!#############################################################################
 

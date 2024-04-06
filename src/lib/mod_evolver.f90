@@ -553,17 +553,26 @@ module evolver
 !!! generate the evolved gvectors
 !!!#############################################################################
 !!! EASIER TO STORE THE LIST OF LENGTHS, AND ANGLES, OR THE INDIVIDUAL SYSTEM GVECTORS?
-  subroutine evolve(this, system)
+  subroutine evolve(this, system, deallocate_systems_after_evolve)
     implicit none
     class(gvector_container_type), intent(inout) :: this
     type(gvector_type), dimension(..), intent(in), optional :: system
+    logical, intent(in), optional :: deallocate_systems_after_evolve
 
     integer :: idx1, idx2
     integer :: i, j, is, js, num_structures_previous
     real(real12) :: weight, energy
+    logical :: deallocate_systems_after_evolve_ = .true.
     real(real12), dimension(:), allocatable :: height
     integer, dimension(:,:), allocatable :: idx_list
     
+
+    !!--------------------------------------------------------------------------
+    !! if present, set the deallocate flag
+    !!--------------------------------------------------------------------------
+    if(present(deallocate_systems_after_evolve)) &
+       deallocate_systems_after_evolve_ = deallocate_systems_after_evolve
+
 
     !!--------------------------------------------------------------------------
     !! if present, add the system to the container
@@ -662,7 +671,7 @@ module evolver
     !!--------------------------------------------------------------------------
     !! deallocate the individual gvectors
     !!--------------------------------------------------------------------------
-    deallocate(this%system)
+    if(deallocate_systems_after_evolve_) deallocate(this%system)
 
   end subroutine evolve
 !!!#############################################################################

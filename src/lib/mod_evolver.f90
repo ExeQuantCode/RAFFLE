@@ -477,8 +477,10 @@ module evolver
     !! nth triangular number: N_n = n(n+1)/2 = ( n^2 + n ) / 2
     !! idx = N_n - N_{n-is+1} + ( js - is + 1)
     !! idx = ( n - is/2 ) * ( is - 1 ) + js
+    !idx = nint( ( size(this%element_info) - min( is, js ) / 2._real12 ) * &
+    !      ( is - 1._real12 ) + js )
     idx = nint( ( size(this%element_info) - min( is, js ) / 2._real12 ) * &
-          ( is - 1._real12 ) + js )
+          ( min( is, js ) - 1._real12 ) + max( is, js ) )
 
   end function get_pair_index
 !!!#############################################################################
@@ -656,7 +658,13 @@ module evolver
           do js = is, size(this%system(i)%species), 1
              idx2 = findloc( [ this%element_info(:)%name ], &
                              this%system(i)%species(js), dim=1)
-             j = idx1 * (idx2 - 1) + idx2
+             j = nint( ( size(this%element_info) - &
+                         min( idx1, idx2 ) / 2._real12 ) * &
+                         ( min( idx1, idx2 ) - 1._real12 ) + max( idx1, idx2 ) )
+             write(*,*) this%system(i)%species(is), this%system(i)%species(js)
+             write(*,*) this%element_info(:)%name, size(this%element_info)
+             write(*,*) idx1, idx2, j
+             write(*,*)
              height = 1._real12 / &
                   ( 1._real12 + this%total%df_2body(:,j) ) ** 2._real12
              this%total%df_2body(:,j) = this%total%df_2body(:,j) + &
@@ -905,7 +913,6 @@ module evolver
                    bond_list(j)%atom(2) .eq. ia ), &
                      j = i + 1, size(bond_list), 1 ) ] )
        end do
-       write(*,*) "num_angles = ", num_angles
        allocate(angle(num_angles))
        num_angles = 0
 
@@ -952,7 +959,6 @@ module evolver
           write(0,'("Expected ",I0," got ",I0)') size(angle), num_angles
           stop 1
        end if
-       write(*,*) "PASSED HERE"
        this%df_3body(:,is) = this%df_3body(:,is) + &
             get_gvector( angle, nbins_(2), eta(2), width_(2), &
                                cutoff_min(2), &

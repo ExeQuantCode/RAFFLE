@@ -4,6 +4,7 @@ module read_structures
   use rw_geom, only: bas_type, geom_read, geom_write, igeom_input
   use rw_vasprun, only: get_energy_from_vasprun, get_structure_from_vasprun
   use evolver, only: gvector_container_type, gvector_type
+  use machine_learning, only: network_setup, network_train
   implicit none
 
 
@@ -30,7 +31,7 @@ contains
     character(*), intent(in), optional :: file_format
 
     character(256) :: name
-    integer :: i, ifile_format
+    integer :: i, ifile_format, num_structures
     real(real12) :: energy
     character(50) :: buffer
     logical :: success, file_exists
@@ -41,6 +42,8 @@ contains
     type(gvector_type) :: gvector
     real(real12), dimension(3,3) :: lattice
     character(256), dimension(:), allocatable :: structure_list
+
+    real(real12), dimension(:,:), allocatable :: dataset, labels
 
 
     if(present(gvector_container_template)) then
@@ -86,6 +89,7 @@ contains
     end select
 
 
+    num_structures = 0
     do i = 1, size(structure_list)
 
        select case(ifile_format)
@@ -130,6 +134,7 @@ contains
             "Found structure: ", trim(adjustl(structure_list(i))), &
             " with energy: ", basis%energy
        call gvector_container%add(basis, lattice)
+       num_structures = num_structures + 1
       
        !!! STORE THE ENERGY IN AN ARRAY
        ! probably new structure format of crystal
@@ -146,7 +151,38 @@ contains
     else
       call gvector_container%set_bond_info()
     end if
-    call gvector_container%evolve()
+    call gvector_container%evolve(deallocate_systems_after_evolve=.false.)
+
+    
+
+    !!! do not deallocate structures
+    !!! then load the athena library
+    !!! set up the network
+    !!! append 2, 3, and 4 body potentials
+    !!! HOW DO WE HANDLE SPECIES?
+    !!! A network for each species?
+    !!! split dataset into train and test sets
+    !!! train the network
+
+    write(*,*) "LOOKY", gvector_container%nbins
+    allocate(dataset(sum(gvector_container%nbins), num_structures))
+    do i = 1, num_structures
+       dataset(1:gvector_container%nbins(1),i) = &
+            sum(gvector_container%system(i)%df_2body,dim=2)
+       dataset(gvector_container%nbins(1)+1:&
+            sum(gvector_container%nbins(1:2)),i) = &
+            sum(gvector_container%system(i)%df_3body,dim=2)
+       dataset(sum(gvector_container%nbins(1:2))+1:&
+            sum(gvector_container%nbins(1:3)),i) = &
+            sum(gvector_container%system(i)%df_4body,dim=2)
+    end do
+    allocate(labels(1,num_structures))
+    labels(1,:) = [ gvector_container%system(:)%energy ]
+
+    call network_setup(num_inputs = sum(gvector_container%nbins), &
+         num_outputs = 1)
+    call network_train(dataset, labels, num_epochs = 100)
+
 
   end function get_evolved_gvectors_from_data
 !!!#############################################################################

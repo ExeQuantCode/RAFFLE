@@ -15,6 +15,7 @@ LIBS := mod_constants.f90 \
 	mod_rw_vasprun.f90 \
 	mod_edit_geom.f90 \
 	mod_elements.f90 \
+	mod_ml.f90 \
 	mod_evolver.f90 \
 	mod_buildmap.f90 \
 	mod_atom_adder.f90 \
@@ -63,6 +64,8 @@ LLAPACK = $(MKLROOT)/libmkl_lapack95_lp64.a \
 #$(MKLROOT)/libmkl_scalapack_lp64.a \
 #$(MKLROOT)/libmkl_solver_lp64_sequential.a \
 
+ATHENAROOT = $(HOME)/.local/athena
+LATHENA = -I$(ATHENAROOT)/include -L$(ATHENAROOT)/lib -lathena
 
 ##########################################
 # COMPILATION SECTION
@@ -82,22 +85,22 @@ $(BUILD_DIR):
 	mkdir -p $@
 
 $(BIN_DIR)/$(NAME): $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
-	$(FC) $(MEMFLAG) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $@
+	$(FC) $(MEMFLAG) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) $(LATHENA) -o $@
 
 install: $(OBJS) | $(INSTALL_DIR) $(BUILD_DIR)
-	$(FC) $(MEMFLAG) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $(INSTALL_DIR)/$(NAME)
+	$(FC) $(MEMFLAG) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) $(LATHENA) -o $(INSTALL_DIR)/$(NAME)
 
 debug: $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
-	$(FC) $(MEMFLAG) $(DEBUGFLAGS) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $(programs)
+	$(FC) $(MEMFLAG) $(DEBUGFLAGS) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) $(LATHENA) -o $(programs)
 
 dev: $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
-	$(FC) $(MEMFLAG) $(DEVFLAGS) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $(programs)
+	$(FC) $(MEMFLAG) $(DEVFLAGS) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) $(LATHENA) -o $(programs)
 
 mpi_dev: $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
-	$(FC) $(MEMFLAG) $(DEVFLAGS) $(MPIFLAG) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $(programs)
+	$(FC) $(MEMFLAG) $(DEVFLAGS) $(MPIFLAG) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) $(LATHENA) -o $(programs)
 
 mpi: $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
-	$(FC) $(MEMFLAG) $(MPIFLAG) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $(programs)
+	$(FC) $(MEMFLAG) $(MPIFLAG) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) $(LATHENA) -o $(programs)
 
 clean: $(BUILD_DIR) $(BIN_DIR)
 	rm -r $(BUILD_DIR)/ $(BIN_DIR)/

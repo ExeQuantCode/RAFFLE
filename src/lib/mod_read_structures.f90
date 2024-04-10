@@ -92,6 +92,7 @@ contains
     num_structures = 0
     do i = 1, size(structure_list)
 
+       write(*,*) "Reading structure: ", trim(adjustl(structure_list(i)))
        select case(ifile_format)
        case(0) ! vasprun.xml
           open(newunit=unit, file=trim(adjustl(structure_list(i)))//"/vasprun.xml")
@@ -120,7 +121,7 @@ contains
              if(trim(buffer).eq."") cycle
              backspace(unit)
              call geom_read(unit, lattice, basis)
-
+             write(*,*) "AHHH!", basis%energy
              write(*,*) &
                   "Found structure: ", trim(adjustl(basis%sysname)), &
                   " in file: ", trim(adjustl(structure_list(i))), &
@@ -183,6 +184,7 @@ contains
          num_outputs = 1)
     call network_train(dataset, labels, num_epochs = 100)
 
+    igeom_input = 1
 
   end function get_evolved_gvectors_from_data
 !!!#############################################################################

@@ -1093,6 +1093,7 @@ contains
    outbas%natom = inbas%natom
    outbas%lcart = inbas%lcart
    outbas%sysname = inbas%sysname
+   outbas%energy = inbas%energy
 
 
 !!!-----------------------------------------------------------------------------

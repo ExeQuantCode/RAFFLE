@@ -822,11 +822,11 @@ contains
       write(0,'(" Exiting code ...")')
       call exit()
    end if
-   index1 = index(buffer,'Lattice="') + 8
+   index1 = index(buffer,'Lattice="') + 9
    index2 = index(buffer(index1:),'"') + index1 - 2
    read(buffer(index1:index2),*) ( ( lattice(i,j), j = 1, 3), i = 1, 3)
 
-   index1 = index(buffer,'free_energy=') + 6
+   index1 = index(buffer,'free_energy=') + 12
    read(buffer(index1:),*) basis%energy
 
 

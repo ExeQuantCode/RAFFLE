@@ -778,7 +778,7 @@ module evolver
     spec_loop1: do is=1,basis%nspec
        atom_loop1: do ia=1,basis%spec(is)%num
           spec_loop2: do js=is,basis%nspec
-             atom_loop2: do ja=1,basis%spec(is)%num
+             atom_loop2: do ja=1,basis%spec(js)%num
                 if(is.eq.js.and.ja.lt.ia) cycle atom_loop2
                 diff = basis%spec(is)%atom(ia,:3) -  basis%spec(js)%atom(ja,:3)
                 diff = diff - ceiling(diff - 0.5_real12)
@@ -891,7 +891,13 @@ module evolver
        !! = n! / (n - r)! r!
        !! as r = 1, this simplifies to n
        do i = 1, size(bond_list), 1
-          ia = bond_list(i)%atom(1)
+          if( is .eq. bond_list(i)%species(1) )then
+             ia = bond_list(i)%atom(1)
+          elseif( is .eq. bond_list(i)%species(2) )then
+             ia = bond_list(i)%atom(2)
+          else
+             cycle
+          end if
           num_angles = num_angles + count( &
              [ ( ( bond_list(j)%species(1) .eq. is .and. &
                    bond_list(j)%atom(1) .eq. ia ) .or. &
@@ -899,6 +905,7 @@ module evolver
                    bond_list(j)%atom(2) .eq. ia ), &
                      j = i + 1, size(bond_list), 1 ) ] )
        end do
+       write(*,*) "num_angles = ", num_angles
        allocate(angle(num_angles))
        num_angles = 0
 
@@ -913,6 +920,7 @@ module evolver
              vtmp1 = -bond_list(i)%vector
              ia = bond_list(i)%atom(2)
           else
+             !write(0,*) "ERROR: Species not found in bond list1", is, i
              cycle
           end if
         
@@ -927,6 +935,7 @@ module evolver
                      ia .eq. bond_list(j)%atom(2) )then
                 vtmp2 = -bond_list(j)%vector
              else
+                !write(0,*) "ERROR: Species not found in bond list2", is, i
                 cycle
              end if
  
@@ -943,6 +952,7 @@ module evolver
           write(0,'("Expected ",I0," got ",I0)') size(angle), num_angles
           stop 1
        end if
+       write(*,*) "PASSED HERE"
        this%df_3body(:,is) = this%df_3body(:,is) + &
             get_gvector( angle, nbins_(2), eta(2), width_(2), &
                                cutoff_min(2), &
@@ -962,7 +972,13 @@ module evolver
        !! number of comibnations without repetitions:
        !! = n! / (n - r)! r!
        do i = 1, size(bond_list), 1
-          ia = bond_list(i)%atom(1)
+          if( is .eq. bond_list(i)%species(1) )then
+             ia = bond_list(i)%atom(1)
+          elseif( is .eq. bond_list(i)%species(2) )then
+             ia = bond_list(i)%atom(2)
+          else
+             cycle
+          end if
           itmp1 = count( &
              [ ( ( bond_list(j)%species(1) .eq. is .and. &
                    bond_list(j)%atom(1) .eq. ia ) .or. &

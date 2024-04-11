@@ -31,9 +31,10 @@ contains
     character(*), intent(in), optional :: file_format
 
     character(256) :: name
-    integer :: i, ifile_format, num_structures
+    integer :: i, j, ifile_format, num_structures
     real(real12) :: energy
     character(50) :: buffer
+    character(256) :: format
     logical :: success, file_exists
 
     integer :: xml_unit, unit, ierror
@@ -121,11 +122,14 @@ contains
              if(trim(buffer).eq."") cycle
              backspace(unit)
              call geom_read(unit, lattice, basis)
-             write(*,*) "AHHH!", basis%energy
-             write(*,*) &
-                  "Found structure: ", trim(adjustl(basis%sysname)), &
-                  " in file: ", trim(adjustl(structure_list(i))), &
-                  " with energy: ", basis%energy
+             num_structures = num_structures + 1
+             write(format,'("(""Found structure: "",I4,"" with energy: "",&
+                  &F13.7,"" and formula:"",",I0,"(1X,A,I0))")') basis%nspec
+             write(*,format) &
+                  num_structures, &
+                  basis%energy, &
+                  ( trim(basis%spec(j)%name), basis%spec(j)%num, &
+                  j=1, basis%nspec )
              call gvector_container%add(basis, lattice)
           end do
           cycle

@@ -1,8 +1,8 @@
 module evolver
   use constants, only: real12, pi
   use misc, only: set
-  use misc_maths, only: lnsum
-  use misc_linalg, only: get_angle, cross, modu
+  use misc_maths, only: lnsum, triangular_number
+  use misc_linalg, only: get_angle, get_vol, cross, modu
   use rw_geom, only: bas_type
   use elements, only: &
        element_type, element_bond_type, &
@@ -661,10 +661,6 @@ module evolver
              j = nint( ( size(this%element_info) - &
                          min( idx1, idx2 ) / 2._real12 ) * &
                          ( min( idx1, idx2 ) - 1._real12 ) + max( idx1, idx2 ) )
-             write(*,*) this%system(i)%species(is), this%system(i)%species(js)
-             write(*,*) this%element_info(:)%name, size(this%element_info)
-             write(*,*) idx1, idx2, j
-             write(*,*)
              height = 1._real12 / &
                   ( 1._real12 + this%total%df_2body(:,j) ) ** 2._real12
              this%total%df_2body(:,j) = this%total%df_2body(:,j) + &
@@ -714,7 +710,7 @@ module evolver
     real(real12), dimension(3) :: eta, limit
     real(real12), dimension(3) :: vtmp1, vtmp2, vtmp3, diff
     real(real12), allocatable, dimension(:) :: gvector_tmp, angle
-    integer, dimension(:), allocatable :: idx_list
+    integer, dimension(:), allocatable :: idx_list!, count_list
 
     integer, dimension(3,2) :: loop_limits
     integer, allocatable, dimension(:,:) :: idx
@@ -725,6 +721,12 @@ module evolver
        real(real12), dimension(3) :: vector
     end type bond_type
     type(bond_type), dimension(:), allocatable :: bond_list
+
+    !type :: plane_type
+    !   real(real12), dimension(3) :: vector
+    !   integer :: count
+    !end type plane_type
+    !type(plane_type), dimension(:), allocatable :: plane_list
 
 
     !!--------------------------------------------------------------------------
@@ -782,6 +784,12 @@ module evolver
     !!--------------------------------------------------------------------------
     !! build the bond list
     !!--------------------------------------------------------------------------
+    !write(*,*) amax, bmax, cmax
+    !! estimate number of bonds
+    !write(*,*) "estimated number of bonds: ", triangular_number(basis%natom) * &
+    !     ceiling( (pi * 4._real12/3._real12) * &
+    !     (cutoff_max(1)**3 - cutoff_min(1)**3)/ get_vol(lattice) )
+         
     allocate(bond_list(0)) !if doesn't work, allocate a dummy bond first
     spec_loop1: do is=1,basis%nspec
        atom_loop1: do ia=1,basis%spec(is)%num
@@ -814,6 +822,10 @@ module evolver
        end do atom_loop1
     end do spec_loop1
 
+    !write(*,*) "number of bonds: ", size(bond_list)
+    !write(*,*)
+    !return
+
 
     !!--------------------------------------------------------------------------
     !! calculate the gaussian width
@@ -821,7 +833,7 @@ module evolver
     eta = 1._real12 / ( 2._real12 * sigma_**2._real12 )
     max_num_steps = ceiling( sqrt(16._real12/eta(1)) / width_(1) )
 
-
+    !write(*,*) "starting 2-body gvectors"
     !!--------------------------------------------------------------------------
     !! build the 2-body gvectors (radial distribution functions)
     !!--------------------------------------------------------------------------
@@ -887,6 +899,7 @@ module evolver
     end do
 
 
+    !write(*,*) "starting 3-body gvectors"
     !!--------------------------------------------------------------------------
     !! build the 3-body gvectors (angular distribution functions)
     !!--------------------------------------------------------------------------
@@ -967,6 +980,7 @@ module evolver
     end do
 
   
+    !write(*,*) "starting 4-body gvectors"
     !!--------------------------------------------------------------------------
     !! build the 4-body gvectors (angular distribution functions)
     !!--------------------------------------------------------------------------
@@ -995,6 +1009,7 @@ module evolver
                nint(exp(lnsum(itmp1) - lnsum(itmp1 - 2) - lnsum(2)))
        end do
        allocate(angle(num_angles))
+       !allocate(count_list(num_angles))
        num_angles = 0
 
        !!-----------------------------------------------------------------------
@@ -1013,56 +1028,92 @@ module evolver
              cycle
           end if
           !!! make list of indices where species is in bond_list(i)%species and atom is in bond_list(i)%atom
-          allocate(idx_list(0))
-          do j = i + 1, size(bond_list)
+          !allocate(idx_list(0))
+          !write(*,*) "START"
+          !allocate(plane_list(0))
+          allocate(idx_list(count( [ ( ( bond_list(j)%species(1) .eq. is .and. &
+                                         bond_list(j)%atom(1) .eq. ia ) .or. &
+                                       ( bond_list(j)%species(2) .eq. is .and. &
+                                         bond_list(j)%atom(2) .eq. ia ), &
+                                           j = i + 1, size(bond_list), 1 ) ] )))
+          k = 0
+          index_list_loop: do j = i + 1, size(bond_list)
              if(abs(modu(bond_list(j)%vector)).lt.1.E-3) cycle
              if( ( is .eq. bond_list(j)%species(1) .and. &
                    ia .eq. bond_list(j)%atom(1)  ) .or. &
                  ( is .eq. bond_list(j)%species(2) .and. &
                    ia .eq. bond_list(j)%atom(2) ) ) then
-                idx_list = [ idx_list, j ]
+                k = k + 1
+                idx_list(k) = j
              end if
-          end do
+             !! get a list of unique plane normal vectors
+             !vtmp2 = cross( vtmp1, bond_list(j)%vector )
+             !vtmp2 = vtmp2 / modu(vtmp2)
+             !plane_check_loop: do k = 1, size(plane_list)
+             !   if(abs(dot_product(vtmp2, plane_list(k)%vector)) .lt. 1.E-3)then
+             !      plane_list(k)%count = plane_list(k)%count + 1
+             !      cycle index_list_loop
+             !   end if
+             !end do plane_check_loop
+             !plane_list = [ plane_list, plane_type(vector = vtmp2, count = 1) ]
+          end do index_list_loop
+          !write(*,*) "END", idx_list
 
           !!--------------------------------------------------------------------
           !! loop over all bonds to find the second bond
           !!--------------------------------------------------------------------
-          do j = 1, size(idx_list)
+          do j = 1, size(idx_list)!size(plane_list)!size(idx_list)
  
+             vtmp2 = cross(vtmp1, bond_list(idx_list(j))%vector)
              !!-----------------------------------------------------------------
              !! loop over all bonds to find the third bond
              !!-----------------------------------------------------------------
+             !count_list(num_angles+1:num_angles+(size(idx_list)-j)) = plane_list(j)%count
              do k = j + 1, size(idx_list)
  
                 !!--------------------------------------------------------------
                 !! calculate the angle between the two bonds
                 !!--------------------------------------------------------------
+                !rtmp1 = get_angle( vtmp2, &
+                !     bond_list(idx_list(k))%vector )
+                !if(rtmp1 .gt. pi/2._real12) rtmp1 = pi - rtmp1
+                !if(any(abs(rtmp1 - angle(:num_angles)) .lt. 1.E-3)) cycle
                 num_angles = num_angles + 1
+                !angle(num_angles) = rtmp1
                 angle(num_angles) = &
-                          get_angle( cross(vtmp1, &
-                                           bond_list(idx_list(j))%vector), &
-                                     bond_list(idx_list(k))%vector )
+                          !get_angle( plane_list(j)%vector, &
+                          !           bond_list(idx_list(k))%vector )
+                           get_angle( vtmp2, &
+                                      bond_list(idx_list(k))%vector )
 
                 !! angle never greater than 90, as this corresponds to ...
                 !! ... perpendicular to plane
-                if(angle(num_angles) .gt. pi/2._real12) &
-                     angle(num_angles) = pi - angle(num_angles)
+                !if(angle(num_angles) .gt. pi/2._real12) &
+                !     angle(num_angles) = pi - angle(num_angles)
+                angle(num_angles) = abs( anint( angle(num_angles)/pi )*pi - angle(num_angles) )
+                
+                !count_list(num_angles) = plane_list(j)%count
 
              end do
+             !num_angles = num_angles + size(idx_list) - j
           end do
           deallocate(idx_list)
+          !deallocate(plane_list)
        end do
+       !write(*,'("Expected ",I0," got ",I0)') size(angle), num_angles
        if(num_angles.ne.size(angle))then
           write(0,*) "ERROR: Number of 4-body angles exceeds allocated array"
           write(0,'("Expected ",I0," got ",I0)') size(angle), num_angles
           stop 1
        end if
        this%df_4body(:,is) = this%df_4body(:,is) + &
-            get_gvector( angle, nbins_(3), eta(3), width_(3), &
+            get_gvector( angle(:num_angles), nbins_(3), eta(3), width_(3), &
                                cutoff_min(3), &
-                               limit(3) )
+                               limit(3))!, count_list(:num_angles) )
        deallocate(angle)
+       !deallocate(count_list)
     end do
+    !write(*,*) "finished 4-body gvectors"
 
   end subroutine calculate
 !!!#############################################################################
@@ -1071,19 +1122,19 @@ module evolver
 !!!#############################################################################
 !!! get the gvector for a distribution of values
 !!!#############################################################################
-  function get_gvector(vector, nbins, eta, width, cutoff_min, limit) &
+  function get_gvector(vector, nbins, eta, width, cutoff_min, limit) &!, count_list) &
        result(gvector)
     implicit none
     integer, intent(in) :: nbins
     real(real12), intent(in) :: eta, width, cutoff_min, limit
     real(real12), dimension(:), intent(in) :: vector
     real(real12), dimension(nbins) :: gvector
+    !integer, dimension(:), intent(in), optional :: count_list
 
     integer :: i, j, b, bin, max_num_steps
-    real(real12) :: scale
-    integer, dimension(:), allocatable :: scale_list
-    real(real12), dimension(nbins) :: gvector_tmp
-    real(real12), dimension(:), allocatable :: vector_copy
+    !integer, dimension(:), allocatable :: scale_list
+    !real(real12), dimension(nbins) :: gvector_tmp
+    !real(real12), dimension(:), allocatable :: vector_copy
     integer, dimension(3,2) :: loop_limits
 
 
@@ -1094,36 +1145,38 @@ module evolver
     !!--------------------------------------------------------------------------
     !! calculate the gvector for a list of vectors
     !!--------------------------------------------------------------------------
-    vector_copy = vector
+    !vector_copy = vector
+    !itmp1 = 0
     !!  order the vector list, and remove duplicates within a tolerance
     !call set(vector_copy, 1.E-3, scale_list)
-    do i = 1, size(vector_copy)
-        if( vector_copy(i) .lt. -1.E-3 ) cycle
+    do i = 1, size(vector)
+        !if( vector_copy(i) .lt. -1.E-3 ) cycle
         !!-----------------------------------------------------------------------
         !! remove duplicates
         !!-----------------------------------------------------------------------
-        scale = 1._real12
-        do j = i + 1, size(vector_copy)
-           if(abs(vector_copy(i)-vector_copy(j)) .lt. 1.E-3 )then
-              vector_copy(j) = -1.E3_real12
-              scale = scale + 1._real12
-           end if
-        end do
+        !scale = 1._real12
+        !do j = i + 1, size(vector_copy)
+        !   if(abs(vector_copy(i)-vector_copy(j)) .lt. 1.E-3 )then
+        !      !vector_copy(j) = -1.E3_real12
+        !      !scale = scale + 1._real12
+        !      !itmp1 = itmp1 + 1
+        !   end if
+        !end do
 
 
        !!-----------------------------------------------------------------------
        !! get the bin closest to the value
        !!-----------------------------------------------------------------------
-       bin = nint( ( vector_copy(i) - cutoff_min ) / width ) + 1
-       if(bin.gt.nbins.or.bin.lt.1) cycle
+       bin = nint( ( vector(i) - cutoff_min ) / width ) + 1
+       !if(bin.gt.nbins.or.bin.lt.1) cycle
 
 
        !!-----------------------------------------------------------------------
        !! calculate the gaussian for this bond
        !!-----------------------------------------------------------------------
-       gvector_tmp = 0._real12
-       loop_limits(:,1) = [ bin, min(nbins, bin + max_num_steps), 1 ]
-       loop_limits(:,2) = [ bin - 1, max(1, bin - max_num_steps), -1 ]
+       !gvector_tmp = 0._real12
+       loop_limits(:,1) = [ min(nbins, bin), min(nbins, bin + max_num_steps), 1 ]
+       loop_limits(:,2) = [ min(1, bin - 1), max(1, bin - max_num_steps), -1 ]
 
 
        !!-----------------------------------------------------------------------
@@ -1131,15 +1184,17 @@ module evolver
        !!-----------------------------------------------------------------------
        do concurrent ( j = 1:2 )
           do concurrent ( b = loop_limits(1,j):loop_limits(2,j):loop_limits(3,j) )
-             gvector_tmp(b) = gvector_tmp(b) + &
-                  exp( -eta * ( vector_copy(i) - &
+             gvector(b) = gvector(b) + &
+                  exp( -eta * ( vector(i) - &
                                    ( width * real(b-1, real12) + &
                                      cutoff_min ) ) ** 2._real12 )
           end do
        end do
-       gvector(:) = gvector(:) + gvector_tmp * scale!real(scale_list(i), real12)
+       !if(present(count_list)) gvector_tmp = gvector_tmp * count_list(i)
+       !gvector(:) = gvector(:) + gvector_tmp !* scale !real(scale_list(i), real12)
     end do
-    gvector = gvector * sqrt( eta / pi ) / real(size(vector_copy),real12) ! / width
+    gvector = gvector * sqrt( eta / pi ) / real(size(vector),real12) ! / width
+    !write(*,*) "LOOK", size(vector_copy), itmp1
 
   end function get_gvector
 !!!#############################################################################

@@ -9,6 +9,7 @@
 !!! gauss            (evaluates a gaussian at a point)
 !!! fact             (performs factorial on supplied number)
 !!! lnsum            (sum a set of log(i), where i=1,n)
+!!! triangular_number (returns the nth triangular number)
 !!! safe_acos        (computes acos safely (rounds to acos(val)=0 when val.ge.1)
 !!!##################
 !!! overlap_indiv_points (computes overlap between individual points)
@@ -35,6 +36,15 @@ module misc_maths
   implicit none
   integer, parameter :: QuadInt_K = selected_int_kind (16)
 
+
+  private
+
+
+  public :: times, gauss, fact, lnsum, triangular_number, safe_acos
+  public :: overlap_indiv_points, overlap, convolve, cross_correl
+  public :: running_avg, mean, median, mode, range, normalise, get_turn_points
+  public :: get_nth_plane
+  public :: table_func, gauss_array, cauchy_array, slater_array
 
 
 !!!updated 2020/02/03
@@ -111,6 +121,17 @@ contains
 
     return
   end function lnsum
+!!!#####################################################
+
+
+!!!#####################################################
+!!! returns the nth triangular number
+!!!#####################################################
+  integer function triangular_number(n)
+    implicit none
+    integer :: n
+    triangular_number = n * ( n + 1 ) / 2
+  end function triangular_number
 !!!#####################################################
 
 

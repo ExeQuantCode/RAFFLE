@@ -4,7 +4,8 @@ module read_structures
   use rw_geom, only: bas_type, geom_read, geom_write, igeom_input
   use rw_vasprun, only: get_energy_from_vasprun, get_structure_from_vasprun
   use evolver, only: gvector_container_type, gvector_type
-  use machine_learning, only: network_setup, network_train
+  use machine_learning, only: network_setup, network_train, network_predict
+  use athena, only: split, random_setup
   implicit none
 
 
@@ -35,7 +36,7 @@ contains
     real(real12) :: energy
     character(50) :: buffer
     character(256) :: format
-    logical :: success, file_exists
+    logical :: success
 
     integer :: xml_unit, unit, ierror
     integer :: num_files
@@ -44,7 +45,8 @@ contains
     real(real12), dimension(3,3) :: lattice
     character(256), dimension(:), allocatable :: structure_list
 
-    real(real12), dimension(:,:), allocatable :: dataset, labels
+    real(real12), dimension(:), allocatable :: labels, labels_train, labels_validate
+    real(real12), dimension(:,:), allocatable :: dataset, data_train, data_validate
 
 
     if(present(gvector_container_template)) then
@@ -71,7 +73,11 @@ contains
        ifile_format = 0
     end if
 
-
+    inquire(file='gvector_container.dat', exist=success)
+    if(success) then
+       call gvector_container%read('gvector_container.dat')
+       goto 100
+    end if
     !!! For each new run of the code, it should populate a new directory and ...
     !!! ... add to the existing ones.
     !!! And it should check that output_dir never equals any of the input_dirs (or database_dirs)
@@ -145,10 +151,10 @@ contains
        ! probably new structure format of crystal
        ! where crystal contains lattice, basis, and energy
        !!! DO SOMETHING ABOUT NESTED RELAXATIONS
- 
     end do
 
-    if(present(element_file).and.present(element_list)) then
+
+100 if(present(element_file).and.present(element_list)) then
        call gvector_container%set_element_info(element_file, element_list)
     end if
     if(present(bond_file)) then
@@ -156,9 +162,10 @@ contains
     else
       call gvector_container%set_bond_info()
     end if
-    call gvector_container%evolve(deallocate_systems_after_evolve=.false.)
 
-    
+
+
+    call gvector_container%evolve(deallocate_systems_after_evolve=.false.)
 
     !!! do not deallocate structures
     !!! then load the athena library
@@ -169,6 +176,7 @@ contains
     !!! split dataset into train and test sets
     !!! train the network
 
+    num_structures = size(gvector_container%system)
     write(*,*) "LOOKY", gvector_container%nbins
     allocate(dataset(sum(gvector_container%nbins), num_structures))
     do i = 1, num_structures
@@ -181,12 +189,25 @@ contains
             sum(gvector_container%nbins(1:3)),i) = &
             sum(gvector_container%system(i)%df_4body,dim=2)
     end do
-    allocate(labels(1,num_structures))
-    labels(1,:) = [ gvector_container%system(:)%energy ]
+    allocate(labels(num_structures))
+    labels = [ gvector_container%system(:)%energy / gvector_container%system(:)%num_atoms ]
+
+    call random_setup(1)
+    call split( dataset, labels, &
+                data_train, data_validate, &
+                labels_train, labels_validate, &
+                dim=2, left_size=0.8, right_size=0.2, shuffle=.true., seed=1)
 
     call network_setup(num_inputs = sum(gvector_container%nbins), &
          num_outputs = 1)
-    call network_train(dataset, labels, num_epochs = 100)
+    call network_train(data_train, labels_train, num_epochs = 50)
+
+    write(*,*) "PREDICTING"
+    write(*,*) "norm", sqrt(dot_product(labels_train, labels_train))
+    write(*,*) -1._real12 * network_predict(data_validate) * sqrt(dot_product(labels_train, labels_train))
+    
+    write(*,*) labels_validate
+
 
     igeom_input = 1
 

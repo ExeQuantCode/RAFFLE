@@ -1,6 +1,6 @@
 module evolver
   use constants, only: real12, pi
-  use misc, only: set
+  use misc, only: set, icount
   use misc_maths, only: lnsum, triangular_number
   use misc_linalg, only: get_angle, get_vol, cross, modu
   use rw_geom, only: bas_type
@@ -54,6 +54,8 @@ module evolver
      procedure, pass(this) :: set_best_energy
      procedure, pass(this) :: initialise_gvectors
      procedure, pass(this) :: evolve
+     procedure, pass(this) :: write
+     procedure, pass(this) :: read
      procedure, pass(this) :: write_2body
      procedure, pass(this) :: write_3body
      procedure, pass(this) :: write_4body
@@ -113,6 +115,103 @@ module evolver
 
   end function init_gvector_container
 !!!#############################################################################
+
+
+!!!#############################################################################
+!!! write all systems
+!!!#############################################################################
+  subroutine write(this, file)
+    implicit none
+    class(gvector_container_type), intent(in) :: this
+    character(*), intent(in) :: file
+
+    integer :: unit, i, j
+    integer, allocatable, dimension(:,:) :: idx
+
+    open(newunit=unit, file=file)
+    write(unit, *) "nbins", this%nbins
+    write(unit, *) "width", this%width
+    write(unit, *) "sigma", this%sigma
+    write(unit, *) "cutoff_min", this%cutoff_min
+    write(unit, *) "cutoff_max", this%cutoff_max
+    write(unit, *)
+    do i = 1, size(this%system,1)
+       write(unit, *) this%system(i)%energy
+       write(unit, *) this%system(i)%species
+       write(unit, *) this%system(i)%stoichiometry
+       do j = 1, this%nbins(1)
+          write(unit, *) this%system(i)%df_2body(j,:)
+       end do
+       do j = 1, this%nbins(2)
+          write(unit, *) this%system(i)%df_3body(j,:)
+       end do
+       do j = 1, this%nbins(3)
+          write(unit, *) this%system(i)%df_4body(j,:)
+       end do
+       write(unit, *)
+    end do
+    close(unit)
+
+  end subroutine write
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! read all systems
+!!!#############################################################################
+  subroutine read(this, file)
+    implicit none
+    class(gvector_container_type), intent(inout) :: this
+    character(*), intent(in) :: file
+
+    integer :: unit, i, j, ierror
+    integer :: num_species, num_pairs
+    character(256) :: buffer
+    type(gvector_type) :: system
+
+   
+    open(newunit=unit, file=file)
+    read(unit, *) buffer, this%nbins
+    read(unit, *) buffer, this%width
+    read(unit, *) buffer, this%sigma
+    read(unit, *) buffer, this%cutoff_min
+    read(unit, *) buffer, this%cutoff_max
+    do
+       read(unit, '(A)', iostat=ierror) buffer
+       if(ierror.ne.0) exit
+       if(trim(buffer).eq.''.or.trim(buffer).eq.'#') cycle
+       read(buffer, *) system%energy
+       read(unit, '(A)') buffer
+       num_species = icount(buffer)
+       allocate(system%species(num_species))
+       allocate(system%stoichiometry(num_species))
+       read(buffer, *) system%species
+       read(unit, *) system%stoichiometry
+       system%num_atoms = sum(system%stoichiometry)
+       num_pairs = gamma(real(num_species + 2, real12)) / &
+                   ( gamma(real(num_species, real12)) * gamma( 3._real12 ) )
+       allocate(system%df_2body(this%nbins(1),num_pairs))
+       do j = 1, this%nbins(1)
+          read(unit, *) system%df_2body(j,:)
+       end do
+       allocate(system%df_3body(this%nbins(2),num_species))
+       do j = 1, this%nbins(2)
+          read(unit, *) system%df_3body(j,:)
+       end do
+       allocate(system%df_4body(this%nbins(3),num_species))
+       do j = 1, this%nbins(3)
+          read(unit, *) system%df_4body(j,:)
+       end do
+
+       this%system = [ this%system, system ]
+       deallocate(system%species, system%stoichiometry, &
+                  system%df_2body, system%df_3body, system%df_4body)
+    end do
+    close(unit)
+
+  end subroutine read
+!!!#############################################################################
+
 
 !!!#############################################################################
 !!! write the 2body gvectors to a file

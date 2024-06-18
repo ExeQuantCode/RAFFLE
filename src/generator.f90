@@ -1,15 +1,20 @@
 module gen
   use constants, only: real12, pi
-  use misc, only: touch, shuffle
+  use misc_raffle, only: touch, shuffle
   use misc_linalg, only: get_spheres_overlap
   use rw_geom, only: bas_type, geom_read, geom_write, clone_bas
   use edit_geom, only: bas_merge
   ! use isolated, only: generate_isolated_calculations
   !use vasp_file_handler, only: incarwrite, kpoints_write, generate_potcar
-  use inputs, only: vdW, volvar, bins, filename_host
+  use inputs, only: vdW, volvar, bins, filename_host, verbose
   use add_atom, only: add_atom_void, add_atom_pseudo, add_atom_scan, &
        get_viable_gridpoints, update_viable_gridpoints
   use evolver, only: gvector_container_type
+
+  use read_structures, only: get_graph_from_basis
+  use machine_learning, only: network_predict_graph
+  use athena, only: graph_type
+
   implicit none
 
 
@@ -63,6 +68,7 @@ contains
 
     real(real12), dimension(3) :: method_probab_ = [0.33_real12, 0.66_real12, 1.0_real12]
 
+    type(graph_type), dimension(1) :: graph
 
     task_=task
     if(present(method_probab)) method_probab_ = method_probab
@@ -213,6 +219,12 @@ contains
        basis = generate_structure( gvector_container, &
             basis_store, basis_host, lattice_host, &
             placement_list, method_probab_ )
+       
+       !!-----------------------------------------------------------------------
+       !! predict energy using ML
+       !!-----------------------------------------------------------------------
+       graph(1) = get_graph_from_basis(lattice_host, basis)
+       write(*,*) "Predicted energy", network_predict_graph(graph(1:1))
 
        !!-----------------------------------------------------------------------
        !! write generated POSCAR
@@ -222,6 +234,7 @@ contains
        open(newunit = structure_unit, file=trim(buffer)//"/POSCAR")
        call geom_write(structure_unit, lattice_host, basis)
        close(structure_unit)
+       write(*,*)
     
        !!-----------------------------------------------------------------------
        !! write additional VASP files
@@ -283,12 +296,12 @@ contains
     !!! THEN, THIS LOOP ACTUALLY PLACES IT AT THE END
        call random_number(rtmp1)
        if(rtmp1.le.method_probab_(1)) then 
-          write(*,*) "Add Atom Void"
+          if(verbose.gt.0) write(*,*) "Add Atom Void"
           call add_atom_void( bins, &
                 lattice, basis, &
                 placement_list_shuffled(iplaced+1:,:), placed)
        else if(rtmp1.le.method_probab_(2)) then 
-          write(*,*) "Add Atom Pseudo"
+          if(verbose.gt.0) write(*,*) "Add Atom Pseudo"
           call add_atom_pseudo( bins, &
                 gvector_container, &
                 lattice, basis, &
@@ -297,7 +310,7 @@ contains
                 placed )
           if(.not. placed) void_ticker = void_ticker + 1
        else if(rtmp1.le.method_probab_(3)) then 
-          write(*,*) "Add Atom Scan"
+          if(verbose.gt.0) write(*,*) "Add Atom Scan"
           call add_atom_scan( viable_gridpoints, &
                 gvector_container, &
                 lattice, basis, &
@@ -312,8 +325,10 @@ contains
           void_ticker = 0
           if(.not.placed) cycle placement_loop
        end if
-       write(*,'(A)',ADVANCE='NO') achar(13)
-       write(*,*) "placed", placed
+       if(verbose.gt.0)then
+          write(*,'(A)',ADVANCE='NO') achar(13)
+          write(*,*) "placed", placed
+       end if
        iplaced = iplaced + 1
        if(allocated(viable_gridpoints)) &
             call update_viable_gridpoints(viable_gridpoints, lattice, basis, &

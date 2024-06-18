@@ -128,8 +128,8 @@ contains
     crude_norm = 0._real12
 100 random_loop : do 
        i = i + 1
-       write(*,'(A)',ADVANCE='NO') achar(13)
-       write(*,'(I5.0, A)', ADVANCE='NO') i
+       ! write(*,'(A)',ADVANCE='NO') achar(13)
+       ! write(*,'(I5.0, A)', ADVANCE='NO') i
       
        !call random_number(rtmp1)
        !tmpvector = gridpoints(:,floor(rtmp1*size(gridpoints,dim=2))+1)

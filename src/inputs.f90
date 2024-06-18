@@ -6,13 +6,14 @@
 !!! module defines all global variables
 !!!#############################################################################
 module inputs
-  use misc, only: file_check,flagmaker, icount, to_lower
+  use misc_raffle, only: file_check,flagmaker, icount, to_lower
   use constants, only: real12, ierror, pi
   implicit none
   
 
   private
 
+  public :: verbose
   public :: vdW, volvar
   public :: bins, vps_ratio
   public :: seed
@@ -27,6 +28,7 @@ module inputs
 
   logical :: lseed
 
+  integer :: verbose = 0
   integer :: seed !random seed
   integer :: num_structures ! number of structures to generate
   integer :: num_species   ! total number of species to add

@@ -1,6 +1,6 @@
 module evolver
   use constants, only: real12, pi
-  use misc, only: set, icount
+  use misc_raffle, only: set, icount
   use misc_maths, only: lnsum, triangular_number
   use misc_linalg, only: get_angle, get_vol, cross, modu
   use rw_geom, only: bas_type
@@ -888,7 +888,7 @@ module evolver
     !write(*,*) "estimated number of bonds: ", triangular_number(basis%natom) * &
     !     ceiling( (pi * 4._real12/3._real12) * &
     !     (cutoff_max(1)**3 - cutoff_min(1)**3)/ get_vol(lattice) )
-         
+
     allocate(bond_list(0)) !if doesn't work, allocate a dummy bond first
     spec_loop1: do is=1,basis%nspec
        atom_loop1: do ia=1,basis%spec(is)%num

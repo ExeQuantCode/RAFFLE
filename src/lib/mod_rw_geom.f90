@@ -12,7 +12,7 @@
 !!!#############################################################################
 module rw_geom
   use constants, only: pi,real12
-  use misc, only: to_upper,jump,Icount
+  use misc_raffle, only: to_upper,jump,Icount
   use misc_linalg, only: LUinv,modu
   implicit none
 
@@ -24,6 +24,7 @@ module rw_geom
   type spec_type
      real(real12), allocatable ,dimension(:,:) :: atom
      real(real12) :: mass
+     real(real12) :: charge
      character(len=3) :: name
      integer :: num
   end type spec_type

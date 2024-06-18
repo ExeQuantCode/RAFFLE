@@ -30,7 +30,7 @@
 !!! to_upper         (converts all characters in string to upper case)
 !!! to_lower         (converts all characters in string to lower case)
 !!!#############################################################################
-module misc
+module misc_raffle
   use constants, only: real12
   implicit none
 
@@ -1133,4 +1133,4 @@ contains
   end function to_lower
 !!!#####################################################
 
-end module misc
+end module misc_raffle

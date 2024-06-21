@@ -16,7 +16,7 @@ contains
 !!! output = suitability of tested point
   pure function buildmap_POINT(gvector_container, &
        position, lattice, basis, atom_ignore_list, &
-       radius_arr, uptol, lowtol) &
+       radius_list, uptol, lowtol) &
        result(output)
     implicit none
     type(gvector_container_type), intent(in) :: gvector_container
@@ -25,18 +25,19 @@ contains
     real(real12), dimension(3), intent(in) :: position
     integer, dimension(:,:), intent(in) :: atom_ignore_list
     real(real12), dimension(3,3), intent(in) :: lattice
-    real(real12), dimension(:,:,:), intent(in) :: radius_arr
+    real(real12), dimension(:), intent(in) :: radius_list
     real(real12) :: output
   
     integer :: i
-    integer :: is, ia, js, ja, ks, ka
-    integer :: pair_index, bin
+    integer :: is, ia, js, ja, ks, ka, ls
+    integer :: bin
     real(real12) :: contribution, repeat_power, bondlength
     real(real12) :: viability_2body !! 2-body is addition
     real(real12) :: viability_3body !! 3-body is multiplication
     real(real12) :: viability_4body !! 4-body is multiplication
     real(real12), dimension(3) :: &
          position_storage1, position_storage2, position_storage3
+    integer, dimension(:,:), allocatable :: pair_index
   
 
     output = 0._real12
@@ -45,9 +46,19 @@ contains
     viability_3body = 1._real12
     viability_4body = 1._real12
     
+
+    !! get list of element pair indices
+    ls = atom_ignore_list(1,1)
+    allocate(pair_index(basis%nspec, basis%nspec), source = 0)
+    do is = 1, basis%nspec
+       do js = 1, basis%nspec
+          pair_index(is, js) = gvector_container%get_pair_index( &
+               basis%spec(is)%name, basis%spec(js)%name )
+       end do
+    end do
+
+
     species_loop1: do is=1, basis%nspec
-      pair_index = gvector_container%get_pair_index( &
-           basis%spec(atom_ignore_list(1,1))%name, basis%spec(is)%name )
       !! loops over all atoms currently in the system
       !! 2-body map
       !! checks bondlength between the current atom and all other atoms
@@ -71,15 +82,15 @@ contains
 
          !! check if the bondlength is within the tolerance for bonds ...
          !! ... between its own element and the element of the current atom
-         if(bondlength .lt. radius_arr(1,atom_ignore_list(1,1),is)*lowtol)then
+         if(bondlength .lt. radius_list(pair_index(ls,is))*lowtol)then
             return
-         else if(bondlength .gt. radius_arr(1,atom_ignore_list(1,1),is)*uptol)then
+         else if(bondlength .gt. radius_list(pair_index(ls,is))*uptol)then
             cycle atom_loop1
          end if
 
          bin = gvector_container%get_bin(bondlength, dim = 1)
          if(bin.eq.0) cycle
-         contribution = gvector_container%total%df_2body(bin, pair_index)
+         contribution = gvector_container%total%df_2body(bin, pair_index(ls,is))
    
          viability_2body = viability_2body + contribution
 
@@ -97,9 +108,9 @@ contains
               end do
               position_storage2 = basis%spec(js)%atom(ja,:)
               if(get_distance(position,position_storage2).lt.&
-                   radius_arr(1,atom_ignore_list(1,1),js)*lowtol) return
+                   radius_list(pair_index(ls,js))*lowtol) return
               if(get_distance(position,position_storage2).lt.&
-                   radius_arr(1,atom_ignore_list(1,1),js)*uptol) then
+                   radius_list(pair_index(ls,js))*uptol) then
                  bin = gvector_container%get_bin( &
                       get_angle( position_storage1, &
                                  position, &
@@ -115,7 +126,7 @@ contains
               !!! I have removed the second check as this, again, is just checking ...
               !!! ... the effect of a periodic image
               if((get_distance(position_storage1,position_storage2).ge.&
-                   radius_arr(1,is,js)*uptol)) cycle
+                   radius_list(pair_index(ls,js))*uptol)) cycle
                  
               !! loops over all atoms currently in the system
               !! 4-body map
@@ -130,9 +141,9 @@ contains
                     end do
                     position_storage3 = basis%spec(js)%atom(ja,:)
                     if(get_distance(position,position_storage3).lt.&
-                         radius_arr(1,atom_ignore_list(1,1),ks)*lowtol) return
+                         radius_list(pair_index(ls,ks))*lowtol) return
                     if(get_distance(position_storage1,position_storage3).lt.&
-                         radius_arr(1,is,ks)*uptol) then
+                         radius_list(pair_index(is,ks))*uptol) then
                        bin = gvector_container%get_bin( &
                                 get_dihedral_angle( &
                                            position, &

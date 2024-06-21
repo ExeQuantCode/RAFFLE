@@ -12,7 +12,7 @@
 !!!#############################################################################
 module rw_geom
   use constants, only: pi,real12
-  use misc, only: to_upper,jump,Icount
+  use misc_raffle, only: to_upper,jump,Icount
   use misc_linalg, only: LUinv,modu
   implicit none
 
@@ -24,6 +24,7 @@ module rw_geom
   type spec_type
      real(real12), allocatable ,dimension(:,:) :: atom
      real(real12) :: mass
+     real(real12) :: charge
      character(len=3) :: name
      integer :: num
   end type spec_type
@@ -822,11 +823,11 @@ contains
       write(0,'(" Exiting code ...")')
       call exit()
    end if
-   index1 = index(buffer,'Lattice="') + 8
+   index1 = index(buffer,'Lattice="') + 9
    index2 = index(buffer(index1:),'"') + index1 - 2
    read(buffer(index1:index2),*) ( ( lattice(i,j), j = 1, 3), i = 1, 3)
 
-   index1 = index(buffer,'free_energy=') + 6
+   index1 = index(buffer,'free_energy=') + 12
    read(buffer(index1:),*) basis%energy
 
 
@@ -1093,6 +1094,7 @@ contains
    outbas%natom = inbas%natom
    outbas%lcart = inbas%lcart
    outbas%sysname = inbas%sysname
+   outbas%energy = inbas%energy
 
 
 !!!-----------------------------------------------------------------------------

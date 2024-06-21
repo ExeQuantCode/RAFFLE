@@ -1,16 +1,20 @@
 module gen
   use constants, only: real12, pi
-  use misc, only: touch, shuffle
+  use misc_raffle, only: touch, shuffle
   use misc_linalg, only: get_spheres_overlap
   use rw_geom, only: bas_type, geom_read, geom_write, clone_bas
   use edit_geom, only: bas_merge
   ! use isolated, only: generate_isolated_calculations
   !use vasp_file_handler, only: incarwrite, kpoints_write, generate_potcar
-  use inputs, only: vdW, volvar, bins, filename_host
+  use inputs, only: vdW, volvar, bins, filename_host, verbose
   use add_atom, only: add_atom_void, add_atom_pseudo, add_atom_scan, &
        get_viable_gridpoints, update_viable_gridpoints
-  use read_chem, only: get_element_radius
   use evolver, only: gvector_container_type
+
+  use read_structures, only: get_graph_from_basis
+  use machine_learning, only: network_predict_graph
+  use athena, only: graph_type
+
   implicit none
 
 
@@ -57,14 +61,14 @@ contains
     integer :: num_insert_species
 
     real(real12) :: rtmp1
-    real(real12) :: posneg, meanvol, connectivity, volmin, total_volume
+    real(real12) :: meanvol, connectivity, volmin, total_volume
     real(real12) :: normalisation_a
     logical :: placed, success
     character(1024) :: buffer, output_dir_ = "iteration1"
 
     real(real12), dimension(3) :: method_probab_ = [0.33_real12, 0.66_real12, 1.0_real12]
-    real(real12), dimension(:,:,:), allocatable :: radius_arr
 
+    type(graph_type), dimension(1) :: graph
 
     task_=task
     if(present(method_probab)) method_probab_ = method_probab
@@ -122,10 +126,6 @@ contains
     stoichiometry_list = basis_store%spec(:)%num
 
 
-    !! calls the function structurecounter, which provides information about the number of currently existing 
-    !! structures in the directory
-    radius_arr = get_element_radius(element_list)
-
     ! !!--------------------------------------------------------------------------
     ! !! set up isolated element calculations
     ! !!--------------------------------------------------------------------------
@@ -164,40 +164,50 @@ contains
     !! calculate the minimum volume
     volmin = 0._real12
     connectivity = vdW / 100._real12
-    do i = 1, num_species
-       volmin = volmin + stoichiometry_list(i) * (4._real12/3._real12) * pi * &
-            ( radius_arr(2,i,i) ** 3._real12 )
-       do j = i, num_species, 1
-          total_volume = ( 4._real12 / 3._real12 ) * pi * &
-                         ( radius_arr(2,i,i) ** 3._real12 + &
-                           radius_arr(2,j,j) ** 3._real12 ) - &
-                         get_spheres_overlap(&
-                              radius_arr(2,i,i),&
-                              radius_arr(2,j,j),&
-                              radius_arr(1,i,j))
-          rtmp1 = connectivity * normalisation_a * &
-               min( &
-                    (stoichiometry_list(i)*radius_arr(3,i,j)), &
-                    (stoichiometry_list(j)*radius_arr(3,j,i)) &
-               ) * total_volume
-          if( i .eq. j )then ! I think this is to reduce significance of same-species bonding
-             rtmp1 = 0.5_real12 * rtmp1
-          else ! Ned introduced this to account for loop now ignoring half the triangle, TEST!!!
-             rtmp1 = 2._real12 * rtmp1
-          end if
-          volmin = volmin - rtmp1
-       end do
-       !  meanvol=meanvol+stoichiometry_list(i)*((connectivity*radius_arr(1,i,i))+((1.0-connectivity)*radius_arr(2,i,i)))**3*(4/3)*pi 
+    do i = 1, size(gvector_container%bond_info,1)
+       j = gvector_container%get_pair_index( &
+            gvector_container%bond_info(i)%element(1), &
+            gvector_container%bond_info(i)%element(1) )
+       k = gvector_container%get_pair_index( &
+            gvector_container%bond_info(i)%element(2), &
+            gvector_container%bond_info(i)%element(2) )
+       total_volume = &
+                      ! ( 4._real12 / 3._real12 ) * pi * &
+                      ! ( gvector_container%bond_info(j)%radius_vdw ** 3._real12 + &
+                      !   gvector_container%bond_info(k)%radius_vdw ** 3._real12 ) - &
+                      get_spheres_overlap(&
+                           gvector_container%bond_info(j)%radius_vdw,&
+                           gvector_container%bond_info(k)%radius_vdw,&
+                           gvector_container%bond_info(i)%radius_covalent )
+            
+       j = findloc( element_list, gvector_container%bond_info(i)%element(1), dim=1 )
+       k = findloc( element_list, gvector_container%bond_info(i)%element(2), dim=1 )
+       rtmp1 = connectivity * normalisation_a * &
+            min( &
+               stoichiometry_list(j) * &
+                    gvector_container%bond_info(i)%coordination(1), &
+               stoichiometry_list(k) * &
+                    gvector_container%bond_info(i)%coordination(2) &
+            ) * total_volume
+       if( gvector_container%bond_info(i)%element(1).eq.&
+           gvector_container%bond_info(i)%element(2) )then
+          volmin = volmin + stoichiometry_list(j) * &
+               (4._real12/3._real12) * pi * &
+               ( gvector_container%bond_info(i)%radius_vdw ** 3._real12 )
+          ! I think this below is to reduce significance of same-species bonding
+          rtmp1 = 0.5_real12 * rtmp1
+       else ! Ned introduced this to account for loop now ignoring half the triangle, TEST!!!
+          rtmp1 = 2._real12 * rtmp1
+       end if
+       volmin = volmin - rtmp1
     end do
     meanvol = volmin
 
-    posneg = 1
     call random_number(rtmp1)
-    if(rtmp1.lt.0.5_real12) posneg = -posneg
+    rtmp1 = rtmp1 * 2._real12 - 1._real12
 
-    call random_number(rtmp1)
     write(*,*) meanvol
-    meanvol = meanvol + ((volvar/100.0)*rtmp1*posneg*meanvol)
+    meanvol = meanvol + ((volvar/100._real12)*rtmp1*meanvol)
     write(*,*) "The allocated volume is", meanvol
 
 
@@ -206,8 +216,15 @@ contains
     !!--------------------------------------------------------------------------
     BIGLOOP: do istructure = 1, num_structures
 
-       basis = generate_structure(gvector_container, basis_store, basis_host, lattice_host, &
-            placement_list, radius_arr, method_probab_)
+       basis = generate_structure( gvector_container, &
+            basis_store, basis_host, lattice_host, &
+            placement_list, method_probab_ )
+       
+       !!-----------------------------------------------------------------------
+       !! predict energy using ML
+       !!-----------------------------------------------------------------------
+       graph(1) = get_graph_from_basis(lattice_host, basis)
+       write(*,*) "Predicted energy", network_predict_graph(graph(1:1))
 
        !!-----------------------------------------------------------------------
        !! write generated POSCAR
@@ -217,6 +234,7 @@ contains
        open(newunit = structure_unit, file=trim(buffer)//"/POSCAR")
        call geom_write(structure_unit, lattice_host, basis)
        close(structure_unit)
+       write(*,*)
     
        !!-----------------------------------------------------------------------
        !! write additional VASP files
@@ -235,8 +253,10 @@ contains
 !!!#############################################################################
 !!! 
 !!!#############################################################################
-  function generate_structure(gvector_container, basis_initial, basis_host, lattice, &
-       placement_list, radius_arr, method_probab) result(basis)
+  function generate_structure( &
+       gvector_container, &
+       basis_initial, basis_host, lattice, &
+       placement_list, method_probab) result(basis)
     implicit none
     type(gvector_container_type), intent(in) :: gvector_container
     type(bas_type), intent(in) :: basis_initial, basis_host
@@ -252,7 +272,6 @@ contains
     integer, dimension(size(placement_list,1),size(placement_list,2)) :: &
          placement_list_shuffled
     real(real12), dimension(3) :: method_probab_
-    real(real12), dimension(:,:,:) :: radius_arr
     real(real12), dimension(:,:), allocatable :: viable_gridpoints
 
 
@@ -264,7 +283,8 @@ contains
     call shuffle(placement_list_shuffled,1) !!! NEED TO SORT OUT RANDOM SEED
 
     viable_gridpoints = get_viable_gridpoints(bins, lattice, basis, &
-         radius_arr, placement_list_shuffled)
+         [ gvector_container%bond_info(:)%radius_covalent ], &
+         placement_list_shuffled)
 
     method_probab_ = method_probab
 
@@ -276,23 +296,27 @@ contains
     !!! THEN, THIS LOOP ACTUALLY PLACES IT AT THE END
        call random_number(rtmp1)
        if(rtmp1.le.method_probab_(1)) then 
-          write(*,*) "Add Atom Void"
+          if(verbose.gt.0) write(*,*) "Add Atom Void"
           call add_atom_void( bins, &
                 lattice, basis, &
                 placement_list_shuffled(iplaced+1:,:), placed)
        else if(rtmp1.le.method_probab_(2)) then 
-          write(*,*) "Add Atom Pseudo"
+          if(verbose.gt.0) write(*,*) "Add Atom Pseudo"
           call add_atom_pseudo( bins, &
                 gvector_container, &
                 lattice, basis, &
-                placement_list_shuffled(iplaced+1:,:), radius_arr, placed)
+                placement_list_shuffled(iplaced+1:,:), &
+                [ gvector_container%bond_info(:)%radius_covalent ], &
+                placed )
           if(.not. placed) void_ticker = void_ticker + 1
        else if(rtmp1.le.method_probab_(3)) then 
-          write(*,*) "Add Atom Scan"
+          if(verbose.gt.0) write(*,*) "Add Atom Scan"
           call add_atom_scan( viable_gridpoints, &
                 gvector_container, &
                 lattice, basis, &
-                placement_list_shuffled(iplaced+1:,:), radius_arr, placed)
+                placement_list_shuffled(iplaced+1:,:), &
+                [ gvector_container%bond_info(:)%radius_covalent ], &
+                placed)
        end if
        if(.not. placed) then
           if(void_ticker.gt.10) &
@@ -301,12 +325,20 @@ contains
           void_ticker = 0
           if(.not.placed) cycle placement_loop
        end if
-       write(*,'(A)',ADVANCE='NO') achar(13)
-       write(*,*) "placed", placed
+       if(verbose.gt.0)then
+          write(*,'(A)',ADVANCE='NO') achar(13)
+          write(*,*) "placed", placed
+       end if
        iplaced = iplaced + 1
        if(allocated(viable_gridpoints)) &
             call update_viable_gridpoints(viable_gridpoints, lattice, basis, &
-                             [ placement_list_shuffled(iplaced,:) ], radius_arr)
+                             [ placement_list_shuffled(iplaced,:) ], &
+                             gvector_container%bond_info( &
+                                  ( basis%nspec - &
+                                     placement_list_shuffled(iplaced,1)/2 ) * &
+                                  ( placement_list_shuffled(iplaced,1) - 1 ) + &
+                                  placement_list_shuffled(iplaced,1) &
+                             )%radius_covalent )
        if(.not.allocated(viable_gridpoints).and. &
             abs( method_probab_(3) - method_probab_(2) ) .gt. 1.E-3) then
           write(*,*) "WARNING: No more viable gridpoints"

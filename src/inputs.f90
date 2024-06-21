@@ -6,11 +6,29 @@
 !!! module defines all global variables
 !!!#############################################################################
 module inputs
-  use misc, only: file_check,flagmaker, icount
+  use misc_raffle, only: file_check,flagmaker, icount, to_lower
   use constants, only: real12, ierror, pi
   implicit none
+  
+
+  private
+
+  public :: verbose
+  public :: vdW, volvar
+  public :: bins, vps_ratio
+  public :: seed
+  public :: num_structures, num_species, task
+  public :: stoichiometry_list, element_list
+  public :: filename_host
+  public :: database_format, database_list
+  public :: cutoff_min_list, cutoff_max_list, width_list, sigma_list
+
+  public :: set_global_vars
+
+
   logical :: lseed
 
+  integer :: verbose = 0
   integer :: seed !random seed
   integer :: num_structures ! number of structures to generate
   integer :: num_species   ! total number of species to add
@@ -18,10 +36,7 @@ module inputs
   integer, allocatable, dimension(:) :: stoichiometry_list ! stoichiometry of species to add
   character(3), allocatable, dimension(:) :: element_list !species names to add
 
-  integer :: vdW    
-  integer :: volvar 
-  integer :: minbond
-  integer :: maxbond
+  integer :: vdW, volvar
 
   real(real12), dimension(3) :: cutoff_min_list, cutoff_max_list
   real(real12), dimension(3) :: width_list, sigma_list
@@ -32,34 +47,6 @@ module inputs
   character(1024), dimension(:), allocatable :: database_list ! list of directories containing input database
   character(1024) :: database_format !format of input file (POSCAR, XYZ, etc.
   character(1024) :: filename_host !host structure filename
-
-
-!!!!task:
-!!!! 0) Run RSS
-!!!! 1) Regenerate DIst Files (WIP)
-!!!! 2) Run HOST_RSS
-!!!! 3) Test
-!!!! 4) Sphere_Overlap
-!!!! 5) Bondangle_test 
-!!!! 6) Run evo (Should be run after any set created)
-!!!! 7) Add new poscar  
-!!!! 8) Run evo, but don't regen energies or evolve distributions (only reformat gaussians) 
-!!!! 9) Run evo, don't get energies but do evolve distributions
-  
-  
-
-  private
-
-  public :: vdW, volvar, minbond, maxbond
-  public :: bins, vps_ratio
-  public :: seed
-  public :: num_structures, num_species, task
-  public :: stoichiometry_list, element_list
-  public :: filename_host
-  public :: database_format, database_list
-  public :: cutoff_min_list, cutoff_max_list, width_list, sigma_list
-
-  public :: set_global_vars
 
 
 !!!updated  2023/06/16
@@ -170,12 +157,15 @@ contains
 !!!#############################################################################
   subroutine read_input_file(file_name)
     implicit none
+    character(*), intent(in) :: file_name
+
+    integer :: i
     integer :: Reason,unit
     character(1) :: fs
     character(1024) :: stoichiometry, elements, database
-    real(real12), dimension(3) :: cutoff_min, cutoff_max, width, sigma
+    real(real12), dimension(3) :: width, sigma
+    character(50), dimension(3) :: cutoff_min, cutoff_max
 
-    character(*), intent(in) :: file_name
 
 !!!-----------------------------------------------------------------------------
 !!! set up namelists for input file
@@ -183,7 +173,7 @@ contains
     namelist /setup/        task, filename_host, seed, vps_ratio, bins, &
                             database_format, database
     namelist /structure/    num_structures,num_species,elements,stoichiometry
-    namelist /volume/       vdW, volvar, minbond, maxbond
+    namelist /volume/       vdW, volvar
     namelist /distribution/ cutoff_min, cutoff_max, width, sigma
 
 
@@ -194,8 +184,8 @@ contains
     call file_check(unit,file_name)
 
 
-    cutoff_min = -1._real12
-    cutoff_max = -1._real12
+    cutoff_min = "-1.0"
+    cutoff_max = "-1.0"
     width = -1._real12
     sigma = -1._real12
     database_format = "vasprun.xml"
@@ -209,6 +199,10 @@ contains
     read(unit,NML=structure,iostat=Reason)
     if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
        stop "THERE WAS AN ERROR IN READING STRUCTURE SETTINGS"
+    end if
+    read(unit,NML=volume,iostat=Reason)
+    if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
+       stop "THERE WAS AN ERROR IN READING VOLUME SETTINGS"
     end if
     read(unit,NML=distribution,iostat=Reason)
     if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
@@ -231,8 +225,13 @@ contains
        read(elements,*) element_list
     end if
 
-    cutoff_min_list = cutoff_min
-    cutoff_max_list = cutoff_max
+    
+    do i = 1, 3
+       cutoff_min_list(i) = read_value_from_string(cutoff_min(i))
+       cutoff_max_list(i) = read_value_from_string(cutoff_max(i))   
+       write(*,*) "Cutoff: ",cutoff_min_list(i),cutoff_max_list(i)    
+    end do
+
     width_list = width
     sigma_list = sigma
 
@@ -245,5 +244,63 @@ contains
     return
   end subroutine read_input_file
 !!!#############################################################################
+
+  function read_value_from_string(string) result(output)
+    implicit none
+    character(*), intent(in) :: string
+    real(real12) :: output
+
+    integer :: k, pos
+    real(real12) :: variable, power
+    character(:), allocatable :: string_
+    character(12) :: numeric_set = "0123456789.-"
+
+    pos = 1
+    output = 1._real12
+    variable = 0._real12
+    power = 1._real12
+    string_ = trim(to_lower(string))
+    loop: do
+       !! read until first non-numeric character
+       !! read string up to k - 1 to variable (multiply)
+       k = verify(string_(pos:len_trim(string_)),numeric_set)
+       if (k.eq.0)then
+          read(string_(pos:),*) variable
+          output = output * variable ** power
+          exit loop
+       elseif(k.gt.1)then
+          read(string_(pos:pos+k-2),*) variable
+          output = output * variable ** power
+       end if
+
+       pos = pos + k - 1
+       !! identify what the next character is (*, /, pi)
+       !! if *, then change power factor to 1._real12
+       !! if /, then change power factor to -1._real12
+       !! if pi, then change power factor to 1._real12 and variable = pi
+       !! if blank space, move pos to next non-space character and cycle
+       !! if end of string, exit loop
+
+       if (string_(pos:pos).eq."*")then
+          power = 1._real12
+          pos = pos + 1
+       elseif(string_(pos:pos).eq."/")then
+          power = -1._real12
+          pos = pos + 1
+       elseif(string_(pos:pos+1).eq."pi")then
+          power = 1._real12
+          output = output * pi ** power
+          pos = pos + 2
+       end if
+       if(pos.gt.len_trim(string_)) exit loop
+       pos = pos + verify(string_(pos:), " ") - 1
+       if(pos.gt.len_trim(string_)) exit loop
+
+    end do loop
+
+
+    return
+  end function read_value_from_string
+
 
 end module inputs

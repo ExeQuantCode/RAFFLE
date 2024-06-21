@@ -57,7 +57,7 @@
 module edit_geom
   use constants, only: pi,real12
   use rw_geom, only: bas_type,geom_write,convert_bas,clone_bas
-  use misc, only: swap, sort1d
+  use misc_raffle, only: swap, sort1d
   use misc_linalg, only: cross,outer_product,cross_matrix,uvec,modu,&
        get_vol,det,inverse,inverse_3x3,LUinv,reduce_vec_gcd,get_vec_multiple,&
        proj,GramSchmidt,LLL_reduce, get_angle

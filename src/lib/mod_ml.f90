@@ -56,7 +56,7 @@ contains
           num_time_steps=4, &
           num_vertex_features=2, num_edge_features=1, &
           num_outputs=10, &
-          max_vertex_degree = 6, &
+          max_vertex_degree = 8, &
           batch_size=1 ))
      call network%add(full_layer_type( &
           num_inputs  = 10, &

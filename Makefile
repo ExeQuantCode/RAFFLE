@@ -45,7 +45,7 @@ else
 	MODULEFLAG = -J
 	DEVFLAGS = -g -fbacktrace -fcheck=all -fbounds-check #-g -static -ffpe-trap=invalid
 	DEBUGFLAGS = -fbounds-check -Wall -Wno-maybe-uninitialized
-	MEMFLAG = -mcmodel=large
+	MEMFLAG = #-mcmodel=large
 endif
 
 

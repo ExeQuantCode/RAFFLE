@@ -79,10 +79,18 @@ foreach(lib ${LIB_FILES})
 endforeach()
 message(STATUS "Modified LIB_FILES: ${PREPENDED_LIB_FILES}")
 
+set(EXTRA_SRC_FILES
+    inputs.f90
+    generator.f90
+)
+foreach(src ${EXTRA_SRC_FILES})
+    list(APPEND PREPENDED_SRC_FILES ${SRC_DIR}/${src})
+endforeach()
+
 if (CMAKE_BUILD_TYPE MATCHES "Parallel*")
     set(SRC_FILES raffle_omp.f90)
 else()
-    set(SRC_FILES inputs.f90 generator.f90 raffle.f90)
+    set(SRC_FILES raffle.f90)
 endif()
 foreach(src ${SRC_FILES})
     list(APPEND PREPENDED_SRC_FILES ${SRC_DIR}/${src})

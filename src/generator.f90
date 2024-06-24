@@ -36,13 +36,13 @@ contains
   subroutine generation(gvector_container, num_structures, task, &
        element_list, stoichiometry_list, method_probab, output_dir)
     implicit none
-    integer, intent(inout) :: num_structures
+    integer, intent(in) :: num_structures
     !! MAKE AN INPUT ARGUMENT THAT IS MAX_NUM_STRUCTURES
     integer, intent(in) :: task
     type(gvector_container_type), intent(in) :: gvector_container
     character(len=1024), intent(in), optional :: output_dir
-    integer, dimension(:), allocatable, intent(inout) :: stoichiometry_list
-    character(3), dimension(:), allocatable, intent(inout) :: element_list
+    integer, dimension(:), intent(in) :: stoichiometry_list
+    character(3), dimension(:), intent(in) :: element_list
     real(real12), dimension(3), intent(in), optional :: method_probab
 
     type(bas_type) :: basis_host
@@ -52,12 +52,14 @@ contains
     type(bas_type) :: basis, basis_store
 
     integer, dimension(:,:), allocatable :: placement_list, placement_list_shuffled
+    integer, dimension(:), allocatable :: stoichiometry_list_tot
+    character(3), dimension(:), allocatable :: element_list_tot
 
     integer :: i, j, k
     integer :: istructure
     integer :: unit, info_unit, structure_unit
     integer :: task_
-    integer :: num_species, num_atoms, num_insert_atoms
+    integer :: num_species_tot, num_atoms, num_insert_atoms
     integer :: num_insert_species
 
     real(real12) :: rtmp1
@@ -121,9 +123,9 @@ contains
        end if
     end do spec_loop1
 
-    num_species        = basis_store%nspec
-    element_list       = basis_store%spec(:)%name
-    stoichiometry_list = basis_store%spec(:)%num
+    num_species_tot        = basis_store%nspec
+    element_list_tot       = basis_store%spec(:)%name
+    stoichiometry_list_tot = basis_store%spec(:)%num
 
 
     ! !!--------------------------------------------------------------------------
@@ -146,10 +148,12 @@ contains
     !! ... the total rough cell volume.
 
     !! calculate the normalisation factor
-    normalisation_a = sum(stoichiometry_list**2)
-    do i = 1, num_species 
-       do j = i + 1, num_species, 1
-          normalisation_a = normalisation_a + ( stoichiometry_list(i) + stoichiometry_list(j) )**2
+    normalisation_a = sum(stoichiometry_list_tot**2)
+    do i = 1, num_species_tot
+       do j = i + 1, num_species_tot, 1
+          normalisation_a = normalisation_a + ( &
+               stoichiometry_list_tot(i) + &
+               stoichiometry_list_tot(j) )**2
        end do
     end do
     normalisation_a = ( basis_store%natom ** 2._real12 ) / normalisation_a
@@ -180,18 +184,18 @@ contains
                            gvector_container%bond_info(k)%radius_vdw,&
                            gvector_container%bond_info(i)%radius_covalent )
             
-       j = findloc( element_list, gvector_container%bond_info(i)%element(1), dim=1 )
-       k = findloc( element_list, gvector_container%bond_info(i)%element(2), dim=1 )
+       j = findloc( element_list_tot, gvector_container%bond_info(i)%element(1), dim=1 )
+       k = findloc( element_list_tot, gvector_container%bond_info(i)%element(2), dim=1 )
        rtmp1 = connectivity * normalisation_a * &
             min( &
-               stoichiometry_list(j) * &
+               stoichiometry_list_tot(j) * &
                     gvector_container%bond_info(i)%coordination(1), &
-               stoichiometry_list(k) * &
+               stoichiometry_list_tot(k) * &
                     gvector_container%bond_info(i)%coordination(2) &
             ) * total_volume
        if( gvector_container%bond_info(i)%element(1).eq.&
            gvector_container%bond_info(i)%element(2) )then
-          volmin = volmin + stoichiometry_list(j) * &
+          volmin = volmin + stoichiometry_list_tot(j) * &
                (4._real12/3._real12) * pi * &
                ( gvector_container%bond_info(i)%radius_vdw ** 3._real12 )
           ! I think this below is to reduce significance of same-species bonding

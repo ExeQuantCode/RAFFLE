@@ -1,15 +1,123 @@
 module raffle
-  use constants, only: real12
-  use inputs
+  use constants, only: real12, pi
+  use rw_geom, only: bas_type
   use read_structures, only: get_evolved_gvectors_from_data
   use gen, only: generation
   use evolver, only: gvector_container_type
   implicit none
 
-  type(gvector_container_type) :: gvector_container
-  real(real12), dimension(3) :: method_probab
+ ! type(gvector_container_type) :: global_gvector_container
+ ! real(real12), dimension(3) :: method_probab
+
+  private
+  public :: get_gvector_evolved
 
 
+
+ contains
+
+  function get_gvector_evolved( &
+       input_dir, &
+       element_file, bond_file, element_list, file_format, &
+       width, sigma, cutoff_min, cutoff_max ) result(tmp)
+    implicit none
+    character(len=*), intent(in) :: input_dir
+    character(len=*), intent(in), optional :: element_file
+    character(len=*), intent(in), optional :: bond_file
+    character(3), allocatable, dimension(:), intent(in), optional :: element_list
+    character(len=*), intent(in), optional :: file_format
+    real(real12), dimension(:), intent(in), optional :: width
+    real(real12), dimension(:), intent(in), optional :: sigma
+    real(real12), dimension(:), intent(in), optional :: cutoff_min
+    real(real12), dimension(:), intent(in), optional :: cutoff_max
+    type(gvector_container_type) :: gvector_container
+
+    integer :: tmp
+    character(len=256) :: element_file_, bond_file_
+    real(real12), dimension(3) :: width_, sigma_, cutoff_min_, cutoff_max_
+
+    if( .not. present(element_file) ) then
+      element_file_ = "elements.dat"
+    end if
+    if( .not. present(bond_file) ) then
+      bond_file_ = "chem.in"
+    end if
+    if( .not. present(width) ) then
+      width_ = [ 0.025_real12, pi/24._real12, pi/32._real12 ]
+    end if
+    if( .not. present(sigma) ) then
+      sigma_ = [ 0.1_real12, 0.05_real12, 0.05_real12 ]
+    end if
+    if( .not. present(cutoff_min) ) then
+      cutoff_min_ = [ 0.5_real12, 0._real12, 0._real12 ]
+    end if
+    if( .not. present(cutoff_max) ) then
+      cutoff_max_ = [ 6._real12, pi, pi/2._real12 ]
+    end if
+
+    if( present(element_list))then
+       gvector_container = get_evolved_gvectors_from_data( &
+           input_dir    = input_dir, &
+           element_file = element_file, &
+           bond_file    = bond_file, &
+           element_list = element_list, &
+           file_format  = file_format, &
+           gvector_container_template = gvector_container_type( &
+                width = width_, &
+                sigma = sigma_, &
+                cutoff_min = cutoff_min_, &
+                cutoff_max = cutoff_max_ ) &
+           )
+    else
+       gvector_container = get_evolved_gvectors_from_data( &
+           input_dir    = input_dir, &
+           element_file = element_file, &
+           bond_file    = bond_file, &
+           file_format  = file_format, &
+           gvector_container_template = gvector_container_type( &
+                width = width_, &
+                sigma = sigma_, &
+                cutoff_min = cutoff_min_, &
+                cutoff_max = cutoff_max_ ) &
+           )
+    end if
+
+  end function get_gvector_evolved
+
+
+  function get_predicted_structures( &
+       gvector_container, &
+       lattice_host, basis_host, &
+       num_structures, element_list, stoichiometry_list, method_probab, &
+       task ) &
+       result(bases)
+    implicit none
+    type(gvector_container_type), intent(in) :: gvector_container
+    integer, intent(in) :: num_structures
+    integer, intent(in) :: task
+    character(3), dimension(:), intent(in) :: element_list
+    integer, dimension(:), intent(in) :: stoichiometry_list
+    real(real12), dimension(3,3), intent(in) :: lattice_host
+    type(bas_type) :: basis_host
+    real(real12), dimension(:), intent(in) :: method_probab
+
+    type(bas_type), dimension(num_structures) :: bases
+
+    call generation( gvector_container, num_structures, task, &
+        element_list, stoichiometry_list, &
+        method_probab )
+  end function get_predicted_structures
+
+  subroutine get_energies( &
+       lattice, bases, &
+       energies, energies_err )
+    implicit none
+    type(bas_type), dimension(:), intent(in) :: bases
+    real(real12), dimension(3,3), intent(in) :: lattice
+    real(real12), dimension(:), intent(out) :: energies
+    real(real12), dimension(:), intent(out) :: energies_err
+
+  end subroutine get_energies
 
 ! !!!-----------------------------------------------------------------------------
 ! !!! read input file

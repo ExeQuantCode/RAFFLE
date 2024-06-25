@@ -27,6 +27,7 @@ module rw_geom
      real(real12) :: charge
      character(len=3) :: name
      integer :: num
+     real(real12) :: lat(3,3)
   end type spec_type
   type bas_type
      type(spec_type), allocatable, dimension(:) :: spec
@@ -35,21 +36,61 @@ module rw_geom
      real(real12) :: energy
      logical :: lcart=.false.
      character(len=1024) :: sysname
+   contains
+     procedure, pass(this) :: allocate_species
   end type bas_type
   type(bas_type) :: basis
 
 
   public :: igeom_input,igeom_output
-  public :: bas_type
+  public :: bas_type, spec_type
   public :: clone_bas
   public :: convert_bas
   public :: geom_read,geom_write
   
 
-!!!updated  2020/02/06
+!!!updated  2024/06/25
 
 
 contains
+
+  subroutine allocate_species(this, num_species, species_list, natom_list, atoms)
+    implicit none
+    class(bas_type), intent(inout) :: this
+    integer, intent(in), optional :: num_species
+    character(3), dimension(:), intent(in), optional :: species_list
+    integer, dimension(:), intent(in), optional :: natom_list
+    real(real12), dimension(:,:), intent(in), optional :: atoms
+    
+    integer :: i, istart, iend
+
+    if(present(num_species)) this%nspec = num_species
+
+    if(allocated(this%spec)) deallocate(this%spec)
+    allocate(this%spec(this%nspec))
+
+    species_check: if(present(species_list))then
+       if(size(species_list).ne.this%nspec) exit species_check
+       this%spec(:)%name = species_list
+    end if species_check
+
+    natom_check: if(present(natom_list))then
+       if(size(natom_list).ne.this%nspec) exit natom_check
+       this%spec(:)%num = natom_list
+       istart = 1
+       do i = 1, this%nspec
+          iend = istart + this%spec(i)%num - 1
+          allocate(this%spec(i)%atom(this%spec(i)%num,3))
+          if(present(atoms))then
+             this%spec(i)%atom = atoms(istart:iend,:3)
+          end if
+          istart = iend + 1
+       end do
+    end if natom_check
+       
+  end subroutine allocate_species
+
+  
 !!!#############################################################################
 !!! sets up the name of output files and subroutines to read files
 !!!#############################################################################

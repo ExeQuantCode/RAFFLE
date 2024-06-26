@@ -35,6 +35,18 @@ module misc_raffle
   implicit none
 
 
+  private
+
+  public :: increment_list, find_loc, closest_below, closest_above
+  public :: alloc
+  public :: sort1D, sort2D, sort_str, sort_str_order
+  public :: set, set_str_output_order
+  public :: sort_col
+  public :: swap, shuffle
+  public :: Icount, readcl, grep, count_occ, flagmaker, loadbar
+  public :: jump, file_check, touch, to_upper, to_lower
+
+
   interface alloc
      procedure ralloc2D,ralloc3D
   end interface alloc

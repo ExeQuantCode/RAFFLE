@@ -52,22 +52,6 @@ module misc_linalg
   implicit none
   integer, parameter, private :: QuadInt_K = selected_int_kind (16)
 
-  interface get_angle
-     procedure get_angle_from_points, get_angle_from_vectors
-  end interface get_angle
-
-  interface get_dihedral_angle
-     procedure get_dihedral_angle_from_points, get_dihedral_angle_from_vectors
-  end interface get_dihedral_angle
-
-  interface gcd
-     procedure gcd_vec,gcd_num
-  end interface gcd
-
-  interface vec_mat_mul
-     procedure ivec_dmat_mul,rvec_dmat_mul
-  end interface vec_mat_mul
-
 
   private
 
@@ -84,6 +68,23 @@ module misc_linalg
   public :: gcd, lcm, get_frac_denom, reduce_vec_gcd
   public :: gen_group
   public :: initialise_tetrahedra
+
+
+  interface get_angle
+     procedure get_angle_from_points, get_angle_from_vectors
+  end interface get_angle
+
+  interface get_dihedral_angle
+     procedure get_dihedral_angle_from_points, get_dihedral_angle_from_vectors
+  end interface get_dihedral_angle
+
+  interface gcd
+     procedure gcd_vec,gcd_num
+  end interface gcd
+
+  interface vec_mat_mul
+     procedure ivec_dmat_mul,rvec_dmat_mul
+  end interface vec_mat_mul
 
 
 !!!updated 2021/12/09

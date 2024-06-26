@@ -10,6 +10,7 @@ module machine_learning
   public :: network_train, network_train_graph
   public :: network_predict, network_predict_graph
 
+  
   type(network_type) :: network
 
 

@@ -4,10 +4,12 @@ module isolated
   use vasp_file_handler, only: generate_potcar, kpoints_write, Incarwrite
   implicit none
 
+
   private
 
   public :: generate_isolated_calculations
 
+  
 contains
 
 !!!#############################################################################

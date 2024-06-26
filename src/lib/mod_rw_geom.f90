@@ -16,7 +16,15 @@ module rw_geom
   use misc_linalg, only: LUinv,modu
   implicit none
 
+
   private
+
+  public :: igeom_input,igeom_output
+  public :: bas_type, spec_type
+  public :: clone_bas
+  public :: convert_bas
+  public :: geom_read,geom_write
+
 
   integer :: igeom_input=1,igeom_output=1
   real(real12), dimension(3,3) :: lattice
@@ -41,12 +49,6 @@ module rw_geom
   end type bas_type
   type(bas_type) :: basis
 
-
-  public :: igeom_input,igeom_output
-  public :: bas_type, spec_type
-  public :: clone_bas
-  public :: convert_bas
-  public :: geom_read,geom_write
   
 
 !!!updated  2024/06/25

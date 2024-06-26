@@ -8,6 +8,11 @@ module buildmap
   use evolver, only: gvector_container_type
   implicit none
 
+
+  private
+  public :: buildmap_POINT
+
+
 contains
 
 !!!#############################################################################

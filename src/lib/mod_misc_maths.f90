@@ -39,7 +39,6 @@ module misc_maths
 
   private
 
-
   public :: times, gauss, fact, lnsum, triangular_number, safe_acos
   public :: overlap_indiv_points, overlap, convolve, cross_correl
   public :: running_avg, mean, median, mode, range, normalise, get_turn_points

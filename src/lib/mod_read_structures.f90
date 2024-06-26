@@ -15,7 +15,6 @@ module read_structures
   private
 
   public :: get_evolved_gvectors_from_data
-
   public :: get_graph_from_basis
 
 

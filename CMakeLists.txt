@@ -60,8 +60,8 @@ set(SRC_DIR src)
 set(LIB_DIR ${SRC_DIR}/lib)
 
 set(LIB_FILES
-    mod_constants.f90
-    mod_misc.f90
+  mod_constants.f90
+  mod_misc.f90
 	mod_misc_maths.f90
 	mod_misc_linalg.f90
 	mod_rw_geom.f90
@@ -120,6 +120,7 @@ if (CMAKE_Fortran_COMPILER MATCHES ".*gfortran.*" OR CMAKE_Fortran_COMPILER MATC
     set(MEMFLAGS -mcmodel=large)
     set(OPTIMFLAGS -O3 -march=native)
     set(FASTFLAGS -Ofast -march=native)
+    set(PYTHONFLAGS -c -O3 -fPIC)
 elseif (CMAKE_Fortran_COMPILER MATCHES ".*nag.*")
     message(STATUS "Using nag compiler")
     set(PPFLAGS -f2018 -fpp)
@@ -150,6 +151,7 @@ endif()
 set(HOME_DIR $ENV{HOME})
 
 # Specify the paths to the include and library directories
+set(ATHENA_ROOT ${HOME_DIR}/.local/athena)
 set(ATHENA_INCLUDE_DIR ${HOME_DIR}/.local/athena/include)
 set(ATHENA_LIBRARY ${HOME_DIR}/.local/athena/lib/libathena.a)  # or libfoo.a for static libraries
 
@@ -165,7 +167,7 @@ set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${PPFLAGS}")
 
 # create the library
 add_library(${PROJECT_NAME} STATIC ${PREPENDED_LIB_FILES} ${PREPENDED_SRC_FILES})
-set(MODULE_DIR ${CMAKE_BUILD_PREFIX}/modules)
+set(MODULE_DIR ${CMAKE_BUILD_PREFIX}/mod)
 set_target_properties(${PROJECT_NAME} PROPERTIES Fortran_MODULE_DIRECTORY ${MODULE_DIR})
 target_link_libraries(${PROJECT_NAME} PUBLIC)
 
@@ -184,11 +186,97 @@ target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Dev>:${DEVFLAGS}>")
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug>:${DEBUGFLAGS}>")
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel_Dev>:${MPFLAGS}>")
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel_Dev>:${DEVFLAGS}>")
+target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Release>:${PYTHONFLAGS}>")
 
 
 # add coverage compiler flags
 if (CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*")
   append_coverage_compiler_flags()
 endif()
+
+
+
+
+
+# # Get the directory where object files are generated
+get_target_property(OBJECTS ${PROJECT_NAME} EXTERNAL_OBJECT)
+# Print the object files directory
+set(OBJECTS_DIR ${CMAKE_BUILD_PREFIX}/CMakeFiles/${PROJECT_NAME}.dir)
+message(STATUS "Object files directory for ${PROJECT_NAME}: ${OBJECTS_DIR}")
+
+
+# Include f90wrap
+find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+find_program(F90WRAP_EXECUTABLE f90wrap)
+find_program(F2PY_EXECUTABLE f2py-f90wrap)
+
+if(NOT F90WRAP_EXECUTABLE)
+    message(FATAL_ERROR "f90wrap not found. Please install f90wrap.")
+endif()
+
+# Generate f90wrap signature file
+set(F90WRAP_FILE ${CMAKE_BINARY_DIR}/f90wrap_${PROJECT_NAME}.f90)
+set(KIND_MAP ${CMAKE_SOURCE_DIR}/kind_map)
+add_custom_command(
+    TARGET ${PROJECT_NAME}
+    POST_BUILD
+    # OUTPUT ${F90WRAP_FILE}
+    COMMAND ${F90WRAP_EXECUTABLE}
+    --default-to-inout
+    -m ${PROJECT_NAME}
+    -k ${KIND_MAP}
+    ${CMAKE_CURRENT_LIST_DIR}/src/raffle.f90
+    --only get_gvector_evolved:
+    DEPENDS ${CMAKE_CURRENT_LIST_DIR}/src/raffle.f90
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    COMMENT "Generating f90wrap signature file"
+    VERBATIM
+)
+
+# Create a Python module using f2py
+add_custom_command(
+    TARGET ${PROJECT_NAME}
+    POST_BUILD
+    # OUTPUT ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.so
+    COMMAND ${F2PY_EXECUTABLE}
+    -L${ATHENA_ROOT}/lib
+    -I${ATHENA_ROOT}/include
+    -I${MODULE_DIR}
+    -lathena
+    -c
+    -m _${PROJECT_NAME}
+    ${F90WRAP_FILE}
+    ${OBJECTS_DIR}/src/*.o
+    ${OBJECTS_DIR}/src/lib/*.o
+    DEPENDS ${F90WRAP_FILE}
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    COMMENT "Creating Python module using f2py"
+)
+
+
+# Define output files
+set(PY_MODULE ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.py)
+file(GLOB SO_MODULE "${CMAKE_BINARY_DIR}/_${PROJECT_NAME}*.so")
+
+# Create a custom target for the Python module
+add_custom_target(python_module ALL
+    DEPENDS ${SO_MODULE} ${PY_MODULE}
+)
+
+# Installation instructions
+install(FILES ${PY_MODULE} DESTINATION lib)
+install(FILES ${SO_MODULE} DESTINATION lib)
+
+
+# install(DIRECTORY ${CMAKE_BINARY_DIR}/mod/ DESTINATION include)
+
+# Print helpful messages
+message(STATUS "Build configuration:")
+message(STATUS "  Source directory: ${SRC_DIR}")
+message(STATUS "  Output library: ${PROJECT_NAME}")
+message(STATUS "  Fortran modules directory: ${CMAKE_BINARY_DIR}/mod")
+message(STATUS "  Python module: ${PROJECT_NAME}.so")
+
+
 
 target_link_libraries(raffle ${ATHENA_LIBRARY})

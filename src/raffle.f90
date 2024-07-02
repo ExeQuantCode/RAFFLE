@@ -23,7 +23,7 @@ module raffle
     type(gvector_container_type) :: distributions
     real(real12), dimension(3) :: method_probab
    contains
-    procedure :: generate
+    procedure, pass(this) :: generate
     !procedure :: get_structures
     !procedure :: evaluate
   end type raffle_generator_type
@@ -50,9 +50,11 @@ module raffle
       type(stoichiometry_type), dimension(:), intent(in) :: stoichiometry
       real(real12), dimension(:), intent(in) :: method_probab
     end subroutine generate
-    end interface
+  end interface
+
 
 contains
+
   module function init_raffle_generator( &
        lattice_host, basis_host, width, sigma, cutoff_min, cutoff_max ) &
        result(generator)
@@ -113,5 +115,6 @@ contains
         method_probab )
 
   end subroutine generate
+
 
 end module raffle

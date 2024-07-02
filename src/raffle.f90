@@ -1,5 +1,6 @@
 module raffle
   use constants, only: real12
+  use gen, only: generation
   use rw_geom, only: bas_type
   use evolver, only: gvector_container_type
   implicit none

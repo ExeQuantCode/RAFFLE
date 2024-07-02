@@ -116,14 +116,14 @@ foreach(src ${EXTRA_SRC_FILES})
     list(APPEND PREPENDED_SRC_FILES ${SRC_DIR}/${src})
 endforeach()
 
-if (CMAKE_BUILD_TYPE MATCHES "Parallel*")
-    set(SRC_FILES raffle_omp.f90)
-else()
-    set(SRC_FILES raffle.f90)
-endif()
+set(SRC_FILES
+    raffle.f90
+)
 foreach(src ${SRC_FILES})
+    list(APPEND F90WRAP_FORTRAN_SRC_FILES ${CMAKE_CURRENT_LIST_DIR}/${SRC_DIR}/${src})
     list(APPEND PREPENDED_SRC_FILES ${SRC_DIR}/${src})
 endforeach()
+
 message(STATUS "Modified SRC_FILES: ${PREPENDED_SRC_FILES}")
 
 # initialise flags
@@ -236,14 +236,13 @@ set(KIND_MAP ${CMAKE_SOURCE_DIR}/kind_map)
 add_custom_command(
     TARGET ${PROJECT_NAME}
     POST_BUILD
-    # OUTPUT ${F90WRAP_FILE}
     COMMAND ${F90WRAP_EXECUTABLE}
     --default-to-inout
     -m ${PROJECT_NAME}
     -k ${KIND_MAP}
-    ${CMAKE_CURRENT_LIST_DIR}/src/raffle.f90
-    --only get_gvector_evolved:
-    DEPENDS ${CMAKE_CURRENT_LIST_DIR}/src/raffle.f90
+    ${F90WRAP_FORTRAN_SRC_FILES}
+    --only raffle_generator_type:
+    DEPENDS ${F90WRAP_FORTRAN_SRC_FILES}
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Generating f90wrap signature file"
     VERBATIM
@@ -253,7 +252,6 @@ add_custom_command(
 add_custom_command(
     TARGET ${PROJECT_NAME}
     POST_BUILD
-    # OUTPUT ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.so
     COMMAND ${F2PY_EXECUTABLE}
     ${F2PY_ATHENA_LIBRARY_FLAGS}
     -I${MODULE_DIR}

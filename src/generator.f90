@@ -35,12 +35,11 @@ contains
 !!!#############################################################################
 !!! 
 !!!#############################################################################
-  subroutine generation(gvector_container, num_structures, task, &
+  subroutine generation(gvector_container, num_structures, &
        element_list, stoichiometry_list, method_probab, output_dir)
     implicit none
     integer, intent(in) :: num_structures
     !! MAKE AN INPUT ARGUMENT THAT IS MAX_NUM_STRUCTURES
-    integer, intent(in) :: task
     type(gvector_container_type), intent(in) :: gvector_container
     character(len=1024), intent(in), optional :: output_dir
     integer, dimension(:), intent(in) :: stoichiometry_list
@@ -60,7 +59,6 @@ contains
     integer :: i, j, k
     integer :: istructure
     integer :: unit, info_unit, structure_unit
-    integer :: task_
     integer :: num_species_tot, num_atoms, num_insert_atoms
     integer :: num_insert_species
 
@@ -76,7 +74,6 @@ contains
     type(graph_type), dimension(1) :: graph
 #endif
 
-    task_=task
     if(present(method_probab)) method_probab_ = method_probab
 
 
@@ -94,13 +91,10 @@ contains
     do i = 1, basis_store%nspec
        allocate(basis_store%spec(i)%atom(basis_store%spec(i)%num,3), source = 0._real12)
     end do
-    select case(task_)
-    case(2)
-       open(newunit = unit, file = trim(adjustl(filename_host)))
-       call geom_read(unit,lattice_host, basis_host)
-       close(unit)
-       basis_store = bas_merge(basis_host,basis_store)
-    end select
+    open(newunit = unit, file = trim(adjustl(filename_host)))
+    call geom_read(unit,lattice_host, basis_host)
+    close(unit)
+    basis_store = bas_merge(basis_host,basis_store)
 
     allocate(placement_list(num_insert_atoms,2))
     k = 0

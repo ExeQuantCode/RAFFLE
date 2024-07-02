@@ -48,6 +48,11 @@ module evolver
      type(element_type), dimension(:), allocatable :: element_info
      type(element_bond_type), dimension(:), allocatable :: bond_info
    contains
+     procedure, pass(this) :: set_width
+     procedure, pass(this) :: set_sigma
+     procedure, pass(this) :: set_cutoff_min
+     procedure, pass(this) :: set_cutoff_max
+     
      procedure, pass(this) :: add, add_basis
      procedure, pass(this) :: set_element_info
      procedure, pass(this) :: set_bond_info
@@ -115,6 +120,69 @@ module evolver
 
   end function init_gvector_container
 !!!#############################################################################
+
+  subroutine set_width(this, width)
+    !! Set the width of the gaussians used in the 2-, 3-, and 4-body
+    !! distribution functions.
+    implicit none
+
+    ! Arguments
+    class(gvector_container_type), intent(inout) :: this
+    !! Self, parent of the procedure
+    real(real12), dimension(3), intent(in) :: width
+    !! Width of the gaussians used in the 2-, 3-, and 4-body
+    !! distribution functions.
+
+    this%width = width
+
+  end subroutine set_width
+
+
+  subroutine set_sigma(this, sigma)
+    !! Set the sigma of the gaussians used in the 2-, 3-, and 4-body
+    !! distribution functions.
+    implicit none
+
+    ! Arguments
+    class(gvector_container_type), intent(inout) :: this
+    !! Self, parent of the procedure.
+    real(real12), dimension(3), intent(in) :: sigma
+    !! Sigma of the gaussians used in the 2-, 3-, and 4-body
+    !! distribution functions.
+
+    this%sigma = sigma
+
+  end subroutine set_sigma
+
+
+  subroutine set_cutoff_min(this, cutoff_min)
+    !! Set the minimum cutoff for the 2-, 3-, and 4-body distribution functions.
+    implicit none
+
+    ! Arguments
+    class(gvector_container_type), intent(inout) :: this
+    !! Self, parent of the procedure.
+    real(real12), dimension(3), intent(in) :: cutoff_min
+    !! Minimum cutoff for the 2-, 3-, and 4-body distribution functions.
+
+     this%cutoff_min = cutoff_min
+
+  end subroutine set_cutoff_min
+
+
+  subroutine set_cutoff_max(this, cutoff_max)
+    !! Set the maximum cutoff for the 2-, 3-, and 4-body distribution functions.
+    implicit none
+   
+    ! Arguments
+    class(gvector_container_type), intent(inout) :: this
+    !! Self, parent of the procedure.
+    real(real12), dimension(3), intent(in) :: cutoff_max
+    !! Maximum cutoff for the 2-, 3-, and 4-body distribution functions.
+   
+    this%cutoff_max = cutoff_max
+   
+  end subroutine set_cutoff_max
 
 
 !!!#############################################################################

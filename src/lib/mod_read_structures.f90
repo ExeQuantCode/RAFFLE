@@ -5,17 +5,21 @@ module read_structures
   use rw_geom, only: bas_type, geom_read, geom_write, igeom_input
   use rw_vasprun, only: get_energy_from_vasprun, get_structure_from_vasprun
   use evolver, only: gvector_container_type, gvector_type
+#ifdef ENABLE_ATHENA
   use machine_learning, only: network_setup, &
        network_train, network_train_graph, &
        network_predict, network_predict_graph
   use athena, only: shuffle, random_setup, split, graph_type, edge_type
+#endif
   implicit none
 
 
   private
 
   public :: get_evolved_gvectors_from_data
+#ifdef ENABLE_ATHENA
   public :: get_graph_from_basis
+#endif
 
 
 contains
@@ -48,10 +52,12 @@ contains
     type(gvector_type) :: gvector
     real(real12), dimension(3,3) :: lattice
     character(256), dimension(:), allocatable :: structure_list
+#ifdef ENABLE_ATHENA
     type(graph_type), dimension(:), allocatable :: graphs
 
     real(real12), dimension(:), allocatable :: labels, labels_train, labels_validate
     real(real12), dimension(:,:), allocatable :: dataset, data_train, data_validate
+#endif
 
 
     if(present(gvector_container_template)) then
@@ -102,8 +108,10 @@ contains
 
 
     num_structures = 0
+#ifdef ENABLE_ATHENA
     allocate(graphs(0))
     allocate(labels(0))
+#endif
     do i = 1, size(structure_list)
 
        write(*,*) "Reading structure: ", trim(adjustl(structure_list(i)))
@@ -139,8 +147,10 @@ contains
              backspace(unit)
              call geom_read(unit, lattice, basis)
              call get_elements_masses_and_charges(basis)
+#ifdef ENABLE_ATHENA
              graphs = [ graphs, get_graph_from_basis(lattice, basis) ]
              labels = [ labels, basis%energy ]
+#endif
 
              num_structures = num_structures + 1
              write(format,'("(""Found structure: "",I4,"" with energy: "",&
@@ -244,9 +254,10 @@ contains
    !  write(*,*) labels(size(graphs)-10+1:)
    !  write(*,*)
 
-
+#ifdef ENABLE_ATHENA
     call network_setup(num_inputs = 2, num_outputs = 1)
     call network_train_graph(graphs(:), labels(:), num_epochs = 200)
+#endif
 
     igeom_input = 1
 
@@ -315,6 +326,7 @@ contains
 !!!#############################################################################
 !!! 
 !!!#############################################################################
+#ifdef ENABLE_ATHENA
   function get_graph_from_basis(lattice, basis) result(graph)
     implicit none
     type(bas_type), intent(in) :: basis
@@ -389,6 +401,7 @@ contains
 
 
   end function get_graph_from_basis
+#endif
 !!!#############################################################################
 
 

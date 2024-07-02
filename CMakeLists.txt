@@ -7,6 +7,7 @@ execute_process(COMMAND pwd OUTPUT_VARIABLE CURRENT_WORKING_DIR OUTPUT_STRIP_TRA
 message("Current working directory: ${CURRENT_WORKING_DIR}")
 set( CMAKE_BUILD_PREFIX ${CURRENT_WORKING_DIR}
   CACHE STRING "Select where to build the library." )
+set(MODULE_DIR ${CMAKE_BUILD_PREFIX}/mod)
 
 # set the project name
 project(raffle NONE)
@@ -35,6 +36,9 @@ set(CMAKE_Fortran_STANDARD 2018)
 # set language
 enable_language(Fortran)
 
+# get the user's home directory
+set(HOME_DIR $ENV{HOME})
+
 # set coverage compiler flags
 if (CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*")
   list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
@@ -54,6 +58,7 @@ enable_testing()
 # set options for building tests and examples
 option(BUILD_TESTS "Build the unit tests" ON)
 option(BUILD_EXAMPLES "Build the examples" ON)
+option(ENABLE_ATHENA "Build energetic predictions with ATHENA" OFF)
 
 # Define the sources
 set(SRC_DIR src)
@@ -68,16 +73,40 @@ set(LIB_FILES
 	mod_rw_vasprun.f90
 	mod_edit_geom.f90
 	mod_elements.f90
-	mod_ml.f90
 	mod_evolver.f90
 	mod_buildmap.f90
 	mod_atom_adder.f90
 	mod_read_structures.f90
 )
+
+
+# Add Athena library
+if(ENABLE_ATHENA)
+    # Specify the paths to the include and library directories
+    set(ATHENA_ROOT ${HOME_DIR}/.local/athena)
+    set(ATHENA_INCLUDE_DIR ${HOME_DIR}/.local/athena/include)
+    set(ATHENA_LIBRARY ${HOME_DIR}/.local/athena/lib/libathena.a)  # or libfoo.a for static libraries
+
+    find_library(ATHENA_LIBRARY NAMES athena)
+
+    # Add the include directory
+    include_directories(${ATHENA_INCLUDE_DIR})
+    list(APPEND LIB_FILES mod_ml.f90)
+
+    set(F2PY_ATHENA_LIBRARY_FLAGS
+        -L${ATHENA_ROOT}/lib
+        -I${ATHENA_ROOT}/include
+        -lathena
+    )
+endif()
+
 foreach(lib ${LIB_FILES})
     list(APPEND PREPENDED_LIB_FILES ${LIB_DIR}/${lib})
 endforeach()
 message(STATUS "Modified LIB_FILES: ${PREPENDED_LIB_FILES}")
+
+
+
 
 set(EXTRA_SRC_FILES
     inputs.f90
@@ -147,18 +176,6 @@ else()
 endif()
 
 
-# Get the user's home directory
-set(HOME_DIR $ENV{HOME})
-
-# Specify the paths to the include and library directories
-set(ATHENA_ROOT ${HOME_DIR}/.local/athena)
-set(ATHENA_INCLUDE_DIR ${HOME_DIR}/.local/athena/include)
-set(ATHENA_LIBRARY ${HOME_DIR}/.local/athena/lib/libathena.a)  # or libfoo.a for static libraries
-
-find_library(ATHENA_LIBRARY NAMES athena)
-
-# Add the include directory
-include_directories(${ATHENA_INCLUDE_DIR})
 
 
 
@@ -167,7 +184,6 @@ set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${PPFLAGS}")
 
 # create the library
 add_library(${PROJECT_NAME} STATIC ${PREPENDED_LIB_FILES} ${PREPENDED_SRC_FILES})
-set(MODULE_DIR ${CMAKE_BUILD_PREFIX}/mod)
 set_target_properties(${PROJECT_NAME} PROPERTIES Fortran_MODULE_DIRECTORY ${MODULE_DIR})
 target_link_libraries(${PROJECT_NAME} PUBLIC)
 
@@ -239,12 +255,11 @@ add_custom_command(
     POST_BUILD
     # OUTPUT ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.so
     COMMAND ${F2PY_EXECUTABLE}
-    -L${ATHENA_ROOT}/lib
-    -I${ATHENA_ROOT}/include
+    ${F2PY_ATHENA_LIBRARY_FLAGS}
     -I${MODULE_DIR}
-    -lathena
     -c
     -m _${PROJECT_NAME}
+    --f90flags="${PPFLAGS}"
     ${F90WRAP_FILE}
     ${OBJECTS_DIR}/src/*.o
     ${OBJECTS_DIR}/src/lib/*.o

@@ -11,9 +11,11 @@ module gen
        get_viable_gridpoints, update_viable_gridpoints
   use evolver, only: gvector_container_type
 
+#ifdef ENABLE_ATHENA
   use read_structures, only: get_graph_from_basis
   use machine_learning, only: network_predict_graph
   use athena, only: graph_type
+#endif
 
   implicit none
 
@@ -70,7 +72,9 @@ contains
 
     real(real12), dimension(3) :: method_probab_ = [0.33_real12, 0.66_real12, 1.0_real12]
 
+#ifdef ENABLE_ATHENA
     type(graph_type), dimension(1) :: graph
+#endif
 
     task_=task
     if(present(method_probab)) method_probab_ = method_probab
@@ -224,11 +228,13 @@ contains
             basis_store, basis_host, lattice_host, &
             placement_list, method_probab_ )
        
+#ifdef ENABLE_ATHENA
        !!-----------------------------------------------------------------------
        !! predict energy using ML
        !!-----------------------------------------------------------------------
        graph(1) = get_graph_from_basis(lattice_host, basis)
        write(*,*) "Predicted energy", network_predict_graph(graph(1:1))
+#endif
 
        !!-----------------------------------------------------------------------
        !! write generated POSCAR

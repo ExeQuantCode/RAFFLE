@@ -17,5 +17,5 @@ MODULE constants
   real(real12), parameter, public :: c_vasp = 0.262465831D0
   real(real12), parameter, public :: INF = huge(0._real12)
   complex(real12), parameter, public :: imag=(0._real12, 1._real12)
-  integer, public :: ierror = -1
+  integer, public :: verbose = 0
 end MODULE constants

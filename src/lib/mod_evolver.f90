@@ -13,7 +13,7 @@ module evolver
   
   private
 
-  public :: gvector_type, gvector_container_type
+  public :: gvector_container_type
   
   
   type :: gvector_base_type

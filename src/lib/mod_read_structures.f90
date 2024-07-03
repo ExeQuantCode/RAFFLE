@@ -4,7 +4,7 @@ module read_structures
   use misc_linalg, only: modu
   use rw_geom, only: bas_type, geom_read, geom_write, igeom_input
   use rw_vasprun, only: get_energy_from_vasprun, get_structure_from_vasprun
-  use evolver, only: gvector_container_type, gvector_type
+  use evolver, only: gvector_container_type
 #ifdef ENABLE_ATHENA
   use machine_learning, only: network_setup, &
        network_train, network_train_graph, &
@@ -49,7 +49,6 @@ contains
     integer :: xml_unit, unit, ierror
     integer :: num_files
     type(bas_type) :: basis
-    type(gvector_type) :: gvector
     real(real12), dimension(3,3) :: lattice
     character(256), dimension(:), allocatable :: structure_list
 #ifdef ENABLE_ATHENA
@@ -191,7 +190,7 @@ contains
 
     call gvector_container%evolve(deallocate_systems_after_evolve=.false.)
 
-    
+
 #ifdef ENABLE_ATHENA
     call network_setup(num_inputs = 2, num_outputs = 1)
     call network_train_graph(graphs(:), labels(:), num_epochs = 200)

@@ -112,6 +112,14 @@ contains
     end do
     basis_store = bas_merge(this%basis_host,basis_store)
 
+
+    !!--------------------------------------------------------------------------
+    !! generate the placement list
+    !! placement list is the list of number of atoms of each species that can be
+    !! placed in the structure
+    !! ... the second dimension is the index of the species and atom in the
+    !! ... basis_store
+    !!--------------------------------------------------------------------------
     allocate(placement_list(num_insert_atoms,2))
     k = 0
     spec_loop1: do i = 1, basis_store%nspec

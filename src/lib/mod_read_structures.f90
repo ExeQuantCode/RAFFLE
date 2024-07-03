@@ -191,69 +191,7 @@ contains
 
     call gvector_container%evolve(deallocate_systems_after_evolve=.false.)
 
-    !!! do not deallocate structures
-    !!! then load the athena library
-    !!! set up the network
-    !!! append 2, 3, and 4 body potentials
-    !!! HOW DO WE HANDLE SPECIES?
-    !!! A network for each species?
-    !!! split dataset into train and test sets
-    !!! train the network
-
-   !  num_structures = size(gvector_container%system)
-   !  write(*,*) "LOOKY", gvector_container%nbins
-   !  allocate(dataset(sum(gvector_container%nbins), num_structures))
-   !  do i = 1, num_structures
-   !     dataset(1:gvector_container%nbins(1),i) = &
-   !          sum(gvector_container%system(i)%df_2body,dim=2)
-   !     dataset(gvector_container%nbins(1)+1:&
-   !          sum(gvector_container%nbins(1:2)),i) = &
-   !          sum(gvector_container%system(i)%df_3body,dim=2)
-   !     dataset(sum(gvector_container%nbins(1:2))+1:&
-   !          sum(gvector_container%nbins(1:3)),i) = &
-   !          sum(gvector_container%system(i)%df_4body,dim=2)
-   !  end do
-   !  allocate(labels(num_structures))
-   !  labels = [ gvector_container%system(:)%energy / gvector_container%system(:)%num_atoms ]
-
-   !  call random_setup(1)
-   !  call split( dataset, labels, &
-   !              data_train, data_validate, &
-   !              labels_train, labels_validate, &
-   !              dim=2, left_size=0.8, right_size=0.2, shuffle=.true., seed=1)
-
-   !  call network_setup(num_inputs = sum(gvector_container%nbins), &
-   !       num_outputs = 1)
-   !  call network_train(data_train, labels_train, num_epochs = 100)
-
-   !  write(*,*) "predicting known"
-   !  write(*,*) -1._real12 * network_predict(data_train(:,1:10)) * sqrt(dot_product(labels_train, labels_train))
-   !  write(*,*) labels_train(1:10)
-   !  write(*,*)
-
-   !  write(*,*) "PREDICTING"
-   !  write(*,*) "norm", sqrt(dot_product(labels_train, labels_train))
-   !  write(*,*) -1._real12 * network_predict(data_validate) * sqrt(dot_product(labels_train, labels_train))
     
-   !  write(*,*) labels_validate
-
-    ! write(*,*) "LABELS"
-    ! write(*,*) size(labels)
-    ! write(*,*) labels
-    ! call network_setup(num_inputs = 2, num_outputs = 1)
-    ! call network_train_graph(graphs(:size(graphs)-10), labels(:size(graphs)-10), num_epochs = 100)
-
-    
-   !  write(*,*) "predicting known"
-   !  write(*,*) network_predict_graph(graphs(:size(graphs)-10))
-   !  write(*,*) labels(:size(graphs)-10)
-   !  write(*,*)
-
-   !  write(*,*) "PREDICTING"
-   !  write(*,*) network_predict_graph(graphs(size(graphs)-10+1:))
-   !  write(*,*) labels(size(graphs)-10+1:)
-   !  write(*,*)
-
 #ifdef ENABLE_ATHENA
     call network_setup(num_inputs = 2, num_outputs = 1)
     call network_train_graph(graphs(:), labels(:), num_epochs = 200)

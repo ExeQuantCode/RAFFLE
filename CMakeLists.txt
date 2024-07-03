@@ -78,8 +78,11 @@ set(LIB_FILES
 	mod_buildmap.f90
 	mod_atom_adder.f90
 	mod_read_structures.f90
+)
+
+set(SPECIAL_LIB_FILES
   mod_generator.f90
-  mod_generator_sub.f90
+  # mod_generator_sub.f90
 )
 
 
@@ -106,22 +109,19 @@ endif()
 foreach(lib ${LIB_FILES})
     list(APPEND PREPENDED_LIB_FILES ${LIB_DIR}/${lib})
 endforeach()
+foreach(lib ${SPECIAL_LIB_FILES})
+    list(APPEND PREPENDED_LIB_FILES ${LIB_DIR}/${lib})
+endforeach()
 message(STATUS "Modified LIB_FILES: ${PREPENDED_LIB_FILES}")
 
 
 
-
-# set(EXTRA_SRC_FILES
-#     inputs.f90
-#     generator.f90
-# )
-# foreach(src ${EXTRA_SRC_FILES})
-#     list(APPEND PREPENDED_SRC_FILES ${SRC_DIR}/${src})
-# endforeach()
-
 set(SRC_FILES
     raffle.f90
 )
+foreach(lib ${SPECIAL_LIB_FILES})
+    list(APPEND F90WRAP_FORTRAN_SRC_FILES ${CMAKE_CURRENT_LIST_DIR}/${LIB_DIR}/${lib})
+endforeach()
 foreach(src ${SRC_FILES})
     list(APPEND F90WRAP_FORTRAN_SRC_FILES ${CMAKE_CURRENT_LIST_DIR}/${SRC_DIR}/${src})
     list(APPEND PREPENDED_SRC_FILES ${SRC_DIR}/${src})
@@ -236,7 +236,7 @@ if (BUILD_PYTHON)
     endif()
 
     # Generate f90wrap signature file
-    set(F90WRAP_FILE ${CMAKE_BINARY_DIR}/f90wrap_${PROJECT_NAME}.f90)
+    set(F90WRAP_FILE ${CMAKE_BINARY_DIR}/f90wrap_*.f90)
     set(KIND_MAP ${CMAKE_SOURCE_DIR}/kind_map)
     add_custom_command(
         TARGET ${PROJECT_NAME}

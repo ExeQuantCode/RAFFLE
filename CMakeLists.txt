@@ -59,6 +59,7 @@ enable_testing()
 option(BUILD_TESTS "Build the unit tests" ON)
 option(BUILD_EXAMPLES "Build the examples" ON)
 option(ENABLE_ATHENA "Build energetic predictions with ATHENA" OFF)
+option(BUILD_PYTHON "Build the python library" On)
 
 # Define the sources
 set(SRC_DIR src)
@@ -77,6 +78,8 @@ set(LIB_FILES
 	mod_buildmap.f90
 	mod_atom_adder.f90
 	mod_read_structures.f90
+  mod_generator.f90
+  mod_generator_sub.f90
 )
 
 
@@ -108,13 +111,13 @@ message(STATUS "Modified LIB_FILES: ${PREPENDED_LIB_FILES}")
 
 
 
-set(EXTRA_SRC_FILES
-    inputs.f90
-    generator.f90
-)
-foreach(src ${EXTRA_SRC_FILES})
-    list(APPEND PREPENDED_SRC_FILES ${SRC_DIR}/${src})
-endforeach()
+# set(EXTRA_SRC_FILES
+#     inputs.f90
+#     generator.f90
+# )
+# foreach(src ${EXTRA_SRC_FILES})
+#     list(APPEND PREPENDED_SRC_FILES ${SRC_DIR}/${src})
+# endforeach()
 
 set(SRC_FILES
     raffle.f90
@@ -214,81 +217,83 @@ endif()
 
 
 
-# # Get the directory where object files are generated
-get_target_property(OBJECTS ${PROJECT_NAME} EXTERNAL_OBJECT)
-# Print the object files directory
-set(OBJECTS_DIR ${CMAKE_BUILD_PREFIX}/CMakeFiles/${PROJECT_NAME}.dir)
-message(STATUS "Object files directory for ${PROJECT_NAME}: ${OBJECTS_DIR}")
+if (BUILD_PYTHON)
+
+    # # Get the directory where object files are generated
+    get_target_property(OBJECTS ${PROJECT_NAME} EXTERNAL_OBJECT)
+    # Print the object files directory
+    set(OBJECTS_DIR ${CMAKE_BUILD_PREFIX}/CMakeFiles/${PROJECT_NAME}.dir)
+    message(STATUS "Object files directory for ${PROJECT_NAME}: ${OBJECTS_DIR}")
 
 
-# Include f90wrap
-find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
-find_program(F90WRAP_EXECUTABLE f90wrap)
-find_program(F2PY_EXECUTABLE f2py-f90wrap)
+    # Include f90wrap
+    find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+    find_program(F90WRAP_EXECUTABLE f90wrap)
+    find_program(F2PY_EXECUTABLE f2py-f90wrap)
 
-if(NOT F90WRAP_EXECUTABLE)
-    message(FATAL_ERROR "f90wrap not found. Please install f90wrap.")
+    if(NOT F90WRAP_EXECUTABLE)
+        message(FATAL_ERROR "f90wrap not found. Please install f90wrap.")
+    endif()
+
+    # Generate f90wrap signature file
+    set(F90WRAP_FILE ${CMAKE_BINARY_DIR}/f90wrap_${PROJECT_NAME}.f90)
+    set(KIND_MAP ${CMAKE_SOURCE_DIR}/kind_map)
+    add_custom_command(
+        TARGET ${PROJECT_NAME}
+        POST_BUILD
+        COMMAND ${F90WRAP_EXECUTABLE}
+        --default-to-inout
+        -m ${PROJECT_NAME}
+        -k ${KIND_MAP}
+        ${F90WRAP_FORTRAN_SRC_FILES}
+        --only raffle_generator_type:
+        DEPENDS ${F90WRAP_FORTRAN_SRC_FILES}
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        COMMENT "Generating f90wrap signature file"
+        VERBATIM
+    )
+
+    # Create a Python module using f2py
+    add_custom_command(
+        TARGET ${PROJECT_NAME}
+        POST_BUILD
+        COMMAND ${F2PY_EXECUTABLE}
+        ${F2PY_ATHENA_LIBRARY_FLAGS}
+        -I${MODULE_DIR}
+        -c
+        -m _${PROJECT_NAME}
+        --f90flags="${PPFLAGS}"
+        ${F90WRAP_FILE}
+        ${OBJECTS_DIR}/src/*.o
+        ${OBJECTS_DIR}/src/lib/*.o
+        DEPENDS ${F90WRAP_FILE}
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        COMMENT "Creating Python module using f2py"
+    )
+
+
+    # Define output files
+    set(PY_MODULE ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.py)
+    file(GLOB SO_MODULE "${CMAKE_BINARY_DIR}/_${PROJECT_NAME}*.so")
+
+    # Create a custom target for the Python module
+    add_custom_target(python_module ALL
+        DEPENDS ${SO_MODULE} ${PY_MODULE}
+    )
+
+    # Installation instructions
+    install(FILES ${PY_MODULE} DESTINATION lib)
+    install(FILES ${SO_MODULE} DESTINATION lib)
 endif()
 
-# Generate f90wrap signature file
-set(F90WRAP_FILE ${CMAKE_BINARY_DIR}/f90wrap_${PROJECT_NAME}.f90)
-set(KIND_MAP ${CMAKE_SOURCE_DIR}/kind_map)
-add_custom_command(
-    TARGET ${PROJECT_NAME}
-    POST_BUILD
-    COMMAND ${F90WRAP_EXECUTABLE}
-    --default-to-inout
-    -m ${PROJECT_NAME}
-    -k ${KIND_MAP}
-    ${F90WRAP_FORTRAN_SRC_FILES}
-    --only raffle_generator_type:
-    DEPENDS ${F90WRAP_FORTRAN_SRC_FILES}
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    COMMENT "Generating f90wrap signature file"
-    VERBATIM
-)
 
-# Create a Python module using f2py
-add_custom_command(
-    TARGET ${PROJECT_NAME}
-    POST_BUILD
-    COMMAND ${F2PY_EXECUTABLE}
-    ${F2PY_ATHENA_LIBRARY_FLAGS}
-    -I${MODULE_DIR}
-    -c
-    -m _${PROJECT_NAME}
-    --f90flags="${PPFLAGS}"
-    ${F90WRAP_FILE}
-    ${OBJECTS_DIR}/src/*.o
-    ${OBJECTS_DIR}/src/lib/*.o
-    DEPENDS ${F90WRAP_FILE}
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    COMMENT "Creating Python module using f2py"
-)
-
-
-# Define output files
-set(PY_MODULE ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.py)
-file(GLOB SO_MODULE "${CMAKE_BINARY_DIR}/_${PROJECT_NAME}*.so")
-
-# Create a custom target for the Python module
-add_custom_target(python_module ALL
-    DEPENDS ${SO_MODULE} ${PY_MODULE}
-)
-
-# Installation instructions
-install(FILES ${PY_MODULE} DESTINATION lib)
-install(FILES ${SO_MODULE} DESTINATION lib)
-
-
-# install(DIRECTORY ${CMAKE_BINARY_DIR}/mod/ DESTINATION include)
 
 # Print helpful messages
 message(STATUS "Build configuration:")
 message(STATUS "  Source directory: ${SRC_DIR}")
 message(STATUS "  Output library: ${PROJECT_NAME}")
-message(STATUS "  Fortran modules directory: ${CMAKE_BINARY_DIR}/mod")
-message(STATUS "  Python module: ${PROJECT_NAME}.so")
+# message(STATUS "  Fortran modules directory: ${CMAKE_BINARY_DIR}/mod")
+# message(STATUS "  Python module: ${PROJECT_NAME}.so")
 
 
 

@@ -52,6 +52,9 @@ module evolver
      procedure, pass(this) :: set_sigma
      procedure, pass(this) :: set_cutoff_min
      procedure, pass(this) :: set_cutoff_max
+
+     procedure, pass(this) :: create
+     procedure, pass(this) :: update
      
      procedure, pass(this) :: add, add_basis
      procedure, pass(this) :: set_element_info
@@ -183,6 +186,42 @@ module evolver
     this%cutoff_max = cutoff_max
    
   end subroutine set_cutoff_max
+
+
+  subroutine create(this, basis_list, lattice_list)
+    !! create the distribution functions from the input file
+    implicit none
+    ! Arguments
+    class(gvector_container_type), intent(inout) :: this
+    !! Self, parent of the procedure.
+    type(bas_type), dimension(:), intent(in) :: basis_list
+    !! List of basis structures.
+    real(real12), dimension(:,:,:), intent(in) :: lattice_list
+    !! List of lattice vectors for each basis structure.
+
+    deallocate(this%total%df_2body, this%total%df_3body, this%total%df_4body)
+    call this%add(basis_list, lattice_list)
+    call this%evolve()
+    
+  end subroutine create
+
+
+  subroutine update(this, basis_list, lattice_list)
+    !! update the distribution functions from the input file
+    implicit none
+    ! Arguments
+    class(gvector_container_type), intent(inout) :: this
+    !! Self, parent of the procedure.
+    type(bas_type), dimension(:), intent(in) :: basis_list
+    !! List of basis structures.
+    real(real12), dimension(:,:,:), intent(in) :: lattice_list
+    !! List of lattice vectors for each basis structure.
+
+    
+    call this%add(basis_list, lattice_list)
+    call this%evolve()
+    
+  end subroutine update
 
 
 !!!#############################################################################
@@ -730,7 +769,7 @@ module evolver
 
     integer :: idx1, idx2
     integer :: i, j, is, js, num_structures_previous
-    real(real12) :: weight, energy
+    real(real12) :: weight, energy, best_energy_old
     logical :: deallocate_systems_after_evolve_ = .true.
     real(real12), dimension(:), allocatable :: height
     integer, dimension(:,:), allocatable :: idx_list
@@ -758,6 +797,7 @@ module evolver
     !!--------------------------------------------------------------------------
     !! get the energy from the lowest formation energy system
     !!--------------------------------------------------------------------------
+    best_energy_old = this%best_energy
     call this%set_best_energy()
 
 
@@ -766,6 +806,9 @@ module evolver
     !!--------------------------------------------------------------------------
     if(.not.allocated(this%total%df_2body))then
        call this%initialise_gvectors()
+    else
+      this%total%df_3body = this%total%df_3body * exp( this%best_energy ) / &
+                              exp( best_energy_old )
     end if
 
 

@@ -258,6 +258,28 @@ class Generator(f90wrap.runtime.FortranModule):
             
             """
             _raffle.f90wrap_generator__print_hello__binding__raffle_generator_type(this=self._handle)
+
+        def generate(self, num_structures, stoichiometry, method_probab=[1.0, 1.0, 1.0]):
+            """
+            generate__binding__raffle_generator_type(self, num_structures, stoichiometry, method_probab)
+
+            Defined at ../src/lib/mod_generator.f90 lines \
+                76-84
+
+            Parameters
+            ----------
+            this : unknown
+            num_structures : int
+            stoichiometry : stoichiometry_type_xnum_array
+            method_probab : list of float
+
+            """
+            
+            _raffle.f90wrap_generator__generate__binding__rgt(
+                this=self._handle,
+                num_structures=num_structures,
+                stoichiometry=stoichiometry._handle,
+                method_probab=method_probab)#, n0=len(method_probab))
         
         @property
         def bins(self):

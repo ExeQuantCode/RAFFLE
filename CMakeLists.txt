@@ -81,6 +81,7 @@ set(LIB_FILES
 )
 
 set(SPECIAL_LIB_FILES
+  # mod_rw_geom.f90
   mod_generator.f90
   # mod_generator_sub.f90
 )
@@ -246,11 +247,19 @@ if (BUILD_PYTHON)
         -m ${PROJECT_NAME}
         -k ${KIND_MAP}
         ${F90WRAP_FORTRAN_SRC_FILES}
-        --only raffle_generator_type:
+        # --only raffle_generator_type:
         DEPENDS ${F90WRAP_FORTRAN_SRC_FILES}
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
         COMMENT "Generating f90wrap signature file"
         VERBATIM
+    )
+
+    # Copy f90wrap edited files from edited_autogen_files to ${CMAKE_BINARY_DIR}
+    add_custom_command(
+        TARGET ${PROJECT_NAME}
+        POST_BUILD
+        COMMAND cp ${CMAKE_CURRENT_LIST_DIR}/edited_autogen_files/* ${CMAKE_BINARY_DIR}
+        COMMENT "Copying f90wrap edited files"
     )
 
     # Create a Python module using f2py

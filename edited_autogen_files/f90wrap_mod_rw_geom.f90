@@ -137,27 +137,6 @@ subroutine f90wrap_spec_type__set__num(this, f90wrap_num)
     this_ptr%p%num = f90wrap_num
 end subroutine f90wrap_spec_type__set__num
 
-subroutine f90wrap_spec_type__array__lat(this, nd, dtype, dshape, dloc)
-    use rw_geom, only: spec_type
-    use, intrinsic :: iso_c_binding, only : c_int
-    implicit none
-    type spec_type_ptr_type
-        type(spec_type), pointer :: p => NULL()
-    end type spec_type_ptr_type
-    integer(c_int), intent(in) :: this(2)
-    type(spec_type_ptr_type) :: this_ptr
-    integer(c_int), intent(out) :: nd
-    integer(c_int), intent(out) :: dtype
-    integer(c_int), dimension(10), intent(out) :: dshape
-    integer*8, intent(out) :: dloc
-    
-    nd = 2
-    dtype = 11
-    this_ptr = transfer(this, this_ptr)
-    dshape(1:2) = shape(this_ptr%p%lat)
-    dloc = loc(this_ptr%p%lat)
-end subroutine f90wrap_spec_type__array__lat
-
 subroutine f90wrap_rw_geom__spec_type_initialise(this)
     use rw_geom, only: spec_type
     implicit none
@@ -351,6 +330,27 @@ subroutine f90wrap_bas_type__set__energy(this, f90wrap_energy)
     this_ptr%p%energy = f90wrap_energy
 end subroutine f90wrap_bas_type__set__energy
 
+subroutine f90wrap_bas_type__array__lat(this, nd, dtype, dshape, dloc)
+    use rw_geom, only: bas_type
+    use, intrinsic :: iso_c_binding, only : c_int
+    implicit none
+    type bas_type_ptr_type
+        type(bas_type), pointer :: p => NULL()
+    end type bas_type_ptr_type
+    integer(c_int), intent(in) :: this(2)
+    type(bas_type_ptr_type) :: this_ptr
+    integer(c_int), intent(out) :: nd
+    integer(c_int), intent(out) :: dtype
+    integer(c_int), dimension(10), intent(out) :: dshape
+    integer*8, intent(out) :: dloc
+    
+    nd = 2
+    dtype = 11
+    this_ptr = transfer(this, this_ptr)
+    dshape(1:2) = shape(this_ptr%p%lat)
+    dloc = loc(this_ptr%p%lat)
+end subroutine f90wrap_bas_type__array__lat
+
 subroutine f90wrap_bas_type__get__lcart(this, f90wrap_lcart)
     use rw_geom, only: bas_type
     implicit none
@@ -378,6 +378,27 @@ subroutine f90wrap_bas_type__set__lcart(this, f90wrap_lcart)
     this_ptr = transfer(this, this_ptr)
     this_ptr%p%lcart = f90wrap_lcart
 end subroutine f90wrap_bas_type__set__lcart
+
+subroutine f90wrap_bas_type__array__pbc(this, nd, dtype, dshape, dloc)
+    use rw_geom, only: bas_type
+    use, intrinsic :: iso_c_binding, only : c_int
+    implicit none
+    type bas_type_ptr_type
+        type(bas_type), pointer :: p => NULL()
+    end type bas_type_ptr_type
+    integer(c_int), intent(in) :: this(2)
+    type(bas_type_ptr_type) :: this_ptr
+    integer(c_int), intent(out) :: nd
+    integer(c_int), intent(out) :: dtype
+    integer(c_int), dimension(10), intent(out) :: dshape
+    integer*8, intent(out) :: dloc
+    
+    nd = 1
+    dtype = 5
+    this_ptr = transfer(this, this_ptr)
+    dshape(1:1) = shape(this_ptr%p%pbc)
+    dloc = loc(this_ptr%p%pbc)
+end subroutine f90wrap_bas_type__array__pbc
 
 subroutine f90wrap_bas_type__get__sysname(this, f90wrap_sysname)
     use rw_geom, only: bas_type

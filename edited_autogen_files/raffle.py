@@ -148,30 +148,6 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
         def num(self, num):
             _raffle.f90wrap_spec_type__set__num(self._handle, num)
         
-        @property
-        def lat(self):
-            """
-            Element lat ftype=real(real12) pytype=float
-            
-            
-            Defined at ../src/lib/mod_rw_geom.f90 line 32
-            
-            """
-            array_ndim, array_type, array_shape, array_handle = \
-                _raffle.f90wrap_spec_type__array__lat(self._handle)
-            if array_handle in self._arrays:
-                lat = self._arrays[array_handle]
-            else:
-                lat = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
-                                        self._handle,
-                                        _raffle.f90wrap_spec_type__array__lat)
-                self._arrays[array_handle] = lat
-            return lat
-        
-        @lat.setter
-        def lat(self, lat):
-            self.lat[...] = lat
-        
         def __str__(self):
             ret = ['<spec_type>{\n']
             ret.append('    atom : ')
@@ -184,8 +160,6 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             ret.append(repr(self.name))
             ret.append(',\n    num : ')
             ret.append(repr(self.num))
-            ret.append(',\n    lat : ')
-            ret.append(repr(self.lat))
             ret.append('}')
             return ''.join(ret)
         
@@ -382,12 +356,36 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             _raffle.f90wrap_bas_type__set__energy(self._handle, energy)
         
         @property
+        def lat(self):
+            """
+            Element lat ftype=real(real12) pytype=float
+            
+            
+            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/lib/mod_rw_geom.f90 line 38
+            
+            """
+            array_ndim, array_type, array_shape, array_handle = \
+                _raffle.f90wrap_bas_type__array__lat(self._handle)
+            if array_handle in self._arrays:
+                lat = self._arrays[array_handle]
+            else:
+                lat = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                        self._handle,
+                                        _raffle.f90wrap_bas_type__array__lat)
+                self._arrays[array_handle] = lat
+            return lat
+        
+        @lat.setter
+        def lat(self, lat):
+            self.lat[...] = lat
+        
+        @property
         def lcart(self):
             """
             Element lcart ftype=logical pytype=bool
             
             
-            Defined at ../src/lib/mod_rw_geom.f90 line 39
+            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/lib/mod_rw_geom.f90 line 39
             
             """
             return _raffle.f90wrap_bas_type__get__lcart(self._handle)
@@ -397,20 +395,44 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             _raffle.f90wrap_bas_type__set__lcart(self._handle, lcart)
         
         @property
+        def pbc(self):
+            """
+            Element pbc ftype=logical pytype=bool
+            
+            
+            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/lib/mod_rw_geom.f90 line 40
+            
+            """
+            array_ndim, array_type, array_shape, array_handle = \
+                _raffle.f90wrap_bas_type__array__pbc(self._handle)
+            if array_handle in self._arrays:
+                pbc = self._arrays[array_handle]
+            else:
+                pbc = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                        self._handle,
+                                        _raffle.f90wrap_bas_type__array__pbc)
+                self._arrays[array_handle] = pbc
+            return pbc
+        
+        @pbc.setter
+        def pbc(self, pbc):
+            self.pbc[...] = pbc
+        
+        @property
         def sysname(self):
             """
             Element sysname ftype=character(len=1024) pytype=str
             
             
-            Defined at ../src/lib/mod_rw_geom.f90 line 40
+            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/lib/mod_rw_geom.f90 line 41
             
             """
             return _raffle.f90wrap_bas_type__get__sysname(self._handle)
-        
+
         @sysname.setter
         def sysname(self, sysname):
             _raffle.f90wrap_bas_type__set__sysname(self._handle, sysname)
-        
+                
         def __str__(self):
             ret = ['<bas_type>{\n']
             ret.append('    nspec : ')
@@ -419,8 +441,12 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             ret.append(repr(self.natom))
             ret.append(',\n    energy : ')
             ret.append(repr(self.energy))
+            ret.append(',\n    lat : ')
+            ret.append(repr(self.lat))
             ret.append(',\n    lcart : ')
             ret.append(repr(self.lcart))
+            ret.append(',\n    pbc : ')
+            ret.append(repr(self.pbc))
             ret.append(',\n    sysname : ')
             ret.append(repr(self.sysname))
             ret.append('}')

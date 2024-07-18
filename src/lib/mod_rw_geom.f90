@@ -35,14 +35,15 @@ module rw_geom
      real(real12) :: charge
      character(len=3) :: name
      integer :: num
-     real(real12) :: lat(3,3)
   end type spec_type
   type bas_type
      type(spec_type), allocatable, dimension(:) :: spec
      integer :: nspec
      integer :: natom
      real(real12) :: energy
-     logical :: lcart=.false.
+     real(real12) :: lat(3,3) = 0._real12
+     logical :: lcart = .false.
+     logical, dimension(3) :: pbc = .true.
      character(len=1024) :: sysname
    contains
      procedure, pass(this) :: allocate_species

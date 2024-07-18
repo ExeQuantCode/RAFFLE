@@ -3,6 +3,7 @@ import _raffle
 import f90wrap.runtime
 import logging
 import numpy
+from ase import Atoms
 
 class Rw_Geom(f90wrap.runtime.FortranModule):
     """
@@ -278,6 +279,60 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             """, Rw_Geom.spec_type)
             return self.spec
         
+        def toase(self):
+
+            # Set the species list
+            positions = []
+            species_string = ""
+            for i in range(self.nspec):
+                for j in range(self.spec[i].num):
+                    species_string += str(self.spec[i].name.decode()).strip()
+                    positions.append(self.spec[i].atom[j])
+            
+            # Set the atoms
+            atoms = Atoms(species_string, positions)
+            atoms.set_pbc(self.pbc)
+
+            # Set the lattice vectors
+            atoms.set_cell(bas.lat)
+
+            return atoms
+        
+        def fromase(self, atoms):
+            
+            # Get the species symbols
+            species_symbols = atoms.get_chemical_symbols()
+            species_symbols_unique = sorted(set(species_symbols))
+
+            # Set the number of species
+            self.nspec = len(species_symbols_unique)
+            
+            # Set the number of atoms
+            self.natom = len(atoms)
+            
+            # Set the energy
+            # self.energy = atoms.get_total_energy()
+            
+            # # Set the lattice vectors
+            self.lat = atoms.get_cell().flatten()
+            self.pbc = atoms.pbc
+            
+            # Set the system name
+            self.sysname = atoms.get_chemical_formula()
+            
+            # Set the species list
+            species_count = []
+            atom_positions = []
+            positions = atoms.get_positions()
+            for species in species_symbols_unique:
+                species_count.append(sum([1 for symbol in species_symbols if symbol == species]))
+                for j, symbol in enumerate(species_symbols):
+                    if symbol == species:
+                        atom_positions.append(positions[j])
+            
+            # Allocate memory for the atom list
+            self.allocate_species(species_symbols=species_symbols_unique, species_count=species_count, atoms=atom_positions)
+
         @property
         def nspec(self):
             """
@@ -457,70 +512,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
         
 
         _dt_array_initialisers = [init_array_items]
-        
-    ## make this a procedure of bas_type
-    ## i.e. bas_type.from_ase
-    ## also make it part of initialisation. If ase.Atoms is passed, then convert it to bas_type
-    @staticmethod
-    def convert_ase_to_bas(ase_atoms):
-        # Create a new instance of bas_type
-        bas = Rw_Geom.bas_type()
-        
-        # Get the species symbols
-        species_symbols = ase_atoms.get_chemical_symbols()
-        species_symbols_unique = sorted(set(species_symbols))
 
-        # Set the number of species
-        bas.nspec = len(species_symbols_unique)
-        
-        # Set the number of atoms
-        bas.natom = len(ase_atoms)
-        
-        # Set the energy
-        # bas.energy = ase_atoms.get_total_energy()
-        
-        # Set the lattice vectors
-        lat = ase_atoms.get_cell().flatten()
-        
-        # Set the system name
-        bas.sysname = ase_atoms.get_chemical_formula()
-        
-        # Set the species list
-        species_count = []
-        atoms = []
-        positions = ase_atoms.get_positions()
-        for species in species_symbols_unique:
-            species_count.append(sum([1 for symbol in species_symbols if symbol == species]))
-            for j, symbol in enumerate(species_symbols):
-                if symbol == species:
-                    atoms.append(positions[j])
-        
-        # Allocate memory for the atom list
-        bas.allocate_species(species_symbols=species_symbols_unique, species_count=species_count, atoms=atoms)    
-        
-        return lat, bas
-    
-    @staticmethod
-    def convert_bas_to_ase(bas):
-        # Create a new instance of ase.Atoms
-        from ase import Atoms
-        
-        # # Set the lattice vectors
-        # atoms.set_cell(bas.lat)
-        
-        # Set the species list
-        positions = []
-        species_string = ""
-        for i in range(bas.nspec):
-            for j in range(bas.spec[i].num):
-                species_string += str(bas.spec[i].name.decode()).strip()
-                positions.append(bas.spec[i].atom[j])
-        
-        # Set the positions
-        print(species_string)
-        print(positions)
-        
-        return Atoms(species_string, positions)
 
     # @staticmethod
     # def geom_read(unit, lat, bas, length=None):

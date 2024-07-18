@@ -458,13 +458,20 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
 
         _dt_array_initialisers = [init_array_items]
         
+    ## make this a procedure of bas_type
+    ## i.e. bas_type.from_ase
+    ## also make it part of initialisation. If ase.Atoms is passed, then convert it to bas_type
     @staticmethod
     def convert_ase_to_bas(ase_atoms):
         # Create a new instance of bas_type
         bas = Rw_Geom.bas_type()
         
+        # Get the species symbols
+        species_symbols = ase_atoms.get_chemical_symbols()
+        species_symbols_unique = sorted(set(species_symbols))
+
         # Set the number of species
-        bas.nspec = len(ase_atoms.get_chemical_symbols())
+        bas.nspec = len(species_symbols_unique)
         
         # Set the number of atoms
         bas.natom = len(ase_atoms)
@@ -479,8 +486,6 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
         bas.sysname = ase_atoms.get_chemical_formula()
         
         # Set the species list
-        species_symbols = ase_atoms.get_chemical_symbols()
-        species_symbols_unique = sorted(set(species_symbols))
         species_count = []
         atoms = []
         positions = ase_atoms.get_positions()
@@ -491,9 +496,31 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
                     atoms.append(positions[j])
         
         # Allocate memory for the atom list
-        bas.allocate_species(species_symbols=species_symbols, species_count=species_count, atoms=atoms)    
+        bas.allocate_species(species_symbols=species_symbols_unique, species_count=species_count, atoms=atoms)    
         
         return lat, bas
+    
+    @staticmethod
+    def convert_bas_to_ase(bas):
+        # Create a new instance of ase.Atoms
+        from ase import Atoms
+        
+        # # Set the lattice vectors
+        # atoms.set_cell(bas.lat)
+        
+        # Set the species list
+        positions = []
+        species_string = ""
+        for i in range(bas.nspec):
+            for j in range(bas.spec[i].num):
+                species_string += str(bas.spec[i].name.decode()).strip()
+                positions.append(bas.spec[i].atom[j])
+        
+        # Set the positions
+        print(species_string)
+        print(positions)
+        
+        return Atoms(species_string, positions)
 
     # @staticmethod
     # def geom_read(unit, lat, bas, length=None):

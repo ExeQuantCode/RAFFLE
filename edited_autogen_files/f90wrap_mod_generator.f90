@@ -364,18 +364,5 @@ subroutine f90wrap_generator__generate__binding__rgt( &
     end if
 end subroutine f90wrap_generator__generate__binding__rgt
 
-subroutine f90wrap_generator__print_hello__binding__raffle_generator_type(this)
-    use generator, only: raffle_generator_type
-    implicit none
-    
-    type raffle_generator_type_ptr_type
-        type(raffle_generator_type), pointer :: p => NULL()
-    end type raffle_generator_type_ptr_type
-    type(raffle_generator_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
-    this_ptr = transfer(this, this_ptr)
-    call this_ptr%p%print_hello()
-end subroutine f90wrap_generator__print_hello__binding__raffle_generator_type
-
 ! End of module generator defined in file ../src/lib/mod_generator.f90
 

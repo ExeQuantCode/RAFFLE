@@ -178,7 +178,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
         """
         def __init__(self, handle=None, atoms=None):
             """
-            self = Bas_Type()
+            self = bas_type()
             
             
             Defined at ../src/lib/mod_rw_geom.f90 lines \
@@ -187,7 +187,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             
             Returns
             -------
-            this : Bas_Type
+            this : bas_type
             	Object to be constructed
             
             
@@ -202,7 +202,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
         
         def __del__(self):
             """
-            Destructor for class Bas_Type
+            Destructor for class bas_type
             
             
             Defined at ../src/lib/mod_rw_geom.f90 lines \
@@ -210,7 +210,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             
             Parameters
             ----------
-            this : Bas_Type
+            this : bas_type
             	Object to be destructed
             
             
@@ -291,7 +291,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             # self.energy = atoms.get_total_energy()
             
             # # Set the lattice vectors
-            self.lat = atoms.get_cell().flatten()
+            self.lat = numpy.reshape(atoms.get_cell().flatten(), [3,3], order='F')
             self.pbc = atoms.pbc
             
             # Set the system name
@@ -556,7 +556,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
     #     ----------
     #     unit : int
     #     lat : float array
-    #     bas : Bas_Type
+    #     bas : bas_type
     #     length : int
         
     #     """
@@ -576,7 +576,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
     #     ----------
     #     unit : int
     #     lat : float array
-    #     bas : Bas_Type
+    #     bas : bas_type
         
     #     """
     #     _raffle.f90wrap_rw_geom__geom_write(unit=unit, lat=lat, bas=bas._handle)
@@ -592,12 +592,12 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
         
     #     Parameters
     #     ----------
-    #     inbas : Bas_Type
+    #     inbas : bas_type
     #     latconv : float array
         
     #     Returns
     #     -------
-    #     outbas : Bas_Type
+    #     outbas : bas_type
         
     #     """
     #     outbas = _raffle.f90wrap_rw_geom__convert_bas(inbas=self._handle, \
@@ -617,8 +617,8 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
         
     #     Parameters
     #     ----------
-    #     inbas : Bas_Type
-    #     outbas : Bas_Type
+    #     inbas : bas_type
+    #     outbas : bas_type
     #     inlat : float array
     #     outlat : float array
     #     trans_dim : bool
@@ -913,21 +913,6 @@ class Generator(f90wrap.runtime.FortranModule):
             """
             if self._alloc:
                 _raffle.f90wrap_generator__raffle_generator_type_finalise(this=self._handle)
-        
-        def print_hello(self):
-            """
-            print_hello__binding__raffle_generator_type(self)
-            
-            
-            Defined at ../src/lib/mod_generator.f90 lines \
-                69-74
-            
-            Parameters
-            ----------
-            this : unknown
-            
-            """
-            _raffle.f90wrap_generator__print_hello__binding__raffle_generator_type(this=self._handle)
 
         def generate(self, num_structures, stoichiometry, method_probab=[1.0, 1.0, 1.0]):
             """

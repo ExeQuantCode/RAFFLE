@@ -39,7 +39,6 @@ module generator
    contains
     procedure, pass(this) :: generate
     procedure, pass(this) :: generate_structure
-    procedure, pass(this) :: print_hello
     !procedure :: get_structures
     !procedure :: evaluate
   end type raffle_generator_type
@@ -81,14 +80,6 @@ module generator
 
 
   contains
-
-  module subroutine print_hello(this)
-    implicit none
-    class(raffle_generator_type), intent(in) :: this
-
-    write(*,*) "Hello"
-    
-  end subroutine print_hello
 
   module function init_raffle_generator( &
        lattice_host, basis_host, width, sigma, cutoff_min, cutoff_max ) &

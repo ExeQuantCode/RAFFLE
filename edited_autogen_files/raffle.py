@@ -241,11 +241,11 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             if self._alloc:
                 _raffle.f90wrap_rw_geom__bas_type_finalise(this=self._handle)
         
-        def allocate_species(self, num_species=None, species_list=None, natom_list=None, \
+        def allocate_species(self, num_species=None, species_symbols=None, species_count=None, \
             atoms=None):
             """
-            allocate_species__binding__bas_type(self[, num_species, species_list, \
-                natom_list, atoms])
+            allocate_species__binding__bas_type(self[, num_species, species_symbols, \
+                species_count, atoms])
             
             
             Defined at ../src/lib/mod_rw_geom.f90 lines \
@@ -255,13 +255,13 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             ----------
             this : unknown
             num_species : int
-            species_list : str array
-            natom_list : int array
+            species_symbols : str array
+            species_count : int array
             atoms : float array
             
             """
             _raffle.f90wrap_rw_geom__allocate_species__binding__bas_type(this=self._handle, \
-                num_species=num_species, species_list=species_list, natom_list=natom_list, \
+                num_species=num_species, species_symbols=species_symbols, species_count=species_count, \
                 atoms=atoms)
         
         def init_array_spec(self):
@@ -458,132 +458,168 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
 
         _dt_array_initialisers = [init_array_items]
         
-    
     @staticmethod
-    def geom_read(unit, lat, bas, length=None):
-        """
-        geom_read(unit, lat, bas[, length])
+    def convert_ase_to_bas(ase_atoms):
+        # Create a new instance of bas_type
+        bas = Rw_Geom.bas_type()
+        
+        # Set the number of species
+        bas.nspec = len(ase_atoms.get_chemical_symbols())
+        
+        # Set the number of atoms
+        bas.natom = len(ase_atoms)
+        
+        # Set the energy
+        # bas.energy = ase_atoms.get_total_energy()
+        
+        # Set the lattice vectors
+        lat = ase_atoms.get_cell().flatten()
+        
+        # Set the system name
+        bas.sysname = ase_atoms.get_chemical_formula()
+        
+        # Set the species list
+        species_symbols = ase_atoms.get_chemical_symbols()
+        species_symbols_unique = sorted(set(species_symbols))
+        species_count = []
+        atoms = []
+        positions = ase_atoms.get_positions()
+        for species in species_symbols_unique:
+            species_count.append(sum([1 for symbol in species_symbols if symbol == species]))
+            for j, symbol in enumerate(species_symbols):
+                if symbol == species:
+                    atoms.append(positions[j])
+        
+        # Allocate memory for the atom list
+        bas.allocate_species(species_symbols=species_symbols, species_count=species_count, atoms=atoms)    
+        
+        return lat, bas
+
+    # @staticmethod
+    # def geom_read(unit, lat, bas, length=None):
+    #     """
+    #     geom_read(unit, lat, bas[, length])
         
         
-        Defined at ../src/lib/mod_rw_geom.f90 lines \
-            79-111
+    #     Defined at ../src/lib/mod_rw_geom.f90 lines \
+    #         79-111
         
-        Parameters
-        ----------
-        unit : int
-        lat : float array
-        bas : Bas_Type
-        length : int
+    #     Parameters
+    #     ----------
+    #     unit : int
+    #     lat : float array
+    #     bas : Bas_Type
+    #     length : int
         
-        """
-        _raffle.f90wrap_rw_geom__geom_read(unit=unit, lat=lat, bas=bas._handle, \
-            length=length)
+    #     """
+    #     _raffle.f90wrap_rw_geom__geom_read(unit=unit, lat=lat, bas=bas._handle, \
+    #         length=length)
     
-    @staticmethod
-    def geom_write(unit, lat, bas):
-        """
-        geom_write(unit, lat, bas)
+    # @staticmethod
+    # def geom_write(unit, lat, bas):
+    #     """
+    #     geom_write(unit, lat, bas)
         
         
-        Defined at ../src/lib/mod_rw_geom.f90 lines \
-            117-139
+    #     Defined at ../src/lib/mod_rw_geom.f90 lines \
+    #         117-139
         
-        Parameters
-        ----------
-        unit : int
-        lat : float array
-        bas : Bas_Type
+    #     Parameters
+    #     ----------
+    #     unit : int
+    #     lat : float array
+    #     bas : Bas_Type
         
-        """
-        _raffle.f90wrap_rw_geom__geom_write(unit=unit, lat=lat, bas=bas._handle)
+    #     """
+    #     _raffle.f90wrap_rw_geom__geom_write(unit=unit, lat=lat, bas=bas._handle)
     
-    @staticmethod
-    def convert_bas(self, latconv):
-        """
-        outbas = convert_bas(self, latconv)
+    # @staticmethod
+    # def convert_bas(self, latconv):
+    #     """
+    #     outbas = convert_bas(self, latconv)
         
         
-        Defined at ../src/lib/mod_rw_geom.f90 lines \
-            821-840
+    #     Defined at ../src/lib/mod_rw_geom.f90 lines \
+    #         821-840
         
-        Parameters
-        ----------
-        inbas : Bas_Type
-        latconv : float array
+    #     Parameters
+    #     ----------
+    #     inbas : Bas_Type
+    #     latconv : float array
         
-        Returns
-        -------
-        outbas : Bas_Type
+    #     Returns
+    #     -------
+    #     outbas : Bas_Type
         
-        """
-        outbas = _raffle.f90wrap_rw_geom__convert_bas(inbas=self._handle, \
-            latconv=latconv)
-        outbas = f90wrap.runtime.lookup_class("raffle.bas_type").from_handle(outbas, \
-            alloc=True)
-        return outbas
+    #     """
+    #     outbas = _raffle.f90wrap_rw_geom__convert_bas(inbas=self._handle, \
+    #         latconv=latconv)
+    #     outbas = f90wrap.runtime.lookup_class("raffle.bas_type").from_handle(outbas, \
+    #         alloc=True)
+    #     return outbas
     
-    @staticmethod
-    def clone_bas(self, outbas, inlat=None, outlat=None, trans_dim=None):
-        """
-        clone_bas(self, outbas[, inlat, outlat, trans_dim])
+    # @staticmethod
+    # def clone_bas(self, outbas, inlat=None, outlat=None, trans_dim=None):
+    #     """
+    #     clone_bas(self, outbas[, inlat, outlat, trans_dim])
         
         
-        Defined at ../src/lib/mod_rw_geom.f90 lines \
-            897-967
+    #     Defined at ../src/lib/mod_rw_geom.f90 lines \
+    #         897-967
         
-        Parameters
-        ----------
-        inbas : Bas_Type
-        outbas : Bas_Type
-        inlat : float array
-        outlat : float array
-        trans_dim : bool
+    #     Parameters
+    #     ----------
+    #     inbas : Bas_Type
+    #     outbas : Bas_Type
+    #     inlat : float array
+    #     outlat : float array
+    #     trans_dim : bool
         
-        -----------------------------------------------------------------------------
-         determines whether user wants output basis extra translational dimension
-        -----------------------------------------------------------------------------
-        """
-        _raffle.f90wrap_rw_geom__clone_bas(inbas=self._handle, outbas=outbas._handle, \
-            inlat=inlat, outlat=outlat, trans_dim=trans_dim)
+    #     -----------------------------------------------------------------------------
+    #      determines whether user wants output basis extra translational dimension
+    #     -----------------------------------------------------------------------------
+    #     """
+    #     _raffle.f90wrap_rw_geom__clone_bas(inbas=self._handle, outbas=outbas._handle, \
+    #         inlat=inlat, outlat=outlat, trans_dim=trans_dim)
     
-    @property
-    def igeom_input(self):
-        """
-        Element igeom_input ftype=integer  pytype=int
+    # @property
+    # def igeom_input(self):
+    #     """
+    #     Element igeom_input ftype=integer  pytype=int
         
         
-        Defined at ../src/lib/mod_rw_geom.f90 line 24
+    #     Defined at ../src/lib/mod_rw_geom.f90 line 24
         
-        """
-        return _raffle.f90wrap_rw_geom__get__igeom_input()
+    #     """
+    #     return _raffle.f90wrap_rw_geom__get__igeom_input()
     
-    @igeom_input.setter
-    def igeom_input(self, igeom_input):
-        _raffle.f90wrap_rw_geom__set__igeom_input(igeom_input)
+    # @igeom_input.setter
+    # def igeom_input(self, igeom_input):
+    #     _raffle.f90wrap_rw_geom__set__igeom_input(igeom_input)
     
-    @property
-    def igeom_output(self):
-        """
-        Element igeom_output ftype=integer  pytype=int
+    # @property
+    # def igeom_output(self):
+    #     """
+    #     Element igeom_output ftype=integer  pytype=int
         
         
-        Defined at ../src/lib/mod_rw_geom.f90 line 24
+    #     Defined at ../src/lib/mod_rw_geom.f90 line 24
         
-        """
-        return _raffle.f90wrap_rw_geom__get__igeom_output()
+    #     """
+    #     return _raffle.f90wrap_rw_geom__get__igeom_output()
     
-    @igeom_output.setter
-    def igeom_output(self, igeom_output):
-        _raffle.f90wrap_rw_geom__set__igeom_output(igeom_output)
+    # @igeom_output.setter
+    # def igeom_output(self, igeom_output):
+    #     _raffle.f90wrap_rw_geom__set__igeom_output(igeom_output)
     
-    def __str__(self):
-        ret = ['<rw_geom>{\n']
-        ret.append('    igeom_input : ')
-        ret.append(repr(self.igeom_input))
-        ret.append(',\n    igeom_output : ')
-        ret.append(repr(self.igeom_output))
-        ret.append('}')
-        return ''.join(ret)
+    # def __str__(self):
+    #     ret = ['<rw_geom>{\n']
+    #     ret.append('    igeom_input : ')
+    #     ret.append(repr(self.igeom_input))
+    #     ret.append(',\n    igeom_output : ')
+    #     ret.append(repr(self.igeom_output))
+    #     ret.append('}')
+    #     return ''.join(ret)
     
     _dt_array_initialisers = []
     

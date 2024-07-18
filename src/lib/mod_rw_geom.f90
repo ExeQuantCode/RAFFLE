@@ -56,12 +56,12 @@ module rw_geom
 
 contains
 
-  subroutine allocate_species(this, num_species, species_list, natom_list, atoms)
+  subroutine allocate_species(this, num_species, species_symbols, species_count, atoms)
     implicit none
     class(bas_type), intent(inout) :: this
     integer, intent(in), optional :: num_species
-    character(3), dimension(:), intent(in), optional :: species_list
-    integer, dimension(:), intent(in), optional :: natom_list
+    character(3), dimension(:), intent(in), optional :: species_symbols
+    integer, dimension(:), intent(in), optional :: species_count
     real(real12), dimension(:,:), intent(in), optional :: atoms
     
     integer :: i, istart, iend
@@ -71,14 +71,14 @@ contains
     if(allocated(this%spec)) deallocate(this%spec)
     allocate(this%spec(this%nspec))
 
-    species_check: if(present(species_list))then
-       if(size(species_list).ne.this%nspec) exit species_check
-       this%spec(:)%name = species_list
+    species_check: if(present(species_symbols))then
+       if(size(species_symbols).ne.this%nspec) exit species_check
+       this%spec(:)%name = species_symbols
     end if species_check
 
-    natom_check: if(present(natom_list))then
-       if(size(natom_list).ne.this%nspec) exit natom_check
-       this%spec(:)%num = natom_list
+    natom_check: if(present(species_count))then
+       if(size(species_count).ne.this%nspec) exit natom_check
+       this%spec(:)%num = species_count
        istart = 1
        do i = 1, this%nspec
           iend = istart + this%spec(i)%num - 1

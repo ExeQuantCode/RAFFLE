@@ -202,7 +202,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             34-42
         
         """
-        def __init__(self, handle=None):
+        def __init__(self, handle=None, atoms=None):
             """
             self = Bas_Type()
             
@@ -222,6 +222,9 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             f90wrap.runtime.FortranDerivedType.__init__(self)
             result = _raffle.f90wrap_rw_geom__bas_type_initialise()
             self._handle = result[0] if isinstance(result, tuple) else result
+
+            if atoms is not None:
+                self.fromase(atoms)
         
         def __del__(self):
             """

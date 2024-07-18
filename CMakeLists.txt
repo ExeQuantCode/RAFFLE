@@ -70,7 +70,7 @@ set(LIB_FILES
   mod_misc.f90
 	mod_misc_maths.f90
 	mod_misc_linalg.f90
-	mod_rw_geom.f90
+	# mod_rw_geom.f90
 	mod_rw_vasprun.f90
 	mod_edit_geom.f90
 	mod_elements.f90
@@ -81,7 +81,7 @@ set(LIB_FILES
 )
 
 set(SPECIAL_LIB_FILES
-  # mod_rw_geom.f90
+  mod_rw_geom.f90
   mod_generator.f90
   # mod_generator_sub.f90
 )

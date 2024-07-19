@@ -201,6 +201,7 @@ module evolver
     if(allocated(this%total%df_3body)) deallocate(this%total%df_3body)
     if(allocated(this%total%df_4body)) deallocate(this%total%df_4body)
     call this%add(basis_list)
+    call this%set_bond_info()
     call this%evolve()
     
   end subroutine create
@@ -217,6 +218,7 @@ module evolver
 
     
     call this%add(basis_list)
+    call this%set_bond_info()
     call this%evolve()
     
   end subroutine update

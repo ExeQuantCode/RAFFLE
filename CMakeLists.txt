@@ -74,7 +74,7 @@ set(LIB_FILES
 	mod_rw_vasprun.f90
 	mod_edit_geom.f90
 	mod_elements.f90
-	mod_evolver.f90
+	# mod_evolver.f90
 	mod_buildmap.f90
 	mod_atom_adder.f90
 	mod_read_structures.f90
@@ -82,6 +82,7 @@ set(LIB_FILES
 
 set(SPECIAL_LIB_FILES
   mod_rw_geom.f90
+  mod_evolver.f90
   mod_generator.f90
   # mod_generator_sub.f90
 )
@@ -247,7 +248,7 @@ if (BUILD_PYTHON)
         -m ${PROJECT_NAME}
         -k ${KIND_MAP}
         ${F90WRAP_FORTRAN_SRC_FILES}
-        --only raffle_generator_type stoichiometry_type bas_type:
+        --only raffle_generator_type stoichiometry_type bas_type gvector_container_type:
         DEPENDS ${F90WRAP_FORTRAN_SRC_FILES}
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
         COMMENT "Generating f90wrap signature file"

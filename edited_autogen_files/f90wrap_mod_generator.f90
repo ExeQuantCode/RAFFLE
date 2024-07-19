@@ -541,15 +541,12 @@ subroutine f90wrap_generator__generate__binding__rgt( &
     real(4), intent(in), optional, dimension(n0) :: method_probab
     integer :: n0
     !f2py intent(hide), depend(method_probab) :: n0 = shape(method_probab,0)
-    write(*,*) "in generate"
     this_ptr = transfer(this, this_ptr)
     stoichiometry_ptr = transfer(stoichiometry, stoichiometry_ptr)
     if(present(method_probab)) then
-        write(*,*) "method_probab present"
         call this_ptr%p%generate(num_structures=num_structures, stoichiometry=stoichiometry_ptr%p%items, &
             method_probab=method_probab)
     else
-        write(*,*) "method_probab not present"
         call this_ptr%p%generate(num_structures=num_structures, stoichiometry=stoichiometry_ptr%p%items)
     end if
 end subroutine f90wrap_generator__generate__binding__rgt

@@ -611,8 +611,6 @@ end subroutine f90wrap_rw_geom__bas_type_xnum_array_finalise
 
 
 
-
-
 subroutine f90wrap_rw_geom__allocate_species__binding__bas_type( &
        this, num_species, species_symbols, species_count, atoms, n0, &
        n1, n2, n3)
@@ -644,112 +642,6 @@ subroutine f90wrap_rw_geom__allocate_species__binding__bas_type( &
          atoms=atoms &
     )
 end subroutine f90wrap_rw_geom__allocate_species__binding__bas_type
-
-! subroutine f90wrap_rw_geom__geom_read(unit, lat, bas, length)
-!     use rw_geom, only: geom_read, bas_type
-!     implicit none
-    
-!     type bas_type_ptr_type
-!         type(bas_type), pointer :: p => NULL()
-!     end type bas_type_ptr_type
-!     integer :: unit
-!     !f2py intent(inout) unit
-!     real(4), dimension(3,3) :: lat
-!     !f2py intent(inout) lat
-!     type(bas_type_ptr_type) :: bas_ptr
-!     integer, intent(in), dimension(2) :: bas
-!     integer, optional, intent(in) :: length
-!     bas_ptr = transfer(bas, bas_ptr)
-!     call geom_read(UNIT=unit, lat=lat, bas=bas_ptr%p, length=length)
-! end subroutine f90wrap_rw_geom__geom_read
-
-! subroutine f90wrap_rw_geom__geom_write(unit, lat, bas)
-!     use rw_geom, only: bas_type, geom_write
-!     implicit none
-    
-!     type bas_type_ptr_type
-!         type(bas_type), pointer :: p => NULL()
-!     end type bas_type_ptr_type
-!     integer :: unit
-!     !f2py intent(inout) unit
-!     real(4), dimension(3,3) :: lat
-!     !f2py intent(inout) lat
-!     type(bas_type_ptr_type) :: bas_ptr
-!     integer, intent(in), dimension(2) :: bas
-!     bas_ptr = transfer(bas, bas_ptr)
-!     call geom_write(UNIT=unit, lat=lat, bas=bas_ptr%p)
-! end subroutine f90wrap_rw_geom__geom_write
-
-! subroutine f90wrap_rw_geom__convert_bas(inbas, ret_outbas, latconv)
-!     use rw_geom, only: convert_bas, bas_type
-!     implicit none
-    
-!     type bas_type_ptr_type
-!         type(bas_type), pointer :: p => NULL()
-!     end type bas_type_ptr_type
-!     type(bas_type_ptr_type) :: inbas_ptr
-!     integer, intent(in), dimension(2) :: inbas
-!     type(bas_type_ptr_type) :: ret_outbas_ptr
-!     integer, intent(out), dimension(2) :: ret_outbas
-!     real(4), dimension(3,3), intent(in) :: latconv
-!     inbas_ptr = transfer(inbas, inbas_ptr)
-!     allocate(ret_outbas_ptr%p)
-!     ret_outbas_ptr%p = convert_bas(inbas=inbas_ptr%p, latconv=latconv)
-!     ret_outbas = transfer(ret_outbas_ptr, ret_outbas)
-! end subroutine f90wrap_rw_geom__convert_bas
-
-! subroutine f90wrap_rw_geom__clone_bas(inbas, outbas, inlat, outlat, trans_dim)
-!     use rw_geom, only: clone_bas, bas_type
-!     implicit none
-    
-!     type bas_type_ptr_type
-!         type(bas_type), pointer :: p => NULL()
-!     end type bas_type_ptr_type
-!     type(bas_type_ptr_type) :: inbas_ptr
-!     integer, intent(in), dimension(2) :: inbas
-!     type(bas_type_ptr_type) :: outbas_ptr
-!     integer, intent(in), dimension(2) :: outbas
-!     real(4), dimension(3,3), optional :: inlat
-!     !f2py intent(inout) inlat
-!     real(4), dimension(3,3), optional :: outlat
-!     !f2py intent(inout) outlat
-!     logical, optional, intent(in) :: trans_dim
-!     inbas_ptr = transfer(inbas, inbas_ptr)
-!     outbas_ptr = transfer(outbas, outbas_ptr)
-!     call clone_bas(inbas=inbas_ptr%p, outbas=outbas_ptr%p, inlat=inlat, outlat=outlat, trans_dim=trans_dim)
-! end subroutine f90wrap_rw_geom__clone_bas
-
-! subroutine f90wrap_rw_geom__get__igeom_input(f90wrap_igeom_input)
-!     use rw_geom, only: rw_geom_igeom_input => igeom_input
-!     implicit none
-!     integer, intent(out) :: f90wrap_igeom_input
-    
-!     f90wrap_igeom_input = rw_geom_igeom_input
-! end subroutine f90wrap_rw_geom__get__igeom_input
-
-! subroutine f90wrap_rw_geom__set__igeom_input(f90wrap_igeom_input)
-!     use rw_geom, only: rw_geom_igeom_input => igeom_input
-!     implicit none
-!     integer, intent(in) :: f90wrap_igeom_input
-    
-!     rw_geom_igeom_input = f90wrap_igeom_input
-! end subroutine f90wrap_rw_geom__set__igeom_input
-
-! subroutine f90wrap_rw_geom__get__igeom_output(f90wrap_igeom_output)
-!     use rw_geom, only: rw_geom_igeom_output => igeom_output
-!     implicit none
-!     integer, intent(out) :: f90wrap_igeom_output
-    
-!     f90wrap_igeom_output = rw_geom_igeom_output
-! end subroutine f90wrap_rw_geom__get__igeom_output
-
-! subroutine f90wrap_rw_geom__set__igeom_output(f90wrap_igeom_output)
-!     use rw_geom, only: rw_geom_igeom_output => igeom_output
-!     implicit none
-!     integer, intent(in) :: f90wrap_igeom_output
-    
-!     rw_geom_igeom_output = f90wrap_igeom_output
-! end subroutine f90wrap_rw_geom__set__igeom_output
 
 ! End of module rw_geom defined in file ../src/lib/mod_rw_geom.f90
 

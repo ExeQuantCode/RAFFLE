@@ -120,7 +120,7 @@ contains
 
 
     !! open file containing element bond data
-    open(newunit=unit, file=file, status="old")
+    open(newunit=unit, file=file_, status="old")
     read(unit, *) buffer
     if(  index(trim(adjustl(buffer)),"#").ne.1 .and. &
          index(trim(adjustl(buffer)),"element_1").eq.0)then

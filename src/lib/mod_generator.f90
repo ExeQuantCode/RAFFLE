@@ -360,6 +360,7 @@ module generator
        end if
 
     end do placement_loop
+    deallocate(viable_gridpoints)
 
   end function generate_structure
 

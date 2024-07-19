@@ -259,7 +259,7 @@ if (BUILD_PYTHON)
     add_custom_command(
         TARGET ${PROJECT_NAME}
         POST_BUILD
-        COMMAND cp ${CMAKE_CURRENT_LIST_DIR}/edited_autogen_files/* ${CMAKE_BINARY_DIR}
+        COMMAND cp ${CMAKE_CURRENT_LIST_DIR}/src/wrapper/* ${CMAKE_BINARY_DIR}
         COMMENT "Copying f90wrap edited files"
     )
 

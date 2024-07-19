@@ -287,13 +287,12 @@ contains
 !!!#############################################################################
 !!! returns minimum bond within bulk
 !!!#############################################################################
-  function get_min_bulk_bond(lat,bas) result(min_bond)
+  function get_min_bulk_bond(bas) result(min_bond)
     implicit none
     integer :: is,ia,js,ja
     real(real12) :: dtmp1,min_bond
     type(bas_type) :: bas
     real(real12), dimension(3) :: vdtmp1
-    real(real12), dimension(3,3) :: lat
 
 
     min_bond=huge(0._real12)
@@ -305,9 +304,9 @@ contains
                 if(is.eq.js.and.ia.eq.ja) cycle atmloop
                 vdtmp1 = bas%spec(js)%atom(ja,:3) - bas%spec(is)%atom(ia,:3)
                 vdtmp1 = &
-                     vdtmp1(1)*lat(1,:3) + &
-                     vdtmp1(2)*lat(2,:3) + &
-                     vdtmp1(3)*lat(3,:3)
+                     vdtmp1(1)*bas%lat(1,:3) + &
+                     vdtmp1(2)*bas%lat(2,:3) + &
+                     vdtmp1(3)*bas%lat(3,:3)
                 dtmp1 = modu(vdtmp1)
                 if(dtmp1.lt.min_bond) min_bond = dtmp1
              end do atmloop
@@ -324,7 +323,7 @@ contains
 !!!#############################################################################
 !!! returns minimum bond for a specified atom
 !!!#############################################################################
-  function get_min_bond(lat,bas,is,ia,axis,labove,tol) result(vsave)
+  function get_min_bond(bas,is,ia,axis,labove,tol) result(vsave)
     implicit none
     integer :: js,ja
     integer :: axis_
@@ -334,7 +333,6 @@ contains
 
     integer, intent(in) :: is,ia
     type(bas_type), intent(in) :: bas
-    real(real12), dimension(3,3), intent(in) :: lat
 
     integer, intent(in), optional :: axis
     real(real12), intent(in), optional :: tol
@@ -373,9 +371,9 @@ contains
              end if
           end if
           vdtmp1 = &
-               vdtmp1(1)*lat(1,:3) + &
-               vdtmp1(2)*lat(2,:3) + &
-               vdtmp1(3)*lat(3,:3)
+               vdtmp1(1)*bas%lat(1,:3) + &
+               vdtmp1(2)*bas%lat(2,:3) + &
+               vdtmp1(3)*bas%lat(3,:3)
           dtmp1 = modu(vdtmp1)
           if(dtmp1.lt.min_bond)then
              min_bond = dtmp1
@@ -392,7 +390,7 @@ contains
 !!!#############################################################################
 !!! returns minimum bond for a specified atom
 !!!#############################################################################
-  function get_min_dist(lat,bas,loc,lignore_close,axis,labove,lreal,tol, &
+  function get_min_dist(bas,loc,lignore_close,axis,labove,lreal,tol, &
        ignore_list) result(output)
     implicit none
     integer :: js,ja,i
@@ -405,7 +403,6 @@ contains
     logical, intent(in) :: lignore_close
     type(bas_type), intent(in) :: bas
     real(real12), dimension(3), intent(in) :: loc
-    real(real12), dimension(3,3), intent(in) :: lat
 
     integer, intent(in), optional :: axis
     real(real12), intent(in), optional :: tol
@@ -442,7 +439,7 @@ contains
           else
              vdtmp1 = vdtmp1 - ceiling(vdtmp1 - 0.5_real12)
           end if
-          vdtmp2 = matmul(vdtmp1,lat)
+          vdtmp2 = matmul(vdtmp1,bas%lat)
           dtmp1 = modu(vdtmp2)
           if(dtmp1.lt.min_bond)then
              min_bond = dtmp1
@@ -462,12 +459,11 @@ contains
 !!!#############################################################################
 !!! get the shortest distance between two atoms in a periodic cell
 !!!#############################################################################
-  pure function get_min_dist_between_two_atoms(lat,bas,atom_1,atom_2) &
+  pure function get_min_dist_between_two_atoms(bas,atom_1,atom_2) &
        result(dist)
     implicit none
     type(bas_type), intent(in) :: bas
     integer, dimension(2), intent(in) :: atom_1,atom_2
-    real(real12), dimension(3,3), intent(in) :: lat
     real(real12) :: dist
  
     real(real12), dimension(3) :: vec
@@ -475,7 +471,7 @@ contains
     vec = bas%spec(atom_2(1))%atom(atom_2(2),:3) - &
           bas%spec(atom_1(1))%atom(atom_1(2),:3)
     vec = vec - ceiling(vec - 0.5_real12)
-    vec = matmul(vec,lat)
+    vec = matmul(vec,bas%lat)
     dist = modu(vec)
  
   end function get_min_dist_between_two_atoms
@@ -485,20 +481,19 @@ contains
 !!!#############################################################################
 !!! get the shortest distance between a point and an atom in a periodic cell
 !!!#############################################################################
-  pure function get_min_dist_between_point_and_atom(lat,bas,loc,atom) &
+  pure function get_min_dist_between_point_and_atom(bas,loc,atom) &
        result(dist)
     implicit none
     type(bas_type), intent(in) :: bas
     integer, dimension(2), intent(in) :: atom
     real(real12), dimension(3), intent(in) :: loc
-    real(real12), dimension(3,3), intent(in) :: lat
     real(real12) :: dist
 
     real(real12), dimension(3) :: vec
 
     vec = loc - bas%spec(atom(1))%atom(atom(2),:3)
     vec = vec - ceiling(vec - 0.5_real12)
-    vec = matmul(vec,lat)
+    vec = matmul(vec,bas%lat)
     dist = modu(vec)
 
   end function get_min_dist_between_point_and_atom
@@ -508,7 +503,7 @@ contains
 !!!#############################################################################
 !!! identify the shortest bond in the crystal, takes in crystal basis
 !!!#############################################################################
-  function get_shortest_bond(lat,bas) result(bond)
+  function get_shortest_bond(bas) result(bond)
     implicit none
     integer :: is,js,ia,ja,ja_start
     real(real12) :: dist,min_bond
@@ -516,7 +511,6 @@ contains
     type(bond_type) :: bond
     real(real12), dimension(3) :: vec
     integer, dimension(2,2) :: atoms
-    real(real12), dimension(3,3) :: lat
     
     min_bond = 100._real12
     atoms = 0
@@ -531,7 +525,7 @@ contains
              do ja=ja_start,bas%spec(js)%num
                 vec = bas%spec(is)%atom(ia,:3) - bas%spec(js)%atom(ja,:3)
                 vec = vec - ceiling(vec - 0.5_real12)
-                vec = matmul(vec,lat)
+                vec = matmul(vec,bas%lat)
                 dist = modu(vec)
                 if(dist.lt.min_bond)then
                    min_bond = dist
@@ -560,11 +554,10 @@ contains
 !!!#############################################################################
 !!! get the neighbour fingerprint
 !!!#############################################################################
-  function get_neighbour_fingerprint(loc,lat,bas,cutoff,nbins,width) &
+  function get_neighbour_fingerprint(loc,bas,cutoff,nbins,width) &
       result(fingerprint)
     implicit none
     real(real12), dimension(3), intent(in) :: loc
-    real(real12), dimension(3,3), intent(in) :: lat
     type(bas_type), intent(in) :: bas
 
     integer, intent(in), optional :: nbins
@@ -604,9 +597,9 @@ contains
     !! this is not perfect
     !! won't work for extremely acute/obtuse angle cells
     !! (due to diagonal path being shorter than individual lattice vectors)
-    amax = ceiling(cutoff_/modu(lat(1,:)))
-    bmax = ceiling(cutoff_/modu(lat(2,:)))
-    cmax = ceiling(cutoff_/modu(lat(3,:)))
+    amax = ceiling(cutoff_/modu(bas%lat(1,:)))
+    bmax = ceiling(cutoff_/modu(bas%lat(2,:)))
+    cmax = ceiling(cutoff_/modu(bas%lat(3,:)))
 
     spec_loop: do is=1,bas%nspec
       atom_loop: do ia=1,bas%spec(is)%num
@@ -618,7 +611,7 @@ contains
             vtmp1(2) = diff(2) + real(j)
             do k=-cmax,cmax+1,1
               vtmp1(3) = diff(3) + real(k)
-              dtmp1 = modu(matmul(vtmp1,lat))
+              dtmp1 = modu(matmul(vtmp1,bas%lat))
               if(dtmp1.lt.cutoff_ + width_/2._real12)then
                 bin = nint(nbins_ * ( dtmp1 + width_/2._real12 ) / cutoff_)
                 if(bin.gt.nbins_) cycle
@@ -637,7 +630,7 @@ contains
 !!!#############################################################################
 !!! get the list of nearest neighbours
 !!!#############################################################################
-  function get_nearest_neighbours_atom(lat,bas,is,ia,max,cutoff) result(neighbour)
+  function get_nearest_neighbours_atom(bas,is,ia,max,cutoff) result(neighbour)
     implicit none
     integer :: i,j,k
     integer :: js,ja,dim,nneigh,natom,loc
@@ -648,7 +641,6 @@ contains
     real(real12), allocatable, dimension(:) :: sep_list
 
     integer, intent(in) :: is,ia
-    real(real12), dimension(3,3), intent(in) :: lat
     type(bas_type), intent(in) :: bas
     integer, intent(in), optional :: max
     real(real12), intent(in), optional :: cutoff
@@ -661,7 +653,7 @@ contains
        tol = 6._real12
     end if
     !! define these based on tol val
-    !! ... i.e. modu(lat(1,:)) compare to tol
+    !! ... i.e. modu(bas%lat(1,:)) compare to tol
     amax = 1
     bmax = 1
     cmax = 1
@@ -682,7 +674,7 @@ contains
                 vtmp1(2) = diff(2) + real(j)
                 do k=-cmax,cmax,1
                    vtmp1(3) = diff(3) + real(k)
-                   dtmp1 = modu(matmul(vtmp1,lat))
+                   dtmp1 = modu(matmul(vtmp1,bas%lat))
                    if(dtmp1.le.tol)then
                       nneigh = nneigh + 1
                       atom_list(nneigh,:2) = [js,ja]
@@ -721,13 +713,12 @@ contains
 !!!#############################################################################
 !!! get the list of nearest neighbours
 !!!#############################################################################
-  function get_nearest_neighbours_basis(lat,bas,max,cutoff) result(neighbour_table)
+  function get_nearest_neighbours_basis(bas,max,cutoff) result(neighbour_table)
     implicit none
     integer :: is,ia
     integer :: nmax
     real(real12) :: tol
     
-    real(real12), dimension(3,3), intent(in) :: lat
     type(bas_type), intent(in) :: bas
     integer, intent(in), optional :: max
     real(real12), intent(in), optional :: cutoff
@@ -754,7 +745,7 @@ contains
        allocate(neighbour_table(is)%atom(bas%spec(is)%num))
        do ia=1,bas%spec(is)%num
           neighbour_table(is)%atom(ia) = &
-               get_nearest_neighbours_atom(lat,bas,is,ia,nmax,tol)
+               get_nearest_neighbours_atom(bas,is,ia,nmax,tol)
        end do
     end do
 
@@ -774,11 +765,10 @@ contains
 !!! 2-body gvector radial descriptor
 !!!#############################################################################
 !!! Implementation follows original Behler and Parrinello paper
-  pure function get_gvector_2body(lat, bas, species_1, species_2, &
+  pure function get_gvector_2body(bas, species_1, species_2, &
        cutoff, nbins, width) &
        result(gvector)
     implicit none
-    real(real12), dimension(3,3), intent(in) :: lat
     type(bas_type), intent(in) :: bas
 
     integer, intent(in), optional :: nbins
@@ -849,9 +839,9 @@ contains
     !! this is not perfect
     !! won't work for extremely acute/obtuse angle cells
     !! (due to diagonal path being shorter than individual lattice vectors)
-    amax = ceiling(cutoff_/modu(lat(1,:)))
-    bmax = ceiling(cutoff_/modu(lat(2,:)))
-    cmax = ceiling(cutoff_/modu(lat(3,:)))
+    amax = ceiling(cutoff_/modu(bas%lat(1,:)))
+    bmax = ceiling(cutoff_/modu(bas%lat(2,:)))
+    cmax = ceiling(cutoff_/modu(bas%lat(3,:)))
 
     allocate(bond_list(0)) !if doesn't work, allocate a dummy bond first
     spec_loop1: do is=1,bas%nspec
@@ -869,7 +859,7 @@ contains
                       vtmp1(2) = diff(2) + real(j)
                       do k=-cmax,cmax+1,1
                          vtmp1(3) = diff(3) + real(k)
-                         rtmp1 = modu(matmul(vtmp1,lat))
+                         rtmp1 = modu(matmul(vtmp1,bas%lat))
                          if(rtmp1.lt.cutoff_ + width_/2._real12)then
                             bond_list = [ bond_list, bond_type([is,js],rtmp1) ]
                          end if
@@ -926,11 +916,10 @@ contains
 
   end function get_gvector_2body
 !!!-----------------------------------------------------------------------------
-  pure function get_gvector_2body_alt(lat, bas, species_1, species_2, &
+  pure function get_gvector_2body_alt(bas, species_1, species_2, &
        cutoff, nbins, width) &
        result(gvector)
     implicit none
-    real(real12), dimension(3,3), intent(in) :: lat
     type(bas_type), intent(in) :: bas
 
     integer, intent(in), optional :: nbins
@@ -986,9 +975,9 @@ contains
     !! this is not perfect
     !! won't work for extremely acute/obtuse angle cells
     !! (due to diagonal path being shorter than individual lattice vectors)
-    amax = ceiling(cutoff_/modu(lat(1,:)))
-    bmax = ceiling(cutoff_/modu(lat(2,:)))
-    cmax = ceiling(cutoff_/modu(lat(3,:)))
+    amax = ceiling(cutoff_/modu(bas%lat(1,:)))
+    bmax = ceiling(cutoff_/modu(bas%lat(2,:)))
+    cmax = ceiling(cutoff_/modu(bas%lat(3,:)))
 
     allocate(bond_list(0)) !if doesn't work, allocate a dummy bond first
     atom_loop1: do ia=1,bas%spec(species_1_num)%num
@@ -1003,7 +992,7 @@ contains
                 vtmp1(2) = diff(2) + real(j)
                 do k=-cmax,cmax+1,1
                    vtmp1(3) = diff(3) + real(k)
-                   rtmp1 = modu(matmul(vtmp1,lat))
+                   rtmp1 = modu(matmul(vtmp1,bas%lat))
                    if(rtmp1.lt.cutoff_ + width_/2._real12)then
                       bond_list = [ bond_list, rtmp1 ]
                    end if
@@ -1054,12 +1043,11 @@ contains
 !!!#############################################################################
 !!! implemented as is done by Bircher et al. in their 2021 paper
 !!! https://doi.org/10.1088/2632-2153/abf817
-  pure function get_gvector_3body(lat, bas, species_1, x_min, x_max, &
+  pure function get_gvector_3body(bas, species_1, x_min, x_max, &
        theta_min, theta_max, &
        nbins, width) &
        result(gvector)
     implicit none
-    real(real12), dimension(3,3), intent(in) :: lat
     type(bas_type), intent(in) :: bas
 
     integer, intent(in), optional :: nbins
@@ -1119,9 +1107,9 @@ contains
     !! this is not perfect
     !! won't work for extremely acute/obtuse angle cells
     !! (due to diagonal path being shorter than individual lattice vectors)
-    amax = ceiling(cutoff/modu(lat(1,:)))
-    bmax = ceiling(cutoff/modu(lat(2,:)))
-    cmax = ceiling(cutoff/modu(lat(3,:)))
+    amax = ceiling(cutoff/modu(bas%lat(1,:)))
+    bmax = ceiling(cutoff/modu(bas%lat(2,:)))
+    cmax = ceiling(cutoff/modu(bas%lat(3,:)))
 
     atom_loop1: do ia=1,bas%spec(is)%num
        allocate(bond_list(0))
@@ -1136,7 +1124,7 @@ contains
                    vtmp1(2) = diff(2) + real(j)
                    do k=-cmax,cmax+1,1
                       vtmp1(3) = diff(3) + real(k)
-                      vector = matmul(vtmp1,lat)
+                      vector = matmul(vtmp1,bas%lat)
                       rtmp1 = modu(vector)
                       if(rtmp1.lt.x_min.or.rtmp1.gt.x_max) cycle
                       bond_list = [ bond_list, bond_type(vector) ]
@@ -1275,7 +1263,7 @@ contains
 !!! Adjusts the amount of vacuum at a location ...
 !!! ... within a cell and adjusts the basis accordingly
 !!!#############################################################################
-  subroutine vacuumer(lat,bas,axis,loc,add,otol)
+  subroutine vacuumer(bas,axis,loc,add,otol)
     implicit none
     integer :: is,ia
     integer, intent(in) :: axis
@@ -1284,23 +1272,22 @@ contains
     real(real12), intent(in) :: add,loc
     type(bas_type) :: bas
     real(real12), optional :: otol
-    real(real12),dimension(3,3) :: lat
 
 
     tol=1.E-5
     inc=add
     if(present(otol)) tol=otol
     cur_vac=min_dist(bas,axis,loc,.true.)-min_dist(bas,axis,loc,.false.)
-    cur_vac=cur_vac*modu(lat(axis,:))
+    cur_vac=cur_vac*modu(bas%lat(axis,:))
     diff=cur_vac+inc
     if(diff.lt.0._real12)then
        write(0,*) "WARNING! Removing vacuum entirely"
     end if
 
-    mag_old=modu(lat(axis,:))
+    mag_old=modu(bas%lat(axis,:))
     mag_new=(mag_old+inc)/mag_old
-    lat(axis,:)=lat(axis,:)*mag_new
-    inc=inc/modu(lat(axis,:))
+    bas%lat(axis,:)=bas%lat(axis,:)*mag_new
+    inc=inc/modu(bas%lat(axis,:))
     tol=tol/mag_old
     tloc=loc/mag_new+tol
 
@@ -1323,7 +1310,7 @@ contains
 !!! Adjusts the amount of vacuum at a location ...
 !!! ... within a cell and adjusts the basis accordingly
 !!!#############################################################################
-  subroutine set_vacuum(lat,bas,axis,loc,vac,otol)
+  subroutine set_vacuum(bas,axis,loc,vac,otol)
     implicit none
     integer :: is,ia
     integer, intent(in) :: axis
@@ -1332,7 +1319,6 @@ contains
     real(real12), intent(in) :: vac,loc
     type(bas_type) :: bas
     real(real12), optional :: otol
-    real(real12),dimension(3,3) :: lat
 
 
     tol=0._real12
@@ -1341,13 +1327,13 @@ contains
        write(0,*) "WARNING! Removing vacuum entirely"
     end if
     cur_vac=min_dist(bas,axis,loc,.true.)-min_dist(bas,axis,loc,.false.)
-    cur_vac=cur_vac*modu(lat(axis,:))
+    cur_vac=cur_vac*modu(bas%lat(axis,:))
     diff=vac-cur_vac
 
-    mag_old=modu(lat(axis,:))
+    mag_old=modu(bas%lat(axis,:))
     mag_new=(mag_old+diff)/mag_old
-    lat(axis,:)=lat(axis,:)*mag_new
-    diff=diff/modu(lat(axis,:))
+    bas%lat(axis,:)=bas%lat(axis,:)*mag_new
+    diff=diff/modu(bas%lat(axis,:))
     tol=tol/mag_old
     tloc=loc/mag_new+tol
 
@@ -1371,26 +1357,26 @@ contains
 !!! Takes a lattice and makes the define axis orthogonal to the other two
 !!! WARNING! THIS IS FOR SLAB STRUCTURES! IT REMOVES PERIODICITY ALONG THAT AXIS
 !!!#############################################################################
-  subroutine ortho_axis(lat,bas,axis)
+  subroutine ortho_axis(bas,axis)
     implicit none
     integer :: axis
     real(real12) :: ortho_comp
     type(bas_type) :: bas
     integer, dimension(3) :: order
     real(real12), dimension(3) :: ortho_vec
-    real(real12), dimension(3,3) :: invlat,lat
+    real(real12), dimension(3,3) :: invlat
 
 
-    bas=convert_bas(bas,transpose(lat))
+    bas=convert_bas(bas,transpose(bas%lat))
     order=(/1,2,3/)
     order=cshift(order,3-axis)
 
-    ortho_vec=cross(lat(order(1),:),lat(order(2),:))
-    ortho_comp=dot_product(lat(3,:),ortho_vec)/modu(ortho_vec)**2._real12
+    ortho_vec=cross(bas%lat(order(1),:),bas%lat(order(2),:))
+    ortho_comp=dot_product(bas%lat(3,:),ortho_vec)/modu(ortho_vec)**2._real12
     ortho_vec=ortho_vec*ortho_comp
 
-    lat(3,:)=ortho_vec
-    invlat=inverse_3x3(lat)
+    bas%lat(3,:)=ortho_vec
+    invlat=inverse_3x3(bas%lat)
     bas=convert_bas(bas,transpose(invlat))
 
 
@@ -1403,7 +1389,7 @@ contains
 !!! Applies a transformation matrix to a lattice ...
 !!! ... and extends the basis where needed
 !!!#############################################################################
-  subroutine transformer(lat,bas,tfmat,map)
+  subroutine transformer(bas,tfmat,map)
     implicit none
     integer :: i,j,k,l,m,n,is,ia
     integer :: satom,dim
@@ -1415,22 +1401,22 @@ contains
     integer, allocatable, dimension(:) :: tmp_map_atom
     integer, allocatable, dimension(:,:,:) :: new_map
     real(real12), allocatable, dimension(:,:) :: tmpbas
-    real(real12), dimension(3,3) :: lat,slat,tfmat,invmat
+    real(real12), dimension(3,3) :: slat,tfmat,invmat
 
     integer, allocatable, dimension(:,:,:), optional, intent(inout) :: map
 
-    vol_inc = abs(det(lat))
+    vol_inc = abs(det(bas%lat))
     if(vol_inc.lt.0.5_real12)then
        write(0,'(1X,"ERROR: Internal error in transformer function")')
        write(0,'(2X,"transformer in mod_edit_geom.f90 been supplied a&
             & lattice with almost zero determinant")')
        write(0,'(2X,"determinant = ",F0.9)') vol_inc
-       write(0,'(3(1X,F7.2))') lat
+       write(0,'(3(1X,F7.2))') bas%lat
        stop
     end if
     call normalise_basis(bas,1._real12,lfloor=.true.,lround=.false.)
     vol_inc=abs(det(tfmat))
-    slat=matmul(tfmat,lat)
+    slat=matmul(tfmat,bas%lat)
     invmat=inverse_3x3(tfmat)
     translvec=0._real12
     dim=size(bas%spec(1)%atom(1,:))
@@ -1528,6 +1514,7 @@ contains
     sbas%sysname=bas%sysname
     sbas%nspec=0
     sbas%natom=0
+    sbas%lat = slat
     spec_loop1: do is=1,bas%nspec
        if(allocated(tmpbas)) deallocate(tmpbas)
        allocate(tmpbas(bas%spec(is)%num*(&
@@ -1604,7 +1591,7 @@ contains
           write(0,*) bas%natom,nint(vol_inc)
           write(0,'(3(1X,F7.2))') tfmat
           open(60,file="broken_cell.vasp")
-          call geom_write(60,slat,sbas)
+          call geom_write(60,sbas)
           close(60)
           stop
        end if
@@ -1614,7 +1601,7 @@ contains
     !!--------------------------------------------------------------------------
     !! saves new lattice and basis to original set
     !!--------------------------------------------------------------------------
-    lat=slat
+    bas%lat=slat
     deallocate(bas%spec)
     allocate(bas%spec(sbas%nspec))
     bas%sysname=sbas%sysname
@@ -1658,12 +1645,12 @@ contains
 !!!#############################################################################
 !!! rotates a region along an axis about that axis
 !!!#############################################################################
-  subroutine region_rot(bas,lat,angle,axis,bound1,bound2,tvec)
+  subroutine region_rot(bas,angle,axis,bound1,bound2,tvec)
     implicit none
     integer :: axis,i,j
     real(real12) :: angle,bound1,bound2
     real(real12), dimension(3) :: u,centre
-    real(real12), dimension(3,3) :: rotmat,ident,lat,invlat
+    real(real12), dimension(3,3) :: rotmat,ident,invlat
     type(bas_type) :: bas
     real(real12), optional, dimension(3) :: tvec
 
@@ -1684,8 +1671,8 @@ contains
 
 
 !!! Transform the rotation matrix into direct space
-    invlat=LUinv(lat)
-    rotmat=matmul(lat,rotmat)
+    invlat=LUinv(bas%lat)
+    rotmat=matmul(bas%lat,rotmat)
     rotmat=matmul(rotmat,invlat)
 
 
@@ -1890,11 +1877,11 @@ contains
 !!!#############################################################################
 !!! Uses Buerger's algorithm to reduce cell.
 !!!#############################################################################
-  subroutine reducer(lat,bas,tmptype,ltmp)
+  subroutine reducer(bas,tmptype,ltmp)
     implicit none
     integer :: cell_type
     integer :: i,j,k,count,limit
-    real(real12), dimension(3,3) :: lat,newlat,transmat,S,tmp_mat
+    real(real12), dimension(3,3) :: newlat,transmat,S,tmp_mat
     real(real12) :: tiny,pi,pi2
     logical :: verb,lreduced
     integer, optional :: tmptype
@@ -1914,14 +1901,14 @@ contains
     count=0
     limit=100
     lreduced=.false.
-    tiny=1E-5*(get_vol(lat))**(1.E0/3.E0)
+    tiny=1E-5*(get_vol(bas%lat))**(1.E0/3.E0)
     pi=4._real12*atan(1._real12)
     pi2=2._real12*atan(1._real12)
     transmat=0._real12
     do i=1,3
        transmat(i,i)=1._real12
     end do
-    newlat=lat
+    newlat=bas%lat
 
 
 !!!-----------------------------------------------------------------------------
@@ -1929,7 +1916,7 @@ contains
 !!!-----------------------------------------------------------------------------
     find_reduced: do while(.not.lreduced)
        count=count+1
-       call mkNiggli_lat(lat,newlat,transmat,S)
+       call mkNiggli_lat(bas%lat,newlat,transmat,S)
        lreduced=reduced_check(newlat,cell_type,S)
        if(lreduced) exit
        if(verb) then
@@ -1953,7 +1940,7 @@ contains
              call swap(transmat(i,:),transmat(j,:))
              transmat=-transmat
              if(i.eq.2) cycle find_reduced
-             call mkNiggli_lat(lat,newlat,transmat,S)
+             call mkNiggli_lat(bas%lat,newlat,transmat,S)
           end if
        end do
 
@@ -1966,7 +1953,7 @@ contains
        if(i*j*k.gt.0) then
           tmp_mat=reshape((/i,0,0,  0,j,0,  0,0,k/),shape(tmp_mat))
           transmat=matmul(transpose(tmp_mat),transmat)
-          call mkNiggli_lat(lat,newlat,transmat,S)
+          call mkNiggli_lat(bas%lat,newlat,transmat,S)
        end if
 
 
@@ -1978,7 +1965,7 @@ contains
        if(i*j*k.gt.0) then
           tmp_mat=reshape((/i,0,0,  0,j,0,  0,0,k/),shape(tmp_mat))
           transmat=matmul(transpose(tmp_mat),transmat)
-          call mkNiggli_lat(lat,newlat,transmat,S)
+          call mkNiggli_lat(bas%lat,newlat,transmat,S)
        end if
 
 
@@ -2046,7 +2033,7 @@ contains
        tmp_mat=reshape((/-1,0,0,  0,-1,0,  0,0,-1/),shape(tmp_mat))
        transmat=matmul(transpose(tmp_mat),transmat)
     end if
-    call mkNiggli_lat(lat,newlat,transmat,S)
+    call mkNiggli_lat(bas%lat,newlat,transmat,S)
     lreduced=reduced_check(newlat,cell_type,S,"n")
     if(verb) then
        write(67,*) lreduced
@@ -2057,7 +2044,7 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! Renormalises the lattice and basis into the new lattice
 !!!-----------------------------------------------------------------------------
-    lat=newlat
+    bas%lat=newlat
     do i=1,bas%nspec
        do j=1,bas%spec(i)%num
           bas%spec(i)%atom(j,:3)=&
@@ -2442,7 +2429,7 @@ contains
 !!! merges two supplied bases and lattices
 !!! Does so by stitching one onto the top of the other
 !!!#############################################################################
-  subroutine bas_lat_merge(merglat,mergbas,inlat1,inlat2,inbas1,inbas2,axis,inoffset,map1,map2)
+  subroutine bas_lat_merge(mergbas,inbas1,inbas2,axis,inoffset,map1,map2)
     implicit none
     integer :: i,k,axis
     real(real12) :: c1_ratio,c2_ratio,add,loc,zgap
@@ -2451,8 +2438,7 @@ contains
     integer, dimension(3) :: order
     real(real12), dimension(3) :: unit_vec,offset
     real(real12), dimension(3), intent(in) :: inoffset
-    real(real12), dimension(3,3) :: merglat,lat1,lat2
-    real(real12), dimension(3,3), intent(in) :: inlat1,inlat2
+    real(real12), dimension(3,3) :: merglat
 
     integer, allocatable, dimension(:,:,:), optional, intent(inout) :: map1,map2
 
@@ -2464,18 +2450,18 @@ contains
        deallocate(mergbas%spec)
     end if
 
-    call clone_bas(inbas1,bas1,inlat1,lat1)
-    call clone_bas(inbas2,bas2,inlat2,lat2)
+    call clone_bas(inbas1,bas1)
+    call clone_bas(inbas2,bas2)
 !!!-----------------------------------------------------------------------------
 !!! Shifts cells to 
 !!!-----------------------------------------------------------------------------
     loc=0._real12
-    lat1=MATNORM(lat1)
+    bas1%lat=MATNORM(bas1%lat)
     add=-min_dist(bas1,axis,loc,.true.)
     call shifter(bas1,axis,add,.true.)
 
     add=-min_dist(bas2,axis,loc,.true.)
-    lat2=MATNORM(lat2)
+    bas2%lat=MATNORM(bas2%lat)
     call shifter(bas2,axis,add,.true.)
 
 
@@ -2483,36 +2469,36 @@ contains
 !!! reduces vacuum between materials to desired sizes
 !!!-----------------------------------------------------------------------------
     loc=1._real12
-    call set_vacuum(lat1,bas1,axis,loc,offset(axis))
-    call set_vacuum(lat2,bas2,axis,loc,offset(axis))
+    call set_vacuum(bas1,axis,loc,offset(axis))
+    call set_vacuum(bas2,axis,loc,offset(axis))
 
     order=(/1,2,3/)
     order=cshift(order,3-axis)
     do k=1,2
-       offset(order(k))=offset(order(k))/modu(lat1(order(k),:))
+       offset(order(k))=offset(order(k))/modu(bas1%lat(order(k),:))
     end do
-    unit_vec=uvec(lat1(order(3),:))
+    unit_vec=uvec(bas1%lat(order(3),:))
     zgap=offset(order(3))/unit_vec(order(3))
     !!NOT SET UP OFFSET FEATURE MADE ABOVE!!! MIGHT BE FIXED NOW! NEED TO TEST
 
     !loc=1._real12
-    !add=zgap+min_dist(bas1,axis,loc)*modu(lat1(axis,:))
-    !call vacuumer(lat1,bas1,axis,loc,add)
+    !add=zgap+min_dist(bas1,axis,loc)*modu(bas1%lat(axis,:))
+    !call vacuumer(bas1,axis,loc,add)
 
-    !add=zgap+min_dist(bas2,axis,loc)*modu(lat2(axis,:))
-    !call vacuumer(lat2,bas2,axis,loc,add)
+    !add=zgap+min_dist(bas2,axis,loc)*modu(bas2%lat(axis,:))
+    !call vacuumer(bas2,axis,loc,add)
 
 
 !!!-----------------------------------------------------------------------------
 !!! makes supercell
 !!!-----------------------------------------------------------------------------
-    merglat(order(1),:)=lat1(order(1),:)
-    merglat(order(2),:)=lat1(order(2),:)
-    unit_vec=uvec(lat1(axis,:))
+    merglat(order(1),:)=bas1%lat(order(1),:)
+    merglat(order(2),:)=bas1%lat(order(2),:)
+    unit_vec=uvec(bas1%lat(axis,:))
     !  slat(axis,:)=lat1(axis,:) + ( modu(lat2(axis,:)) + zgap/unit_vec(axis) )*unit_vec
-    merglat(axis,:)=lat1(axis,:) + modu(lat2(axis,:))*unit_vec
-    c1_ratio=modu(lat1(axis,:))/modu(merglat(axis,:))
-    c2_ratio=modu(lat2(axis,:))/modu(merglat(axis,:))
+    merglat(axis,:)=bas1%lat(axis,:) + modu(bas2%lat(axis,:))*unit_vec
+    c1_ratio=modu(bas1%lat(axis,:))/modu(merglat(axis,:))
+    c2_ratio=modu(bas2%lat(axis,:))/modu(merglat(axis,:))
 
 
 !!!-----------------------------------------------------------------------------
@@ -2533,6 +2519,7 @@ contains
     else
        mergbas=bas_merge(bas1,bas2)
     end if
+    mergbas%lat=merglat
     call normalise_basis(mergbas,1._real12,.true.)
 
 
@@ -2672,7 +2659,7 @@ contains
 !!!#############################################################################
 !!! returns the bulk basis and lattice of 
 !!!#############################################################################
-  subroutine get_bulk(lat,bas,axis,bulk_lat,bulk_bas)
+  subroutine get_bulk(bas,axis,bulk_bas)
     implicit none
     integer :: is,ia,ja,len,itmp1
     integer :: minspecloc,minatomloc,nxtatomloc
@@ -2684,9 +2671,7 @@ contains
 
     integer, intent(in) :: axis
     type(bas_type), intent(in) :: bas
-    real(real12), dimension(3,3), intent(in):: lat
     type(bas_type), intent(out) :: bulk_bas
-    real(real12), dimension(3,3), intent(out) :: bulk_lat
 
 
     minspecloc = minloc(bas%spec(:)%num,mask=bas%spec(:)%num.ne.0,dim=1)
@@ -2767,11 +2752,11 @@ contains
     bulk_bas%sysname=bas%sysname
 
 
-    bulk_lat = lat
-    bulk_lat(axis,:) = matmul(transvec,lat)
+    bulk_bas%lat = bas%lat
+    bulk_bas%lat(axis,:) = matmul(transvec,bas%lat)
 
 
-    tf=matmul(inverse(bulk_lat),lat)
+    tf=matmul(inverse(bulk_bas%lat),bas%lat)
     write(0,*) tf
     call clone_bas(splitbas(1),bulk_bas)
     bulk_bas = convert_bas(splitbas(1),tf)
@@ -2876,14 +2861,13 @@ contains
   end function get_closest_atom_1D
 !!!-----------------------------------------------------
 !!!-----------------------------------------------------
-  function get_closest_atom_3D(lat,bas,loc,species) result(atom)
+  function get_closest_atom_3D(bas,loc,species) result(atom)
     implicit none
     integer :: is,ia
     integer :: is_start,is_end
     real(real12) :: dtmp1,dtmp2
     real(real12), dimension(3) :: vtmp1
     real(real12), dimension(3), intent(in) :: loc
-    real(real12), dimension(3,3), intent(in) :: lat
     integer, dimension(2) :: atom
     type(bas_type), intent(in) :: bas
 
@@ -2904,7 +2888,7 @@ contains
        atom_loop1: do ia=1,bas%spec(is)%num
           vtmp1 = bas%spec(is)%atom(ia,:) - loc
           vtmp1 = vtmp1 - ceiling(vtmp1 - 0.5_real12)
-          vtmp1 = matmul(vtmp1,lat)
+          vtmp1 = matmul(vtmp1,bas%lat)
           dtmp2 = modu(vtmp1)
           if(dtmp2.lt.dtmp1)then
              dtmp1=dtmp2
@@ -2921,7 +2905,7 @@ contains
 !!!#############################################################################
 !!! returns the largest vacumm gap in the cell along a specified axis
 !!!#############################################################################
-  function get_largest_gap(lat,bas,axis,tol,return_lower) result(gap)
+  function get_largest_gap(bas,axis,tol,return_lower) result(gap)
     implicit none
     integer :: i,init,iloc
     real(real12) :: dtmp1,max_sep,tol_
@@ -2931,7 +2915,6 @@ contains
 
     integer, intent(in) :: axis
     type(bas_type), intent(in) :: bas
-    real(real12), dimension(3,3), intent(in) :: lat
 
     real(real12), optional, intent(in) :: tol
     logical, optional, intent(in) :: return_lower

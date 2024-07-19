@@ -20,7 +20,7 @@ contains
 !!!#############################################################################
 !!! output = suitability of tested point
   pure function buildmap_POINT(gvector_container, &
-       position, lattice, basis, atom_ignore_list, &
+       position, basis, atom_ignore_list, &
        radius_list, uptol, lowtol) &
        result(output)
     implicit none
@@ -29,7 +29,6 @@ contains
     type(bas_type), intent(in) :: basis
     real(real12), dimension(3), intent(in) :: position
     integer, dimension(:,:), intent(in) :: atom_ignore_list
-    real(real12), dimension(3,3), intent(in) :: lattice
     real(real12), dimension(:), intent(in) :: radius_list
     real(real12) :: output
   
@@ -82,7 +81,7 @@ contains
          !!! ... above upper tolerance, and doesn't fall within 3- and 4-body ...
          !!! ... check requirements
     
-         bondlength = get_min_dist_between_point_and_atom(lattice, basis, &
+         bondlength = get_min_dist_between_point_and_atom(basis, &
               position, [is, ia])
 
          !! check if the bondlength is within the tolerance for bonds ...

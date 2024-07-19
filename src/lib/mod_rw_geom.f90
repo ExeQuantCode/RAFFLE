@@ -27,7 +27,6 @@ module rw_geom
 
 
   integer :: igeom_input=1,igeom_output=1
-  real(real12), dimension(3,3) :: lattice
 
   type spec_type
      real(real12), allocatable ,dimension(:,:) :: atom
@@ -48,7 +47,6 @@ module rw_geom
    contains
      procedure, pass(this) :: allocate_species
   end type bas_type
-  type(bas_type) :: basis
 
   
 
@@ -97,39 +95,35 @@ contains
 !!!#############################################################################
 !!! sets up the name of output files and subroutines to read files
 !!!#############################################################################
-  subroutine geom_read(UNIT,lat,bas,length)
+  subroutine geom_read(UNIT,basis,length)
     implicit none
-    integer :: UNIT,dim,i
-    type(bas_type) :: bas
-    real(real12), dimension(3,3) :: lat
+    integer, intent(in) :: UNIT
+    type(bas_type), intent(out) :: basis
     integer, optional, intent(in) :: length
 
-    lattice=0._real12
+    integer :: dim,i
+
     dim=3
     if(present(length)) dim=length
 
     select case(igeom_input)
     case(1)
-       call VASP_geom_read(UNIT,dim)
+       call VASP_geom_read(UNIT,basis,dim)
     case(2)
-       call CASTEP_geom_read(UNIT,dim)
+       call CASTEP_geom_read(UNIT,basis,dim)
     case(3)
-       call QE_geom_read(UNIT,dim)
+       call QE_geom_read(UNIT,basis,dim)
     case(4)
-       !call err_abort('ERROR: ARTEMIS not yet set up for CRYSTAL')
-       write(0,'("ERROR: ARTEMIS not yet set up for CRYSTAL")')
-       stop
+       stop "ERROR: Not yet set up for CRYSTAL"
     case(5)
-       call XYZ_geom_read(UNIT,dim)
+       call XYZ_geom_read(UNIT,basis,dim)
        write(0,'("WARNING: XYZ file format does not contain lattice data")')
     case(6)
-       call extXYZ_geom_read(UNIT,dim)
+       call extXYZ_geom_read(UNIT,basis,dim)
     end select
-    call clone_bas(basis,bas,lattice,lat)
-    deallocate(basis%spec)
     if(dim.eq.4)then
-       do i=1,bas%nspec
-          bas%spec(i)%atom(:,4)=1._real12
+       do i=1,basis%nspec
+         basis%spec(i)%atom(:,4)=1._real12
        end do
     end if
 
@@ -141,30 +135,28 @@ contains
 !!!#############################################################################
 !!! sets up the name of output files and subroutines to read files
 !!!#############################################################################
-  subroutine geom_write(UNIT,lat,bas)
+  subroutine geom_write(UNIT,basis)
     implicit none
-    integer :: UNIT
-    type(bas_type) :: bas
-    real(real12), dimension(3,3) :: lat
+    integer, intent(in) :: UNIT
+    type(bas_type), intent(in) :: basis
 
 !!! MAKE IT CHANGE HERE IF USER SPECIFIES LCART OR NOT
 !!! AND GIVE IT THE CASTEP AND QE OPTION OF LABC !!!
 
     select case(igeom_output)
     case(1)
-       call VASP_geom_write(UNIT,lat,bas)
+       call VASP_geom_write(UNIT,basis)
     case(2)
-       call CASTEP_geom_write(UNIT,lat,bas)
+       call CASTEP_geom_write(UNIT,basis)
     case(3)
-       call QE_geom_write(UNIT,lat,bas)
+       call QE_geom_write(UNIT,basis)
     case(4)
        write(0,'("ERROR: ARTEMIS not yet set up for CRYSTAL")')
        stop
-    case(5)
-       write(0,'("ERROR: XYZ format doesn''t need lattice")')       
-       call XYZ_geom_write(UNIT,bas)
+    case(5)   
+       call XYZ_geom_write(UNIT,basis)
     case(6)
-       call extXYZ_geom_write(UNIT,lat,bas)
+       call extXYZ_geom_write(UNIT,basis)
     end select
 
 
@@ -175,14 +167,17 @@ contains
 !!!#############################################################################
 !!! read the POSCAR or CONTCAR file
 !!!#############################################################################
- subroutine VASP_geom_read(UNIT,length)
+ subroutine VASP_geom_read(UNIT,basis,length)
    implicit none
-   integer :: UNIT,pos,count,Reason
+   integer, intent(in) :: UNIT
+   type(bas_type), intent(out) :: basis
+   integer, intent(in), optional :: length
+
+   integer :: pos,count,Reason
    real(real12) :: scal 
    character(len=100) :: lspec
    character(len=1024) :: buffer
    real(real12), dimension(3,3) :: reclat
-   integer, intent(in), optional :: length
    integer :: i,j,k,dim
 
 
@@ -211,9 +206,9 @@ contains
 !!! read lattice
 !!!-----------------------------------------------------------------------------
    do i=1,3
-      read(UNIT,*) (lattice(i,j),j=1,3)
+      read(UNIT,*) (basis%lat(i,j),j=1,3)
    end do
-   lattice=scal*lattice
+   basis%lat=scal*basis%lat
    
 
 !!!-----------------------------------------------------------------------------
@@ -273,7 +268,7 @@ contains
 !!! convert basis if in cartesian coordinates
 !!!-----------------------------------------------------------------------------
    if(basis%lcart)then
-      reclat=transpose(LUinv(lattice))*2._real12*pi
+      reclat=transpose(LUinv(basis%lat))*2._real12*pi
       basis=convert_bas(basis,reclat)
    end if
 
@@ -299,32 +294,33 @@ contains
 !!!#############################################################################
 !!! writes out the structure in vasp poscar style format
 !!!#############################################################################
- subroutine VASP_geom_write(UNIT,lat_write,bas_write,lcart)
+ subroutine VASP_geom_write(UNIT,basis,lcart)
    implicit none
-   integer :: i,j,UNIT
-   real(real12), dimension(3,3) :: lat_write
-   type(bas_type) :: bas_write
-   character(100) :: fmt,string
+   integer, intent(in) :: UNIT
+   type(bas_type), intent(in) :: basis
    logical, intent(in), optional :: lcart
+
+   integer :: i,j
+   character(100) :: fmt,string
 
    string="Direct"
    if(present(lcart))then
       if(lcart) string="Cartesian"
    end if
 
-   write(UNIT,'(A)') trim(adjustl(bas_write%sysname))
+   write(UNIT,'(A)') trim(adjustl(basis%sysname))
    write(UNIT,'(F15.9)') 1._real12
    do i=1,3
-      write(UNIT,'(3(F15.9))') lat_write(i,:)
+      write(UNIT,'(3(F15.9))') basis%lat(i,:)
    end do
-   write(fmt,'("(",I0,"(A,1X))")') bas_write%nspec
-   write(UNIT,trim(adjustl(fmt))) (adjustl(bas_write%spec(j)%name),j=1,bas_write%nspec)
-   write(fmt,'("(",I0,"(I0,5X))")') bas_write%nspec
-   write(UNIT,trim(adjustl(fmt))) (bas_write%spec(j)%num,j=1,bas_write%nspec)
+   write(fmt,'("(",I0,"(A,1X))")') basis%nspec
+   write(UNIT,trim(adjustl(fmt))) (adjustl(basis%spec(j)%name),j=1,basis%nspec)
+   write(fmt,'("(",I0,"(I0,5X))")') basis%nspec
+   write(UNIT,trim(adjustl(fmt))) (basis%spec(j)%num,j=1,basis%nspec)
    write(UNIT,'(A)') trim(adjustl(string))
-   do i=1,bas_write%nspec
-      do j=1,bas_write%spec(i)%num
-         write(UNIT,'(3(F15.9))') bas_write%spec(i)%atom(j,1:3)
+   do i=1,basis%nspec
+      do j=1,basis%spec(i)%num
+         write(UNIT,'(3(F15.9))') basis%spec(i)%atom(j,1:3)
       end do
    end do
    
@@ -336,11 +332,14 @@ contains
 !!!#############################################################################
 !!! read the QE geom file
 !!!#############################################################################
- subroutine QE_geom_read(UNIT,length)
+ subroutine QE_geom_read(UNIT,basis,length)
    implicit none
-   integer UNIT,Reason,i,j,k,dim,iline
-   integer, dimension(1000) :: tmp_natom
+   integer, intent(in) :: UNIT
+   type(bas_type), intent(out) :: basis
    integer, intent(in), optional :: length
+
+   integer Reason,i,j,k,dim,iline
+   integer, dimension(1000) :: tmp_natom
    real(real12), dimension(3) :: tmpvec
    real(real12), dimension(3,3) :: reclat
    character(len=5) :: ctmp
@@ -382,7 +381,7 @@ contains
       end if
    end do cellparam
    do i=1,3
-      read(UNIT,*) (lattice(i,j),j=1,3)
+      read(UNIT,*) (basis%lat(i,j),j=1,3)
    end do
 
 
@@ -451,7 +450,7 @@ contains
 !!! convert basis if in cartesian coordinates
 !!!-----------------------------------------------------------------------------
    if(basis%lcart)then
-      reclat=transpose(LUinv(lattice))*2._real12*pi
+      reclat=transpose(LUinv(basis%lat))*2._real12*pi
       basis=convert_bas(basis,reclat)
    end if
 
@@ -477,13 +476,14 @@ contains
 !!!#############################################################################
 !!! writes out the structure in QE geom style format
 !!!#############################################################################
- subroutine QE_geom_write(UNIT,lat_write,bas_write,lcart)
+ subroutine QE_geom_write(UNIT,basis,lcart)
    implicit none
-   integer :: i,j,UNIT
-   real(real12), dimension(3,3) :: lat_write
-   type(bas_type) :: bas_write
-   character(10) :: string
+   integer, intent(in) :: UNIT
+   type(bas_type), intent(in) :: basis
    logical, intent(in), optional :: lcart
+
+   integer :: i,j
+   character(10) :: string
 
    string="crystal"
    if(present(lcart))then
@@ -493,16 +493,17 @@ contains
 
    write(UNIT,'("CELL_PARAMETERS angstrom")')
    do i=1,3
-      write(UNIT,'(3(F15.9))') lat_write(i,:)
+      write(UNIT,'(3(F15.9))') basis%lat(i,:)
    end do
    write(UNIT,'("ATOMIC_SPECIES")')
-   do i=1,bas_write%nspec
-      write(UNIT,'(A)') trim(adjustl(bas_write%spec(i)%name))
+   do i=1,basis%nspec
+      write(UNIT,'(A)') trim(adjustl(basis%spec(i)%name))
    end do
    write(UNIT,'("ATOMIC_POSITIONS",1X,A)') trim(adjustl(string))
-   do i=1,bas_write%nspec
-      do j=1,bas_write%spec(i)%num
-         write(UNIT,'(A5,1X,3(F15.9))') bas_write%spec(i)%name,bas_write%spec(i)%atom(j,1:3)
+   do i=1,basis%nspec
+      do j=1,basis%spec(i)%num
+         write(UNIT,'(A5,1X,3(F15.9))') &
+              basis%spec(i)%name,basis%spec(i)%atom(j,1:3)
       end do
    end do
 
@@ -514,9 +515,13 @@ contains
 !!!#############################################################################
 !!! reads atoms from an CASTEP file
 !!!#############################################################################
- subroutine CASTEP_geom_read(UNIT,length)
+ subroutine CASTEP_geom_read(UNIT,basis,length)
    implicit none
-   integer :: UNIT,Reason,itmp1
+   integer, intent(in) :: UNIT
+   type(bas_type), intent(out) :: basis
+   integer, intent(in), optional :: length
+
+   integer :: Reason,itmp1
    integer :: i,j,k,dim,iline
    character(len=5) :: ctmp
    character(len=20) :: units
@@ -526,7 +531,6 @@ contains
    real(real12), dimension(3) :: abc,angle,dvtmp1
    real(real12), dimension(3,3) :: reclat
    character(len=5), dimension(1000) :: tmp_spec
-   integer, intent(in), optional :: length
 
    
 !!!-----------------------------------------------------------------------------
@@ -579,9 +583,9 @@ contains
 
          if(labc)then
             read(store,*) units,(abc(i),i=1,3), (angle(j),j=1,3)
-            lattice=convert_abc_to_lat(abc,angle,.false.)
+            basis%lat=convert_abc_to_lat(abc,angle,.false.)
          else
-            read(store,*) units,(lattice(i,:),i=1,3)
+            read(store,*) units,(basis%lat(i,:),i=1,3)
          end if
          cycle readloop
       end if lattice_if
@@ -645,7 +649,7 @@ contains
 !!! convert basis if in cartesian coordinates
 !!!-----------------------------------------------------------------------------
    if(basis%lcart)then
-      reclat=transpose(LUinv(lattice))*2._real12*pi
+      reclat=transpose(LUinv(basis%lat))*2._real12*pi
       basis=convert_bas(basis,reclat)
    end if
 
@@ -672,12 +676,11 @@ contains
 !!!#############################################################################
 !!! writes lattice and basis in a CASTEP file format
 !!!#############################################################################
- subroutine CASTEP_geom_write(UNIT,lat_write,bas_write,labc,lcart)
+ subroutine CASTEP_geom_write(UNIT,basis,labc,lcart)
    implicit none
    integer :: i,j,UNIT
    real(real12), dimension(3) :: abc,angle
-   real(real12), dimension(3,3) :: lat_write
-   type(bas_type) :: bas_write
+   type(bas_type) :: basis
    character(4) :: string_lat,string_bas
    logical, intent(in), optional :: labc,lcart
 
@@ -703,27 +706,27 @@ contains
    if(present(labc))then
       if(labc)then
          do i=1,3
-            abc(i)=modu(lat_write(i,:))
+            abc(i)=modu(basis%lat(i,:))
          end do
-         angle(1) = dot_product(lat_write(2,:),lat_write(3,:))/(abc(2)*abc(3))
-         angle(2) = dot_product(lat_write(1,:),lat_write(3,:))/(abc(1)*abc(3))
-         angle(3) = dot_product(lat_write(1,:),lat_write(2,:))/(abc(1)*abc(2))
+         angle(1) = dot_product(basis%lat(2,:),basis%lat(3,:))/(abc(2)*abc(3))
+         angle(2) = dot_product(basis%lat(1,:),basis%lat(3,:))/(abc(1)*abc(3))
+         angle(3) = dot_product(basis%lat(1,:),basis%lat(2,:))/(abc(1)*abc(2))
          write(UNIT,'(3(F15.9))') abc
          write(UNIT,'(3(F15.9))') angle
          goto 10
       end if
    end if
    do i=1,3
-      write(UNIT,'(3(F15.9))') lat_write(i,:)
+      write(UNIT,'(3(F15.9))') basis%lat(i,:)
    end do
 
 10 write(UNIT,'("%endblock LATTICE_",A)') trim(string_lat)
 
    write(UNIT,*)
    write(UNIT,'("%block POSITIONS_",A)') trim(string_bas)
-   do i=1,bas_write%nspec
-      do j=1,bas_write%spec(i)%num
-         write(UNIT,'(A5,1X,3(F15.9))') bas_write%spec(i)%name,bas_write%spec(i)%atom(j,1:3)
+   do i=1,basis%nspec
+      do j=1,basis%spec(i)%num
+         write(UNIT,'(A5,1X,3(F15.9))') basis%spec(i)%name,basis%spec(i)%atom(j,1:3)
       end do
    end do
    write(UNIT,'("%endblock POSITIONS_",A)') trim(string_bas)
@@ -736,10 +739,13 @@ contains
 !!!#############################################################################
 !!! reads atoms from an xyz file
 !!!#############################################################################
- subroutine XYZ_geom_read(UNIT,length)
+ subroutine XYZ_geom_read(UNIT,basis,length)
    implicit none
-   integer :: UNIT,Reason 
+   integer, intent(in) :: UNIT
+   type(bas_type), intent(out) :: basis
    integer, intent(in), optional :: length
+
+   integer :: Reason
    integer, allocatable, dimension(:) :: tmp_num
    real(real12), dimension(3) :: vec
    real(real12), allocatable, dimension(:,:,:) :: tmp_bas
@@ -811,18 +817,20 @@ contains
 !!!#############################################################################
 !!! generates cartesian basis
 !!!#############################################################################
- subroutine XYZ_geom_write(UNIT,bas_write)
+ subroutine XYZ_geom_write(UNIT,basis)
    implicit none
-   integer :: i,j,UNIT
-   type(bas_type) :: bas_write
+   integer, intent(in) :: UNIT
+   type(bas_type), intent(in) :: basis
+
+   integer :: i,j
 
 
-   write(UNIT,'("I0")') bas_write%natom
-   write(UNIT,'("A")') bas_write%sysname
-   do i=1,bas_write%nspec
-      do j=1,bas_write%spec(i)%num
+   write(UNIT,'("I0")') basis%natom
+   write(UNIT,'("A")') basis%sysname
+   do i=1,basis%nspec
+      do j=1,basis%spec(i)%num
          write(UNIT,'(A5,1X,3(F15.9))') &
-              bas_write%spec(i)%name,bas_write%spec(i)%atom(j,1:3)
+              basis%spec(i)%name,basis%spec(i)%atom(j,1:3)
       end do
    end do
 
@@ -834,11 +842,14 @@ contains
 !!!#############################################################################
 !!! reads lattice and basis from an extended xyz file
 !!!#############################################################################
- subroutine extXYZ_geom_read(UNIT,length)
+ subroutine extXYZ_geom_read(UNIT,basis,length)
    implicit none
-   integer :: UNIT,Reason
-   integer :: index1, index2
+   integer, intent(in) :: UNIT
+   type(bas_type), intent(out) :: basis
    integer, intent(in), optional :: length
+
+   integer :: Reason
+   integer :: index1, index2
    integer, allocatable, dimension(:) :: tmp_num
    real(real12), dimension(3) :: vec
    real(real12), allocatable, dimension(:,:,:) :: tmp_bas
@@ -869,7 +880,7 @@ contains
    end if
    index1 = index(buffer,'Lattice="') + 9
    index2 = index(buffer(index1:),'"') + index1 - 2
-   read(buffer(index1:index2),*) ( ( lattice(i,j), j = 1, 3), i = 1, 3)
+   read(buffer(index1:index2),*) ( ( basis%lat(i,j), j = 1, 3), i = 1, 3)
 
    index1 = index(buffer,'free_energy=') + 12
    read(buffer(index1:),*) basis%energy
@@ -929,30 +940,31 @@ contains
 !!!#############################################################################
 !!! generates cartesian basis
 !!!#############################################################################
- subroutine extXYZ_geom_write(UNIT,lat_write,bas_write)
+ subroutine extXYZ_geom_write(UNIT,basis)
    implicit none
-   integer :: i,j,UNIT
-   type(bas_type) :: bas_write
-   real(real12), dimension(3,3) :: lat_write
+   integer, intent(in) :: UNIT
+   type(bas_type), intent(in) :: basis
+
+   integer :: i,j
 
 
-   write(UNIT,'("I0")') bas_write%natom
+   write(UNIT,'("I0")') basis%natom
    write(UNIT,'(A,8(F0.8,1X),F0.8,A)', advance="no") &
-        'Lattice="',((lat_write(i,j),j=1,3),i=1,3),'"'
-   write(UNIT,'(A,F0.8)', advance="no") ' free_energy=',bas_write%energy
+        'Lattice="',((basis%lat(i,j),j=1,3),i=1,3),'"'
+   write(UNIT,'(A,F0.8)', advance="no") ' free_energy=',basis%energy
    write(UNIT,'(A)', advance="no") ' pbc="T T T"'
-   if(bas_write%lcart)then
-      do i=1,bas_write%nspec
-         do j=1,bas_write%spec(i)%num
+   if(basis%lcart)then
+      do i=1,basis%nspec
+         do j=1,basis%spec(i)%num
             write(UNIT,'(A8,3(1X, F16.8))') &
-               bas_write%spec(i)%name,bas_write%spec(i)%atom(j,1:3)
+               basis%spec(i)%name,basis%spec(i)%atom(j,1:3)
          end do
       end do
    else
-      do i=1,bas_write%nspec
-         do j=1,bas_write%spec(i)%num
-            write(UNIT,'(A8,3(1X, F16.8))') bas_write%spec(i)%name, &
-               matmul(bas_write%spec(i)%atom(j,1:3),lat_write)
+      do i=1,basis%nspec
+         do j=1,basis%spec(i)%num
+            write(UNIT,'(A8,3(1X, F16.8))') basis%spec(i)%name, &
+               matmul(basis%spec(i)%atom(j,1:3),basis%lat)
          end do
       end do
    end if
@@ -964,25 +976,25 @@ contains
 !!!#############################################################################
 !!! convert basis using latconv transformation matrix
 !!!#############################################################################
- function convert_bas(inbas,latconv) result(outbas)
+ function convert_bas(basis,latconv) result(outbas)
    implicit none
+   type(bas_type), intent(in) :: basis
+   real(real12), dimension(3,3), intent(in) :: latconv
+   
    integer :: is,ia,dim
    type(bas_type) :: outbas
    
-   type(bas_type), intent(in) :: inbas
-   real(real12), dimension(3,3), intent(in) :: latconv
 
-
-   dim=size(inbas%spec(1)%atom(1,:))
-   allocate(outbas%spec(inbas%nspec))
-   outbas%natom=inbas%natom
-   outbas%nspec=inbas%nspec
-   outbas%sysname=inbas%sysname
-   outbas%lcart=.not.inbas%lcart
-   do is=1,inbas%nspec
-      allocate(outbas%spec(is)%atom(inbas%spec(is)%num,dim))
-      outbas%spec(is)=inbas%spec(is)
-      do ia=1,inbas%spec(is)%num
+   dim=size(basis%spec(1)%atom(1,:))
+   allocate(outbas%spec(basis%nspec))
+   outbas%natom=basis%natom
+   outbas%nspec=basis%nspec
+   outbas%sysname=basis%sysname
+   outbas%lcart=.not.basis%lcart
+   do is=1,basis%nspec
+      allocate(outbas%spec(is)%atom(basis%spec(is)%num,dim))
+      outbas%spec(is)=basis%spec(is)
+      do ia=1,basis%spec(is)%num
          outbas%spec(is)%atom(ia,1:3)=&
               matmul(latconv,outbas%spec(is)%atom(ia,1:3))
       end do
@@ -1065,7 +1077,7 @@ contains
 !!!#############################################################################
 !!! clones basis 1 onto basis 2
 !!!#############################################################################
- subroutine clone_bas(inbas,outbas,inlat,outlat,trans_dim)
+ subroutine clone_bas(inbas,outbas,trans_dim)
    implicit none
    integer :: i
    integer :: indim,outdim
@@ -1073,7 +1085,6 @@ contains
    logical :: udef_trans_dim
 
    type(bas_type) :: inbas,outbas
-   real(real12), dimension(3,3), optional :: inlat,outlat
 
    logical, optional, intent(in) :: trans_dim
 
@@ -1139,14 +1150,7 @@ contains
    outbas%lcart = inbas%lcart
    outbas%sysname = inbas%sysname
    outbas%energy = inbas%energy
-
-
-!!!-----------------------------------------------------------------------------
-!!! clones input lattice to output lattice, if requested
-!!!-----------------------------------------------------------------------------
-   if(present(inlat).and.present(outlat))then
-      outlat=inlat
-   end if
+   outbas%lat = inbas%lat
 
 
    return

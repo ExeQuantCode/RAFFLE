@@ -49,7 +49,6 @@ contains
     integer :: xml_unit, unit, ierror
     integer :: num_files
     type(bas_type) :: basis
-    real(real12), dimension(3,3) :: lattice
     character(256), dimension(:), allocatable :: structure_list
 #ifdef ENABLE_ATHENA
     type(graph_type), dimension(:), allocatable :: graphs
@@ -121,13 +120,13 @@ contains
           basis%energy = get_energy_from_vasprun(unit, success)
           if(.not.success) cycle
           rewind(unit)
-          call get_structure_from_vasprun(unit, lattice, basis, success)
+          call get_structure_from_vasprun(unit, basis, success)
           if(.not.success) cycle
           close(unit)
        case(1)
           open(newunit=unit, file=trim(adjustl(structure_list(i)))//"/POSCAR")
           write(*,*) "Reading structures from POSCAR"
-          call geom_read(unit, lattice, basis)
+          call geom_read(unit, basis)
           close(unit)
           open(newunit=unit, file=trim(adjustl(structure_list(i)))//"/OUTCAR")
           call grep(unit, 'free  energy   TOTEN  =', lline=.false., success=success)
@@ -144,10 +143,10 @@ contains
              if(ierror .ne. 0) exit
              if(trim(buffer).eq."") cycle
              backspace(unit)
-             call geom_read(unit, lattice, basis)
+             call geom_read(unit, basis)
              call get_elements_masses_and_charges(basis)
 #ifdef ENABLE_ATHENA
-             graphs = [ graphs, get_graph_from_basis(lattice, basis) ]
+             graphs = [ graphs, get_graph_from_basis(basis) ]
              labels = [ labels, basis%energy ]
 #endif
 
@@ -159,7 +158,7 @@ contains
                   basis%energy, &
                   ( trim(basis%spec(j)%name), basis%spec(j)%num, &
                   j=1, basis%nspec )
-             call gvector_container%add(basis, lattice)
+             call gvector_container%add(basis)
           end do
           cycle
        end select
@@ -167,7 +166,7 @@ contains
        write(*,*) &
             "Found structure: ", trim(adjustl(structure_list(i))), &
             " with energy: ", basis%energy
-       call gvector_container%add(basis, lattice)
+       call gvector_container%add(basis)
        num_structures = num_structures + 1
       
        !!! STORE THE ENERGY IN AN ARRAY
@@ -264,10 +263,9 @@ contains
 !!! 
 !!!#############################################################################
 #ifdef ENABLE_ATHENA
-  function get_graph_from_basis(lattice, basis) result(graph)
+  function get_graph_from_basis(basis) result(graph)
     implicit none
     type(bas_type), intent(in) :: basis
-    real(real12), dimension(3,3), intent(in) :: lattice
     type(graph_type) :: graph
 
     integer :: is, ia, js, ja, i, j, k
@@ -296,9 +294,9 @@ contains
 
     cutoff_min = 0.5_real12
     cutoff_max = 6.0_real12
-    amax = ceiling(cutoff_max/modu(lattice(1,:)))
-    bmax = ceiling(cutoff_max/modu(lattice(2,:)))
-    cmax = ceiling(cutoff_max/modu(lattice(3,:)))
+    amax = ceiling(cutoff_max/modu(basis%lat(1,:)))
+    bmax = ceiling(cutoff_max/modu(basis%lat(2,:)))
+    cmax = ceiling(cutoff_max/modu(basis%lat(3,:)))
 
     iatom = 0
     allocate(graph%edge(0))
@@ -318,7 +316,7 @@ contains
                       vtmp1(2) = diff(2) + real(j, real12)
                       do k=-cmax,cmax+1,1
                          vtmp1(3) = diff(3) + real(k, real12)
-                         rtmp1 = modu(matmul(vtmp1,lattice))
+                         rtmp1 = modu(matmul(vtmp1,basis%lat))
                          if( rtmp1 .gt. cutoff_min .and. &
                              rtmp1 .lt. cutoff_max )then
                             edge%index = [iatom,jatom]

@@ -233,7 +233,7 @@ subroutine f90wrap_evolver__gvector_type_finalise(this)
     deallocate(this_ptr%p)
 end subroutine f90wrap_evolver__gvector_type_finalise
 
-subroutine f90wrap_evolver__calculate__binding__gvector_type(this, lattice, basis, nbins, width, sigma, cutoff_min, &
+subroutine f90wrap_evolver__calculate__binding__gvector_type(this, basis, nbins, width, sigma, cutoff_min, &
     cutoff_max)
     use evolver, only: gvector_type
     use rw_geom, only: bas_type
@@ -247,7 +247,6 @@ subroutine f90wrap_evolver__calculate__binding__gvector_type(this, lattice, basi
     end type gvector_type_ptr_type
     type(gvector_type_ptr_type) :: this_ptr
     integer, intent(in), dimension(2) :: this
-    real(4), dimension(3,3), intent(in) :: lattice
     type(bas_type_ptr_type) :: basis_ptr
     integer, intent(in), dimension(2) :: basis
     integer, dimension(3), intent(in), optional :: nbins
@@ -257,7 +256,7 @@ subroutine f90wrap_evolver__calculate__binding__gvector_type(this, lattice, basi
     real(4), dimension(3), intent(in), optional :: cutoff_max
     this_ptr = transfer(this, this_ptr)
     basis_ptr = transfer(basis, basis_ptr)
-    call this_ptr%p%calculate(lattice=lattice, basis=basis_ptr%p, nbins=nbins, width=width, sigma=sigma, &
+    call this_ptr%p%calculate(basis=basis_ptr%p, nbins=nbins, width=width, sigma=sigma, &
         cutoff_min=cutoff_min, cutoff_max=cutoff_max)
 end subroutine f90wrap_evolver__calculate__binding__gvector_type
 
@@ -625,7 +624,7 @@ subroutine f90wrap_evolver__set_cutoff_max__binding__gvector_container047c(this,
     call this_ptr%p%set_cutoff_max(cutoff_max=cutoff_max)
 end subroutine f90wrap_evolver__set_cutoff_max__binding__gvector_container047c
 
-subroutine f90wrap_evolver__add_basis__binding__gvector_container_type(this, lattice, basis)
+subroutine f90wrap_evolver__add_basis__binding__gvector_container_type(this, basis)
     use rw_geom, only: bas_type
     use evolver, only: gvector_container_type
     implicit none
@@ -638,12 +637,11 @@ subroutine f90wrap_evolver__add_basis__binding__gvector_container_type(this, lat
     end type bas_type_ptr_type
     type(gvector_container_type_ptr_type) :: this_ptr
     integer, intent(in), dimension(2) :: this
-    real(4), dimension(3,3), intent(in) :: lattice
     type(bas_type_ptr_type) :: basis_ptr
     integer, intent(in), dimension(2) :: basis
     this_ptr = transfer(this, this_ptr)
     basis_ptr = transfer(basis, basis_ptr)
-    call this_ptr%p%add_basis(lattice=lattice, basis=basis_ptr%p)
+    call this_ptr%p%add_basis(basis=basis_ptr%p)
 end subroutine f90wrap_evolver__add_basis__binding__gvector_container_type
 
 subroutine f90wrap_evolver__set_element_info__binding__gvector_containbcb0(this, element_file, element_list, n0)

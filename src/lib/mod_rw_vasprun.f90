@@ -153,10 +153,9 @@ contains
   !!! then read until <set> but not encountered </set>
   !!! then read <rc><c>NUMBER</c><c> NAME</c><c> MASS</c><c> VALENCY</c><c> PSEUDO_NAME</c></rc>
 
-  subroutine get_structure_from_vasprun(unit, lattice, basis, found)
+  subroutine get_structure_from_vasprun(unit, basis, found)
     implicit none
     integer, intent(in) :: unit
-    real(real12), dimension(3,3) :: lattice
     type(bas_type) :: basis
 
     integer :: ierror, i, is, ia
@@ -267,7 +266,7 @@ contains
           write(0,*) 'Error reading lattice from vasprun.xml'
           stop
        end if
-       read( line, '(4X,A3,3(1X,F16.8))' ) buffer, lattice(i,:)
+       read( line, '(4X,A3,3(1X,F16.8))' ) buffer, basis%lat(i,:)
     end do
 
 

@@ -188,7 +188,7 @@ module evolver
   end subroutine set_cutoff_max
 
 
-  subroutine create(this, basis_list, lattice_list)
+  subroutine create(this, basis_list)
     !! create the distribution functions from the input file
     implicit none
     ! Arguments
@@ -196,17 +196,15 @@ module evolver
     !! Self, parent of the procedure.
     type(bas_type), dimension(:), intent(in) :: basis_list
     !! List of basis structures.
-    real(real12), dimension(:,:,:), intent(in) :: lattice_list
-    !! List of lattice vectors for each basis structure.
 
     deallocate(this%total%df_2body, this%total%df_3body, this%total%df_4body)
-    call this%add(basis_list, lattice_list)
+    call this%add(basis_list)
     call this%evolve()
     
   end subroutine create
 
 
-  subroutine update(this, basis_list, lattice_list)
+  subroutine update(this, basis_list)
     !! update the distribution functions from the input file
     implicit none
     ! Arguments
@@ -214,11 +212,9 @@ module evolver
     !! Self, parent of the procedure.
     type(bas_type), dimension(:), intent(in) :: basis_list
     !! List of basis structures.
-    real(real12), dimension(:,:,:), intent(in) :: lattice_list
-    !! List of lattice vectors for each basis structure.
 
     
-    call this%add(basis_list, lattice_list)
+    call this%add(basis_list)
     call this%evolve()
     
   end subroutine update
@@ -417,11 +413,10 @@ module evolver
 !!!#############################################################################
 !!! add system (basis or gvector) to the container
 !!!#############################################################################
-  subroutine add(this, system, lattice)
+  subroutine add(this, system)
     implicit none
     class(gvector_container_type), intent(inout) :: this
     class(*), dimension(..), intent(in) :: system
-    real(real12), dimension(..), intent(in), optional :: lattice
 
     integer :: i, num_structures_previous
     character(128) :: buffer
@@ -433,19 +428,7 @@ module evolver
        type is (gvector_type)
           this%system = [ this%system, system ]
        type is (bas_type)
-          if(.not. present(lattice))then
-             write(0,*) "ERROR: Lattice vectors not provided"
-             stop 1
-          end if
-          select rank(lattice)
-          rank(2)
-             call this%add_basis(lattice(:,:), system)
-          rank default
-             write(0,*) "ERROR: Invalid rank for lattice"
-             write(buffer,*) rank(lattice)
-             write(0,*) "Expected rank 2, got ", trim(buffer)
-             stop 1
-          end select
+          call this%add_basis(system)
        class default
           write(0,*) "ERROR: Invalid type for system"
           write(0,*) "Expected type gvector_type or bas_type"
@@ -457,25 +440,9 @@ module evolver
        type is (gvector_type)
           this%system = [ this%system, system ]
        type is (bas_type)
-          if(.not. present(lattice))then
-             write(0,*) "ERROR: Lattice vectors not provided"
-             stop 1
-          end if
-          select rank(lattice)
-          rank(2)
-             do i = 1, size(system)
-                call this%add_basis(lattice(:,:), system(i))
-             end do
-          rank(3)
-             do i = 1, size(system)
-                call this%add_basis(lattice(:,:,i), system(i))
-             end do
-          rank default
-             write(0,*) "ERROR: Invalid rank for lattice"
-             write(buffer,*) rank(lattice)
-             write(0,*) "Expected rank 2, got ", trim(buffer)
-             stop 1
-          end select
+          do i = 1, size(system)
+             call this%add_basis(system(i))
+          end do
        class default
           write(0,*) "ERROR: Invalid type for system"
           write(0,*) "Expected type gvector_type or bas_type"
@@ -497,16 +464,15 @@ module evolver
 !!!#############################################################################
 !!! generate gvectors from basis and add to the container
 !!!#############################################################################
-  subroutine add_basis(this, lattice, basis)
+  subroutine add_basis(this, basis)
     implicit none
     class(gvector_container_type), intent(inout) :: this
     type(bas_type), intent(in) :: basis
-    real(real12), dimension(3,3), intent(in) :: lattice
 
     integer :: i, num_structures_previous
     type(gvector_type) :: system
 
-    call system%calculate(lattice, basis, width = this%width, &
+    call system%calculate(basis, width = this%width, &
                      sigma = this%sigma, &
                      cutoff_min = this%cutoff_min, &
                      cutoff_max = this%cutoff_max)
@@ -892,13 +858,12 @@ module evolver
 
 
 !!!#############################################################################
-!!! calculate the gvectors for a system from its lattice and basis
+!!! calculate the gvectors for a system from its basis
 !!!#############################################################################
-  subroutine calculate(this, lattice, basis, &
+  subroutine calculate(this, basis, &
        nbins, width, sigma, cutoff_min, cutoff_max)
     implicit none
     class(gvector_type), intent(inout) :: this
-    real(real12), dimension(3,3), intent(in) :: lattice
     type(bas_type), intent(in) :: basis
 
     integer, dimension(3), intent(in), optional :: nbins
@@ -986,9 +951,9 @@ module evolver
     !! this is not perfect
     !! won't work for extremely acute/obtuse angle cells
     !! (due to diagonal path being shorter than individual lattice vectors)
-    amax = ceiling(cutoff_max_(1)/modu(lattice(1,:)))
-    bmax = ceiling(cutoff_max_(1)/modu(lattice(2,:)))
-    cmax = ceiling(cutoff_max_(1)/modu(lattice(3,:)))
+    amax = ceiling(cutoff_max_(1)/modu(basis%lat(1,:)))
+    bmax = ceiling(cutoff_max_(1)/modu(basis%lat(2,:)))
+    cmax = ceiling(cutoff_max_(1)/modu(basis%lat(3,:)))
 
 
     !!--------------------------------------------------------------------------
@@ -998,7 +963,7 @@ module evolver
     !! estimate number of bonds
     !write(*,*) "estimated number of bonds: ", triangular_number(basis%natom) * &
     !     ceiling( (pi * 4._real12/3._real12) * &
-    !     (cutoff_max(1)**3 - cutoff_min(1)**3)/ get_vol(lattice) )
+    !     (cutoff_max(1)**3 - cutoff_min(1)**3)/ get_vol(basis%lat) )
 
     allocate(bond_list(0)) !if doesn't work, allocate a dummy bond first
     spec_loop1: do is=1,basis%nspec
@@ -1014,7 +979,7 @@ module evolver
                       vtmp1(2) = diff(2) + real(j, real12)
                       do k=-cmax,cmax+1,1
                          vtmp1(3) = diff(3) + real(k, real12)
-                         rtmp1 = modu(matmul(vtmp1,lattice))
+                         rtmp1 = modu(matmul(vtmp1,basis%lat))
                          if( rtmp1 .gt. cutoff_min_(1) - &
                                         width_(1)/2._real12 .and. &
                              rtmp1 .lt. cutoff_max_(1) + &
@@ -1022,7 +987,7 @@ module evolver
                             bond_list = [ bond_list, bond_type( &
                                  species=[is,js], &
                                  atom=[ia,ja], skip=.false., &
-                                 vector=matmul(vtmp1,lattice)) ]
+                                 vector=matmul(vtmp1,basis%lat)) ]
                          end if
                       end do
                    end do

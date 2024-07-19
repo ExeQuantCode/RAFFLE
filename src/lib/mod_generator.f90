@@ -189,6 +189,7 @@ module generator
        allocate(basis_store%spec(i)%atom(basis_store%spec(i)%num,3), source = 0._real12)
     end do
     basis_store = bas_merge(this%host,basis_store)
+    basis_store%lat = this%host%lat
 
 
     !!--------------------------------------------------------------------------
@@ -239,7 +240,7 @@ module generator
        !!-----------------------------------------------------------------------
        !! predict energy using ML
        !!-----------------------------------------------------------------------
-       graph(1) = get_graph_from_basis(this%host%lat, basis)
+       graph(1) = get_graph_from_basis(this%structures(i))
        write(*,*) "Predicted energy", network_predict_graph(graph(1:1))
 #endif
 
@@ -286,7 +287,7 @@ module generator
     call shuffle(placement_list_shuffled,1) !!! NEED TO SORT OUT RANDOM SEED
 
     viable_gridpoints = get_viable_gridpoints( this%bins, &
-         this%host%lat, basis, &
+         basis, &
          [ this%distributions%bond_info(:)%radius_covalent ], &
          placement_list_shuffled )
 
@@ -302,13 +303,13 @@ module generator
        if(rtmp1.le.method_probab_(1)) then 
           if(verbose.gt.0) write(*,*) "Add Atom Void"
           call add_atom_void( this%bins, &
-                this%host%lat, basis, &
+                basis, &
                 placement_list_shuffled(iplaced+1:,:), placed)
        else if(rtmp1.le.method_probab_(2)) then 
           if(verbose.gt.0) write(*,*) "Add Atom Pseudo"
           call add_atom_pseudo( this%bins, &
                 this%distributions, &
-                this%host%lat, basis, &
+                basis, &
                 placement_list_shuffled(iplaced+1:,:), &
                 [ this%distributions%bond_info(:)%radius_covalent ], &
                 placed )
@@ -317,14 +318,14 @@ module generator
           if(verbose.gt.0) write(*,*) "Add Atom Scan"
           call add_atom_scan( viable_gridpoints, &
                 this%distributions, &
-                this%host%lat, basis, &
+                basis, &
                 placement_list_shuffled(iplaced+1:,:), &
                 [ this%distributions%bond_info(:)%radius_covalent ], &
                 placed)
        end if
        if(.not. placed) then
           if(void_ticker.gt.10) &
-               call add_atom_void( this%bins, this%host%lat, basis, &
+               call add_atom_void( this%bins, basis, &
                                   placement_list_shuffled(iplaced+1:,:), placed)
           void_ticker = 0
           if(.not.placed) cycle placement_loop
@@ -336,7 +337,7 @@ module generator
        iplaced = iplaced + 1
        if(allocated(viable_gridpoints)) &
             call update_viable_gridpoints( viable_gridpoints, &
-                             this%host%lat, basis, &
+                             basis, &
                              [ placement_list_shuffled(iplaced,:) ], &
                              this%distributions%bond_info( &
                                   ( basis%nspec - &

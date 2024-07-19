@@ -1,6 +1,6 @@
 module evolver
   use constants, only: real12, pi
-  use misc_raffle, only: set, icount
+  use misc_raffle, only: set, icount, strip_null
   use misc_maths, only: lnsum, triangular_number
   use misc_linalg, only: get_angle, get_vol, cross, modu
   use rw_geom, only: bas_type
@@ -471,7 +471,6 @@ module evolver
     class(gvector_container_type), intent(inout) :: this
     type(bas_type), intent(in) :: basis
 
-    integer :: i, num_structures_previous
     type(gvector_type) :: system
 
     call system%calculate(basis, width = this%width, &
@@ -930,7 +929,10 @@ module evolver
     num_pairs = gamma(real(basis%nspec + 2, real12)) / &
                 ( gamma(real(basis%nspec, real12)) * gamma( 3._real12 ) )
     allocate(idx(2,num_pairs))
-    this%species = basis%spec(:)%name
+    allocate(this%species(basis%nspec))
+    do is = 1, basis%nspec
+       this%species(is) = strip_null(basis%spec(is)%name)
+    end do
     do is = 1, basis%nspec
        do js = is, basis%nspec, 1
           i = i + 1

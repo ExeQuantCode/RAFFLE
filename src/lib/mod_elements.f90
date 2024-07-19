@@ -42,7 +42,7 @@ contains
     integer :: i
 
     do i = 1, size(element_database)
-       if(element_database(i)%name .eq. name)then
+       if(trim(element_database(i)%name) .eq. trim(name))then
           this%name = element_database(i)%name
           this%mass = element_database(i)%mass
           this%charge = element_database(i)%charge
@@ -51,7 +51,7 @@ contains
        end if
     end do
 
-    write(0,*) 'Element ', name, ' not found in database'
+    write(0,*) 'Element ', trim(name), ' not found in element database'
     stop 1
 
   end subroutine set

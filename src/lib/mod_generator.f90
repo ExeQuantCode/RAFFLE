@@ -1,5 +1,6 @@
 module generator
   use constants, only: real12
+  use misc_raffle, only: strip_null
   use rw_geom, only: bas_type
   use evolver, only: gvector_container_type
 
@@ -174,12 +175,15 @@ module generator
     end if
 
 
+
     !!! THINK OF SOME WAY TO HANDLE THE HOST SEPARATELY
     !!! THAT CAN SIGNIFICANTLY REDUCE DATA USAGE
     num_insert_species = size(stoichiometry)
     num_insert_atoms = sum(stoichiometry(:)%num)
     allocate(basis_store%spec(num_insert_species))
-    basis_store%spec(:)%name = stoichiometry(:)%element
+    do i = 1, size(stoichiometry)
+       basis_store%spec(i)%name = strip_null(stoichiometry(i)%element)
+    end do
     basis_store%spec(:)%num = stoichiometry(:)%num
     basis_store%natom = num_insert_atoms
     basis_store%nspec = num_insert_species
@@ -204,7 +208,9 @@ module generator
     spec_loop1: do i = 1, basis_store%nspec
        success = .false.
        do j = 1, size(stoichiometry)
-          if(trim(basis_store%spec(i)%name).eq.trim(stoichiometry(j)%element)) &
+          if( &
+               trim(basis_store%spec(i)%name) .eq. &
+               trim(strip_null(stoichiometry(j)%element))) &
                success = .true.
        end do
        if(.not.success) cycle

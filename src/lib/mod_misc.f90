@@ -29,6 +29,7 @@
 !!! touch            (creates a file if it doesn't exist)
 !!! to_upper         (converts all characters in string to upper case)
 !!! to_lower         (converts all characters in string to lower case)
+!!! strip_null       (removes null characters from a string)
 !!!#############################################################################
 module misc_raffle
   use constants, only: real12
@@ -45,6 +46,7 @@ module misc_raffle
   public :: swap, shuffle
   public :: Icount, readcl, grep, count_occ, flagmaker, loadbar
   public :: jump, file_check, touch, to_upper, to_lower
+  public :: strip_null
 
 
   interface alloc
@@ -68,7 +70,7 @@ module misc_raffle
   end interface shuffle
 
 
-!!!updated 2021/12/08
+!!!updated 2024/07/19
 
 
 contains
@@ -1144,5 +1146,28 @@ contains
     return
   end function to_lower
 !!!#####################################################
+
+
+!!!#####################################################
+!!! strip null characters from string
+!!!#####################################################
+  function strip_null(buffer) result(stripped)
+    implicit none
+    integer :: i
+    character(*) :: buffer
+    character(len=len(buffer)) :: stripped
+
+    stripped = ""
+    do i=1,len(buffer)
+       if(iachar(buffer(i:i)).ne.0)then
+          stripped(i:i)=buffer(i:i)
+       else
+          exit
+       end if
+    end do
+
+    return
+  end function strip_null
+  !!!#####################################################
 
 end module misc_raffle

@@ -325,6 +325,46 @@ subroutine f90wrap_raffle_generator_type__array__bins(this, nd, dtype, dshape, d
     dloc = loc(this_ptr%p%bins)
 end subroutine f90wrap_raffle_generator_type__array__bins
 
+subroutine f90wrap_raffle_generator_type__get__distributions(this, f90wrap_distributions)
+    use generator, only: raffle_generator_type
+    use evolver, only: gvector_container_type
+    implicit none
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    type gvector_container_type_ptr_type
+        type(gvector_container_type), pointer :: p => NULL()
+    end type gvector_container_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer, intent(out) :: f90wrap_distributions(2)
+    type(gvector_container_type_ptr_type) :: distributions_ptr
+    
+    this_ptr = transfer(this, this_ptr)
+    distributions_ptr%p => this_ptr%p%distributions
+    f90wrap_distributions = transfer(distributions_ptr,f90wrap_distributions)
+end subroutine f90wrap_raffle_generator_type__get__distributions
+
+subroutine f90wrap_raffle_generator_type__set__distributions(this, f90wrap_distributions)
+    use generator, only: raffle_generator_type
+    use evolver, only: gvector_container_type
+    implicit none
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    type gvector_container_type_ptr_type
+        type(gvector_container_type), pointer :: p => NULL()
+    end type gvector_container_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer, intent(in) :: f90wrap_distributions(2)
+    type(gvector_container_type_ptr_type) :: distributions_ptr
+    
+    this_ptr = transfer(this, this_ptr)
+    distributions_ptr = transfer(f90wrap_distributions,distributions_ptr)
+    this_ptr%p%distributions = distributions_ptr%p
+end subroutine f90wrap_raffle_generator_type__set__distributions
+
 subroutine f90wrap_raffle_generator_type__array__method_probab(this, nd, dtype, dshape, dloc)
     use generator, only: raffle_generator_type
     use, intrinsic :: iso_c_binding, only : c_int

@@ -236,6 +236,74 @@ end subroutine f90wrap_generator__stoich_type_xnum_array_finalise
 
 
 
+subroutine f90wrap_raffle_generator_type__get__num_structures(this, f90wrap_num_structures)
+    use generator, only: raffle_generator_type
+    implicit none
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer, intent(out) :: f90wrap_num_structures
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_num_structures = this_ptr%p%num_structures
+end subroutine f90wrap_raffle_generator_type__get__num_structures
+
+subroutine f90wrap_raffle_generator_type__set__num_structures(this, f90wrap_num_structures)
+    use generator, only: raffle_generator_type
+    implicit none
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer, intent(in) :: f90wrap_num_structures
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%num_structures = f90wrap_num_structures
+end subroutine f90wrap_raffle_generator_type__set__num_structures
+
+subroutine f90wrap_raffle_generator_type__get__host(this, f90wrap_host)
+    use generator, only: raffle_generator_type
+    use rw_geom, only: bas_type
+    implicit none
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    type bas_type_ptr_type
+        type(bas_type), pointer :: p => NULL()
+    end type bas_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer, intent(out) :: f90wrap_host(2)
+    type(bas_type_ptr_type) :: host_ptr
+
+    this_ptr = transfer(this, this_ptr)
+    host_ptr%p => this_ptr%p%host
+    f90wrap_host = transfer(host_ptr, f90wrap_host)
+end subroutine f90wrap_raffle_generator_type__get__host
+
+subroutine f90wrap_raffle_generator_type__set__host(this, f90wrap_host)
+    use generator, only: raffle_generator_type
+    use rw_geom, only: bas_type
+    implicit none
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    type bas_type_ptr_type
+        type(bas_type), pointer :: p => NULL()
+    end type bas_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer, intent(in) :: f90wrap_host(2)
+    type(bas_type_ptr_type) :: host_ptr
+
+    this_ptr = transfer(this, this_ptr)
+    host_ptr = transfer(f90wrap_host, host_ptr)
+    this_ptr%p%host = host_ptr%p
+end subroutine f90wrap_raffle_generator_type__set__host
+
 subroutine f90wrap_raffle_generator_type__array__bins(this, nd, dtype, dshape, dloc)
     use generator, only: raffle_generator_type
     use, intrinsic :: iso_c_binding, only : c_int
@@ -257,27 +325,6 @@ subroutine f90wrap_raffle_generator_type__array__bins(this, nd, dtype, dshape, d
     dloc = loc(this_ptr%p%bins)
 end subroutine f90wrap_raffle_generator_type__array__bins
 
-subroutine f90wrap_raffle_generator_type__array__lattice_host(this, nd, dtype, dshape, dloc)
-    use generator, only: raffle_generator_type
-    use, intrinsic :: iso_c_binding, only : c_int
-    implicit none
-    type raffle_generator_type_ptr_type
-        type(raffle_generator_type), pointer :: p => NULL()
-    end type raffle_generator_type_ptr_type
-    integer(c_int), intent(in) :: this(2)
-    type(raffle_generator_type_ptr_type) :: this_ptr
-    integer(c_int), intent(out) :: nd
-    integer(c_int), intent(out) :: dtype
-    integer(c_int), dimension(10), intent(out) :: dshape
-    integer*8, intent(out) :: dloc
-    
-    nd = 2
-    dtype = 11
-    this_ptr = transfer(this, this_ptr)
-    dshape(1:2) = shape(this_ptr%p%lattice_host)
-    dloc = loc(this_ptr%p%lattice_host)
-end subroutine f90wrap_raffle_generator_type__array__lattice_host
-
 subroutine f90wrap_raffle_generator_type__array__method_probab(this, nd, dtype, dshape, dloc)
     use generator, only: raffle_generator_type
     use, intrinsic :: iso_c_binding, only : c_int
@@ -298,6 +345,89 @@ subroutine f90wrap_raffle_generator_type__array__method_probab(this, nd, dtype, 
     dshape(1:1) = shape(this_ptr%p%method_probab)
     dloc = loc(this_ptr%p%method_probab)
 end subroutine f90wrap_raffle_generator_type__array__method_probab
+
+subroutine f90wrap_raffle_generator_type__array_getitem__structures(f90wrap_this, f90wrap_i, structuresitem)
+    
+    use generator, only: raffle_generator_type
+    use rw_geom, only: bas_type
+    implicit none
+    
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    type bas_type_ptr_type
+        type(bas_type), pointer :: p => NULL()
+    end type bas_type_ptr_type
+    integer, intent(in) :: f90wrap_this(2)
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer, intent(in) :: f90wrap_i
+    integer, intent(out) :: structuresitem(2)
+    type(bas_type_ptr_type) :: structures_ptr
+    
+    this_ptr = transfer(f90wrap_this, this_ptr)
+    if (allocated(this_ptr%p%structures)) then
+        if (f90wrap_i < 1 .or. f90wrap_i > size(this_ptr%p%structures)) then
+            call f90wrap_abort("array index out of range")
+        else
+            structures_ptr%p => this_ptr%p%structures(f90wrap_i)
+            structuresitem = transfer(structures_ptr,structuresitem)
+        endif
+    else
+        call f90wrap_abort("derived type array not allocated")
+    end if
+end subroutine f90wrap_raffle_generator_type__array_getitem__structures
+
+subroutine f90wrap_raffle_generator_type__array_setitem__structures(f90wrap_this, f90wrap_i, structuresitem)
+    
+    use generator, only: raffle_generator_type
+    use rw_geom, only: bas_type
+    implicit none
+    
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    type bas_type_ptr_type
+        type(bas_type), pointer :: p => NULL()
+    end type bas_type_ptr_type
+    integer, intent(in) :: f90wrap_this(2)
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer, intent(in) :: f90wrap_i
+    integer, intent(in) :: structuresitem(2)
+    type(bas_type_ptr_type) :: structures_ptr
+    
+    this_ptr = transfer(f90wrap_this, this_ptr)
+    if (allocated(this_ptr%p%structures)) then
+        if (f90wrap_i < 1 .or. f90wrap_i > size(this_ptr%p%structures)) then
+            call f90wrap_abort("array index out of range")
+        else
+            structures_ptr = transfer(structuresitem,structures_ptr)
+            this_ptr%p%structures(f90wrap_i) = structures_ptr%p
+        endif
+    else
+        call f90wrap_abort("derived type array not allocated")
+    end if
+end subroutine f90wrap_raffle_generator_type__array_setitem__structures
+
+subroutine f90wrap_raffle_generator_type__array_len__structures(f90wrap_this, f90wrap_n)
+    
+    use generator, only: raffle_generator_type
+    use rw_geom, only: bas_type
+    implicit none
+    
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    integer, intent(out) :: f90wrap_n
+    integer, intent(in) :: f90wrap_this(2)
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    
+    this_ptr = transfer(f90wrap_this, this_ptr)
+    if (allocated(this_ptr%p%structures)) then
+        f90wrap_n = size(this_ptr%p%structures)
+    else
+        f90wrap_n = 0
+    end if
+end subroutine f90wrap_raffle_generator_type__array_len__structures
 
 subroutine f90wrap_generator__raffle_generator_type_initialise(this)
     use generator, only: raffle_generator_type
@@ -324,6 +454,26 @@ subroutine f90wrap_generator__raffle_generator_type_finalise(this)
     this_ptr = transfer(this, this_ptr)
     deallocate(this_ptr%p)
 end subroutine f90wrap_generator__raffle_generator_type_finalise
+
+subroutine f90wrap_generator__set_host__binding__rgt(this, host)
+    use rw_geom, only: bas_type
+    use generator, only: raffle_generator_type
+    implicit none
+    
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    type bas_type_ptr_type
+        type(bas_type), pointer :: p => NULL()
+    end type bas_type_ptr_type
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    type(bas_type_ptr_type) :: host_ptr
+    integer, intent(in), dimension(2) :: host
+    this_ptr = transfer(this, this_ptr)
+    host_ptr = transfer(host, host_ptr)
+    call this_ptr%p%set_host(host=host_ptr%p)
+end subroutine f90wrap_generator__set_host__binding__rgt
 
 subroutine f90wrap_generator__generate__binding__rgt( &
        this, num_structures, stoichiometry, &
@@ -363,6 +513,27 @@ subroutine f90wrap_generator__generate__binding__rgt( &
         call this_ptr%p%generate(num_structures=num_structures, stoichiometry=stoichiometry_ptr%p%items)
     end if
 end subroutine f90wrap_generator__generate__binding__rgt
+
+subroutine f90wrap_generator__evaluate__binding__rgt(this, ret_viability, basis)
+    use rw_geom, only: bas_type
+    use generator, only: raffle_generator_type
+    implicit none
+    
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    type bas_type_ptr_type
+        type(bas_type), pointer :: p => NULL()
+    end type bas_type_ptr_type
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    real(4), intent(out) :: ret_viability
+    type(bas_type_ptr_type) :: basis_ptr
+    integer, intent(in), dimension(2) :: basis
+    this_ptr = transfer(this, this_ptr)
+    basis_ptr = transfer(basis, basis_ptr)
+    ret_viability = this_ptr%p%evaluate(basis=basis_ptr%p)
+end subroutine f90wrap_generator__evaluate__binding__rgt
 
 ! End of module generator defined in file ../src/lib/mod_generator.f90
 

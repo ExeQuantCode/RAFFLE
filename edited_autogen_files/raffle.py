@@ -176,7 +176,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             34-42
         
         """
-        def __init__(self, handle=None, atoms=None):
+        def __init__(self, atoms=None, handle=None):
             """
             self = bas_type()
             
@@ -361,7 +361,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             Element lat ftype=real(real12) pytype=float
             
             
-            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/lib/mod_rw_geom.f90 line 38
+            Defined at ../src/lib/mod_rw_geom.f90 line 38
             
             """
             array_ndim, array_type, array_shape, array_handle = \
@@ -385,7 +385,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             Element lcart ftype=logical pytype=bool
             
             
-            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/lib/mod_rw_geom.f90 line 39
+            Defined at ../src/lib/mod_rw_geom.f90 line 39
             
             """
             return _raffle.f90wrap_bas_type__get__lcart(self._handle)
@@ -400,7 +400,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             Element pbc ftype=logical pytype=bool
             
             
-            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/lib/mod_rw_geom.f90 line 40
+            Defined at ../src/lib/mod_rw_geom.f90 line 40
             
             """
             array_ndim, array_type, array_shape, array_handle = \
@@ -424,7 +424,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             Element sysname ftype=character(len=1024) pytype=str
             
             
-            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/lib/mod_rw_geom.f90 line 41
+            Defined at ../src/lib/mod_rw_geom.f90 line 41
             
             """
             return _raffle.f90wrap_bas_type__get__sysname(self._handle)
@@ -512,7 +512,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
                                             _raffle.f90wrap_bas_type_xnum_array__array_setitem__items,
                                             _raffle.f90wrap_bas_type_xnum_array__array_len__items,
                                             """
-            Element items ftype=type(test_type) pytype=Test_Type
+            Element items ftype=type(bas_type) pytype=bas_type
             
             
             Defined at  line 0
@@ -539,7 +539,6 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             _raffle.f90wrap_bas_type_xnum_array__array_dealloc__items(self._handle)
 
         
-
         _dt_array_initialisers = [init_array_items]
 
 
@@ -833,7 +832,7 @@ class Generator(f90wrap.runtime.FortranModule):
                                             _raffle.f90wrap_stoich_type_xnum_array__array_setitem__items,
                                             _raffle.f90wrap_stoich_type_xnum_array__array_len__items,
                                             """
-            Element items ftype=type(test_type) pytype=Test_Type
+            Element items ftype=type(stoichiometry_type) pytype=stoichiometry_type
             
             
             Defined at  line 0
@@ -914,6 +913,23 @@ class Generator(f90wrap.runtime.FortranModule):
             if self._alloc:
                 _raffle.f90wrap_generator__raffle_generator_type_finalise(this=self._handle)
 
+        def set_host(self, host):
+            """
+            set_host__binding__raffle_generator_type(self, host)
+            
+            
+            Defined at ../src/lib/mod_generator.f90 lines \
+                99-108
+            
+            Parameters
+            ----------
+            this : unknown
+            host : bas_type
+            
+            """
+            _raffle.f90wrap_generator__set_host__binding__rgt(this=self._handle, \
+                host=host._handle)
+        
         def generate(self, num_structures, stoichiometry, method_probab=[1.0, 1.0, 1.0]):
             """
             generate__binding__raffle_generator_type(self, num_structures, stoichiometry, method_probab)
@@ -934,7 +950,70 @@ class Generator(f90wrap.runtime.FortranModule):
                 this=self._handle,
                 num_structures=num_structures,
                 stoichiometry=stoichiometry._handle,
-                method_probab=method_probab)#, n0=len(method_probab))
+                method_probab=method_probab)
+        
+        def evaluate(self, basis):
+            """
+            viability = evaluate__binding__raffle_generator_type(self, basis)
+            
+            
+            Defined at ../src/lib/mod_generator.f90 lines \
+                311-322
+            
+            Parameters
+            ----------
+            this : unknown
+            basis : bas_type
+            
+            Returns
+            -------
+            viability : float
+            
+            """
+            viability = \
+                _raffle.f90wrap_generator__evaluate__binding__rgt(this=self._handle, \
+                basis=basis._handle)
+            return viability
+        
+        @property
+        def num_structures(self):
+            """
+            Element num_structures ftype=integer  pytype=int
+            
+            
+            Defined at ../src/lib/mod_generator.f90 line \
+                24
+            
+            """
+            return _raffle.f90wrap_raffle_generator_type__get__num_structures(self._handle)
+        
+        @num_structures.setter
+        def num_structures(self, num_structures):
+            _raffle.f90wrap_raffle_generator_type__set__num_structures(self._handle, \
+                num_structures)
+        
+        @property
+        def host(self):
+            """
+            Element host ftype=type(bas_type) pytype=bas_type
+            
+            
+            Defined at ../src/lib/mod_generator.f90 line \
+                25
+            
+            """
+            host_handle = _raffle.f90wrap_raffle_generator_type__get__host(self._handle)
+            if tuple(host_handle) in self._objs:
+                host = self._objs[tuple(host_handle)]
+            else:
+                host = rw_geom.bas_type.from_handle(host_handle)
+                self._objs[tuple(host_handle)] = host
+            return host
+        
+        @host.setter
+        def host(self, host):
+            host = host._handle
+            _raffle.f90wrap_raffle_generator_type__set__host(self._handle, host)
         
         @property
         def bins(self):
@@ -962,31 +1041,6 @@ class Generator(f90wrap.runtime.FortranModule):
             self.bins[...] = bins
         
         @property
-        def lattice_host(self):
-            """
-            Element lattice_host ftype=real(real12) pytype=float
-            
-            
-            Defined at ../src/lib/mod_generator.f90 line \
-                25
-            
-            """
-            array_ndim, array_type, array_shape, array_handle = \
-                _raffle.f90wrap_raffle_generator_type__array__lattice_host(self._handle)
-            if array_handle in self._arrays:
-                lattice_host = self._arrays[array_handle]
-            else:
-                lattice_host = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
-                                        self._handle,
-                                        _raffle.f90wrap_raffle_generator_type__array__lattice_host)
-                self._arrays[array_handle] = lattice_host
-            return lattice_host
-        
-        @lattice_host.setter
-        def lattice_host(self, lattice_host):
-            self.lattice_host[...] = lattice_host
-        
-        @property
         def method_probab(self):
             """
             Element method_probab ftype=real(real12) pytype=float
@@ -1011,18 +1065,35 @@ class Generator(f90wrap.runtime.FortranModule):
         def method_probab(self, method_probab):
             self.method_probab[...] = method_probab
         
+        def init_array_structures(self):
+            self.structures = f90wrap.runtime.FortranDerivedTypeArray(self,
+                                            _raffle.f90wrap_raffle_generator_type__array_getitem__structures,
+                                            _raffle.f90wrap_raffle_generator_type__array_setitem__structures,
+                                            _raffle.f90wrap_raffle_generator_type__array_len__structures,
+                                            """
+            Element items ftype=type(bas_type) pytype=bas_type
+            
+            
+            Defined at ../src/lib/mod_generator.f90 line \
+                29
+            
+            """, Rw_Geom.bas_type)
+            return self.structures
+
         def __str__(self):
             ret = ['<raffle_generator_type>{\n']
-            ret.append('    bins : ')
+            ret.append('    num_structures : ')
+            ret.append(repr(self.num_structures))
+            ret.append(',\n    host : ')
+            ret.append(repr(self.host))
+            ret.append(',\n    bins : ')
             ret.append(repr(self.bins))
-            ret.append(',\n    lattice_host : ')
-            ret.append(repr(self.lattice_host))
             ret.append(',\n    method_probab : ')
             ret.append(repr(self.method_probab))
             ret.append('}')
             return ''.join(ret)
         
-        _dt_array_initialisers = []
+        _dt_array_initialisers = [init_array_structures]
         
     
     _dt_array_initialisers = []

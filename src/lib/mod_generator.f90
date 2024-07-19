@@ -6,7 +6,7 @@ module generator
 
   use constants, only: verbose
   use misc_raffle, only: shuffle
-  use rw_geom, only: geom_read, geom_write, clone_bas
+  use rw_geom, only: clone_bas
   use edit_geom, only: bas_merge
   use add_atom, only: add_atom_void, add_atom_pseudo, add_atom_scan, &
        get_viable_gridpoints, update_viable_gridpoints
@@ -31,24 +31,25 @@ module generator
 
 
   type :: raffle_generator_type
+    integer :: num_structures = 0
+    type(bas_type) :: host
     integer, dimension(3) :: bins
-    real(real12), dimension(3,3) :: lattice_host
-    type(bas_type) :: basis_host
     type(gvector_container_type) :: distributions
     real(real12), dimension(3) :: method_probab
+    type(bas_type), dimension(:), allocatable :: structures
    contains
+    procedure, pass(this) :: set_host
     procedure, pass(this) :: generate
     procedure, pass(this) :: generate_structure
-    !procedure :: get_structures
-    !procedure :: evaluate
+    procedure, pass(this) :: get_structures
+    procedure, pass(this) :: evaluate
   end type raffle_generator_type
 
   interface raffle_generator_type
     module function init_raffle_generator( &
-         lattice_host, basis_host, &
+         host, &
          width, sigma, cutoff_min, cutoff_max) result(generator)
-      real(real12), dimension(3,3), intent(in) :: lattice_host
-      type(bas_type), intent(in) :: basis_host
+      type(bas_type), intent(in), optional :: host
       real(real12), dimension(3), intent(in), optional :: width
       real(real12), dimension(3), intent(in), optional :: sigma
       real(real12), dimension(3), intent(in), optional :: cutoff_min
@@ -82,15 +83,13 @@ module generator
   contains
 
   module function init_raffle_generator( &
-       lattice_host, basis_host, width, sigma, cutoff_min, cutoff_max ) &
+       host, width, sigma, cutoff_min, cutoff_max ) &
        result(generator)
     !! Initialise an instance of the raffle generator.
     !! Set up run-independent parameters.
     implicit none
     ! Arguments
-    real(real12), dimension(3,3), intent(in) :: lattice_host
-    !! Lattice vectors of the host structure.
-    type(bas_type), intent(in) :: basis_host
+    type(bas_type), intent(in), optional :: host
     !! Basis of the host structure.
     real(real12), dimension(3), intent(in), optional :: width
     !! Width of the gaussians used in the 2-, 3-, and 4-body 
@@ -105,10 +104,7 @@ module generator
 
     type(raffle_generator_type) :: generator
 
-
-    generator%lattice_host = lattice_host
-    generator%basis_host = basis_host
-
+    if(present(host)) call generator%set_host(host)
     if( present(width) ) &
          call generator%distributions%set_width(width)
     if( present(sigma) ) &
@@ -118,9 +114,20 @@ module generator
     if( present(cutoff_max) ) &
          call generator%distributions%set_cutoff_max(cutoff_max)
 
-
   end function init_raffle_generator
 
+
+  subroutine set_host(this, host)
+    !! Set the host structure.
+    implicit none
+    ! Arguments
+    class(raffle_generator_type), intent(inout) :: this
+    !! Instance of the raffle generator.
+    type(bas_type), intent(in) :: host
+    !! Basis of the host structure.
+
+    this%host = host
+  end subroutine set_host
 
 
   subroutine generate(this, num_structures, &
@@ -138,11 +145,12 @@ module generator
     !! Probability of each placement method.
 
     type(bas_type) :: basis, basis_store
+    type(bas_type), dimension(:), allocatable :: tmp_structures
 
     integer, dimension(:,:), allocatable :: placement_list, placement_list_shuffled
 
     integer :: i, j, k
-    integer :: istructure
+    integer :: istructure, num_structures_old, num_structures_new
     integer :: unit, info_unit, structure_unit
     integer :: num_insert_atoms, num_insert_species
 
@@ -156,6 +164,14 @@ module generator
 #endif
 
     if(present(method_probab)) method_probab_ = method_probab
+
+    if(.not.allocated(this%structures))then
+       allocate(this%structures(this%num_structures))
+    else
+       allocate(tmp_structures(this%num_structures + num_structures))
+       tmp_structures(:this%num_structures) = this%structures(:this%num_structures)
+       call move_alloc(tmp_structures, this%structures)
+    end if
 
 
     !!! THINK OF SOME WAY TO HANDLE THE HOST SEPARATELY
@@ -172,7 +188,7 @@ module generator
     do i = 1, basis_store%nspec
        allocate(basis_store%spec(i)%atom(basis_store%spec(i)%num,3), source = 0._real12)
     end do
-    basis_store = bas_merge(this%basis_host,basis_store)
+    basis_store = bas_merge(this%host,basis_store)
 
 
     !!--------------------------------------------------------------------------
@@ -191,7 +207,7 @@ module generator
                success = .true.
        end do
        if(.not.success) cycle
-       if(i.gt.this%basis_host%nspec)then
+       if(i.gt.this%host%nspec)then
           do j = 1, basis_store%spec(i)%num
              k = k + 1
              placement_list(k,1) = i
@@ -199,7 +215,7 @@ module generator
           end do
        else
           do j = 1, basis_store%spec(i)%num
-             if(j.le.this%basis_host%spec(i)%num) cycle
+             if(j.le.this%host%spec(i)%num) cycle
              k = k + 1
              placement_list(k,1) = i
              placement_list(k,2) = j
@@ -211,16 +227,19 @@ module generator
     !!--------------------------------------------------------------------------
     !! generate the structures
     !!--------------------------------------------------------------------------
-    structure_loop: do istructure = 1, num_structures
-
-       basis = this%generate_structure( basis_store, &
+    num_structures_old = this%num_structures
+    num_structures_new = this%num_structures + num_structures
+    structure_loop: do istructure = num_structures_old + 1, num_structures_new
+    
+       this%structures(i) = this%generate_structure( basis_store, &
             placement_list, method_probab_ )
+       this%num_structures = i
        
 #ifdef ENABLE_ATHENA
        !!-----------------------------------------------------------------------
        !! predict energy using ML
        !!-----------------------------------------------------------------------
-       graph(1) = get_graph_from_basis(this%lattice_host, basis)
+       graph(1) = get_graph_from_basis(this%host%lat, basis)
        write(*,*) "Predicted energy", network_predict_graph(graph(1:1))
 #endif
 
@@ -261,13 +280,13 @@ module generator
 
 
     call clone_bas(basis_initial, basis)
-    num_insert_atoms = basis%natom - this%basis_host%natom
+    num_insert_atoms = basis%natom - this%host%natom
 
     placement_list_shuffled = placement_list
     call shuffle(placement_list_shuffled,1) !!! NEED TO SORT OUT RANDOM SEED
 
     viable_gridpoints = get_viable_gridpoints( this%bins, &
-         this%lattice_host, basis, &
+         this%host%lat, basis, &
          [ this%distributions%bond_info(:)%radius_covalent ], &
          placement_list_shuffled )
 
@@ -283,13 +302,13 @@ module generator
        if(rtmp1.le.method_probab_(1)) then 
           if(verbose.gt.0) write(*,*) "Add Atom Void"
           call add_atom_void( this%bins, &
-                this%lattice_host, basis, &
+                this%host%lat, basis, &
                 placement_list_shuffled(iplaced+1:,:), placed)
        else if(rtmp1.le.method_probab_(2)) then 
           if(verbose.gt.0) write(*,*) "Add Atom Pseudo"
           call add_atom_pseudo( this%bins, &
                 this%distributions, &
-                this%lattice_host, basis, &
+                this%host%lat, basis, &
                 placement_list_shuffled(iplaced+1:,:), &
                 [ this%distributions%bond_info(:)%radius_covalent ], &
                 placed )
@@ -298,14 +317,14 @@ module generator
           if(verbose.gt.0) write(*,*) "Add Atom Scan"
           call add_atom_scan( viable_gridpoints, &
                 this%distributions, &
-                this%lattice_host, basis, &
+                this%host%lat, basis, &
                 placement_list_shuffled(iplaced+1:,:), &
                 [ this%distributions%bond_info(:)%radius_covalent ], &
                 placed)
        end if
        if(.not. placed) then
           if(void_ticker.gt.10) &
-               call add_atom_void( this%bins, this%lattice_host, basis, &
+               call add_atom_void( this%bins, this%host%lat, basis, &
                                   placement_list_shuffled(iplaced+1:,:), placed)
           void_ticker = 0
           if(.not.placed) cycle placement_loop
@@ -317,7 +336,7 @@ module generator
        iplaced = iplaced + 1
        if(allocated(viable_gridpoints)) &
             call update_viable_gridpoints( viable_gridpoints, &
-                             this%lattice_host, basis, &
+                             this%host%lat, basis, &
                              [ placement_list_shuffled(iplaced,:) ], &
                              this%distributions%bond_info( &
                                   ( basis%nspec - &
@@ -336,5 +355,49 @@ module generator
     end do placement_loop
 
   end function generate_structure
+
+
+  function get_structures(this) result(structures)
+    !! Get the generated structures.
+    implicit none
+    ! Arguments
+    class(raffle_generator_type), intent(in) :: this
+    !! Instance of the raffle generator.
+    type(bas_type), dimension(:), allocatable :: structures
+    !! Generated structures.
+
+    structures = this%structures
+  end function get_structures
+
+
+  function evaluate(this, basis) result(viability)
+    !! Evaluate the viability of the generated structures.
+    implicit none
+    ! Arguments
+    class(raffle_generator_type), intent(in) :: this
+    !! Instance of the raffle generator.
+    type(bas_type), intent(in) :: basis
+    !! Basis of the structure to evaluate.
+    real(real12) :: viability
+    !! Viability of the generated structures.
+
+    viability = 0.0_real12
+    stop "Not yet set up"
+  end function evaluate
+
+  subroutine allocate_structures(this, num_structures)
+    !! Allocate memory for the generated structures.
+    implicit none
+    ! Arguments
+    class(raffle_generator_type), intent(inout) :: this
+    !! Instance of the raffle generator.
+    integer, intent(in) :: num_structures
+    !! Number of structures to allocate memory for.
+
+    if(allocated(this%structures)) deallocate(this%structures)
+    allocate(this%structures(num_structures))
+    this%num_structures = num_structures
+  end subroutine allocate_structures
+
 
 end module generator

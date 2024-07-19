@@ -624,6 +624,33 @@ subroutine f90wrap_evolver__set_cutoff_max__binding__gvector_container047c(this,
     call this_ptr%p%set_cutoff_max(cutoff_max=cutoff_max)
 end subroutine f90wrap_evolver__set_cutoff_max__binding__gvector_container047c
 
+subroutine f90wrap_evolver__create__binding__gvector_container_type(this, basis_list)
+    use rw_geom, only: bas_type
+    use evolver, only: gvector_container_type
+    implicit none
+    
+    type gvector_container_type_ptr_type
+        type(gvector_container_type), pointer :: p => NULL()
+    end type gvector_container_type_ptr_type
+
+    type bas_type_xnum_array
+        type(bas_type), dimension(:), allocatable :: items
+    end type bas_type_xnum_array
+
+    type bas_type_xnum_array_ptr_type
+        type(bas_type_xnum_array), pointer :: p => NULL()
+    end type bas_type_xnum_array_ptr_type
+    type(gvector_container_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    type(bas_type_xnum_array_ptr_type) :: basis_list_ptr
+    integer, intent(in), dimension(2) :: basis_list
+
+    this_ptr = transfer(this, this_ptr)
+    basis_list_ptr = transfer(basis_list, basis_list_ptr)
+    call this_ptr%p%create(basis_list=basis_list_ptr%p%items)
+end subroutine f90wrap_evolver__create__binding__gvector_container_type
+
+
 subroutine f90wrap_evolver__add_basis__binding__gvector_container_type(this, basis)
     use rw_geom, only: bas_type
     use evolver, only: gvector_container_type

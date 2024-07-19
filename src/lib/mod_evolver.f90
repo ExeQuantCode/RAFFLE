@@ -197,7 +197,9 @@ module evolver
     type(bas_type), dimension(:), intent(in) :: basis_list
     !! List of basis structures.
 
-    deallocate(this%total%df_2body, this%total%df_3body, this%total%df_4body)
+    if(allocated(this%total%df_2body)) deallocate(this%total%df_2body)
+    if(allocated(this%total%df_3body)) deallocate(this%total%df_3body)
+    if(allocated(this%total%df_4body)) deallocate(this%total%df_4body)
     call this%add(basis_list)
     call this%evolve()
     

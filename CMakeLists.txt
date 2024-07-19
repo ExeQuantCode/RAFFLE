@@ -237,23 +237,23 @@ if (BUILD_PYTHON)
         message(FATAL_ERROR "f90wrap not found. Please install f90wrap.")
     endif()
 
-    # Generate f90wrap signature file
+    # # Generate f90wrap signature file
     set(F90WRAP_FILE ${CMAKE_BINARY_DIR}/f90wrap_*.f90)
-    set(KIND_MAP ${CMAKE_SOURCE_DIR}/kind_map)
-    add_custom_command(
-        TARGET ${PROJECT_NAME}
-        POST_BUILD
-        COMMAND ${F90WRAP_EXECUTABLE}
-        --default-to-inout
-        -m ${PROJECT_NAME}
-        -k ${KIND_MAP}
-        ${F90WRAP_FORTRAN_SRC_FILES}
-        --only raffle_generator_type stoichiometry_type bas_type gvector_container_type:
-        DEPENDS ${F90WRAP_FORTRAN_SRC_FILES}
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-        COMMENT "Generating f90wrap signature file"
-        VERBATIM
-    )
+    # set(KIND_MAP ${CMAKE_SOURCE_DIR}/kind_map)
+    # add_custom_command(
+    #     TARGET ${PROJECT_NAME}
+    #     POST_BUILD
+    #     COMMAND ${F90WRAP_EXECUTABLE}
+    #     --default-to-inout
+    #     -m ${PROJECT_NAME}
+    #     -k ${KIND_MAP}
+    #     ${F90WRAP_FORTRAN_SRC_FILES}
+    #     --only raffle_generator_type stoichiometry_type bas_type gvector_container_type:
+    #     DEPENDS ${F90WRAP_FORTRAN_SRC_FILES}
+    #     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    #     COMMENT "Generating f90wrap signature file"
+    #     VERBATIM
+    # )
 
     # Copy f90wrap edited files from edited_autogen_files to ${CMAKE_BINARY_DIR}
     add_custom_command(

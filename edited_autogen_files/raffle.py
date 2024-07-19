@@ -692,7 +692,7 @@ class Generator(f90wrap.runtime.FortranModule):
             19-21
         
         """
-        def __init__(self, handle=None):
+        def __init__(self, element=None, num=None, handle=None):
             """
             self = Stoichiometry_Type()
             
@@ -712,6 +712,12 @@ class Generator(f90wrap.runtime.FortranModule):
             f90wrap.runtime.FortranDerivedType.__init__(self)
             result = _raffle.f90wrap_stoichiometry_type_initialise()
             self._handle = result[0] if isinstance(result, tuple) else result
+
+            if element:
+                self.element = element
+            if num:
+                self.num = num
+
         
         def __del__(self):
             """

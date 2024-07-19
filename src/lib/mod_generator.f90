@@ -167,7 +167,7 @@ module generator
     if(present(method_probab)) method_probab_ = method_probab
 
     if(.not.allocated(this%structures))then
-       allocate(this%structures(this%num_structures))
+       allocate(this%structures(num_structures))
     else
        allocate(tmp_structures(this%num_structures + num_structures))
        tmp_structures(:this%num_structures) = this%structures(:this%num_structures)
@@ -238,15 +238,15 @@ module generator
     num_structures_new = this%num_structures + num_structures
     structure_loop: do istructure = num_structures_old + 1, num_structures_new
     
-       this%structures(i) = this%generate_structure( basis_store, &
+       this%structures(istructure) = this%generate_structure( basis_store, &
             placement_list, method_probab_ )
-       this%num_structures = i
+       this%num_structures = istructure
        
 #ifdef ENABLE_ATHENA
        !!-----------------------------------------------------------------------
        !! predict energy using ML
        !!-----------------------------------------------------------------------
-       graph(1) = get_graph_from_basis(this%structures(i))
+       graph(1) = get_graph_from_basis(this%structures(istructure))
        write(*,*) "Predicted energy", network_predict_graph(graph(1:1))
 #endif
 
@@ -360,7 +360,7 @@ module generator
        end if
 
     end do placement_loop
-    deallocate(viable_gridpoints)
+    if(allocated(viable_gridpoints)) deallocate(viable_gridpoints)
 
   end function generate_structure
 

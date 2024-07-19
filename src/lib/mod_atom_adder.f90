@@ -46,10 +46,14 @@ contains
             atom_ignore_list, radius_list, &
             1.1_real12, 0.95_real12)
     end do
-    if(abs(maxval(suitability_grid)).lt.1.E-6) return
+    if(abs(maxval(suitability_grid)).lt.1.E-6) then
+      deallocate(suitability_grid)
+      return
+    end if
 
     placed = .true.
     best_gridpoint = maxloc(suitability_grid, dim=1)
+    deallocate(suitability_grid)
 
     basis%spec(atom_ignore_list(1,1))%atom(atom_ignore_list(1,2),:) = &
          gridpoints(:,best_gridpoint)
@@ -264,6 +268,8 @@ contains
    end do grid_loop1
    allocate(points, source = points_tmp(:,:num_points))
 
+   deallocate(points_tmp, pair_index)
+
   end function get_viable_gridpoints
 !!!#############################################################################
 
@@ -302,6 +308,8 @@ contains
     else
        points = points_tmp(:,:num_points)
     end if
+
+    deallocate(points_tmp)
 
   end subroutine update_viable_gridpoints
 !!!#############################################################################

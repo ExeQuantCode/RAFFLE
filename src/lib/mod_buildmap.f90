@@ -87,6 +87,7 @@ contains
          !! check if the bondlength is within the tolerance for bonds ...
          !! ... between its own element and the element of the current atom
          if(bondlength .lt. radius_list(pair_index(ls,is))*lowtol)then
+            deallocate(pair_index)
             return
          else if(bondlength .gt. radius_list(pair_index(ls,is))*uptol)then
             cycle atom_loop1
@@ -112,7 +113,10 @@ contains
               end do
               position_storage2 = basis%spec(js)%atom(ja,:)
               if(get_distance(position,position_storage2).lt.&
-                   radius_list(pair_index(ls,js))*lowtol) return
+                   radius_list(pair_index(ls,js))*lowtol)then
+                 deallocate(pair_index)
+                 return
+              end if
               if(get_distance(position,position_storage2).lt.&
                    radius_list(pair_index(ls,js))*uptol) then
                  bin = gvector_container%get_bin( &
@@ -145,7 +149,10 @@ contains
                     end do
                     position_storage3 = basis%spec(js)%atom(ja,:)
                     if(get_distance(position,position_storage3).lt.&
-                         radius_list(pair_index(ls,ks))*lowtol) return
+                         radius_list(pair_index(ls,ks))*lowtol) then
+                       deallocate(pair_index)
+                       return
+                    end if
                     if(get_distance(position_storage1,position_storage3).lt.&
                          radius_list(pair_index(is,ks))*uptol) then
                        bin = gvector_container%get_bin( &
@@ -157,7 +164,10 @@ contains
                                 dim = 3 )
                        if(bin.eq.0) cycle
                        contribution = gvector_container%total%df_4body(bin,is)
-                       if(abs(contribution).lt.1.E-6) return
+                       if(abs(contribution).lt.1.E-6) then
+                          deallocate(pair_index)
+                          return
+                       end if
                        !Here have taken a large root of value return, to ...
                        !...account for sumamtion of atoms in 3D.
                        !Will need to think further on this.
@@ -173,6 +183,8 @@ contains
 
    if(abs(viability_2body).lt.1.E-6) viability_2body = 1._real12
    output = viability_2body * viability_4body * viability_3body
+
+   deallocate(pair_index)
     
   end function buildmap_POINT
 !!!#############################################################################

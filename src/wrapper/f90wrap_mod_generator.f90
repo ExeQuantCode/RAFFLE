@@ -572,5 +572,31 @@ subroutine f90wrap_generator__evaluate__binding__rgt(this, ret_viability, basis)
     ret_viability = this_ptr%p%evaluate(basis=basis_ptr%p)
 end subroutine f90wrap_generator__evaluate__binding__rgt
 
+subroutine f90wrap_generator__get_structures__binding__rgt(this, ret_structures)
+    use rw_geom, only: bas_type
+    use generator, only: raffle_generator_type
+    implicit none
+
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+
+    type bas_type_xnum_array
+        type(bas_type), dimension(:), allocatable :: items
+    end type bas_type_xnum_array
+
+    type bas_type_xnum_array_ptr_type
+        type(bas_type_xnum_array), pointer :: p => NULL()
+    end type bas_type_xnum_array_ptr_type
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    integer, intent(out), dimension(2) :: ret_structures
+    type(bas_type_xnum_array_ptr_type) :: ret_structures_ptr
+
+    this_ptr = transfer(this, this_ptr)
+    ret_structures_ptr%p%items = this_ptr%p%get_structures()
+    ret_structures = transfer(ret_structures_ptr,ret_structures)
+end subroutine f90wrap_generator__get_structures__binding__rgt
+
 ! End of module generator defined in file ../src/lib/mod_generator.f90
 

@@ -1,10 +1,10 @@
 import sys
 # caution: path[0] is reserved for script path (or '' in REPL)
-sys.path.insert(1, '../build/')
+sys.path.insert(1, '../../build/')
 
-import build.raffle as raffle
+import raffle
 from ase import Atoms
-from ase.io import read
+from ase.io import read, write
 
 # atoms = Atoms('CC', positions=[[0, 0, 0], [1.2, 0, 0]], pbc=True, cell=[2.4, 2.4, 2.4])
 
@@ -25,6 +25,7 @@ database_basis = raffle.rw_geom.bas_type_xnum_array()
 database_basis.allocate(num_database)
 for i, atoms in enumerate(database):
     database_basis.items[i].fromase(atoms)
+
 print("Database read")
 
 print("Setting database")
@@ -40,8 +41,21 @@ stoich_list.allocate(2)
 stoich_list.items[0].element = 'C'
 stoich_list.items[0].num = 1
 stoich_list.items[1].element = 'Mg'
-stoich_list.items[1].num = 2
+stoich_list.items[1].num = 1
 
 print("Generating...")
 generator.generate(num_structures=2, stoichiometry=stoich_list)
 print("Generated")
+
+print("Getting structures")
+# generated_structures = generator.get_structures()
+print("number of structures supposed to be generated: ", generator.num_structures)
+generated_structures = generator.structures
+print("actual number allocated: ",len(generated_structures))
+print("Got structures")
+
+print("Converting to ASE")
+for i, structure in enumerate(generated_structures):
+    print(f"Converting structure {i}")
+    atoms = structure.toase()
+    write(f"POSCAR_{i}", atoms)

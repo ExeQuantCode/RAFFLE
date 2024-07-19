@@ -271,7 +271,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             atoms.set_pbc(self.pbc)
 
             # Set the lattice vectors
-            atoms.set_cell(bas.lat)
+            atoms.set_cell(self.lat)
 
             return atoms
         
@@ -1873,6 +1873,22 @@ class Generator(f90wrap.runtime.FortranModule):
                 num_structures=num_structures,
                 stoichiometry=stoichiometry._handle,
                 method_probab=method_probab)
+            
+        def get_structures(self):
+            """
+            structures = get_structures__binding__raffle_generator_type(self)
+            
+            
+            Defined at ../src/lib/mod_generator.f90 lines \
+                86-97
+            
+            Parameters
+            ----------
+            this : unknown
+            
+            """
+            structures = _raffle.f90wrap_generator__get_structures__binding__rgt(this=self._handle)
+            return structures
         
         def evaluate(self, basis):
             """

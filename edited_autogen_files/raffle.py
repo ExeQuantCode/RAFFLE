@@ -710,7 +710,7 @@ class Generator(f90wrap.runtime.FortranModule):
             Automatically generated constructor for stoichiometry_type
             """
             f90wrap.runtime.FortranDerivedType.__init__(self)
-            result = _raffle.f90wrap_generator__stoichiometry_type_initialise()
+            result = _raffle.f90wrap_stoichiometry_type_initialise()
             self._handle = result[0] if isinstance(result, tuple) else result
         
         def __del__(self):
@@ -730,7 +730,7 @@ class Generator(f90wrap.runtime.FortranModule):
             Automatically generated destructor for stoichiometry_type
             """
             if self._alloc:
-                _raffle.f90wrap_generator__stoichiometry_type_finalise(this=self._handle)
+                _raffle.f90wrap_stoichiometry_type_finalise(this=self._handle)
         
         @property
         def element(self):

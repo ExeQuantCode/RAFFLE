@@ -228,13 +228,26 @@ if (BUILD_PYTHON)
     set(OBJECTS_DIR ${CMAKE_BUILD_PREFIX}/CMakeFiles/${PROJECT_NAME}.dir)
     message(STATUS "Object files directory for ${PROJECT_NAME}: ${OBJECTS_DIR}")
 
-
     # Include f90wrap
     find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
     if(NOT DEFINED PYTHON_EXECUTABLE)
         set(PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
     endif()
     set (F2PY_EXECUTABLE ${PYTHON_EXECUTABLE} -m f90wrap --f2py-f90wrap)
+
+    # determine middle part of shared object filename
+    string(REPLACE "." "" PYTHON_VERSION ${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR})
+    if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+        set(PLATFORM_TAG "darwin")
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        set(PLATFORM_TAG "linux")
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+        set(PLATFORM_TAG "win_amd64")
+    else()
+        set(PLATFORM_TAG "unknown")
+    endif()
+    set(FILENAME_MIDDLE "cpython-${PYTHON_VERSION}-${PLATFORM_TAG}")
+    set(F2PY_OUTPUT_FILE ${CMAKE_BINARY_DIR}/_${PROJECT_NAME}.${FILENAME_MIDDLE}.so)
 
     # # Generate f90wrap signature file
     set(F90WRAP_FILE ${CMAKE_CURRENT_LIST_DIR}/src/wrapper/f90wrap_*.f90)
@@ -254,10 +267,11 @@ if (BUILD_PYTHON)
     #     VERBATIM
     # )
 
+    add_custom_target(PY_FILES ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.py)
+
     # Copy f90wrap edited files from edited_autogen_files to ${CMAKE_BINARY_DIR}
     add_custom_command(
-        TARGET ${PROJECT_NAME}
-        POST_BUILD
+        OUTPUT ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.py ${CMAKE_BINARY_DIR}/__init__.py
         COMMAND cp -r ${CMAKE_CURRENT_LIST_DIR}/src/raffle/*.py ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
         COMMENT "Copying raffle class file"
     )
@@ -266,7 +280,7 @@ if (BUILD_PYTHON)
 
     # Create a Python module using f2py
     add_custom_command(
-        TARGET ${PROJECT_NAME}
+        OUTPUT ${F2PY_OUTPUT_FILE}
         POST_BUILD
         COMMAND ${F2PY_EXECUTABLE}
         ${F2PY_ATHENA_LIBRARY_FLAGS}
@@ -278,20 +292,19 @@ if (BUILD_PYTHON)
         --quiet
         ${OBJECTS_DIR}/src/*.o
         ${OBJECTS_DIR}/src/lib/*.o
-        # ${F2PY_OUTPUT_FLAG}
+        ${F2PY_OUTPUT_FLAG}
         DEPENDS ${F90WRAP_FILE}
         WORKING_DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
         COMMENT "Creating Python module using f2py"
     )
 
-
     # Define output files
     set(PY_MODULE ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.py)
-    file(GLOB SO_MODULE "${CMAKE_BINARY_DIR}/_${PROJECT_NAME}*.so")
+    # file(GLOB SO_MODULE "${CMAKE_BINARY_DIR}/_${PROJECT_NAME}*.so")
 
     # Create a custom target for the Python module
     add_custom_target(python_module ALL
-        DEPENDS ${SO_MODULE} ${PY_MODULE}
+        DEPENDS ${F2PY_OUTPUT_FILE} ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.py ${CMAKE_BINARY_DIR}/__init__.py
     )
 
     # Installation instructions

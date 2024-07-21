@@ -1,0 +1,35 @@
+[project]
+name = "raffle"
+version = "0.2"
+dependencies = [
+    "f90wrap>=0.2.15",
+    "numpy>=2.0.0",
+    "ase>=3.23.0",
+]
+requires-python = ">=3.11"
+authors = [
+    { name = "Ned Thaddeus Taylor", email = "n.t.taylor@exeter.ac.uk" },
+    { name = "Joe Pitfield" },
+    { name = "Steven Paul Hepplestone", email = "s.p.hepplestone@exeter.ac.uk" },
+]
+description = "A material interface structure prediction package"
+readme = "README.md"
+classifiers = [
+    "Development Status :: 3",
+    "Indented Audience :: Computational materials scientists",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Fortran :: F08", 
+    "License :: ",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/nedtaylor/raffle"
+Issues = "https://github.com/nedtaylor/raffle/issues"
+
+[build-system]
+requires = [
+    "f90wrap>=0.2.15",
+    "setuptools ~= 58.0",
+    "cython ~= 0.29.0",
+]

@@ -52,6 +52,9 @@ if (CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*")
   endif()
 endif()
 
+# set the output directories
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+
 # enable testing
 enable_testing()
 
@@ -70,11 +73,9 @@ set(LIB_FILES
   mod_misc.f90
 	mod_misc_maths.f90
 	mod_misc_linalg.f90
-	# mod_rw_geom.f90
 	mod_rw_vasprun.f90
 	mod_edit_geom.f90
 	mod_elements.f90
-	# mod_evolver.f90
 	mod_buildmap.f90
 	mod_atom_adder.f90
 	mod_read_structures.f90
@@ -238,7 +239,7 @@ if (BUILD_PYTHON)
     endif()
 
     # # Generate f90wrap signature file
-    set(F90WRAP_FILE ${CMAKE_BINARY_DIR}/f90wrap_*.f90)
+    set(F90WRAP_FILE ${CMAKE_CURRENT_LIST_DIR}/src/wrapper/f90wrap_*.f90)
     # set(KIND_MAP ${CMAKE_SOURCE_DIR}/kind_map)
     # add_custom_command(
     #     TARGET ${PROJECT_NAME}
@@ -259,9 +260,11 @@ if (BUILD_PYTHON)
     add_custom_command(
         TARGET ${PROJECT_NAME}
         POST_BUILD
-        COMMAND cp ${CMAKE_CURRENT_LIST_DIR}/src/wrapper/* ${CMAKE_BINARY_DIR}
-        COMMENT "Copying f90wrap edited files"
+        COMMAND cp -r ${CMAKE_CURRENT_LIST_DIR}/src/raffle/*.py ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
+        COMMENT "Copying raffle class file"
     )
+
+    set(F2PY_OUTPUT_FLAG --quiet > /dev/null 2>&1)
 
     # Create a Python module using f2py
     add_custom_command(
@@ -274,10 +277,12 @@ if (BUILD_PYTHON)
         -m _${PROJECT_NAME}
         --f90flags="${PPFLAGS}"
         ${F90WRAP_FILE}
+        --quiet
         ${OBJECTS_DIR}/src/*.o
         ${OBJECTS_DIR}/src/lib/*.o
+        # ${F2PY_OUTPUT_FLAG}
         DEPENDS ${F90WRAP_FILE}
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        WORKING_DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
         COMMENT "Creating Python module using f2py"
     )
 

@@ -30,6 +30,8 @@ Issues = "https://github.com/nedtaylor/raffle/issues"
 [build-system]
 requires = [
     "f90wrap>=0.2.15",
+    "numpy>=2.0.0",
     "setuptools ~= 58.0",
     "cython ~= 0.29.0",
 ]
+build-backend = "setuptools.build_meta"

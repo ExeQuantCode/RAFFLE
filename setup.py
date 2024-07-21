@@ -42,10 +42,9 @@ class CMakeBuild(build_ext):
 
         """
         extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
-        print("extdir: ", extdir)
         cmake_args = [
             '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + extdir,
-            # '-DPYTHON_EXECUTABLE=' + os.path.abspath(sys.executable)
+            '-DPYTHON_EXECUTABLE=' + os.path.abspath(sys.executable)
         ]
         build_args = ['--config', 'Release']
 
@@ -75,12 +74,20 @@ class CMakeExtension(Extension):
         Extension.__init__(self, name, sources=[])
         self.sourcedir = os.path.abspath(sourcedir)
 
+minimum_requirements = [
+    "f90wrap>=0.2.15",
+    "numpy>=2.0.0",
+    "ase>=3.23.0",
+]
+
 setup(
     name='raffle',
     version='0.2.0',
     author='Ned Thaddeus Taylor',
     author_email='n.t.taylor@exeter.ac.uk',
     description='A Python project with a Fortran library',
+    install_requires=minimum_requirements,
+    python_requires='>=3.11, <3.12',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
     ext_modules=[CMakeExtension('raffle')],

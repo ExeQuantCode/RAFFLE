@@ -231,12 +231,10 @@ if (BUILD_PYTHON)
 
     # Include f90wrap
     find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
-    find_program(F90WRAP_EXECUTABLE f90wrap)
-    find_program(F2PY_EXECUTABLE f2py-f90wrap)
-
-    if(NOT F90WRAP_EXECUTABLE)
-        message(FATAL_ERROR "f90wrap not found. Please install f90wrap.")
+    if(NOT DEFINED PYTHON_EXECUTABLE)
+        set(PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
     endif()
+    set (F2PY_EXECUTABLE ${PYTHON_EXECUTABLE} -m f90wrap --f2py-f90wrap)
 
     # # Generate f90wrap signature file
     set(F90WRAP_FILE ${CMAKE_CURRENT_LIST_DIR}/src/wrapper/f90wrap_*.f90)

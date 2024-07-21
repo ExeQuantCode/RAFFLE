@@ -1,9 +1,8 @@
 from __future__ import print_function, absolute_import, division
-import raffle._raffle
+import raffle._raffle as _raffle
 import f90wrap.runtime
 import logging
 import numpy
-from ase import Atoms
 
 class Rw_Geom(f90wrap.runtime.FortranModule):
     """
@@ -220,7 +219,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
                 _raffle.f90wrap_rw_geom__bas_type_finalise(this=self._handle)
         
         def allocate_species(self, num_species=None, species_symbols=None, species_count=None, \
-            atoms=None):
+            positions=None):
             """
             allocate_species__binding__bas_type(self[, num_species, species_symbols, \
                 species_count, atoms])
@@ -240,7 +239,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             """
             _raffle.f90wrap_rw_geom__allocate_species__binding__bas_type(this=self._handle, \
                 num_species=num_species, species_symbols=species_symbols, species_count=species_count, \
-                atoms=atoms)
+                atoms=positions)
         
         def init_array_spec(self):
             self.spec = f90wrap.runtime.FortranDerivedTypeArray(self,
@@ -257,6 +256,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             return self.spec
         
         def toase(self):
+            from ase import Atoms
 
             # Set the species list
             positions = []
@@ -308,7 +308,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
                         atom_positions.append(positions[j])
             
             # Allocate memory for the atom list
-            self.allocate_species(species_symbols=species_symbols_unique, species_count=species_count, atoms=atom_positions)
+            self.allocate_species(species_symbols=species_symbols_unique, species_count=species_count, positions=atom_positions)
 
         @property
         def nspec(self):

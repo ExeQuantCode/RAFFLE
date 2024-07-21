@@ -7,3 +7,5 @@ obj/
 DTESTING/
 DTEST/
 build/
+src/*.egg-info
+*.egg-info

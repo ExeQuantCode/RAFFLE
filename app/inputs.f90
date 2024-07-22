@@ -215,6 +215,14 @@ contains
     if(trim(database).ne."")then
        allocate(database_list(icount(database)))
        read(database,*) database_list
+       l_pos = 0
+       do i = 1, size(database_list)
+         read(database(l_pos+1:),'(A)') buffer
+         r_pos = scan(buffer,",")
+         if(r_pos.eq.0) r_pos = len_trim(buffer)
+         read(buffer(:r_pos-1),'(A)') database_list(i)
+         l_pos = scan(database(l_pos+1:),",") + l_pos
+      end do
     end if
 
 

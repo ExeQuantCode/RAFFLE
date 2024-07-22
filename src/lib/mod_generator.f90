@@ -1,9 +1,14 @@
 module generator
+  !! Module for generating random structures from host structures.
+  !!
+  !! This module contains the raffle generator type, which is used to generate
+  !! random structures from a host structure. The raffle generator uses
+  !! distribution functions to determine the placement of atoms in the
+  !! provided host structure.
   use constants, only: real12
   use misc_raffle, only: strip_null
   use rw_geom, only: bas_type
   use evolver, only: gvector_container_type
-
 
   use constants, only: verbose
   use misc_raffle, only: shuffle
@@ -26,27 +31,47 @@ module generator
 
 
   type :: stoichiometry_type
+    !! Type for storing the stoichiometry of atoms to be placed in the host
+    !! structure.
     character(len=3) :: element
+    !! Element symbol.
     integer :: num
+    !! Number of atoms.
   end type stoichiometry_type
 
 
   type :: raffle_generator_type
+    !! Type for instance of raffle generator.
+    !!
+    !! This type contains the parameters and methods for generating random
+    !! structures from a host structure, using the RAFFLE method.
     integer :: num_structures = 0
+    !! Number of structures generated. Initialised to zero.
     type(bas_type) :: host
+    !! Host structure.
     integer, dimension(3) :: bins
+    !! Number of bins to divide the host structure into along each axis.
     type(gvector_container_type) :: distributions
+    !! Distribution function container for the 2-, 3-, and 4-body interactions.
     real(real12), dimension(3) :: method_probab
+    !! Probability of each placement method.
     type(bas_type), dimension(:), allocatable :: structures
+    !! Generated structures.
    contains
     procedure, pass(this) :: set_host
+    !! Procedure to set the host structure.
     procedure, pass(this) :: generate
-    procedure, pass(this) :: generate_structure
+    !! Procedure to generate random structures.
+    procedure, pass(this), private :: generate_structure
+    !! Procedure to generate a single random structure.
     procedure, pass(this) :: get_structures
+    !! Procedure to return the generated structures.
     procedure, pass(this) :: evaluate
+    !! Procedure to evaluate the viability of a structure.
   end type raffle_generator_type
 
   interface raffle_generator_type
+    !! Constructor for the raffle generator type.
     module function init_raffle_generator( &
          host, &
          width, sigma, cutoff_min, cutoff_max) result(generator)
@@ -59,29 +84,8 @@ module generator
     end function init_raffle_generator
   end interface raffle_generator_type
 
-!   interface
-!     module subroutine generate( this, &
-!          num_structures, stoichiometry, method_probab )
-!       class(raffle_generator_type), intent(inout) :: this
-!       integer, intent(in) :: num_structures
-!       type(stoichiometry_type), dimension(:), intent(in) :: stoichiometry
-!       real(real12), dimension(:), intent(in), optional :: method_probab
-!     end subroutine generate
 
-!     module function generate_structure( &
-!          this, &
-!          basis_initial, &
-!          placement_list, method_probab ) result(basis)
-!       class(raffle_generator_type), intent(in) :: this
-!       type(bas_type), intent(in) :: basis_initial
-!       integer, dimension(:,:), intent(in) :: placement_list
-!       real(real12), dimension(3) :: method_probab
-!       type(bas_type) :: basis
-!     end function generate_structure
-!   end interface
-
-
-  contains
+contains
 
   module function init_raffle_generator( &
        host, width, sigma, cutoff_min, cutoff_max ) &
@@ -89,6 +93,7 @@ module generator
     !! Initialise an instance of the raffle generator.
     !! Set up run-independent parameters.
     implicit none
+
     ! Arguments
     type(bas_type), intent(in), optional :: host
     !! Basis of the host structure.
@@ -103,9 +108,15 @@ module generator
     real(real12), dimension(3), intent(in), optional :: cutoff_max
     !! Maximum cutoff for the 2-, 3-, and 4-body distribution functions.
 
+    ! Local variables
     type(raffle_generator_type) :: generator
+    !! Instance of the raffle generator.
 
+    ! Handle optional arguments
+    ! Set up the host structure
     if(present(host)) call generator%set_host(host)
+
+    ! Set up the distribution function parameters
     if( present(width) ) &
          call generator%distributions%set_width(width)
     if( present(sigma) ) &
@@ -132,9 +143,10 @@ module generator
 
 
   subroutine generate(this, num_structures, &
-       stoichiometry, method_probab)
+       stoichiometry, method_probab, seed)
     !! Generate random structures.
     implicit none
+
     ! Arguments
     class(raffle_generator_type), intent(inout) :: this
     !! Instance of the raffle generator.
@@ -144,31 +156,60 @@ module generator
     !! Stoichiometry of the structures to generate.
     real(real12), dimension(:), intent(in), optional :: method_probab
     !! Probability of each placement method.
+    integer, intent(in), optional :: seed
+    !! Seed for the random number generator.
 
-    type(bas_type) :: basis, basis_store
-    type(bas_type), dimension(:), allocatable :: tmp_structures
-
-    integer, dimension(:,:), allocatable :: placement_list, placement_list_shuffled
-
-    integer :: i, j, k
-    integer :: istructure, num_structures_old, num_structures_new
-    integer :: unit, info_unit, structure_unit
+    ! Local variables
+    integer :: i, j, k, istructure, num_structures_old, num_structures_new
+    !! Loop counters.
+    integer :: num_seed
+    !! Number of seeds for the random number generator.
     integer :: num_insert_atoms, num_insert_species
+    !! Number of atoms and species to insert (from stoichiometry).
+    logical :: success
+    !! Boolean comparison of element symbols.
+    type(bas_type) :: basis_template
+    !! Basis of the structure to generate (i.e. allocated species and atoms).
+    real(real12), dimension(3) :: &
+         method_probab_ = [0.33_real12, 0.66_real12, 1.0_real12]
+    !! Default probability of each placement method.
 
-    logical :: placed, success
-    character(1024) :: buffer
+    integer, dimension(:), allocatable :: seed_arr
+    !! Array of seeds for the random number generator.
+    type(bas_type), dimension(:), allocatable :: tmp_structures
+    !! Temporary array of structures (for memory reallocation).
 
-    real(real12), dimension(3) :: method_probab_ = [0.33_real12, 0.66_real12, 1.0_real12]
+    integer, dimension(:,:), allocatable :: placement_list
+    !! List of possible atoms to place in the structure.
+
 
 #ifdef ENABLE_ATHENA
     type(graph_type), dimension(1) :: graph
+    !! Graph for machine learning.
 #endif
 
 
+    !---------------------------------------------------------------------------
+    ! set the placement method probabilities
+    !---------------------------------------------------------------------------
     if(verbose.gt.0) write(*,*) "Setting method probabilities"
     if(present(method_probab)) method_probab_ = method_probab
 
 
+    !---------------------------------------------------------------------------
+    ! set the random seed
+    !---------------------------------------------------------------------------
+    if(present(seed))then
+       call random_seed(size=num_seed)
+       allocate(seed_arr(num_seed))
+       seed_arr = seed 
+       call random_seed(put=seed_arr)
+    end if
+
+
+    !---------------------------------------------------------------------------
+    ! allocate memory for structures
+    !---------------------------------------------------------------------------
     if(verbose.gt.0) write(*,*) "Allocating memory for structures"
     if(.not.allocated(this%structures))then
        allocate(this%structures(num_structures))
@@ -179,56 +220,60 @@ module generator
     end if
 
 
+    !---------------------------------------------------------------------------
+    ! set up the template basis for generated structures
+    !---------------------------------------------------------------------------
     if(verbose.gt.0) write(*,*) "Setting up basis store"
-    !!! THINK OF SOME WAY TO HANDLE THE HOST SEPARATELY
-    !!! THAT CAN SIGNIFICANTLY REDUCE DATA USAGE
     num_insert_species = size(stoichiometry)
     num_insert_atoms = sum(stoichiometry(:)%num)
-    allocate(basis_store%spec(num_insert_species))
+    allocate(basis_template%spec(num_insert_species))
     do i = 1, size(stoichiometry)
-       basis_store%spec(i)%name = strip_null(stoichiometry(i)%element)
-       write(*,*) basis_store%spec(i)%name
+       basis_template%spec(i)%name = strip_null(stoichiometry(i)%element)
+       write(*,*) basis_template%spec(i)%name
     end do
-    basis_store%spec(:)%num = stoichiometry(:)%num
-    basis_store%natom = num_insert_atoms
-    basis_store%nspec = num_insert_species
-    basis_store%sysname = "inserts"
+    basis_template%spec(:)%num = stoichiometry(:)%num
+    basis_template%natom = num_insert_atoms
+    basis_template%nspec = num_insert_species
+    basis_template%sysname = "inserts"
 
-    do i = 1, basis_store%nspec
-       allocate(basis_store%spec(i)%atom(basis_store%spec(i)%num,3), source = 0._real12)
+    do i = 1, basis_template%nspec
+       allocate( &
+            basis_template%spec(i)%atom(basis_template%spec(i)%num,3), &
+            source = 0._real12 &
+       )
     end do
     if(.not.allocated(this%host%spec)) stop "Host structure not set"
-    basis_store = bas_merge(this%host,basis_store)
-    basis_store%lat = this%host%lat
+    basis_template = bas_merge(this%host,basis_template)
+    basis_template%lat = this%host%lat
 
 
-    !!--------------------------------------------------------------------------
-    !! generate the placement list
-    !! placement list is the list of number of atoms of each species that can be
-    !! placed in the structure
-    !! ... the second dimension is the index of the species and atom in the
-    !! ... basis_store
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! generate the placement list
+    ! placement list is the list of number of atoms of each species that can be
+    ! placed in the structure
+    ! ... the second dimension is the index of the species and atom in the
+    ! ... basis_template
+    !---------------------------------------------------------------------------
     if(verbose.gt.0) write(*,*) "Generating placement list"
     allocate(placement_list(num_insert_atoms,2))
     k = 0
-    spec_loop1: do i = 1, basis_store%nspec
+    spec_loop1: do i = 1, basis_template%nspec
        success = .false.
        do j = 1, size(stoichiometry)
           if( &
-               trim(basis_store%spec(i)%name) .eq. &
+               trim(basis_template%spec(i)%name) .eq. &
                trim(strip_null(stoichiometry(j)%element))) &
                success = .true.
        end do
        if(.not.success) cycle
        if(i.gt.this%host%nspec)then
-          do j = 1, basis_store%spec(i)%num
+          do j = 1, basis_template%spec(i)%num
              k = k + 1
              placement_list(k,1) = i
              placement_list(k,2) = j
           end do
        else
-          do j = 1, basis_store%spec(i)%num
+          do j = 1, basis_template%spec(i)%num
              if(j.le.this%host%spec(i)%num) cycle
              k = k + 1
              placement_list(k,1) = i
@@ -238,23 +283,23 @@ module generator
     end do spec_loop1
 
 
-    !!--------------------------------------------------------------------------
-    !! generate the structures
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! generate the structures
+    !---------------------------------------------------------------------------
     if(verbose.gt.0) write(*,*) "Entering structure generation loop"
     num_structures_old = this%num_structures
     num_structures_new = this%num_structures + num_structures
     structure_loop: do istructure = num_structures_old + 1, num_structures_new
     
        if(verbose.gt.0) write(*,*) "Generating structure", istructure
-       this%structures(istructure) = this%generate_structure( basis_store, &
+       this%structures(istructure) = this%generate_structure( basis_template, &
             placement_list, method_probab_ )
        this%num_structures = istructure
        
 #ifdef ENABLE_ATHENA
-       !!-----------------------------------------------------------------------
-       !! predict energy using ML
-       !!-----------------------------------------------------------------------
+       !------------------------------------------------------------------------
+       ! predict energy using ML
+       !------------------------------------------------------------------------
        graph(1) = get_graph_from_basis(this%structures(istructure))
        write(*,*) "Predicted energy", network_predict_graph(graph(1:1))
 #endif
@@ -272,6 +317,7 @@ module generator
        placement_list, method_probab ) result(basis)
     !! Generate a single random structure.
     implicit none
+
     ! Arguments
     class(raffle_generator_type), intent(in) :: this
     !! Instance of the raffle generator.
@@ -284,30 +330,53 @@ module generator
     type(bas_type) :: basis
     !! Generated basis.
 
+    ! Local variables
     integer :: i, j, iplaced, void_ticker
+    !! Loop counters.
     integer :: num_insert_atoms
+    !! Number of atoms to insert.
     real(real12) :: rtmp1
+    !! Random number.
     logical :: placed
+    !! Boolean for successful placement.
     integer, dimension(size(placement_list,1),size(placement_list,2)) :: &
          placement_list_shuffled
+    !! Shuffled placement list.
     real(real12), dimension(3) :: method_probab_
+    !! Temporary probability of each placement method.
+    !! This is used to update the probability of the SCAN method if no viable
+    !! gridpoints are found.
     real(real12), dimension(:,:), allocatable :: viable_gridpoints
+    !! Viable gridpoints for placing atoms.
 
 
-
+    !---------------------------------------------------------------------------
+    ! initialise the basis
+    !---------------------------------------------------------------------------
     call clone_bas(basis_initial, basis)
     num_insert_atoms = basis%natom - this%host%natom
 
+
+    !---------------------------------------------------------------------------
+    ! shuffle the placement list
+    !---------------------------------------------------------------------------
     placement_list_shuffled = placement_list
     call shuffle(placement_list_shuffled,1) !!! NEED TO SORT OUT RANDOM SEED
 
+
+    !---------------------------------------------------------------------------
+    ! check for viable gridpoints
+    !---------------------------------------------------------------------------
     viable_gridpoints = get_viable_gridpoints( this%bins, &
          basis, &
          [ this%distributions%bond_info(:)%radius_covalent ], &
          placement_list_shuffled )
 
-    method_probab_ = method_probab
 
+    !---------------------------------------------------------------------------
+    ! place the atoms
+    !---------------------------------------------------------------------------
+    method_probab_ = method_probab
     iplaced = 0
     void_ticker = 0
     placement_loop: do while (iplaced.lt.num_insert_atoms)
@@ -402,6 +471,7 @@ module generator
     stop "Not yet set up"
   end function evaluate
 
+
   subroutine allocate_structures(this, num_structures)
     !! Allocate memory for the generated structures.
     implicit none
@@ -415,6 +485,5 @@ module generator
     allocate(this%structures(num_structures))
     this%num_structures = num_structures
   end subroutine allocate_structures
-
 
 end module generator

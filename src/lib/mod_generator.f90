@@ -387,9 +387,6 @@ contains
     iplaced = 0
     void_ticker = 0
     placement_loop: do while (iplaced.lt.num_insert_atoms)
-
-    !!! CHANGE THESE PLACEMENT SUBROUTINES TO FUNCTIONS THAT OUTPUT THE COORDINATE
-    !!! THEN, THIS LOOP ACTUALLY PLACES IT AT THE END
        call random_number(rtmp1)
        if(rtmp1.le.method_probab_(1)) then 
           if(verbose.gt.0) write(*,*) "Add Atom Void"

@@ -9,10 +9,8 @@
 /
 
 &structure
-  num_structures=1,
-  num_species=2,
-  stoichiometry="2 1",
-  elements="C Mg"
+  num_structures=10,
+  stoichiometry="{C:2, Mg:1}",
 /
 
 &volume

@@ -7,18 +7,18 @@
 !!!#############################################################################
 module inputs
   use misc_raffle, only: file_check,flagmaker, icount, to_lower
-  use constants, only: real12, ierror, pi
+  use generator, only: stoichiometry_type
+  use constants, only: real12, verbose, pi
   implicit none
   
 
   private
 
-  public :: verbose
   public :: vdW, volvar
   public :: bins, vps_ratio
   public :: seed
   public :: num_structures, num_species, task
-  public :: stoichiometry_list, element_list
+  public :: stoich
   public :: filename_host
   public :: database_format, database_list
   public :: cutoff_min_list, cutoff_max_list, width_list, sigma_list
@@ -28,13 +28,11 @@ module inputs
 
   logical :: lseed
 
-  integer :: verbose = 0
   integer :: seed !random seed
   integer :: num_structures ! number of structures to generate
   integer :: num_species   ! total number of species to add
   integer :: task ! task setting (defines the RAFFLE task)
-  integer, allocatable, dimension(:) :: stoichiometry_list ! stoichiometry of species to add
-  character(3), allocatable, dimension(:) :: element_list !species names to add
+  type(stoichiometry_type), dimension(:), allocatable :: stoich ! stoichiometry of species to add
 
   integer :: vdW, volvar
 
@@ -112,7 +110,7 @@ contains
        elseif(index(buffer,'-v').eq.1)then
           flag="-v"
           call flagmaker(buffer,flag,i,skip,empty)
-          if(.not.empty) read(buffer,*) ierror
+          if(.not.empty) read(buffer,*) verbose
        elseif(index(buffer,'-h').eq.1)then
           write(6,'("Flags:")')
           write(6,'(2X,"-h              : Prints the help for each flag.")')
@@ -160,11 +158,13 @@ contains
     character(*), intent(in) :: file_name
 
     integer :: i
-    integer :: Reason,unit
+    integer :: Reason,unit, l_pos, r_pos
     character(1) :: fs
-    character(1024) :: stoichiometry, elements, database
+    character(1024) :: stoichiometry, elements, database, buffer
     real(real12), dimension(3) :: width, sigma
     character(50), dimension(3) :: cutoff_min, cutoff_max
+    integer, allocatable, dimension(:) :: stoichiometry_list
+    character(3), allocatable, dimension(:) :: element_list
 
 
 !!!-----------------------------------------------------------------------------
@@ -172,7 +172,7 @@ contains
 !!!-----------------------------------------------------------------------------
     namelist /setup/        task, filename_host, seed, vps_ratio, bins, &
                             database_format, database
-    namelist /structure/    num_structures,num_species,elements,stoichiometry
+    namelist /structure/    num_structures,stoichiometry
     namelist /volume/       vdW, volvar
     namelist /distribution/ cutoff_min, cutoff_max, width, sigma
 
@@ -216,13 +216,18 @@ contains
 
 
     if(trim(stoichiometry).ne."")then
-       allocate(stoichiometry_list(num_species))
-       read(stoichiometry,*) stoichiometry_list
-    end if
-
-    if(trim(elements).ne."")then
-       allocate(element_list(num_species))
-       read(elements,*) element_list
+       num_species = icount(stoichiometry,",")
+       allocate(stoich(num_species))
+       l_pos = scan(stoichiometry,"{")
+       r_pos = scan(stoichiometry,"}", back=.true.)
+       do i = 1, num_species
+          read(stoichiometry(l_pos+1:r_pos-1),*) buffer
+          read(buffer(:scan(buffer,":")-1),*) stoich(i)%element
+          read(buffer(scan(buffer,":")+1:),*) stoich(i)%num
+          l_pos = scan(stoichiometry(l_pos+1:),",") + l_pos
+       end do
+    else
+       stop "No stoichiometry specified"
     end if
 
     

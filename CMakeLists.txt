@@ -17,7 +17,7 @@ set( LIB_NAME ${PROJECT_NAME} )
 set( PROJECT_DESCRIPTION
   "Fortran neural network" )
 set( PROJECT_URL "https://github.com/nedtaylor/raffle" )
-set( CMAKE_CONFIGURATION_TYPES "Release" "Parallel" "Serial" "Dev" "Debug" "Parallel_Dev"
+set( CMAKE_CONFIGURATION_TYPES "Release" "Parallel" "Serial" "Dev" "Debug" "Executable"
   CACHE STRING "List of configurations types." )
 set( CMAKE_BUILD_TYPE "Release"
   CACHE STRING "Select which configuration to build." )
@@ -130,6 +130,17 @@ foreach(src ${SRC_FILES})
     list(APPEND PREPENDED_SRC_FILES ${SRC_DIR}/${src})
 endforeach()
 
+
+set(EXECUTABLE_FILES
+    inputs.f90
+    main.f90
+)
+set(APP_DIR app)
+foreach(src ${EXECUTABLE_FILES})
+    list(APPEND PREPENDED_EXECUTABLE_FILES ${APP_DIR}/${src})
+endforeach()
+
+
 message(STATUS "Modified SRC_FILES: ${PREPENDED_SRC_FILES}")
 
 # initialise flags
@@ -206,8 +217,6 @@ target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel>:${OPTIMFLAGS
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel>:${MPFLAGS}>")
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Dev>:${DEVFLAGS}>")
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug>:${DEBUGFLAGS}>")
-target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel_Dev>:${MPFLAGS}>")
-target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel_Dev>:${DEVFLAGS}>")
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Release>:${PYTHONFLAGS}>")
 
 
@@ -216,7 +225,12 @@ if (CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*")
   append_coverage_compiler_flags()
 endif()
 
-
+if (CMAKE_BUILD_TYPE MATCHES "Executable*")
+    add_executable(raffle_executable ${PREPENDED_EXECUTABLE_FILES})
+    target_link_libraries(raffle_executable PRIVATE ${PROJECT_NAME})
+    install(TARGETS raffle_executable DESTINATION bin)
+    set_target_properties(raffle_executable PROPERTIES Fortran_MODULE_DIRECTORY ${MODULE_DIR})
+endif()
 
 
 
@@ -323,4 +337,6 @@ message(STATUS "  Output library: ${PROJECT_NAME}")
 
 
 
-target_link_libraries(raffle ${ATHENA_LIBRARY})
+if(ENABLE_ATHENA)
+    target_link_libraries(raffle ${ATHENA_LIBRARY})
+endif()

@@ -2,12 +2,13 @@ program raffle
   use constants, only: real12
   use inputs
   use read_structures, only: get_evolved_gvectors_from_data
-  use gen, only: generation
-  use evolver, only: gvector_container_type
+  use raffle, only: raffle_generator_type, gvector_container_type
   implicit none
 
-  type(gvector_container_type) :: gvector_container
+  ! type(gvector_container_type) :: gvector_container
   real(real12), dimension(3) :: method_probab
+
+  type(raffle_generator_type) :: generator
 
 
 
@@ -49,11 +50,11 @@ program raffle
 !!!-----------------------------------------------------------------------------
 !!! read structures from the database and generate gvectors
 !!!-----------------------------------------------------------------------------
-  gvector_container = get_evolved_gvectors_from_data( &
+  generator%distributions = get_evolved_gvectors_from_data( &
        input_dir    = database_list, &
        element_file = "elements.dat", &
        bond_file    = "chem.in", &
-       element_list = element_list, &
+       element_list = stoich(:)%element, &
        file_format  = database_format, &
        gvector_container_template = gvector_container_type(&
             width = width_list, &
@@ -61,9 +62,9 @@ program raffle
             cutoff_min = cutoff_min_list, &
             cutoff_max = cutoff_max_list ) )
 
-  call gvector_container%write_2body(file="2body.txt")
-  call gvector_container%write_3body(file="3body.txt")
-  call gvector_container%write_4body(file="4body.txt")
+  call generator%distributions%write_2body(file="2body.txt")
+  call generator%distributions%write_3body(file="3body.txt")
+  call generator%distributions%write_4body(file="4body.txt")
 
 
 !!!-----------------------------------------------------------------------------
@@ -82,8 +83,8 @@ program raffle
 !!! generate random structures
 !!!-----------------------------------------------------------------------------
   write(*,*) "Generating structures"
-  call generation( gvector_container, num_structures, task, &
-       element_list, stoichiometry_list, &
+  call generator%generate( num_structures, &
+       stoich, &
        method_probab )
   write(*,*) "Structures have been successfully generated and saved"
 

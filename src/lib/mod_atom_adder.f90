@@ -27,7 +27,7 @@ contains
   function add_atom_min(gridpoints, gvector_container, &
        basis, atom_ignore_list, &
        radius_list, viable) result(point)
-    !! MIN placement method.
+    !! Global minimum placement method.
     !!
     !! This method places the atom at the gridpoint with the highest
     !! suitability.
@@ -45,7 +45,7 @@ contains
     real(real12), dimension(:,:), intent(in) :: gridpoints
     !! List of gridpoints to consider.
     real(real12), dimension(:) :: radius_list
-    !! List of radii for each element.
+    !! List of radii for each pair of elements.
     real(real12), dimension(3) :: point
     !! Point to add atom to.
 
@@ -169,7 +169,7 @@ contains
     integer, dimension(:,:), intent(in) :: atom_ignore_list
     !! List of atoms to ignore (i.e. indices of atoms not yet placed).
     real(real12), dimension(:), intent(in) :: radius_list
-    !! List of radii for each element.
+    !! List of radii for each pair of elements.
     real(real12), dimension(3) :: point
     !! Point to add atom to.
 
@@ -296,7 +296,7 @@ contains
     integer, dimension(:,:), intent(in) :: atom_ignore_list
     !! List of atoms to ignore (i.e. indices of atoms not yet placed).
     real(real12), dimension(:), intent(in) :: radius_list
-    !! List of radii for each element.
+    !! List of radii for each pair of elements.
 
     ! Local variables
     integer, dimension(:), allocatable :: pair_index

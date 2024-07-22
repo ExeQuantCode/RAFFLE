@@ -1,4 +1,10 @@
 module buildmap
+  !! Module to build viability map of a structure
+  !!
+  !! This module handles the viability map for a structure, which is a map of
+  !! the system with each point in the map representing the suitability of
+  !! that point for a new atom. The map is built by checking the bond lengths,
+  !! bond angles and dihedral angles between the test point and all atoms.
   use constants, only: real12
   use misc_linalg, only: get_distance, get_angle, get_dihedral_angle
   use rw_geom, only: bas_type
@@ -15,35 +21,54 @@ module buildmap
 
 contains
 
-!!!#############################################################################
-!!! builds a map of the system and returns the value of the map at a given point
-!!!#############################################################################
-!!! output = suitability of tested point
+!###############################################################################
   pure function buildmap_POINT(gvector_container, &
        position, basis, atom_ignore_list, &
        radius_list, uptol, lowtol) &
        result(output)
+    !! Build a map of basis and returns the value of the map at a given point
     implicit none
+
+    ! Arguments
     type(gvector_container_type), intent(in) :: gvector_container
+    !! Distribution function (gvector) container.
     real(real12), intent(in) :: uptol, lowtol
+    !! Upper and lower tolerance for bond lengths and angles.
     type(bas_type), intent(in) :: basis
+    !! Basis of the system.
     real(real12), dimension(3), intent(in) :: position
+    !! Position of the test point.
     integer, dimension(:,:), intent(in) :: atom_ignore_list
+    !! List of atoms to ignore (i.e. indices of atoms not yet placed).
     real(real12), dimension(:), intent(in) :: radius_list
+    !! List of radii for each pair of elements.
     real(real12) :: output
-  
-    integer :: i
-    integer :: is, ia, js, ja, ks, ka, ls
+    !! Suitability of the test point.
+    
+    ! Local variables
+    integer :: i, is, ia, js, ja, ks, ka, ls
+    !! Loop counters.
     integer :: bin
+    !! Bin for the distribution function.
     real(real12) :: contribution, repeat_power, bondlength
-    real(real12) :: viability_2body !! 2-body is addition
-    real(real12) :: viability_3body !! 3-body is multiplication
-    real(real12) :: viability_4body !! 4-body is multiplication
+    !! Contribution to the viability map, repeat power, bond length.
+    real(real12) :: viability_2body
+    !! Viability of the test point for 2-body interactions.
+    !! 2-body viabilities are summed.
+    real(real12) :: viability_3body
+    !! Viability of the test point for 3-body interactions.
+    !! 3-body viabilities are multiplied.
+    real(real12) :: viability_4body
+    !! Viability of the test point for 4-body interactions.
+    !! 4-body viabilities are multiplied.
     real(real12), dimension(3) :: &
          position_storage1, position_storage2, position_storage3
+    !! Storage for atom positions.
     integer, dimension(:,:), allocatable :: pair_index
-  
-
+    !! Index of element pairs.
+ 
+    
+    ! Initialisation
     output = 0._real12
     repeat_power = 1._real12
     viability_2body = 0._real12
@@ -51,7 +76,9 @@ contains
     viability_4body = 1._real12
     
 
-    !! get list of element pair indices
+    !---------------------------------------------------------------------------
+    ! get list of element pair indices
+    !---------------------------------------------------------------------------
     ls = atom_ignore_list(1,1)
     allocate(pair_index(basis%nspec, basis%nspec), source = 0)
     do is = 1, basis%nspec
@@ -62,10 +89,13 @@ contains
     end do
 
 
+    !---------------------------------------------------------------------------
+    ! loop over all atoms in the system
+    !---------------------------------------------------------------------------
     species_loop1: do is=1, basis%nspec
-      !! loops over all atoms currently in the system
-      !! 2-body map
-      !! checks bondlength between the current atom and all other atoms
+      ! 2-body map
+      ! check bondlength between test point and all other atoms
+      !-------------------------------------------------------------------------
       atom_loop1: do ia = 1, basis%spec(is)%num
          do i = 1, size(atom_ignore_list,dim=1), 1
             if(all(atom_ignore_list(i,:).eq.[is,ia])) cycle atom_loop1
@@ -99,12 +129,12 @@ contains
    
          viability_2body = viability_2body + contribution
 
-         !! loops over all atoms currently in the system
-         !! 3-body map
-         !! checks bondangle between the current atom and all other atoms
+         ! 3-body map
+         ! check bondangle between test point and all other atoms
          !! i.e. nested loop here
          !!! NEEDS TO BE SPECIES AND ATOM
          !!! SHOULD BE ITS OWN PROCEDURE
+         !----------------------------------------------------------------------
          species_loop2: do js = is, basis%nspec, 1
            atom_loop2: do ja = 1, basis%spec(js)%num
               if(js.eq.is .and. ja.lt.ia) cycle
@@ -136,12 +166,12 @@ contains
               if((get_distance(position_storage1,position_storage2).ge.&
                    radius_list(pair_index(ls,js))*uptol)) cycle
                  
-              !! loops over all atoms currently in the system
-              !! 4-body map
-              !! checks dihedral angle between the current atom and all other atoms
+              ! 4-body map
+              ! check dihedral angle between test point and all other atoms
               !! i.e. nested loop here
               !!! NEEDS TO BE SPECIES AND ATOM
               !!! SHOULD BE ITS OWN PROCEDURE
+              !-----------------------------------------------------------------
               species_loop3: do ks = 1, basis%nspec, 1
                  atom_loop3: do ka = 1, basis%spec(ks)%num
                     do i = 2, size(atom_ignore_list,dim=1)
@@ -187,6 +217,6 @@ contains
    deallocate(pair_index)
     
   end function buildmap_POINT
-!!!#############################################################################
+!###############################################################################
 
 end module buildmap

@@ -1,4 +1,11 @@
 module add_atom
+  !! Module to add atoms to a cell.
+  !!
+  !! This module contains subroutines to add atoms to a cell using different
+  !! placement methods. The methods are:
+  !! - scan: place the atom at the gridpoint with the highest suitability
+  !! - void: place the atom in the gridpoint with the largest void space
+  !! - pseudo: place the atom using a pseudo-random walk method
   use constants, only: real12
   use misc_linalg, only: modu
   use rw_geom, only: bas_type
@@ -16,29 +23,43 @@ module add_atom
 
 contains
 
-
-!!!#############################################################################
-!!! add atom to unit cell using the scan method
-!!!#############################################################################
-  subroutine add_atom_scan (gridpoints, gvector_container, &
+!###############################################################################
+  subroutine add_atom_scan(gridpoints, gvector_container, &
        basis, atom_ignore_list, &
        radius_list, placed)
+    !! SCAN placement method.
+    !!
+    !! This method places the atom at the gridpoint with the highest
+    !! suitability.
     implicit none
+
+    ! Arguments
     type(gvector_container_type), intent(in) :: gvector_container
+    !! Distribution function (gvector) container.
     type(bas_type), intent(inout) :: basis
+    !! Structure to add atom to.
     logical, intent(out) :: placed
+    !! Boolean to indicate if atom was placed.
     integer, dimension(:,:), intent(in) :: atom_ignore_list
+    !! List of atoms to ignore (i.e. indices of atoms not yet placed).
     real(real12), dimension(:,:), intent(in) :: gridpoints
+    !! List of gridpoints to consider.
     real(real12), dimension(:) :: radius_list
+    !! List of radii for each element.
 
-    integer :: el_correct_read,i, j, k,n,l
+    ! Local variables
+    integer :: i
+    !! Loop indices.
     integer :: best_gridpoint
-    real(real12), dimension(3) :: tmpvector
+    !! Index of best gridpoint.
     real(real12), dimension(:), allocatable :: suitability_grid
+    !! Suitability of each gridpoint.
 
 
+    !---------------------------------------------------------------------------
+    ! run buildmap_point for a set of points in the unit cell
+    !---------------------------------------------------------------------------
     placed = .false.
-    !! run buildmap_point for a set of points in the unit cell
     allocate(suitability_grid(size(gridpoints,dim=2)))
     do concurrent( i = 1:size(gridpoints,dim=2) )
        suitability_grid(i) = buildmap_POINT( gvector_container, &
@@ -58,28 +79,44 @@ contains
     basis%spec(atom_ignore_list(1,1))%atom(atom_ignore_list(1,2),:) = &
          gridpoints(:,best_gridpoint)
    
-   end subroutine add_atom_scan
-!!!#############################################################################
+  end subroutine add_atom_scan
+!###############################################################################
 
-   
-!!!#############################################################################
-!!! add atom to unit cell considering the void space
-!!!#############################################################################
-  subroutine add_atom_void (bin_size, basis, atom_ignore_list, placed)
+
+!###############################################################################
+  subroutine add_atom_void(bin_size, basis, atom_ignore_list, placed)
+    !! VOID placement method.
+    !!
+    !! This method returns the gridpoint with the lowest neighbour density.
+    !! i.e. the point with the lowest density in the cell.
     implicit none
+
+    ! Arguments
     type(bas_type), intent(inout) :: basis
+    !! Structure to add atom to.
     integer, dimension(3), intent(in) :: bin_size
+    !! Number of gridpoints in each direction.
     integer, dimension(:,:), intent(in) :: atom_ignore_list
+    !! List of atoms to ignore (i.e. indices of atoms not yet placed).
     logical, intent(out) :: placed
+    !! Boolean to indicate if atom was placed.
     
-    integer :: i, j, k, l
+    ! Local variables
+    integer :: i, j, k
+    !! Loop indices.
     real(real12), dimension(3) :: best_location
-    real(real12) :: best_location_bond, smallest_bond, comparison
+    !! Index of best location to place atom.
+    real(real12) :: best_location_bond, smallest_bond
+    !! Bond lengths.
     real(real12), dimension(3) :: tmpvector
+    !! Temporary vector for gridpoint.
 
-
-    best_location_bond = -huge(1._real12)
    
+    !---------------------------------------------------------------------------
+    ! loop over all gridpoints in the unit cell and find the one with the ...
+    ! ... largest void space
+    !---------------------------------------------------------------------------
+    best_location_bond = -huge(1._real12)
     do i = 0, bin_size(1) - 1, 1
        do j = 0, bin_size(2) - 1, 1
           do k = 0, bin_size(3) - 1, 1
@@ -100,44 +137,63 @@ contains
     placed = .true.
 
   end subroutine add_atom_void
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! add atom to unit cell using a pseudo-random walk method
-!!!#############################################################################
-  subroutine add_atom_pseudo (bin_size, gvector_container, &
+!###############################################################################
+  subroutine add_atom_pseudo ( gvector_container, &
        basis, atom_ignore_list, &
        radius_list, placed)
+    !! PSEUDO randomwalk placement method.
+    !!
+    !! This method places the atom using a pseudo-random walk method.
+    !! An initial point is chosen at random, and then points nearby are tested
+    !! to see if they are more suitable than the current point. If they are,
+    !! the query point is moved to the new point and the process is repeated.
+    !! The process is repeated, with each point being tested against a random
+    !! number. If the random number is less than the suitability of the point,
+    !! the atom is placed at that point.
     implicit none
-    type(gvector_container_type), intent(in) :: gvector_container
-    type(bas_type), intent(inout) :: basis
-    logical, intent(out) :: placed
-    integer, dimension(:,:), intent(in) :: atom_ignore_list
-    integer, dimension(3), intent(in) :: bin_size
-    real(real12), dimension(:), intent(in) :: radius_list
 
+    ! Arguments
+    type(gvector_container_type), intent(in) :: gvector_container
+    !! Distribution function (gvector) container.
+    type(bas_type), intent(inout) :: basis
+    !! Structure to add atom to.
+    logical, intent(out) :: placed
+    !! Boolean to indicate if atom was placed.
+    integer, dimension(:,:), intent(in) :: atom_ignore_list
+    !! List of atoms to ignore (i.e. indices of atoms not yet placed).
+    real(real12), dimension(:), intent(in) :: radius_list
+    !! List of radii for each element.
+
+    ! Local variables
     integer :: i, j, k, l
-    real(real12) :: rtmp1, crude_norm
+    !! Loop indices.
+    real(real12) :: rtmp1
+    !! Random number.
+    integer :: crude_norm
+    !! Crude normalisation.
     real(real12) :: calculated_value, calculated_test
+    !! Viability values.
     real(real12), dimension(3) :: tmpvector, testvector
+    !! Vectors for gridpoints.
    
 
-    !! test a random point in the unit cell
+    !---------------------------------------------------------------------------
+    ! test a random point in the unit cell
+    !---------------------------------------------------------------------------
     i = 0
     placed = .false.
     crude_norm = 0._real12
 100 random_loop : do 
        i = i + 1
-       ! write(*,'(A)',ADVANCE='NO') achar(13)
-       ! write(*,'(I5.0, A)', ADVANCE='NO') i
       
        !call random_number(rtmp1)
        !tmpvector = gridpoints(:,floor(rtmp1*size(gridpoints,dim=2))+1)
        do j = 1, 3
           call random_number(rtmp1)
           tmpvector(j) = rtmp1
-          !tmpvector(j) = tmpvector(j) + (rtmp1 * 2._real12 - 1._real12 ) / bin_size(j)
        end do
 
        calculated_value = buildmap_POINT( gvector_container, &
@@ -152,8 +208,12 @@ contains
        if(i.ge.10000) return
     end do random_loop
 
+
+    !---------------------------------------------------------------------------
+    ! now do a pseudo-random walk to find a suitable point to place the atom
+    !---------------------------------------------------------------------------
+    k = 0
     l = 0
-    !! if we have found a point, we can now walk around it
     walk_loop : do
        do j=1, 3
           call random_number(rtmp1)
@@ -184,7 +244,7 @@ contains
                 placed = .TRUE.
                 exit walk_loop
              end if
-             if(k.gt.10) then 
+             if(k.ge.10) then 
                 calculated_value = calculated_value / crude_norm
                 if (rtmp1.lt.calculated_value) then
                    placed = .TRUE.
@@ -216,79 +276,113 @@ contains
     basis%spec(atom_ignore_list(1,1))%atom(atom_ignore_list(1,2),:) = tmpvector
    
   end subroutine add_atom_pseudo
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! get the viable gridpoints for adding an atom
-!!! i.e. only return gridpoints that are not too close to an existing atom
-!!!#############################################################################
+!###############################################################################
   function get_viable_gridpoints(bin_size, basis, &
        radius_list, atom_ignore_list) result(points)
-   implicit none
-   type(bas_type), intent(in) :: basis
-   integer, dimension(3), intent(in) :: bin_size
-   integer, dimension(:,:), intent(in) :: atom_ignore_list
-   real(real12), dimension(:), intent(in) :: radius_list
+    !! Get the viable gridpoints for adding an atom.
+    !!
+    !! This function returns a list of gridpoints that are not too close to an
+    !! existing atom.
+    implicit none
 
-   integer, dimension(:), allocatable :: pair_index
-   real(real12), dimension(:,:), allocatable :: points_tmp, points
+    ! Arguments
+    type(bas_type), intent(in) :: basis
+    !! Structure to add atom to.
+    integer, dimension(3), intent(in) :: bin_size
+    !! Number of gridpoints in each direction.
+    integer, dimension(:,:), intent(in) :: atom_ignore_list
+    !! List of atoms to ignore (i.e. indices of atoms not yet placed).
+    real(real12), dimension(:), intent(in) :: radius_list
+    !! List of radii for each element.
 
-   integer :: i, j, k, l, is, ia, num_points
+    ! Local variables
+    integer, dimension(:), allocatable :: pair_index
+    !! List of element pair indices.
+    real(real12), dimension(:,:), allocatable :: points_tmp, points
+    !! List of gridpoints.
+
+    ! Local variables
+    integer :: i, j, k, l, is, ia
+    !! Loop indices.
+    integer :: num_points
+    !! Number of gridpoints.
    
 
-   allocate(points_tmp(3,product(bin_size)))
+    !---------------------------------------------------------------------------
+    ! get list of element pair indices
+    !---------------------------------------------------------------------------
+    allocate(pair_index(basis%nspec), source = 0)
+    do is = 1, basis%nspec
+       pair_index(is) = ( basis%nspec - is/2 ) * ( is - 1 ) + is
+    end do
 
-   !! get list of element pair indices
-   allocate(pair_index(basis%nspec), source = 0)
-   do is = 1, basis%nspec
-      pair_index(is) = ( basis%nspec - is/2 ) * ( is - 1 ) + is
-   end do
+    !---------------------------------------------------------------------------
+    ! loop over all gridpoints in the unit cell and check if they are too ...
+    ! ... close to an existing atom. If they are, remove them from the list ...
+    ! ... of viable gridpoints
+    !---------------------------------------------------------------------------
+    allocate(points_tmp(3,product(bin_size)))
+    num_points = 0
+    grid_loop1: do i = 0, bin_size(1) - 1, 1
+       grid_loop2: do j = 0, bin_size(2) - 1, 1
+          grid_loop3: do k = 0, bin_size(3) - 1, 1
+             do is = 1, basis%nspec
+                do ia = 1, basis%spec(is)%num
+                   do l = 1, size(atom_ignore_list,dim=1), 1
+                      if(all(atom_ignore_list(l,:).eq.[is,ia])) cycle
+                   end do
+                   if( get_min_dist_between_point_and_atom( &
+                        basis, &
+                        [i, j, k] / real(bin_size,real12), [is,ia] ) .lt. &
+                        radius_list(pair_index(is)) * 0.95_real12 ) &
+                        cycle grid_loop3
+                end do
+             end do
+             num_points = num_points + 1
+             points_tmp(:,num_points) = [i, j, k] / real(bin_size,real12)
+          end do grid_loop3
+       end do grid_loop2
+    end do grid_loop1
+    allocate(points, source = points_tmp(:,:num_points))
 
-   num_points = 0
-   grid_loop1: do i = 0, bin_size(1) - 1, 1
-      grid_loop2: do j = 0, bin_size(2) - 1, 1
-         grid_loop3: do k = 0, bin_size(3) - 1, 1
-            do is = 1, basis%nspec
-               do ia = 1, basis%spec(is)%num
-                  do l = 1, size(atom_ignore_list,dim=1), 1
-                     if(all(atom_ignore_list(l,:).eq.[is,ia])) cycle
-                  end do
-                  if( get_min_dist_between_point_and_atom( &
-                       basis, &
-                       [i, j, k] / real(bin_size,real12), [is,ia] ) .lt. &
-                       radius_list(pair_index(is)) * 0.95_real12 ) &
-                       cycle grid_loop3
-               end do
-            end do
-            num_points = num_points + 1
-            points_tmp(:,num_points) = [i, j, k] / real(bin_size,real12)
-         end do grid_loop3
-      end do grid_loop2
-   end do grid_loop1
-   allocate(points, source = points_tmp(:,:num_points))
-
-   deallocate(points_tmp, pair_index)
+    deallocate(points_tmp, pair_index)
 
   end function get_viable_gridpoints
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! update the viable gridpoints for adding an atom
-!!! i.e. remove gridpoints that are too close to an existing atom
-!!!#############################################################################
+!###############################################################################
   subroutine update_viable_gridpoints(points, basis, atom, radius)
+    !! Update the viable gridpoints after a new atom has been added.
     implicit none
+
+    ! Arguments
     type(bas_type), intent(in) :: basis
+    !! Structure to add atom to.
     integer, dimension(2) :: atom
+    !! Index of atom to add.
     real(real12), dimension(:,:), allocatable, intent(inout) :: points
+    !! List of gridpoints.
     real(real12), intent(in) :: radius
+    !! Radius of added atom.
 
-    integer :: i, pair_index, num_points
+    ! Local variables
+    integer :: i
+    !! Loop indices.
+    integer :: num_points
+    !! Number of gridpoints.
     real(real12), dimension(:,:), allocatable :: points_tmp
+    !! Temporary list of gridpoints.
 
 
+    !---------------------------------------------------------------------------
+    ! loop over all gridpoints in the unit cell and check if they are too ...
+    ! ... close to the new atom. If they are, remove them from the list of ...
+    ! ... viable gridpoints
+    !---------------------------------------------------------------------------
     if(.not.allocated(points)) return
     num_points = size(points,dim=2)
     i = 0
@@ -312,6 +406,6 @@ contains
     deallocate(points_tmp)
 
   end subroutine update_viable_gridpoints
-!!!#############################################################################
+!###############################################################################
 
 end module add_atom

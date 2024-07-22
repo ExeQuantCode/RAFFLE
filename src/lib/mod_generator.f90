@@ -87,6 +87,7 @@ module generator
 
 contains
 
+!###############################################################################
   module function init_raffle_generator( &
        host, width, sigma, cutoff_min, cutoff_max ) &
        result(generator)
@@ -127,8 +128,10 @@ contains
          call generator%distributions%set_cutoff_max(cutoff_max)
 
   end function init_raffle_generator
+!###############################################################################
 
 
+!###############################################################################
   subroutine set_host(this, host)
     !! Set the host structure.
     implicit none
@@ -140,8 +143,10 @@ contains
 
     this%host = host
   end subroutine set_host
+!###############################################################################
 
 
+!###############################################################################
   subroutine generate(this, num_structures, &
        stoichiometry, method_probab, seed)
     !! Generate random structures.
@@ -308,9 +313,10 @@ contains
     write(*,*) "Finished generating structures"
 
   end subroutine generate
+!###############################################################################
 
 
-
+!###############################################################################
   module function generate_structure( &
        this, &
        basis_initial, &
@@ -391,7 +397,7 @@ contains
                 placement_list_shuffled(iplaced+1:,:), placed)
        else if(rtmp1.le.method_probab_(2)) then 
           if(verbose.gt.0) write(*,*) "Add Atom Pseudo"
-          call add_atom_pseudo( this%bins, &
+          call add_atom_pseudo( &
                 this%distributions, &
                 basis, &
                 placement_list_shuffled(iplaced+1:,:), &
@@ -441,8 +447,10 @@ contains
     if(allocated(viable_gridpoints)) deallocate(viable_gridpoints)
 
   end function generate_structure
+!###############################################################################
 
 
+!###############################################################################
   function get_structures(this) result(structures)
     !! Get the generated structures.
     implicit none
@@ -454,8 +462,10 @@ contains
 
     structures = this%structures
   end function get_structures
+!###############################################################################
 
 
+!###############################################################################
   function evaluate(this, basis) result(viability)
     !! Evaluate the viability of the generated structures.
     implicit none
@@ -470,8 +480,10 @@ contains
     viability = 0.0_real12
     stop "Not yet set up"
   end function evaluate
+!###############################################################################
 
 
+!###############################################################################
   subroutine allocate_structures(this, num_structures)
     !! Allocate memory for the generated structures.
     implicit none
@@ -485,5 +497,6 @@ contains
     allocate(this%structures(num_structures))
     this%num_structures = num_structures
   end subroutine allocate_structures
+!###############################################################################
 
 end module generator

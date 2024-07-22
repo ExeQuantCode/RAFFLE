@@ -17,7 +17,7 @@ set( LIB_NAME ${PROJECT_NAME} )
 set( PROJECT_DESCRIPTION
   "Fortran neural network" )
 set( PROJECT_URL "https://github.com/nedtaylor/raffle" )
-set( CMAKE_CONFIGURATION_TYPES "Release" "Parallel" "Serial" "Dev" "Debug" "Executable"
+set( CMAKE_CONFIGURATION_TYPES "Release" "Parallel" "Serial" "Dev" "Debug"
   CACHE STRING "List of configurations types." )
 set( CMAKE_BUILD_TYPE "Release"
   CACHE STRING "Select which configuration to build." )
@@ -39,18 +39,18 @@ enable_language(Fortran)
 # get the user's home directory
 set(HOME_DIR $ENV{HOME})
 
-# set coverage compiler flags
-if (CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*")
-  list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
-  set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
-  if(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
-      include(CodeCoverage)
-      setup_target_for_coverage_gcovr_html(
-        NAME coverage
-        EXECUTABLE ctest
-        EXCLUDE "${PROJECT_SOURCE_DIR}/test/*")
-  endif()
-endif()
+# # set coverage compiler flags
+# if (CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*")
+#   list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+#   set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+#   if(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
+#       include(CodeCoverage)
+#       setup_target_for_coverage_gcovr_html(
+#         NAME coverage
+#         EXECUTABLE ctest
+#         EXCLUDE "${PROJECT_SOURCE_DIR}/test/*")
+#   endif()
+# endif()
 
 # set the output directories
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
@@ -63,6 +63,7 @@ option(BUILD_TESTS "Build the unit tests" ON)
 option(BUILD_EXAMPLES "Build the examples" ON)
 option(ENABLE_ATHENA "Build energetic predictions with ATHENA" OFF)
 option(BUILD_PYTHON "Build the python library" On)
+option(BUILD_EXECUTABLE "Build the Fortran executable" On)
 
 # Define the sources
 set(SRC_DIR src)
@@ -220,16 +221,22 @@ target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug>:${DEBUGFLAGS}>"
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Release>:${PYTHONFLAGS}>")
 
 
-# add coverage compiler flags
-if (CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*")
-  append_coverage_compiler_flags()
-endif()
+# # add coverage compiler flags
+# if (CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*")
+#   append_coverage_compiler_flags()
+# endif()
 
-if (CMAKE_BUILD_TYPE MATCHES "Executable*")
-    add_executable(raffle_executable ${PREPENDED_EXECUTABLE_FILES})
-    target_link_libraries(raffle_executable PRIVATE ${PROJECT_NAME})
-    install(TARGETS raffle_executable DESTINATION bin)
-    set_target_properties(raffle_executable PROPERTIES Fortran_MODULE_DIRECTORY ${MODULE_DIR})
+if (BUILD_EXECUTABLE)
+    add_executable(${PROJECT_NAME}_executable ${PREPENDED_EXECUTABLE_FILES})
+    target_link_libraries(${PROJECT_NAME}_executable PRIVATE ${PROJECT_NAME})
+    install(TARGETS ${PROJECT_NAME}_executable DESTINATION bin)
+    set_target_properties(${PROJECT_NAME}_executable PROPERTIES Fortran_MODULE_DIRECTORY ${MODULE_DIR})
+    target_compile_options(${PROJECT_NAME}_executable PUBLIC "$<$<CONFIG:Release>:${OPTIMFLAGS}>")
+    target_compile_options(${PROJECT_NAME}_executable PUBLIC "$<$<CONFIG:Parallel>:${OPTIMFLAGS}>")
+    target_compile_options(${PROJECT_NAME}_executable PUBLIC "$<$<CONFIG:Parallel>:${MPFLAGS}>")
+    target_compile_options(${PROJECT_NAME}_executable PUBLIC "$<$<CONFIG:Dev>:${DEVFLAGS}>")
+    target_compile_options(${PROJECT_NAME}_executable PUBLIC "$<$<CONFIG:Debug>:${DEBUGFLAGS}>")
+    target_compile_options(${PROJECT_NAME}_executable PUBLIC "$<$<CONFIG:Release>:${PYTHONFLAGS}>")
 endif()
 
 

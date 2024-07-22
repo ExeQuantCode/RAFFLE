@@ -14,7 +14,7 @@ module generator
   use misc_raffle, only: shuffle
   use rw_geom, only: clone_bas
   use edit_geom, only: bas_merge
-  use add_atom, only: add_atom_void, add_atom_pseudo, add_atom_scan, &
+  use add_atom, only: add_atom_void, add_atom_walk, add_atom_min, &
        get_viable_gridpoints, update_viable_gridpoints
 
 #ifdef ENABLE_ATHENA
@@ -234,7 +234,6 @@ contains
     allocate(basis_template%spec(num_insert_species))
     do i = 1, size(stoichiometry)
        basis_template%spec(i)%name = strip_null(stoichiometry(i)%element)
-       write(*,*) basis_template%spec(i)%name
     end do
     basis_template%spec(:)%num = stoichiometry(:)%num
     basis_template%natom = num_insert_atoms
@@ -343,15 +342,17 @@ contains
     !! Number of atoms to insert.
     real(real12) :: rtmp1
     !! Random number.
-    logical :: placed
-    !! Boolean for successful placement.
+    logical :: viable
+    !! Boolean for viable placement.
     integer, dimension(size(placement_list,1),size(placement_list,2)) :: &
          placement_list_shuffled
     !! Shuffled placement list.
+    real(real12), dimension(3) :: point
+    !! Coordinate of the atom to place.
     real(real12), dimension(3) :: method_probab_
     !! Temporary probability of each placement method.
-    !! This is used to update the probability of the SCAN method if no viable
-    !! gridpoints are found.
+    !! This is used to update the probability of the global minimum method if
+    !! no viable gridpoints are found.
     real(real12), dimension(:,:), allocatable :: viable_gridpoints
     !! Viable gridpoints for placing atoms.
 
@@ -392,37 +393,39 @@ contains
        call random_number(rtmp1)
        if(rtmp1.le.method_probab_(1)) then 
           if(verbose.gt.0) write(*,*) "Add Atom Void"
-          call add_atom_void( this%bins, &
+          point = add_atom_void( this%bins, &
                 basis, &
-                placement_list_shuffled(iplaced+1:,:), placed)
+                placement_list_shuffled(iplaced+1:,:), viable)
        else if(rtmp1.le.method_probab_(2)) then 
-          if(verbose.gt.0) write(*,*) "Add Atom Pseudo"
-          call add_atom_pseudo( &
+          if(verbose.gt.0) write(*,*) "Add Atom Walk"
+          point = add_atom_walk( &
                 this%distributions, &
                 basis, &
                 placement_list_shuffled(iplaced+1:,:), &
                 [ this%distributions%bond_info(:)%radius_covalent ], &
-                placed )
-          if(.not. placed) void_ticker = void_ticker + 1
+                viable )
+          if(.not. viable) void_ticker = void_ticker + 1
        else if(rtmp1.le.method_probab_(3)) then 
-          if(verbose.gt.0) write(*,*) "Add Atom Scan"
-          call add_atom_scan( viable_gridpoints, &
+          if(verbose.gt.0) write(*,*) "Add Atom Min"
+          point = add_atom_min( viable_gridpoints, &
                 this%distributions, &
                 basis, &
                 placement_list_shuffled(iplaced+1:,:), &
                 [ this%distributions%bond_info(:)%radius_covalent ], &
-                placed)
+                viable)
        end if
-       if(.not. placed) then
+       if(.not. viable) then
           if(void_ticker.gt.10) &
-               call add_atom_void( this%bins, basis, &
-                                  placement_list_shuffled(iplaced+1:,:), placed)
+               point = add_atom_void( this%bins, basis, &
+                                  placement_list_shuffled(iplaced+1:,:), viable)
           void_ticker = 0
-          if(.not.placed) cycle placement_loop
+          if(.not.viable) cycle placement_loop
        end if
+       basis%spec(placement_list_shuffled(iplaced+1,1))%atom( &
+            placement_list_shuffled(iplaced+1,2),:3) = point(:3)
        if(verbose.gt.0)then
           write(*,'(A)',ADVANCE='NO') achar(13)
-          write(*,*) "placed", placed
+          write(*,*) "placed", viable
        end if
        iplaced = iplaced + 1
        if(allocated(viable_gridpoints)) &
@@ -438,7 +441,7 @@ contains
        if(.not.allocated(viable_gridpoints).and. &
             abs( method_probab_(3) - method_probab_(2) ) .gt. 1.E-3) then
           write(*,*) "WARNING: No more viable gridpoints"
-          write(*,*) "Suppressing SCAN method"
+          write(*,*) "Suppressing global minimum method"
           method_probab_ = method_probab_ / method_probab_(2)
           method_probab_(3) = method_probab_(2)
        end if

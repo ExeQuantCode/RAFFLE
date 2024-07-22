@@ -3,9 +3,9 @@ module add_atom
   !!
   !! This module contains subroutines to add atoms to a cell using different
   !! placement methods. The methods are:
-  !! - scan: place the atom at the gridpoint with the highest suitability
+  !! - min:  place the atom at the gridpoint with the highest suitability
   !! - void: place the atom in the gridpoint with the largest void space
-  !! - pseudo: place the atom using a pseudo-random walk method
+  !! - walk: place the atom using a pseudo-random walk method
   use constants, only: real12
   use misc_linalg, only: modu
   use rw_geom, only: bas_type
@@ -17,17 +17,17 @@ module add_atom
 
   private
 
-  public :: add_atom_scan, add_atom_void, add_atom_pseudo
+  public :: add_atom_min, add_atom_void, add_atom_walk
   public :: get_viable_gridpoints, update_viable_gridpoints
 
 
 contains
 
 !###############################################################################
-  subroutine add_atom_scan(gridpoints, gvector_container, &
+  function add_atom_min(gridpoints, gvector_container, &
        basis, atom_ignore_list, &
-       radius_list, placed)
-    !! SCAN placement method.
+       radius_list, viable) result(point)
+    !! MIN placement method.
     !!
     !! This method places the atom at the gridpoint with the highest
     !! suitability.
@@ -38,14 +38,16 @@ contains
     !! Distribution function (gvector) container.
     type(bas_type), intent(inout) :: basis
     !! Structure to add atom to.
-    logical, intent(out) :: placed
-    !! Boolean to indicate if atom was placed.
+    logical, intent(out) :: viable
+    !! Boolean to indicate if point is viable.
     integer, dimension(:,:), intent(in) :: atom_ignore_list
     !! List of atoms to ignore (i.e. indices of atoms not yet placed).
     real(real12), dimension(:,:), intent(in) :: gridpoints
     !! List of gridpoints to consider.
     real(real12), dimension(:) :: radius_list
     !! List of radii for each element.
+    real(real12), dimension(3) :: point
+    !! Point to add atom to.
 
     ! Local variables
     integer :: i
@@ -59,7 +61,7 @@ contains
     !---------------------------------------------------------------------------
     ! run buildmap_point for a set of points in the unit cell
     !---------------------------------------------------------------------------
-    placed = .false.
+    viable = .false.
     allocate(suitability_grid(size(gridpoints,dim=2)))
     do concurrent( i = 1:size(gridpoints,dim=2) )
        suitability_grid(i) = buildmap_POINT( gvector_container, &
@@ -72,19 +74,19 @@ contains
       return
     end if
 
-    placed = .true.
     best_gridpoint = maxloc(suitability_grid, dim=1)
     deallocate(suitability_grid)
 
-    basis%spec(atom_ignore_list(1,1))%atom(atom_ignore_list(1,2),:) = &
-         gridpoints(:,best_gridpoint)
+    point = gridpoints(:,best_gridpoint)
+    viable = .true.
    
-  end subroutine add_atom_scan
+  end function add_atom_min
 !###############################################################################
 
 
 !###############################################################################
-  subroutine add_atom_void(bin_size, basis, atom_ignore_list, placed)
+  function add_atom_void(bin_size, basis, atom_ignore_list, viable) &
+       result(point)
     !! VOID placement method.
     !!
     !! This method returns the gridpoint with the lowest neighbour density.
@@ -98,8 +100,10 @@ contains
     !! Number of gridpoints in each direction.
     integer, dimension(:,:), intent(in) :: atom_ignore_list
     !! List of atoms to ignore (i.e. indices of atoms not yet placed).
-    logical, intent(out) :: placed
-    !! Boolean to indicate if atom was placed.
+    logical, intent(out) :: viable
+    !! Boolean to indicate if point is viable.
+    real(real12), dimension(3) :: point
+    !! Point to add atom to.
     
     ! Local variables
     integer :: i, j, k
@@ -116,6 +120,7 @@ contains
     ! loop over all gridpoints in the unit cell and find the one with the ...
     ! ... largest void space
     !---------------------------------------------------------------------------
+    viable = .false.
     best_location_bond = -huge(1._real12)
     do i = 0, bin_size(1) - 1, 1
        do j = 0, bin_size(2) - 1, 1
@@ -132,19 +137,18 @@ contains
        end do
     end do
 
-    basis%spec(atom_ignore_list(1,1))%atom(atom_ignore_list(1,2),:) = &
-         best_location
-    placed = .true.
+    point = best_location
+    viable = .true.
 
-  end subroutine add_atom_void
+  end function add_atom_void
 !###############################################################################
 
 
 !###############################################################################
-  subroutine add_atom_pseudo ( gvector_container, &
+  function add_atom_walk ( gvector_container, &
        basis, atom_ignore_list, &
-       radius_list, placed)
-    !! PSEUDO randomwalk placement method.
+       radius_list, viable) result(point)
+    !! Pseudo-random walk placement method.
     !!
     !! This method places the atom using a pseudo-random walk method.
     !! An initial point is chosen at random, and then points nearby are tested
@@ -160,12 +164,14 @@ contains
     !! Distribution function (gvector) container.
     type(bas_type), intent(inout) :: basis
     !! Structure to add atom to.
-    logical, intent(out) :: placed
-    !! Boolean to indicate if atom was placed.
+    logical, intent(out) :: viable
+    !! Boolean to indicate if point is viable.
     integer, dimension(:,:), intent(in) :: atom_ignore_list
     !! List of atoms to ignore (i.e. indices of atoms not yet placed).
     real(real12), dimension(:), intent(in) :: radius_list
     !! List of radii for each element.
+    real(real12), dimension(3) :: point
+    !! Point to add atom to.
 
     ! Local variables
     integer :: i, j, k, l
@@ -184,7 +190,7 @@ contains
     ! test a random point in the unit cell
     !---------------------------------------------------------------------------
     i = 0
-    placed = .false.
+    viable = .false.
     crude_norm = 0._real12
 100 random_loop : do 
        i = i + 1
@@ -240,16 +246,10 @@ contains
              call random_number(rtmp1)
              if(crude_norm.lt.calculated_value) crude_norm = calculated_value
 
-             if (rtmp1.lt.calculated_value) then
-                placed = .TRUE.
-                exit walk_loop
-             end if
+             if (rtmp1.lt.calculated_value) exit walk_loop
              if(k.ge.10) then 
                 calculated_value = calculated_value / crude_norm
-                if (rtmp1.lt.calculated_value) then
-                   placed = .TRUE.
-                   exit walk_loop
-                end if
+                if (rtmp1.lt.calculated_value) exit walk_loop
              end if
    
              !! if we have tried 10 times, and still no luck, then we need to ...
@@ -265,17 +265,17 @@ contains
        call random_number(rtmp1)
  
        if(k.gt.10) calculated_test = calculated_test / crude_norm
-       if (rtmp1.lt.calculated_test) then 
-          placed=.TRUE.
+       if (rtmp1.lt.calculated_test) then
           tmpvector = testvector
           exit walk_loop
        end if
  
     end do walk_loop
  
-    basis%spec(atom_ignore_list(1,1))%atom(atom_ignore_list(1,2),:) = tmpvector
+    point = tmpvector
+    viable=.true.
    
-  end subroutine add_atom_pseudo
+  end function add_atom_walk
 !###############################################################################
 
 

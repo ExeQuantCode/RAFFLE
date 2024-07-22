@@ -267,11 +267,10 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
                     positions.append(self.spec[i].atom[j])
             
             # Set the atoms
-            atoms = Atoms(species_string, positions)
-            atoms.set_pbc(self.pbc)
-
-            # Set the lattice vectors
-            atoms.set_cell(self.lat)
+            if(self.lcart):
+                atoms = Atoms(species_string, positions=positions, cell=self.lat, pbc=self.pbc)
+            else:
+                atoms = Atoms(species_string, scaled_positions=positions, cell=self.lat, pbc=self.pbc)
 
             return atoms
         
@@ -300,7 +299,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             # Set the species list
             species_count = []
             atom_positions = []
-            positions = atoms.get_positions()
+            positions = atoms.get_scaled_positions()
             for species in species_symbols_unique:
                 species_count.append(sum([1 for symbol in species_symbols if symbol == species]))
                 for j, symbol in enumerate(species_symbols):
@@ -308,6 +307,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
                         atom_positions.append(positions[j])
             
             # Allocate memory for the atom list
+            self.lcart = False
             self.allocate_species(species_symbols=species_symbols_unique, species_count=species_count, positions=atom_positions)
 
         @property

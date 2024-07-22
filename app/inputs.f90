@@ -22,6 +22,7 @@ module inputs
   public :: filename_host
   public :: database_format, database_list
   public :: cutoff_min_list, cutoff_max_list, width_list, sigma_list
+  public :: output_dir
 
   public :: set_global_vars
 
@@ -45,6 +46,7 @@ module inputs
   character(1024), dimension(:), allocatable :: database_list ! list of directories containing input database
   character(1024) :: database_format !format of input file (POSCAR, XYZ, etc.
   character(1024) :: filename_host !host structure filename
+  character(1024) :: output_dir !output directory
 
 
 !!!updated  2023/06/16
@@ -171,7 +173,7 @@ contains
 !!! set up namelists for input file
 !!!-----------------------------------------------------------------------------
     namelist /setup/        task, filename_host, seed, vps_ratio, bins, &
-                            database_format, database
+                            database_format, database, verbose, output_dir
     namelist /structure/    num_structures,stoichiometry
     namelist /volume/       vdW, volvar
     namelist /distribution/ cutoff_min, cutoff_max, width, sigma
@@ -184,6 +186,7 @@ contains
     call file_check(unit,file_name)
 
 
+    output_dir = "iteration1"
     cutoff_min = "-1.0"
     cutoff_max = "-1.0"
     width = -1._real12

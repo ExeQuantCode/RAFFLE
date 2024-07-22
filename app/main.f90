@@ -1,9 +1,14 @@
-program raffle
+program raffle_program
   use constants, only: real12
+  use misc_raffle, only: touch
   use inputs
   use read_structures, only: get_evolved_gvectors_from_data
   use raffle, only: raffle_generator_type, gvector_container_type
+  use rw_geom, only: geom_read, geom_write
   implicit none
+
+  integer :: i, unit
+  character(1024) :: buffer
 
   ! type(gvector_container_type) :: gvector_container
   real(real12), dimension(3) :: method_probab
@@ -80,12 +85,33 @@ program raffle
 
 
 !!!-----------------------------------------------------------------------------
+!!! set the host structure
+!!!-----------------------------------------------------------------------------
+  open(newunit=unit, file=filename_host, status='old')
+  call geom_read(unit, generator%host)
+  close(unit)
+  generator%bins = bins
+
+
+!!!-----------------------------------------------------------------------------
 !!! generate random structures
 !!!-----------------------------------------------------------------------------
   write(*,*) "Generating structures"
   call generator%generate( num_structures, &
        stoich, &
        method_probab )
-  write(*,*) "Structures have been successfully generated and saved"
+  write(*,*) "Structures have been successfully generated"
 
-end program raffle
+
+!!!-----------------------------------------------------------------------------
+!!! save generated structures
+!!!-----------------------------------------------------------------------------
+  do i = 1, generator%num_structures
+     write(buffer,'(A,"/struc",I0.3)') trim(output_dir),i
+     call touch(buffer)
+     open(newunit = unit, file=trim(buffer)//"/POSCAR")
+     call geom_write(unit, generator%structures(i))
+     close(unit)
+  end do
+
+end program raffle_program

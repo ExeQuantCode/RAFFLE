@@ -164,8 +164,12 @@ module generator
     type(graph_type), dimension(1) :: graph
 #endif
 
+
+    if(verbose.gt.0) write(*,*) "Setting method probabilities"
     if(present(method_probab)) method_probab_ = method_probab
 
+
+    if(verbose.gt.0) write(*,*) "Allocating memory for structures"
     if(.not.allocated(this%structures))then
        allocate(this%structures(num_structures))
     else
@@ -175,7 +179,7 @@ module generator
     end if
 
 
-
+    if(verbose.gt.0) write(*,*) "Setting up basis store"
     !!! THINK OF SOME WAY TO HANDLE THE HOST SEPARATELY
     !!! THAT CAN SIGNIFICANTLY REDUCE DATA USAGE
     num_insert_species = size(stoichiometry)
@@ -183,6 +187,7 @@ module generator
     allocate(basis_store%spec(num_insert_species))
     do i = 1, size(stoichiometry)
        basis_store%spec(i)%name = strip_null(stoichiometry(i)%element)
+       write(*,*) basis_store%spec(i)%name
     end do
     basis_store%spec(:)%num = stoichiometry(:)%num
     basis_store%natom = num_insert_atoms
@@ -192,6 +197,7 @@ module generator
     do i = 1, basis_store%nspec
        allocate(basis_store%spec(i)%atom(basis_store%spec(i)%num,3), source = 0._real12)
     end do
+    if(.not.allocated(this%host%spec)) stop "Host structure not set"
     basis_store = bas_merge(this%host,basis_store)
     basis_store%lat = this%host%lat
 
@@ -203,6 +209,7 @@ module generator
     !! ... the second dimension is the index of the species and atom in the
     !! ... basis_store
     !!--------------------------------------------------------------------------
+    if(verbose.gt.0) write(*,*) "Generating placement list"
     allocate(placement_list(num_insert_atoms,2))
     k = 0
     spec_loop1: do i = 1, basis_store%nspec
@@ -234,10 +241,12 @@ module generator
     !!--------------------------------------------------------------------------
     !! generate the structures
     !!--------------------------------------------------------------------------
+    if(verbose.gt.0) write(*,*) "Entering structure generation loop"
     num_structures_old = this%num_structures
     num_structures_new = this%num_structures + num_structures
     structure_loop: do istructure = num_structures_old + 1, num_structures_new
     
+       if(verbose.gt.0) write(*,*) "Generating structure", istructure
        this%structures(istructure) = this%generate_structure( basis_store, &
             placement_list, method_probab_ )
        this%num_structures = istructure

@@ -1094,7 +1094,7 @@ contains
     logical :: exists
   
     inquire(file=file, exist=exists)
-    if(.not.exists) call execute_command_line("mkdir "//file)
+    if(.not.exists) call execute_command_line("mkdir -p "//file)
   end subroutine touch
 !!!#####################################################
 

@@ -12,6 +12,8 @@ program raffle_program
 
   ! type(gvector_container_type) :: gvector_container
   real(real12), dimension(3) :: method_probab
+  real(real12), dimension(:), allocatable :: tmp_energies
+  character(len=3), dimension(:), allocatable :: tmp_symbols
 
   type(raffle_generator_type) :: generator
 
@@ -52,14 +54,22 @@ program raffle_program
   end select
 
 
+
+!!!-----------------------------------------------------------------------------
+!!! set the element energies
+!!!-----------------------------------------------------------------------------
+  call generator%distributions%set_element_energies( &
+       element_symbols, &
+       element_energies &
+  )
+
+
 !!!-----------------------------------------------------------------------------
 !!! read structures from the database and generate gvectors
 !!!-----------------------------------------------------------------------------
   generator%distributions = get_evolved_gvectors_from_data( &
        input_dir    = database_list, &
-       element_file = "elements.dat", &
        bond_file    = "chem.in", &
-       element_list = stoich(:)%element, &
        file_format  = database_format, &
        gvector_container_template = gvector_container_type(&
             width = width_list, &
@@ -70,6 +80,14 @@ program raffle_program
   call generator%distributions%write_2body(file="2body.txt")
   call generator%distributions%write_3body(file="3body.txt")
   call generator%distributions%write_4body(file="4body.txt")
+
+  call generator%distributions%get_element_energies( &
+       tmp_symbols, &
+       tmp_energies &
+  )
+  do i = 1, size(tmp_symbols)
+     write(*,*) "Element ", tmp_symbols(i), " energy: ", tmp_energies(i)
+  end do
 
 
 !!!-----------------------------------------------------------------------------

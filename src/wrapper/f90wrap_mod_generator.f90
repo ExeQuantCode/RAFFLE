@@ -517,7 +517,7 @@ end subroutine f90wrap_generator__set_host__binding__rgt
 
 subroutine f90wrap_generator__generate__binding__rgt( &
        this, num_structures, stoichiometry, &
-    method_probab, n0)
+    method_probab, seed, n0)
     use generator, only: raffle_generator_type, stoichiometry_type
     implicit none
     
@@ -539,15 +539,30 @@ subroutine f90wrap_generator__generate__binding__rgt( &
     type(stoichiometry_type_xnum_array_ptr_type) :: stoichiometry_ptr
     integer, intent(in), dimension(2) :: stoichiometry
     real(4), intent(in), optional, dimension(n0) :: method_probab
+    integer, intent(in), optional :: seed
     integer :: n0
     !f2py intent(hide), depend(method_probab) :: n0 = shape(method_probab,0)
     this_ptr = transfer(this, this_ptr)
     stoichiometry_ptr = transfer(stoichiometry, stoichiometry_ptr)
     if(present(method_probab)) then
-        call this_ptr%p%generate(num_structures=num_structures, stoichiometry=stoichiometry_ptr%p%items, &
-            method_probab=method_probab)
+        if(present(seed)) then
+           call this_ptr%p%generate(num_structures=num_structures, &
+                stoichiometry=stoichiometry_ptr%p%items, &
+                method_probab=method_probab, seed=seed)
+        else
+           call this_ptr%p%generate(num_structures=num_structures, &
+                stoichiometry=stoichiometry_ptr%p%items, &
+                method_probab=method_probab)
+        end if
     else
-        call this_ptr%p%generate(num_structures=num_structures, stoichiometry=stoichiometry_ptr%p%items)
+        if(present(seed)) then
+           call this_ptr%p%generate(num_structures=num_structures, &
+                stoichiometry=stoichiometry_ptr%p%items, &
+                seed=seed)
+        else
+           call this_ptr%p%generate(num_structures=num_structures, &
+                stoichiometry=stoichiometry_ptr%p%items)
+        end if
     end if
 end subroutine f90wrap_generator__generate__binding__rgt
 

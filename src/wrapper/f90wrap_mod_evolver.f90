@@ -671,7 +671,7 @@ subroutine f90wrap_evolver__add_basis__binding__gvector_container_type(this, bas
     call this_ptr%p%add_basis(basis=basis_ptr%p)
 end subroutine f90wrap_evolver__add_basis__binding__gvector_container_type
 
-subroutine f90wrap_evolver__set_element_info__binding__gvector_containbcb0(this, element_file, element_list, n0)
+subroutine f90wrap_evolver__set_element_energies__binding__gvector_cbcb0(this, elements, energies, n0)
     use evolver, only: gvector_container_type
     implicit none
     
@@ -680,13 +680,29 @@ subroutine f90wrap_evolver__set_element_info__binding__gvector_containbcb0(this,
     end type gvector_container_type_ptr_type
     type(gvector_container_type_ptr_type) :: this_ptr
     integer, intent(in), dimension(2) :: this
-    character*(*), intent(in), optional :: element_file
-    character(3), intent(in), optional, dimension(n0) :: element_list
+    character(3), dimension(n0), intent(in) :: elements
+    real(4), dimension(n0), intent(in) :: energies
     integer :: n0
-    !f2py intent(hide), depend(element_list) :: n0 = shape(element_list,0)
+    !f2py intent(hide), depend(elements) :: n0 = shape(elements,0)
     this_ptr = transfer(this, this_ptr)
-    call this_ptr%p%set_element_info(element_file=element_file, element_list=element_list)
-end subroutine f90wrap_evolver__set_element_info__binding__gvector_containbcb0
+    call this_ptr%p%set_element_energies(elements=elements, energies=energies)
+end subroutine f90wrap_evolver__set_element_energies__binding__gvector_cbcb0
+
+! subroutine f90wrap_evolver__get_element_energies__binding__gvector_cbcb0(this, ret_elements, ret_energies, num_elements)
+!     use evolver, only: gvector_container_type
+!     implicit none
+    
+!     type gvector_container_type_ptr_type
+!         type(gvector_container_type), pointer :: p => NULL()
+!     end type gvector_container_type_ptr_type
+!     type(gvector_container_type_ptr_type) :: this_ptr
+!     integer, intent(in), dimension(2) :: this
+!     character(3), dimension(num_elements), intent(out) :: ret_elements
+!     real(4), dimension(num_elements), intent(out) :: ret_energies
+!     integer, intent(in) :: num_elements
+!     this_ptr = transfer(this, this_ptr)
+!     call this_ptr%p%get_element_energies_static(elements=ret_elements, energies=ret_energies)
+! end subroutine f90wrap_evolver__get_element_energies__binding__gvector_cbcb0
 
 subroutine f90wrap_evolver__set_bond_info__binding__gvector_container_type(this, bond_file)
     use evolver, only: gvector_container_type

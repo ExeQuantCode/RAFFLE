@@ -427,14 +427,14 @@ contains
        iplaced = iplaced + 1
        if(allocated(viable_gridpoints)) &
             call update_viable_gridpoints( viable_gridpoints, &
-                             basis, &
-                             [ placement_list_shuffled(iplaced,:) ], &
-                             this%distributions%bond_info( &
-                                  ( basis%nspec - &
-                                     placement_list_shuffled(iplaced,1)/2 ) * &
-                                  ( placement_list_shuffled(iplaced,1) - 1 ) + &
-                                  placement_list_shuffled(iplaced,1) &
-                             )%radius_covalent )
+                  basis, &
+                  [ placement_list_shuffled(iplaced,:) ], &
+                  this%distributions%bond_info( &
+                     nint( ( basis%nspec - &
+                       placement_list_shuffled(iplaced,1)/2._real12 ) * &
+                     ( placement_list_shuffled(iplaced,1) - 1 ) + &
+                     placement_list_shuffled(iplaced,1) ) &                       
+                  )%radius_covalent )
        if(.not.allocated(viable_gridpoints).and. &
             abs( method_probab_(3) - method_probab_(2) ) .gt. 1.E-3) then
           write(*,*) "WARNING: No more viable gridpoints"

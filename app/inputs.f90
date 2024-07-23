@@ -17,12 +17,13 @@ module inputs
   public :: vdW, volvar
   public :: bins, vps_ratio
   public :: seed
-  public :: num_structures, num_species, task
+  public :: num_structures, task
   public :: stoich
   public :: filename_host
   public :: database_format, database_list
   public :: cutoff_min_list, cutoff_max_list, width_list, sigma_list
   public :: output_dir
+  public :: element_symbols, element_energies
 
   public :: set_global_vars
 
@@ -31,7 +32,6 @@ module inputs
 
   integer :: seed !random seed
   integer :: num_structures ! number of structures to generate
-  integer :: num_species   ! total number of species to add
   integer :: task ! task setting (defines the RAFFLE task)
   type(stoichiometry_type), dimension(:), allocatable :: stoich ! stoichiometry of species to add
 
@@ -39,6 +39,9 @@ module inputs
 
   real(real12), dimension(3) :: cutoff_min_list, cutoff_max_list
   real(real12), dimension(3) :: width_list, sigma_list
+
+  real(real12), dimension(:), allocatable :: element_energies
+  character(3), dimension(:), allocatable :: element_symbols
 
   integer, dimension(3) :: bins
   integer, dimension(3) :: vps_ratio
@@ -159,10 +162,10 @@ contains
     implicit none
     character(*), intent(in) :: file_name
 
-    integer :: i
+    integer :: i, num_species
     integer :: Reason,unit, l_pos, r_pos
     character(1) :: fs
-    character(1024) :: stoichiometry, elements, database, buffer
+    character(1024) :: stoichiometry, elements, database, buffer, energies
     real(real12), dimension(3) :: width, sigma
     character(50), dimension(3) :: cutoff_min, cutoff_max
     integer, allocatable, dimension(:) :: stoichiometry_list
@@ -177,6 +180,7 @@ contains
     namelist /structure/    num_structures,stoichiometry
     namelist /volume/       vdW, volvar
     namelist /distribution/ cutoff_min, cutoff_max, width, sigma
+    namelist /element_info/ energies
 
 
 !!!-----------------------------------------------------------------------------
@@ -211,6 +215,10 @@ contains
     if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
        stop "THERE WAS AN ERROR IN READING DISTRIBUTION SETTINGS"
     end if
+    read(unit,NML=element_info,iostat=Reason)
+    if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
+       stop "THERE WAS AN ERROR IN READING ELEMENT_INFO SETTINGS"
+    end if
 
     if(trim(database).ne."")then
        allocate(database_list(icount(database)))
@@ -232,7 +240,7 @@ contains
        l_pos = scan(stoichiometry,"{")
        r_pos = scan(stoichiometry,"}", back=.true.)
        do i = 1, num_species
-          read(stoichiometry(l_pos+1:r_pos-1),*) buffer
+          read(stoichiometry(l_pos+1:r_pos-1),'(A)') buffer
           read(buffer(:scan(buffer,":")-1),*) stoich(i)%element
           read(buffer(scan(buffer,":")+1:),*) stoich(i)%num
           l_pos = scan(stoichiometry(l_pos+1:),",") + l_pos
@@ -240,6 +248,23 @@ contains
     else
        stop "No stoichiometry specified"
     end if
+
+
+    if(trim(energies).ne."")then
+      num_species = icount(energies,",")
+      allocate(element_symbols(num_species))
+      allocate(element_energies(num_species))
+      l_pos = scan(energies,"{")
+      r_pos = scan(energies,"}", back=.true.)
+      do i = 1, num_species
+         read(energies(l_pos+1:r_pos-1),'(A)') buffer
+         read(buffer(:scan(buffer,":")-1),*) element_symbols(i)
+         read(buffer(scan(buffer,":")+1:),*) element_energies(i)
+         l_pos = scan(energies(l_pos+1:),",") + l_pos
+      end do
+   else
+      stop "No element energies specified"
+   end if
 
     
     do i = 1, 3

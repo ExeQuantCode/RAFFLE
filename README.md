@@ -67,13 +67,12 @@ make
 
 ## Using
 
-First, you need to ensure that the following two files exist in the directory in which you run RAFFLE:
+First, you need to ensure that the following file exists in the directory in which you run RAFFLE:
 ```
-elements.dat
 chem.in
 ```
 
-Each of these files should follow the format found in the current repository. They should each have a header line that starts with "#" and contains the word "element". The example headers should then be followed for filling in data. For the elements.dat, the energy provided can be whatever you want to use as a reference energy. This energy is used for calculating formation energy. The example uses energy/atom of the bulk phase of the element. The mass and charge are not currently used, but data needs to be provided in those columns.
+Each of these files should follow the format found in the current repository. They should each have a header line that starts with "#" and contains the word "element". The example headers should then be followed for filling in data. For the elements.dat, the energy provided can be whatever you want to use as a reference energy. This energy is used for calculating formation energy. The example uses energy/atom of the bulk phase of the element.
 <!-- 
 Next, after the code is compiled, the way to run it is as follows:
 ```

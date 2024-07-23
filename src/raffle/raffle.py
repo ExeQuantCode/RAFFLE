@@ -1144,28 +1144,77 @@ class Evolver(f90wrap.runtime.FortranModule):
             _raffle.f90wrap_evolver__add_basis__binding__gvector_container_type(this=self._handle, \
                 lattice=lattice, basis=basis._handle)
         
-        def set_element_info(self, element_file=None, element_list=None):
+        # def set_element_info(self, element_file=None, element_list=None):
+        #     """
+        #     set_element_info__binding__gvector_container_type(self[, element_file, \
+        #         element_list])
+            
+            
+        #     Defined at ../src/lib/mod_evolver.f90 lines \
+        #         436-466
+            
+        #     Parameters
+        #     ----------
+        #     this : unknown
+        #     element_file : str
+        #     element_list : str array
+            
+        #     --------------------------------------------------------------------------
+        #      load the elements database
+        #     --------------------------------------------------------------------------
+        #     """
+        #     _raffle.f90wrap_evolver__set_element_info__binding__gvector_containbcb0(this=self._handle, \
+        #         element_file=element_file, element_list=element_list)
+
+        def set_element_energies(self, element_energies):
             """
-            set_element_info__binding__gvector_container_type(self[, element_file, \
-                element_list])
-            
-            
+            set_element_energies__binding__gvector_container_type(self, element_energies)
+
             Defined at ../src/lib/mod_evolver.f90 lines \
-                436-466
+                472-526
             
             Parameters
             ----------
             this : unknown
-            element_file : str
-            element_list : str array
-            
-            --------------------------------------------------------------------------
-             load the elements database
-            --------------------------------------------------------------------------
+            element_energies : dict
             """
-            _raffle.f90wrap_evolver__set_element_info__binding__gvector_containbcb0(this=self._handle, \
-                element_file=element_file, element_list=element_list)
+
+            element_list = list(element_energies.keys())
+            energies = [element_energies[element] for element in element_list]
+            _raffle.f90wrap_evolver__set_element_energies__binding__gvector_cbcb0(this=self._handle, \
+                elements=element_list, energies=energies)
         
+        # def get_element_energies(self, element_energies):
+        #     """
+        #     set_element_energies__binding__gvector_container_type(self, element_energies)
+
+        #     Defined at ../src/lib/mod_evolver.f90 lines \
+        #         472-526
+            
+        #     Parameters
+        #     ----------
+        #     this : unknown
+        #     element_energies : dict
+        #     """
+
+        #     # set size of element_list to len(self.element_info)
+        #     element_list = ['' for i in range(len(element_energies))]
+        #     energies = [0.0 for i in range(len(element_energies))]
+            
+        #     element_list = []
+        #     for element in self.element_info.
+        #     element_list = list(self.element_info)
+
+        #     _raffle.f90wrap_evolver__get_element_energies__binding__gvector_cbcb0(this=self._handle, \
+        #         elements=element_list, energies=element_energies)
+            
+        #     # convert the fortran array to a python dictionary
+        #     element_energies = {}
+        #     for i, element in enumerate(element_list):
+        #         element_energies[element] = energies[i]
+
+        #     return element_energies
+
         def set_bond_info(self, bond_file=None):
             """
             set_bond_info__binding__gvector_container_type(self[, bond_file])

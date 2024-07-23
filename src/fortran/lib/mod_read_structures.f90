@@ -28,15 +28,14 @@ contains
 !!! read in the structures from the input directories and generate the gvectors
 !!!#############################################################################
   function get_evolved_gvectors_from_data(input_dir, &
-       element_file, bond_file, element_list, &
+       bond_file, &
        file_format, gvector_container_template) &
        result(gvector_container)
     implicit none
     character(*), dimension(..), intent(in) :: input_dir
-    character(*), intent(in), optional :: element_file, bond_file
+    character(*), intent(in), optional :: bond_file
     type(gvector_container_type), intent(in), optional :: gvector_container_template
     type(gvector_container_type), allocatable :: gvector_container
-    character(len=3), dimension(:), intent(in), optional :: element_list
     character(*), intent(in), optional :: file_format
 
     character(256) :: name
@@ -175,10 +174,7 @@ contains
     end do
 
 
-100 if(present(element_file).and.present(element_list)) then
-       call gvector_container%set_element_info(element_file, element_list)
-    end if
-    if(present(bond_file)) then
+100 if(present(bond_file)) then
        call gvector_container%set_bond_info(bond_file)
     else
       call gvector_container%set_bond_info()

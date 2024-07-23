@@ -28,8 +28,40 @@ module elements
    end type element_bond_type
    type(element_bond_type), dimension(:), allocatable :: element_bond_database
   
+   
+  interface element_type
+    !! Constructor for the element type.
+    module function init_element_type( &
+         name, mass, charge, energy) result(this)
+      character(len=3), intent(in) :: name
+      real(real12), intent(in), optional :: mass, charge, energy
+      type(element_type) :: this
+    end function init_element_type
+  end interface element_type
+
 
 contains
+
+  module function init_element_type(name, mass, charge, energy) result(this)
+    !! Initialise an instance of the element_type.
+    implicit none
+
+    ! Arguments
+    character(len=3), intent(in) :: name
+    !! Element name.
+    real(real12), intent(in), optional :: mass, charge, energy
+    !! Element mass, charge, and energy.
+
+    type(element_type) :: this
+    !! Instance of element_type.
+
+    this%name = name
+    if(present(mass)) this%mass= mass
+    if(present(charge)) this%charge = charge
+    if(present(energy)) this%energy = energy
+
+  end function init_element_type
+
 
 !!!#############################################################################
 !!! set element properties from database
@@ -41,18 +73,19 @@ contains
 
     integer :: i
 
-    do i = 1, size(element_database)
-       if(trim(element_database(i)%name) .eq. trim(name))then
-          this%name = element_database(i)%name
-          this%mass = element_database(i)%mass
-          this%charge = element_database(i)%charge
-          this%energy = element_database(i)%energy
-          return
-       end if
-    end do
+    if(allocated(element_database))then
+       do i = 1, size(element_database)
+          if(trim(element_database(i)%name) .eq. trim(name))then
+             this%name = element_database(i)%name
+             this%mass = element_database(i)%mass
+             this%charge = element_database(i)%charge
+             this%energy = element_database(i)%energy
+             return
+          end if
+       end do
+    end if
 
-    write(0,*) 'Element ', trim(name), ' not found in element database'
-    stop 1
+    write(0,*) 'WARNING: Element ', trim(name), ' not found in element database'
 
   end subroutine set
 !!!#############################################################################

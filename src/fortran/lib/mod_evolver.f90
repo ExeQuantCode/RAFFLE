@@ -57,8 +57,16 @@ module evolver
      procedure, pass(this) :: update
      
      procedure, pass(this) :: add, add_basis
-     procedure, pass(this) :: set_element_info
+
+     procedure, pass(this), private :: set_element_info
+     procedure, pass(this), private :: update_element_info
+     procedure, pass(this) :: set_element_energy
+     procedure, pass(this) :: set_element_energies
+     procedure, pass(this) :: get_element_energies
+   !   procedure, pass(this) :: get_element_energies_static
+
      procedure, pass(this) :: set_bond_info
+     
      procedure, pass(this) :: set_best_energy
      procedure, pass(this) :: initialise_gvectors
      procedure, pass(this) :: evolve
@@ -200,6 +208,8 @@ module evolver
     if(allocated(this%total%df_2body)) deallocate(this%total%df_2body)
     if(allocated(this%total%df_3body)) deallocate(this%total%df_3body)
     if(allocated(this%total%df_4body)) deallocate(this%total%df_4body)
+    if(allocated(this%system)) deallocate(this%system)
+    allocate(this%system(0))
     call this%add(basis_list)
     call this%set_bond_info()
     call this%evolve()
@@ -458,7 +468,7 @@ module evolver
        write(0,*) "Expected rank 0 or 1, got ", trim(buffer)
        stop 1
     end select
-    call this%set_element_info()
+    call this%update_element_info()
     call this%set_best_energy()
 
   end subroutine add
@@ -492,44 +502,217 @@ module evolver
 !!!#############################################################################
 !!! set the species list for the container
 !!!#############################################################################
-  subroutine set_element_info(this, element_file, element_list)
+  subroutine set_element_info(this)
     implicit none
     class(gvector_container_type), intent(inout) :: this
-    character(*), intent(in), optional :: element_file
-    character(len=3), dimension(:), intent(in), optional :: element_list
 
     integer :: i, unit
-    character(len=3), dimension(:), allocatable :: element_list_
+    character(len=3), dimension(:), allocatable :: element_list
 
-
-    !!--------------------------------------------------------------------------
-    !! load the elements database
-    !!--------------------------------------------------------------------------
-    if(present(element_file))then
-       call load_elements(element_file)
-    elseif(.not.allocated(element_database))then
-       call load_elements()
-    end if
 
     !!--------------------------------------------------------------------------
     !! get list of species in dataset
     !!--------------------------------------------------------------------------
-    element_list_ = [ this%system(1)%species ]
+    element_list = [ this%system(1)%species ]
     do i = 2, size(this%system),1
-       element_list_ = [ element_list_, this%system(i)%species ]
+       element_list = [ element_list, this%system(i)%species ]
     end do
-    if(present(element_list))then
-       element_list_ = [ element_list_, element_list ]
-    end if
-    call set(element_list_)
+    call set(element_list)
     if(allocated(this%element_info)) deallocate(this%element_info)
-    allocate(this%element_info(size(element_list_)))
-    do i = 1, size(element_list_)
-       call this%element_info(i)%set(element_list_(i))
+    allocate(this%element_info(size(element_list)))
+    do i = 1, size(element_list)
+       call this%element_info(i)%set(element_list(i))
     end do
     
   end subroutine set_element_info
 !!!#############################################################################
+
+
+!###############################################################################
+  subroutine update_element_info(this)
+    !! Update the element information in the container.
+    implicit none
+
+    ! Arguments
+    class(gvector_container_type), intent(inout) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
+
+    ! Local variables
+    integer :: i
+    !! Loop index.
+    character(len=3), dimension(:), allocatable :: element_list
+    !! List of elements in the container.
+
+
+    !---------------------------------------------------------------------------
+    ! check if element_info is allocated, if not, set it and return
+    !---------------------------------------------------------------------------
+    if(.not.allocated(this%element_info))then
+       call this%set_element_info()
+       return
+    end if
+
+
+    !---------------------------------------------------------------------------
+    ! get list of species in dataset
+    !---------------------------------------------------------------------------
+    element_list = [ this%system(1)%species ]
+    do i = 2, size(this%system),1
+       element_list = [ element_list, this%system(i)%species ]
+    end do
+    call set(element_list)
+
+
+    !---------------------------------------------------------------------------
+    ! check if all elements are in the element_info array
+    !---------------------------------------------------------------------------
+    do i = 1, size(element_list)
+       if( findloc( &
+            [ this%element_info(:)%name ], &
+            element_list(i), dim=1 ) .lt. 1 )then
+          this%element_info = [ &
+               this%element_info(:), &
+               element_type(element_list(i)) &
+          ]
+          call this%element_info(size(this%element_info))%set(element_list(i))
+       end if
+    end do
+
+  end subroutine update_element_info
+!###############################################################################
+
+
+!###############################################################################
+  subroutine set_element_energy(this, element, energy)
+    !! Set the energy of an element in the container.
+    implicit none
+
+    ! Arguments
+    class(gvector_container_type), intent(inout) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
+    character(len=3), intent(in) :: element
+    !! Element name.
+    real(real12), intent(in) :: energy
+    !! Energy of the element.
+
+    ! Local variables
+    integer :: idx, idx_db
+    !! Index of the element in the element_info array.
+    character(len=3) :: element_
+
+
+    !---------------------------------------------------------------------------
+    ! remove python formatting
+    !---------------------------------------------------------------------------
+    element_ = strip_null(element)
+
+
+    !---------------------------------------------------------------------------
+    ! if element_info is allocated, update energy of associated index
+    !---------------------------------------------------------------------------
+    if(allocated(this%element_info))then
+       idx = findloc( [ this%element_info(:)%name ], element_, dim=1 )
+       if(idx.ge.1) this%element_info(idx)%energy = energy
+    end if
+
+
+    !---------------------------------------------------------------------------
+    ! if element_database is allocated, update energy of associated index
+    !---------------------------------------------------------------------------
+    if(.not.allocated(element_database)) allocate(element_database(0))
+    idx_db = findloc( [ element_database(:)%name ], element_, dim=1 )
+    if(idx_db.lt.1)then
+       element_database = [ &
+            element_database(:), &
+            element_type(name = element_, energy = energy) &
+       ]
+    else
+       element_database(idx_db)%energy = energy
+    end if
+
+  end subroutine set_element_energy
+!###############################################################################
+
+
+!###############################################################################
+  subroutine set_element_energies(this, elements, energies)
+    !! Set the energies of elements in the container.
+    implicit none
+
+    ! Arguments
+    class(gvector_container_type), intent(inout) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
+    character(len=3), dimension(:), intent(in) :: elements
+    !! Element names.
+    real(real12), dimension(:), intent(in) :: energies
+    !! Energies of the elements.
+
+    ! Local variables
+    integer :: i
+
+    do i = 1, size(elements)
+       call this%set_element_energy(elements(i), energies(i))
+    end do
+
+  end subroutine set_element_energies
+!###############################################################################
+
+
+!###############################################################################
+  subroutine get_element_energies(this, elements, energies)
+   !! Return the energies of elements in the container.
+   implicit none
+
+   ! Arguments
+   class(gvector_container_type), intent(in) :: this
+   !! Parent of the procedure. Instance of distribution functions container.
+   character(len=3), dimension(:), allocatable, intent(out) :: elements
+   !! Element names.
+   real(real12), dimension(:), allocatable, intent(out) :: energies
+   !! Energies of the elements.
+
+   ! Local variables
+   integer :: i
+   !! Loop index.
+
+
+   allocate(elements(size(this%element_info)))
+   allocate(energies(size(this%element_info)))
+   do i = 1, size(this%element_info)
+      elements(i) = this%element_info(i)%name
+      energies(i) = this%element_info(i)%energy
+   end do
+
+ end subroutine get_element_energies
+!###############################################################################
+
+
+! !###############################################################################
+!   subroutine get_element_energies_static(this, elements, energies)
+!     !! Return the energies of elements in the container.
+!     implicit none
+
+!     ! Arguments
+!     class(gvector_container_type), intent(in) :: this
+!     !! Parent of the procedure. Instance of distribution functions container.
+!     character(len=3), dimension(size(this%element_info,1)), intent(out) :: &
+!          elements
+!     !! Element names.
+!     real(real12), dimension(size(this%element_info,1)), intent(out) :: energies
+!     !! Energies of the elements.
+
+!     ! Local variables
+!     integer :: i
+!     !! Loop index.
+
+
+!     do i = 1, size(this%element_info)
+!        elements(i) = this%element_info(i)%name
+!        energies(i) = this%element_info(i)%energy
+!     end do
+
+!   end subroutine get_element_energies_static
+! !###############################################################################
 
 
 !!!#############################################################################

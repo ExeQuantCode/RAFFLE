@@ -316,8 +316,9 @@ contains
     !---------------------------------------------------------------------------
     allocate(pair_index(basis%nspec), source = 0)
     do is = 1, basis%nspec
-       pair_index(is) = ( basis%nspec - is/2 ) * ( is - 1 ) + is
+       pair_index(is) = nint( ( basis%nspec - is/2._real12 ) * ( is - 1 ) + is )
     end do
+
 
     !---------------------------------------------------------------------------
     ! loop over all gridpoints in the unit cell and check if they are too ...

@@ -1167,15 +1167,15 @@ contains
 !!!#############################################################################
  subroutine get_element_properties(element, charge, mass)
    !! Set the mass and charge of the element
+   implicit none
 
    ! Arguments
-   implicit none
    character(len=3), intent(in) :: element
-   !! The element name.
+   !! Element name.
    real(real12), intent(out), optional :: charge
-   !! The charge of the element.
+   !! Charge of the element.
    real(real12), intent(out), optional :: mass
-   !! The mass of the element.
+   !! Mass of the element.
 
    ! Local variables
    real(real12) :: mass_, charge_

@@ -1,6 +1,6 @@
 import sys
 # caution: path[0] is reserved for script path (or '' in REPL)
-sys.path.insert(1, '../../build/')
+# sys.path.insert(1, '../../build/')
 
 import raffle
 from ase import Atoms
@@ -18,8 +18,17 @@ host_basis = raffle.rw_geom.bas_type(host)
 generator.set_host(host_basis)
 print("Host read")
 
+print("Setting element energies")
+generator.distributions.set_element_energies(
+    {
+        'C': -9.0266865,
+        'Mg': -1.5478236,
+        'O': -4.3707458
+    }
+)
+
 print("Reading database")
-database = read("database.xyz", index=":")
+database = read("../example_files/database/database.xyz", index=":")
 num_database = len(database)
 database_basis = raffle.rw_geom.bas_type_xnum_array()
 database_basis.allocate(num_database)
@@ -33,18 +42,18 @@ generator.distributions.create(database_basis)
 print("Database set")
 
 print("Setting bins (discretisation of host cell)")
-generator.bins = [50,50,50]
+generator.bins = [12,12,30]
 
 print("Setting stoichiometry to insert")
 stoich_list = raffle.generator.stoichiometry_type_xnum_array()
 stoich_list.allocate(2)
 stoich_list.items[0].element = 'C'
-stoich_list.items[0].num = 1
+stoich_list.items[0].num = 8
 stoich_list.items[1].element = 'Mg'
-stoich_list.items[1].num = 1
+stoich_list.items[1].num = 8
 
 print("Generating...")
-generator.generate(num_structures=2, stoichiometry=stoich_list)
+generator.generate(num_structures=10, stoichiometry=stoich_list)
 print("Generated")
 
 print("Getting structures")

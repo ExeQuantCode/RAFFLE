@@ -18,7 +18,7 @@ classifiers = [
     "Development Status :: 3",
     "Indented Audience :: Computational materials scientists",
     "Programming Language :: Python :: 3.11",
-    "Programming Language :: Fortran :: F08", 
+    "Programming Language :: Fortran :: Fortran 2018", 
     "License :: ",
     "Operating System :: OS Independent",
 ]

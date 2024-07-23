@@ -1,6 +1,6 @@
 module vasp_file_handler
   use constants, only: real12
-  use misc, only: touch, icount
+  use misc_raffle, only: touch, icount
   implicit none
 
   private

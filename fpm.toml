@@ -1,0 +1,25 @@
+name = "raffle"
+version = "0.2.0"
+author = "Ned Thaddeus Taylor"
+maintainer = "n.t.taylor@exeter.ac.uk"
+description = "A Fortran library and executable for structure prediction at material interfaces"
+
+[preprocess]
+[preprocess.cpp]
+suffixes = ["F90", "f90"]
+
+[library]
+source-dir="src/lib"
+
+[fortran]
+implicit-typing = false
+implicit-external = false
+source-form = "free"
+
+[[executable]]
+name="raffle_executable"
+source-dir="app"
+main="main.f90"
+
+[build]
+external-modules = ["athena"]

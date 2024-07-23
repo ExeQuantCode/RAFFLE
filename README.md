@@ -46,7 +46,7 @@ cmake ..
 make install
 ```
 
-Then, the path to the install directory (`${HOME}/.local/raffle`) needs to be added to the include path.
+Then, the path to the install directory (`${HOME}/.local/raffle`) needs to be added to the include path. NOTE: this method requires that the user manually installs the `ase`, `numpy` and `f90wrap` modules for Python.
 
 ### Fortran
 

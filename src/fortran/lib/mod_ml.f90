@@ -1,10 +1,14 @@
 module machine_learning
   use constants, only: real12
+#ifdef ENABLE_ATHENA
   use athena
+#endif
   implicit none
 
 
   private
+
+#ifdef ENABLE_ATHENA
 
   public :: network_setup
   public :: network_train, network_train_graph
@@ -12,10 +16,12 @@ module machine_learning
 
   
   type(network_type) :: network
+#endif
 
 
 contains
 
+#ifdef ENABLE_ATHENA
   subroutine network_setup(num_inputs, num_outputs)
     implicit none
     integer, intent(in) :: num_inputs, num_outputs
@@ -161,4 +167,5 @@ contains
 
   end function network_predict_graph
 
+#endif
 end module machine_learning

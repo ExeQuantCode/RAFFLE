@@ -67,7 +67,8 @@ option(BUILD_EXECUTABLE "Build the Fortran executable" On)
 
 # Define the sources
 set(SRC_DIR src)
-set(LIB_DIR ${SRC_DIR}/lib)
+set(FORTRAN_SRC_DIR ${SRC_DIR}/fortran)
+set(LIB_DIR ${FORTRAN_SRC_DIR}/lib)
 
 set(LIB_FILES
   mod_constants.f90
@@ -127,8 +128,8 @@ foreach(lib ${SPECIAL_LIB_FILES})
     list(APPEND F90WRAP_FORTRAN_SRC_FILES ${CMAKE_CURRENT_LIST_DIR}/${LIB_DIR}/${lib})
 endforeach()
 foreach(src ${SRC_FILES})
-    list(APPEND F90WRAP_FORTRAN_SRC_FILES ${CMAKE_CURRENT_LIST_DIR}/${SRC_DIR}/${src})
-    list(APPEND PREPENDED_SRC_FILES ${SRC_DIR}/${src})
+    list(APPEND F90WRAP_FORTRAN_SRC_FILES ${CMAKE_CURRENT_LIST_DIR}/${FORTRAN_SRC_DIR}/${src})
+    list(APPEND PREPENDED_SRC_FILES ${FORTRAN_SRC_DIR}/${src})
 endforeach()
 
 
@@ -141,8 +142,6 @@ foreach(src ${EXECUTABLE_FILES})
     list(APPEND PREPENDED_EXECUTABLE_FILES ${APP_DIR}/${src})
 endforeach()
 
-
-message(STATUS "Modified SRC_FILES: ${PREPENDED_SRC_FILES}")
 
 # initialise flags
 set(CPPFLAGS "")
@@ -268,7 +267,7 @@ if (BUILD_PYTHON)
         set(PLATFORM_TAG "unknown")
     endif()
     set(FILENAME_MIDDLE "cpython-${PYTHON_VERSION}-${PLATFORM_TAG}")
-    set(F2PY_OUTPUT_FILE ${CMAKE_BINARY_DIR}/_${PROJECT_NAME}.${FILENAME_MIDDLE}.so)
+    set(F2PY_OUTPUT_FILE ${CMAKE_BINARY_DIR}/raffle/_${PROJECT_NAME}.${FILENAME_MIDDLE}.so)
 
     # # Generate f90wrap signature file
     set(F90WRAP_FILE ${CMAKE_CURRENT_LIST_DIR}/src/wrapper/f90wrap_*.f90)
@@ -292,8 +291,8 @@ if (BUILD_PYTHON)
 
     # Copy f90wrap edited files from edited_autogen_files to ${CMAKE_BINARY_DIR}
     add_custom_command(
-        OUTPUT ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.py ${CMAKE_BINARY_DIR}/__init__.py
-        COMMAND cp -r ${CMAKE_CURRENT_LIST_DIR}/src/raffle/*.py ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
+        OUTPUT ${CMAKE_BINARY_DIR}/raffle/${PROJECT_NAME}.py ${CMAKE_BINARY_DIR}/raffle/__init__.py
+        COMMAND cp -r ${CMAKE_CURRENT_LIST_DIR}/${SRC_DIR}/raffle ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/.
         COMMENT "Copying raffle class file"
     )
 
@@ -309,38 +308,29 @@ if (BUILD_PYTHON)
         -c
         -m _${PROJECT_NAME}
         --f90flags="${PPFLAGS}"
+        --include-paths ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/raffle
         ${F90WRAP_FILE}
-        --quiet
-        ${OBJECTS_DIR}/src/*.o
-        ${OBJECTS_DIR}/src/lib/*.o
+        ${OBJECTS_DIR}/${FORTRAN_SRC_DIR}/*.o
+        ${OBJECTS_DIR}/${LIB_DIR}/*.o
         ${F2PY_OUTPUT_FLAG}
-        DEPENDS ${F90WRAP_FILE}
-        WORKING_DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
+        DEPENDS ${F90WRAP_FILE} ${CMAKE_BINARY_DIR}/raffle/${PROJECT_NAME}.py
+        WORKING_DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/raffle
         COMMENT "Creating Python module using f2py"
     )
 
     # Define output files
-    set(PY_MODULE ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.py)
+    set(PY_MODULE ${CMAKE_BINARY_DIR}/raffle/${PROJECT_NAME}.py ${CMAKE_BINARY_DIR}/raffle/__init__.py)
     # file(GLOB SO_MODULE "${CMAKE_BINARY_DIR}/_${PROJECT_NAME}*.so")
 
     # Create a custom target for the Python module
     add_custom_target(python_module ALL
-        DEPENDS ${F2PY_OUTPUT_FILE} ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.py ${CMAKE_BINARY_DIR}/__init__.py
+        DEPENDS ${F2PY_OUTPUT_FILE} ${CMAKE_BINARY_DIR}/raffle/${PROJECT_NAME}.py ${CMAKE_BINARY_DIR}/raffle/__init__.py
     )
 
     # Installation instructions
-    install(FILES ${PY_MODULE} DESTINATION lib)
-    install(FILES ${SO_MODULE} DESTINATION lib)
+    install(FILES ${PY_MODULE} DESTINATION .)
+    install(FILES ${F2PY_OUTPUT_FILE} DESTINATION .)
 endif()
-
-
-
-# Print helpful messages
-message(STATUS "Build configuration:")
-message(STATUS "  Source directory: ${SRC_DIR}")
-message(STATUS "  Output library: ${PROJECT_NAME}")
-# message(STATUS "  Fortran modules directory: ${CMAKE_BINARY_DIR}/mod")
-# message(STATUS "  Python module: ${PROJECT_NAME}.so")
 
 
 

@@ -1,6 +1,7 @@
 from ase import Atoms
 import numpy as np
-
+from raffle import raffle 
+from ase.io import read
 
 def get_stoichiometry(stoichiometry_dict):
     symbols=[key for key in stoichiometry_dict]
@@ -23,8 +24,65 @@ def check_bondlengths(trial, atoms):
 def get_distance(a,b):
     return np.linalg.norm(a.position-b.position)
 
+def _initialise_generator():
+    generator = raffle.generator.raffle_generator_type()
+    return generator
 
-def raffle(hosts,atoms,iterations):
+def _populate_database(**kwargs):
+    database_path=kwargs.get("database")
+    if database_path is not None:
+        database = read(kwargs.get("database"),index=":")
+    else:
+        #database = read("../../examples/example_files/database/database.xyz", index=":")
+        from ase.build import bulk
+        database=[bulk("Au")]
+    database_basis = raffle.rw_geom.bas_type_xnum_array()
+    database_basis.allocate(len(database))
+    for i, atoms in enumerate(database):
+        database_basis.items[i].fromase(atoms)
+
+    return database_basis
+
+
+
+
+def RAFFLE(host_structures,atoms,energies_dict,iterations,**kwargs): 
+    
+
+    database_basis=_populate_database()
+
+    for host in host_structures:
+        generator=_initialise_generator()
+        generator.set_host(raffle.rw_geom.bas_type(host.structure))
+        generator.distributions.set_element_energies(energies_dict)
+        generator.distributions.create(database_basis)
+        generator.distributions.get_element_energies()
+        generator.bins=[12,12,30]
+        stoich_list = raffle.generator.stoichiometry_type_xnum_array()
+        list_stoich=[]
+        print(atoms)
+        k=0
+        for i, structure in enumerate(atoms):
+            for atom in structure: 
+                list_stoich.append(atom.symbol)
+                
+        stoich_list.allocate(len(list_stoich))
+        for i, item in enumerate(list_stoich):
+            stoich_list.items[i].element=atom.symbol
+            stoich_list.items[i].num=1
+                
+        generator.generate(num_structures=iterations,stoichiometry=stoich_list)
+        
+        for structure in generator.structures:
+            
+            ase_structure=structure.toase()
+            ase_structure.calc=host.structure.calc
+            host.add_child(ase_structure)
+        
+
+
+
+def rss(hosts,atoms,iterations):
     
     """
     Execute RAFFLE call
@@ -32,8 +90,6 @@ def raffle(hosts,atoms,iterations):
 
     _RSS(hosts,atoms,iterations)
     
-
-
 def _RSS(hosts,atoms,iterations): 
     for parent_id, host in enumerate(hosts): 
         for i in range(iterations):

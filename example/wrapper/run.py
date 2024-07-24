@@ -13,7 +13,7 @@ generator = raffle.generator.raffle_generator_type()
 
 
 print("Reading host")
-host = read("POSCAR_host")
+host = read("../example_files/POSCAR_host")
 host_basis = raffle.rw_geom.bas_type(host)
 generator.set_host(host_basis)
 print("Host read")

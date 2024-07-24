@@ -78,7 +78,10 @@ atoms=funcs.get_stoichiometry(stoichiometry_dict)
 funcs.raffle(host_structures,atoms,iterations)
 
 for host in host_structures:
-    host.calculate_children()
+    host.calculate_children(calculator)
+    host.dump_children()
+
+    print(host.children)
 
 
 x=[]

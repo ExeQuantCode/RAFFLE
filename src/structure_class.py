@@ -8,6 +8,7 @@ class Structure(MethodClass):
 
     def add_calculator(self,calc): 
         self.structure.calc=calc 
+        
 
     def get_energy(self):
         if self.structure.calc is not None:

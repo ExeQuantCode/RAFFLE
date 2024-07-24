@@ -27,8 +27,6 @@ class Host(Structure):
             print("No Calculator for Host structure")
             exit()
 
-
-    
     def get_search_volume(self, **kwargs):
         if "volume_method" in kwargs:
             method=_determine_volume_method(**kwargs)
@@ -37,8 +35,6 @@ class Host(Structure):
 
         exec(f'self._{method}_calc(**kwargs)')
 
-            
-        
     def _lom_calc(self,**kwargs):
         self.PNI_error()
         
@@ -58,15 +54,22 @@ class Host(Structure):
         self.children.append(child)
 
 
-    def calculate_children(self,path="tests/"): 
+    def calculate_children(self,calc,path="tests/"): 
         calculated_children=[]
+        energies = []
         for i,child in enumerate(self.children): 
-            child.add_calculator(self.structure.calc)
+            if child.structure.calc is not calc:
+                child.add_calculator(self.structure.calc)
             child.get_energy()
+            energies.append(child.get_energy)
             traj=Trajectory(f'{path}{i}.traj',mode="w")
             traj.write(child.structure)
-            
-    
+        return energies
+
+    def dump_children(self,path="tests/"):
+        self.calculate_children(path)
+        self.children=[]
+        
     
 def _determine_volume_method(**kwargs):
     for key, value in kwargs.items(): 

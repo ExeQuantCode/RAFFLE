@@ -1181,39 +1181,42 @@ class Evolver(f90wrap.runtime.FortranModule):
 
             element_list = list(element_energies.keys())
             energies = [element_energies[element] for element in element_list]
-            _raffle.f90wrap_evolver__set_element_energies__binding__gvector_cbcb0(this=self._handle, \
+            _raffle.f90wrap_evolver__set_element_energies__binding__gvector_con0537(this=self._handle, \
                 elements=element_list, energies=energies)
-        
-        # def get_element_energies(self, element_energies):
-        #     """
-        #     set_element_energies__binding__gvector_container_type(self, element_energies)
 
-        #     Defined at ../src/lib/mod_evolver.f90 lines \
-        #         472-526
+        def get_element_energies(self):
+            """
+            get_element_energies_static__binding__gvector_container_type(self, elements, \
+                energies)
             
-        #     Parameters
-        #     ----------
-        #     this : unknown
-        #     element_energies : dict
-        #     """
-
-        #     # set size of element_list to len(self.element_info)
-        #     element_list = ['' for i in range(len(element_energies))]
-        #     energies = [0.0 for i in range(len(element_energies))]
             
-        #     element_list = []
-        #     for element in self.element_info.
-        #     element_list = list(self.element_info)
-
-        #     _raffle.f90wrap_evolver__get_element_energies__binding__gvector_cbcb0(this=self._handle, \
-        #         elements=element_list, energies=element_energies)
+            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_evolver.f90 \
+                lines 557-574
             
-        #     # convert the fortran array to a python dictionary
-        #     element_energies = {}
-        #     for i, element in enumerate(element_list):
-        #         element_energies[element] = energies[i]
+            Parameters
+            ----------
+            this : unknown
 
-        #     return element_energies
+            Returns
+            -------
+            element_energies : dict
+            
+            """
+
+            num_elements = _raffle.f90wrap_evolver__get__num_elements(self._handle)
+            elements = numpy.zeros((num_elements,), dtype='S3')
+            energies = numpy.zeros((num_elements,), dtype=numpy.float32)
+
+            _raffle.f90wrap_evolver__get_element_energies_staticmem__binding__g4f53(this=self._handle, \
+                elements=elements, energies=energies)
+            
+            # convert the fortran array to a python dictionary
+            element_energies = {}
+            for i, element in enumerate(elements):
+                name = str(element.decode()).strip()
+                element_energies[name] = energies[i]
+
+            return element_energies
 
         def set_bond_info(self, bond_file=None):
             """

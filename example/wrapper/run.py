@@ -41,6 +41,9 @@ print("Setting database")
 generator.distributions.create(database_basis)
 print("Database set")
 
+print("Checking element energies")
+print(generator.distributions.get_element_energies())
+
 print("Setting bins (discretisation of host cell)")
 generator.bins = [12,12,30]
 

@@ -63,7 +63,7 @@ module evolver
      procedure, pass(this) :: set_element_energy
      procedure, pass(this) :: set_element_energies
      procedure, pass(this) :: get_element_energies
-   !   procedure, pass(this) :: get_element_energies_static
+     procedure, pass(this) :: get_element_energies_staticmem
 
      procedure, pass(this) :: set_bond_info
      
@@ -688,30 +688,30 @@ module evolver
 
 
 ! !###############################################################################
-!   subroutine get_element_energies_static(this, elements, energies)
-!     !! Return the energies of elements in the container.
-!     implicit none
+  subroutine get_element_energies_staticmem(this, elements, energies)
+    !! Return the energies of elements in the container.
+    implicit none
 
-!     ! Arguments
-!     class(gvector_container_type), intent(in) :: this
-!     !! Parent of the procedure. Instance of distribution functions container.
-!     character(len=3), dimension(size(this%element_info,1)), intent(out) :: &
-!          elements
-!     !! Element names.
-!     real(real12), dimension(size(this%element_info,1)), intent(out) :: energies
-!     !! Energies of the elements.
+    ! Arguments
+    class(gvector_container_type), intent(in) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
+    character(len=3), dimension(size(this%element_info,1)), intent(out) :: &
+         elements
+    !! Element names.
+    real(real12), dimension(size(this%element_info,1)), intent(out) :: energies
+    !! Energies of the elements.
 
-!     ! Local variables
-!     integer :: i
-!     !! Loop index.
+    ! Local variables
+    integer :: i
+    !! Loop index.
 
 
-!     do i = 1, size(this%element_info)
-!        elements(i) = this%element_info(i)%name
-!        energies(i) = this%element_info(i)%energy
-!     end do
+    do i = 1, size(this%element_info,1)
+       elements(i) = this%element_info(i)%name
+       energies(i) = this%element_info(i)%energy
+    end do
 
-!   end subroutine get_element_energies_static
+  end subroutine get_element_energies_staticmem
 ! !###############################################################################
 
 

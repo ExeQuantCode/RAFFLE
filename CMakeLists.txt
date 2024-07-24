@@ -64,6 +64,7 @@ option(BUILD_EXAMPLES "Build the examples" ON)
 option(ENABLE_ATHENA "Build energetic predictions with ATHENA" OFF)
 option(BUILD_PYTHON "Build the python library" On)
 option(BUILD_EXECUTABLE "Build the Fortran executable" On)
+option(REMAKE_F90WRAP "Remake the f90wrap signature file" OFF)
 
 # Define the sources
 set(SRC_DIR src)
@@ -253,6 +254,7 @@ if (BUILD_PYTHON)
     if(NOT DEFINED PYTHON_EXECUTABLE)
         set(PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
     endif()
+    set (F90WRAP_EXECUTABLE ${PYTHON_EXECUTABLE} -m f90wrap)
     set (F2PY_EXECUTABLE ${PYTHON_EXECUTABLE} -m f90wrap --f2py-f90wrap)
 
     # determine middle part of shared object filename
@@ -269,25 +271,26 @@ if (BUILD_PYTHON)
     set(FILENAME_MIDDLE "cpython-${PYTHON_VERSION}-${PLATFORM_TAG}")
     set(F2PY_OUTPUT_FILE ${CMAKE_BINARY_DIR}/raffle/_${PROJECT_NAME}.${FILENAME_MIDDLE}.so)
 
-    # # Generate f90wrap signature file
+    # Generate f90wrap signature file
     set(F90WRAP_FILE ${CMAKE_CURRENT_LIST_DIR}/src/wrapper/f90wrap_*.f90)
-    # set(KIND_MAP ${CMAKE_SOURCE_DIR}/kind_map)
-    # add_custom_command(
-    #     TARGET ${PROJECT_NAME}
-    #     POST_BUILD
-    #     COMMAND ${F90WRAP_EXECUTABLE}
-    #     --default-to-inout
-    #     -m ${PROJECT_NAME}
-    #     -k ${KIND_MAP}
-    #     ${F90WRAP_FORTRAN_SRC_FILES}
-    #     --only raffle_generator_type stoichiometry_type bas_type gvector_container_type:
-    #     DEPENDS ${F90WRAP_FORTRAN_SRC_FILES}
-    #     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    #     COMMENT "Generating f90wrap signature file"
-    #     VERBATIM
-    # )
-
-    add_custom_target(PY_FILES ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.py)
+    if (REMAKE_F90WRAP)
+        set(KIND_MAP ${CMAKE_SOURCE_DIR}/kind_map)
+        set(F90WRAP_REMAKE_FILE ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/f90wrap_${PROJECT_NAME}.f90)
+        add_custom_command(
+            OUTPUT ${F90WRAP_REMAKE_FILE}
+            POST_BUILD
+            COMMAND ${F90WRAP_EXECUTABLE}
+            --default-to-inout
+            -m ${PROJECT_NAME}
+            -k ${KIND_MAP}
+            ${F90WRAP_FORTRAN_SRC_FILES}
+            --only raffle_generator_type stoichiometry_type bas_type gvector_container_type:
+            DEPENDS ${F90WRAP_FORTRAN_SRC_FILES}
+            WORKING_DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
+            COMMENT "Generating f90wrap signature file"
+            VERBATIM
+        )
+    endif()
 
     # Copy f90wrap edited files from edited_autogen_files to ${CMAKE_BINARY_DIR}
     add_custom_command(
@@ -324,7 +327,7 @@ if (BUILD_PYTHON)
 
     # Create a custom target for the Python module
     add_custom_target(python_module ALL
-        DEPENDS ${F2PY_OUTPUT_FILE} ${CMAKE_BINARY_DIR}/raffle/${PROJECT_NAME}.py ${CMAKE_BINARY_DIR}/raffle/__init__.py
+        DEPENDS ${F90WRAP_REMAKE_FILE} ${F2PY_OUTPUT_FILE} ${CMAKE_BINARY_DIR}/raffle/${PROJECT_NAME}.py ${CMAKE_BINARY_DIR}/raffle/__init__.py
     )
 
     # Installation instructions

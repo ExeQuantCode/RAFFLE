@@ -8,5 +8,5 @@ class Child(Structure):
     def __init__(self,atoms):
         super(Child, self).__init__(atoms)
 
-
+        
     

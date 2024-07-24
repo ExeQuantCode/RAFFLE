@@ -46,7 +46,6 @@ class Host(Structure):
 
     def _cell_calc(self,**kwargs):
         self.PNI_error()
-        
 
 
     def add_child(self,atoms):
@@ -54,7 +53,7 @@ class Host(Structure):
         self.children.append(child)
 
 
-    def calculate_children(self,calc,path="tests/"): 
+    def calculate_children(self,calc,path="../tests/"): 
         calculated_children=[]
         energies = []
         for i,child in enumerate(self.children): 

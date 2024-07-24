@@ -34,7 +34,6 @@ def raffle(hosts,atoms,iterations):
     
 
 
-
 def _RSS(hosts,atoms,iterations): 
     for parent_id, host in enumerate(hosts): 
         for i in range(iterations):

@@ -87,7 +87,7 @@ for host in host_structures:
 x=[]
 y=[]
 for i in range(iterations): 
-    traj=read(f'tests/{i}.traj')
+    traj=read(f'../tests/{i}.traj')
     x.append(i)
     y.append(traj.get_potential_energy())
 

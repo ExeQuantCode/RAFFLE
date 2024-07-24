@@ -3,3 +3,12 @@
 bin/
 obj/
 *.mod
+*.smod
+*.txt
+DTESTING/
+DTEST/
+build/
+src/*.egg-info
+*.egg-info
+iteration*
+doc/html

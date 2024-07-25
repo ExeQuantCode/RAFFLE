@@ -10,7 +10,7 @@ module generator
   use rw_geom, only: bas_type
   use evolver, only: gvector_container_type
 
-  use constants, only: verbose
+  use constants, only: verbose_global => verbose
   use misc_raffle, only: shuffle
   use rw_geom, only: clone_bas
   use edit_geom, only: bas_merge
@@ -155,7 +155,7 @@ contains
 
 !###############################################################################
   subroutine generate(this, num_structures, &
-       stoichiometry, method_probab, seed)
+       stoichiometry, method_probab, seed, verbose)
     !! Generate random structures.
     implicit none
 
@@ -170,6 +170,8 @@ contains
     !! Probability of each placement method.
     integer, intent(in), optional :: seed
     !! Seed for the random number generator.
+    integer, intent(in), optional :: verbose
+    !! Verbosity level.
 
     ! Local variables
     integer :: i, j, k, istructure, num_structures_old, num_structures_new
@@ -182,6 +184,8 @@ contains
     !! Total probability of the placement methods.
     logical :: success
     !! Boolean comparison of element symbols.
+    integer :: verbose_ = 0
+    !! Verbosity level.
     type(bas_type) :: basis_template
     !! Basis of the structure to generate (i.e. allocated species and atoms).
     real(real12), dimension(3) :: &
@@ -203,16 +207,18 @@ contains
 #endif
 
 
+    if(present(verbose)) verbose_ = verbose
+
     !---------------------------------------------------------------------------
     ! set the placement method probabilities
     !---------------------------------------------------------------------------
-    if(verbose.gt.0) write(*,*) "Setting method probabilities"
+    if(verbose_.gt.0) write(*,*) "Setting method probabilities"
     if(present(method_probab)) method_probab_ = method_probab
     total_probab = real(sum(method_probab_), real12)
     method_probab_ = method_probab_ / total_probab
     method_probab_(2) = method_probab_(2) + method_probab_(1)
     method_probab_(3) = method_probab_(3) + method_probab_(2)
-    if(verbose.gt.0) write(*,*) "Method probabilities (void, walk, min): ", &
+    if(verbose_.gt.0) write(*,*) "Method probabilities (void, walk, min): ", &
          method_probab_
 
 
@@ -230,7 +236,7 @@ contains
     !---------------------------------------------------------------------------
     ! allocate memory for structures
     !---------------------------------------------------------------------------
-    if(verbose.gt.0) write(*,*) "Allocating memory for structures"
+    if(verbose_.gt.0) write(*,*) "Allocating memory for structures"
     if(.not.allocated(this%structures))then
        allocate(this%structures(num_structures))
     else
@@ -243,12 +249,13 @@ contains
     !---------------------------------------------------------------------------
     ! set up the template basis for generated structures
     !---------------------------------------------------------------------------
-    if(verbose.gt.0) write(*,*) "Setting up basis store"
+    if(verbose_.gt.0) write(*,*) "Setting up basis store"
     num_insert_species = size(stoichiometry)
     num_insert_atoms = sum(stoichiometry(:)%num)
     allocate(basis_template%spec(num_insert_species))
     do i = 1, size(stoichiometry)
        basis_template%spec(i)%name = strip_null(stoichiometry(i)%element)
+       write(*,*) "Element", basis_template%spec(i)%name, len_trim(basis_template%spec(i)%name)
     end do
     basis_template%spec(:)%num = stoichiometry(:)%num
     basis_template%natom = num_insert_atoms
@@ -264,6 +271,10 @@ contains
     if(.not.allocated(this%host%spec)) stop "Host structure not set"
     basis_template = bas_merge(this%host,basis_template)
     basis_template%lat = this%host%lat
+    write(*,*) "Host basis", this%host%natom, this%host%nspec
+    do i = 1, size(basis_template%spec)
+       write(*,*) "Element", basis_template%spec(i)%name, len_trim(basis_template%spec(i)%name)
+    end do
 
 
     !---------------------------------------------------------------------------
@@ -273,7 +284,7 @@ contains
     ! ... the second dimension is the index of the species and atom in the
     ! ... basis_template
     !---------------------------------------------------------------------------
-    if(verbose.gt.0) write(*,*) "Generating placement list"
+    if(verbose_.gt.0) write(*,*) "Generating placement list"
     allocate(placement_list(num_insert_atoms,2))
     k = 0
     spec_loop1: do i = 1, basis_template%nspec
@@ -305,14 +316,14 @@ contains
     !---------------------------------------------------------------------------
     ! generate the structures
     !---------------------------------------------------------------------------
-    if(verbose.gt.0) write(*,*) "Entering structure generation loop"
+    if(verbose_.gt.0) write(*,*) "Entering structure generation loop"
     num_structures_old = this%num_structures
     num_structures_new = this%num_structures + num_structures
     structure_loop: do istructure = num_structures_old + 1, num_structures_new
     
-       if(verbose.gt.0) write(*,*) "Generating structure", istructure
+       if(verbose_.gt.0) write(*,*) "Generating structure", istructure
        this%structures(istructure) = this%generate_structure( basis_template, &
-            placement_list, method_probab_ )
+            placement_list, method_probab_, verbose_ )
        this%num_structures = istructure
        
 #ifdef ENABLE_ATHENA
@@ -334,7 +345,7 @@ contains
   module function generate_structure( &
        this, &
        basis_initial, &
-       placement_list, method_probab ) result(basis)
+       placement_list, method_probab, verbose ) result(basis)
     !! Generate a single random structure.
     implicit none
 
@@ -349,6 +360,8 @@ contains
     !! Probability of each placement method.
     type(bas_type) :: basis
     !! Generated basis.
+    integer, intent(in) :: verbose
+    !! Verbosity level.
 
     ! Local variables
     integer :: i, j, iplaced, void_ticker

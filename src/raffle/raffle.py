@@ -2018,7 +2018,7 @@ class Generator(f90wrap.runtime.FortranModule):
             _raffle.f90wrap_generator__set_host__binding__rgt(this=self._handle, \
                 host=host._handle)
         
-        def generate(self, num_structures, stoichiometry, method_probab={"void": 1.0, "walk": 1.0, "min": 1.0}, seed=None):
+        def generate(self, num_structures, stoichiometry, method_probab={"void": 1.0, "walk": 1.0, "min": 1.0}, seed=None, verbose=0):
             """
             generate__binding__raffle_generator_type(self, num_structures, stoichiometry, method_probab)
 
@@ -2031,6 +2031,7 @@ class Generator(f90wrap.runtime.FortranModule):
             num_structures : int
             stoichiometry : stoichiometry_type_xnum_array
             method_probab : list of float
+            verbose : int
 
             """
             
@@ -2044,13 +2045,13 @@ class Generator(f90wrap.runtime.FortranModule):
                     this=self._handle,
                     num_structures=num_structures,
                     stoichiometry=stoichiometry._handle,
-                    method_probab=method_probab_list, seed=seed)
+                    method_probab=method_probab_list, seed=seed, verbose=verbose)
             else:
                 _raffle.f90wrap_generator__generate__binding__rgt(
                     this=self._handle,
                     num_structures=num_structures,
                     stoichiometry=stoichiometry._handle,
-                    method_probab=method_probab_list)
+                    method_probab=method_probab_list, verbose=verbose)
             
         def get_structures(self):
             """

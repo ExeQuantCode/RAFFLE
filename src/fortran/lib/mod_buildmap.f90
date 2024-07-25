@@ -50,8 +50,10 @@ contains
     !! Loop counters.
     integer :: bin
     !! Bin for the distribution function.
-    real(real12) :: contribution, repeat_power, bondlength
-    !! Contribution to the viability map, repeat power, bond length.
+    real(real12) :: contribution, repeat_power
+    !! Contribution to the viability map, repeat power.
+    real(real12) :: bondlength_1, bondlength_2, bondlength_3
+    !! Bond lengths.
     real(real12) :: viability_2body
     !! Viability of the test point for 2-body interactions.
     !! 2-body viabilities are summed.
@@ -88,6 +90,7 @@ contains
        end do
     end do
 
+    !!! NEED get_distance, AND THEM USE SUPERCELLS TO HANDLE BONDS
 
     !---------------------------------------------------------------------------
     ! loop over all atoms in the system
@@ -102,7 +105,7 @@ contains
          end do
          !!! NEED TO HAVE A LOOP FOR REPEATING CELLS
          position_storage1 = basis%spec(is)%atom(ia,:)
-         contribution=0
+         contribution=0._real12
          !!! ONLY NEEDS TO CHECK FOR THE SMALLEST BONDLENGTH BETWEEN A ...
          !!! ... PERIODIC ATOM AND THE CURRENT ATOM
          !!! if not looping over periodic images explicitly, doesn't need ...
@@ -111,20 +114,20 @@ contains
          !!! ... above upper tolerance, and doesn't fall within 3- and 4-body ...
          !!! ... check requirements
     
-         bondlength = get_min_dist_between_point_and_atom(basis, &
+         bondlength_1 = get_min_dist_between_point_and_atom(basis, &
               position, [is, ia])
 
          !! check if the bondlength is within the tolerance for bonds ...
          !! ... between its own element and the element of the current atom
-         if(bondlength .lt. radius_list(pair_index(ls,is))*lowtol)then
+         if(bondlength_1 .lt. radius_list(pair_index(ls,is))*lowtol)then
             deallocate(pair_index)
             return
-         else if(bondlength .gt. radius_list(pair_index(ls,is))*uptol)then
+         else if(bondlength_1 .gt. gvector_container%cutoff_max(1))then!radius_list(pair_index(ls,is))*uptol)then
             cycle atom_loop1
          end if
 
-         bin = gvector_container%get_bin(bondlength, dim = 1)
-         if(bin.eq.0) cycle
+         bin = gvector_container%get_bin(bondlength_1, dim = 1)
+         if(bin.eq.0) cycle atom_loop1
          contribution = gvector_container%total%df_2body(bin, pair_index(ls,is))
    
          viability_2body = viability_2body + contribution
@@ -142,19 +145,22 @@ contains
                  if(all(atom_ignore_list(i,:).eq.[js,ja])) cycle atom_loop1
               end do
               position_storage2 = basis%spec(js)%atom(ja,:)
-              if(get_distance(position,position_storage2).lt.&
+              bondlength_2 = get_min_dist_between_point_and_atom(basis, &
+                   position, [js, ja])
+              if(bondlength_2.lt.&! get_distance(position,position_storage2).lt.&
                    radius_list(pair_index(ls,js))*lowtol)then
                  deallocate(pair_index)
                  return
               end if
-              if(get_distance(position,position_storage2).lt.&
-                   radius_list(pair_index(ls,js))*uptol) then
+              if(bondlength_2.lt.&!get_distance(position,position_storage2).lt.&
+                   gvector_container%cutoff_max(1)) then
+                   ! radius_list(pair_index(ls,js))*uptol) then
                  bin = gvector_container%get_bin( &
                       get_angle( position_storage1, &
                                  position, &
                                  position_storage2 ), &
                       dim = 2 )
-                 if(bin.eq.0) cycle
+                 if(bin.eq.0) cycle atom_loop2
                  contribution = gvector_container%total%df_3body(bin,is)
                  viability_3body = ( viability_3body * &
                        contribution ** (1._real12/repeat_power))
@@ -163,8 +169,9 @@ contains
               !!! ... THIRD ATOM IS WITHIN THE TOLERANCE
               !!! I have removed the second check as this, again, is just checking ...
               !!! ... the effect of a periodic image
-              if((get_distance(position_storage1,position_storage2).ge.&
-                   radius_list(pair_index(ls,js))*uptol)) cycle
+              if(bondlength_2.lt.&!get_distance(position_storage1,position_storage2).ge.&
+                   gvector_container%cutoff_max(1)) cycle
+                   ! radius_list(pair_index(ls,js))*uptol)) cycle
                  
               ! 4-body map
               ! check dihedral angle between test point and all other atoms
@@ -178,13 +185,16 @@ contains
                        if(all(atom_ignore_list(i,:).eq.[ks,ka])) cycle atom_loop1
                     end do
                     position_storage3 = basis%spec(js)%atom(ja,:)
-                    if(get_distance(position,position_storage3).lt.&
+                    bondlength_3 = get_min_dist_between_point_and_atom(basis, &
+                         position, [ks, ka])
+                    if(bondlength_3.lt.&!get_distance(position,position_storage3).lt.&
                          radius_list(pair_index(ls,ks))*lowtol) then
                        deallocate(pair_index)
                        return
                     end if
-                    if(get_distance(position_storage1,position_storage3).lt.&
-                         radius_list(pair_index(is,ks))*uptol) then
+                    if(bondlength_3.lt.&!get_distance(position_storage1,position_storage3).lt.&
+                         gvector_container%cutoff_max(1)) then
+                         ! radius_list(pair_index(is,ks))*uptol) then
                        bin = gvector_container%get_bin( &
                                 get_dihedral_angle( &
                                            position, &
@@ -192,7 +202,7 @@ contains
                                            position_storage2, &
                                            position_storage3), &
                                 dim = 3 )
-                       if(bin.eq.0) cycle
+                       if(bin.eq.0) cycle atom_loop3
                        contribution = gvector_container%total%df_4body(bin,is)
                        if(abs(contribution).lt.1.E-6) then
                           deallocate(pair_index)

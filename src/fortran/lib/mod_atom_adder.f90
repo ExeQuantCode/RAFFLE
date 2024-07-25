@@ -67,7 +67,7 @@ contains
        suitability_grid(i) = buildmap_POINT( gvector_container, &
             gridpoints(:,i), basis, &
             atom_ignore_list, radius_list, &
-            1.1_real12, 0.95_real12)
+            uptol=1.1_real12, lowtol=1.5_real12)
     end do
     if(abs(maxval(suitability_grid)).lt.1.E-6) then
       deallocate(suitability_grid)
@@ -205,7 +205,7 @@ contains
        calculated_value = buildmap_POINT( gvector_container, &
             tmpvector, basis, &
             atom_ignore_list, radius_list, &
-            1.1_real12, 0.95_real12)
+            uptol=1.1_real12, lowtol=1.5_real12)
 
        call random_number(rtmp1)
        if (rtmp1.lt.calculated_value) exit random_loop
@@ -238,7 +238,7 @@ contains
        calculated_test = buildmap_POINT( gvector_container, &
             testvector, basis, &
             atom_ignore_list, radius_list, &
-            1.1_real12, 0.95_real12)
+            uptol=1.1_real12, lowtol=1.5_real12)
      
        if(calculated_test.lt.calculated_value) then 
           l = l + 1

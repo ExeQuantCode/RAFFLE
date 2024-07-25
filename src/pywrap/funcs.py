@@ -34,10 +34,7 @@ def _populate_database(**kwargs):
         database = read(kwargs.get("database"),index=":")
     else:
         database = read("example_distribution.traj", index=":")
-        from ase.build import bulk
-        from ase.build import fcc111
-        database=[bulk("Au"),fcc111("Au",size=(2,2,1))]
-
+        
     database_basis = raffle.rw_geom.bas_type_xnum_array()
     database_basis.allocate(len(database))
     for i, atoms in enumerate(database):
@@ -59,9 +56,10 @@ def RAFFLE(host_structures,atoms,energies_dict,iterations,**kwargs):
         generator.distributions.set_element_energies(energies_dict)
         generator.distributions.create(database_basis,deallocate_systems=False)
         generator.distributions.write("dist.txt")
+
         generator.distributions.get_element_energies()
 
-        generator.bins=[50,50,100]
+        generator.bins=[30,30,30]
         stoich_list = raffle.generator.stoichiometry_type_xnum_array()
         list_stoich=[]
         print(atoms)
@@ -76,7 +74,7 @@ def RAFFLE(host_structures,atoms,energies_dict,iterations,**kwargs):
             stoich_list.items[i].num=1
         
         generator.generate(num_structures=iterations,stoichiometry=stoich_list,
-                           method_probab={"void":0.1,"walk":0.0,"min":1.0})
+                           method_probab={"void":0.0,"walk":1.0,"min":0.0})
         
         for structure in generator.structures:
             

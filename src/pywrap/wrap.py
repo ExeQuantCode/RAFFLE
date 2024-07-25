@@ -82,7 +82,7 @@ except:
     from ase.build import fcc111
 
 
-    database=[bulk("Au")]
+    database=[bulk("Au"),bulk("Au")]
     for structure in database:
 
         structure.calc = EMT()

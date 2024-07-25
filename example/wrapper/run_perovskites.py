@@ -7,6 +7,8 @@ import ase
 from ase import Atoms
 from ase.io import read, write
 
+print(ase.__version__)
+
 # atoms = Atoms('CC', positions=[[0, 0, 0], [1.2, 0, 0]], pbc=True, cell=[2.4, 2.4, 2.4])
 
 print("Initialising raffle generator")
@@ -43,7 +45,7 @@ generator.distributions.set_element_energies(
 
 
 print("Reading database")
-database = ase.io.extxyz.read_extxy("../example_files/database_perovskites/database.xyz", index=":")
+database = read("../example_files/database_perovskites/database.xyz", index=":")
 num_database = len(database)
 database_basis = raffle.rw_geom.bas_type_xnum_array()
 database_basis.allocate(num_database)

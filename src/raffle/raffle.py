@@ -290,6 +290,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             return atoms
         
         def fromase(self, atoms):
+            from ase.calculators.singlepoint import SinglePointCalculator
             
             # Get the species symbols
             species_symbols = atoms.get_chemical_symbols()
@@ -300,9 +301,11 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             
             # Set the number of atoms
             self.natom = len(atoms)
-            
-            # Set the energy
-            # self.energy = atoms.get_total_energy()
+
+            # check if calculator is present
+            if atoms.calc is None:
+                atoms.calc = SinglePointCalculator(atoms, energy=0.0)
+            self.energy = atoms.get_potential_energy()
             
             # # Set the lattice vectors
             self.lat = numpy.reshape(atoms.get_cell().flatten(), [3,3], order='F')

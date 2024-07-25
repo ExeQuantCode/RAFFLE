@@ -50,8 +50,8 @@ Here, we can either read in or call ARTEMIS directly. I create a simple surface 
 created_by_artemis=[]
 host_structures=[]
 for i in range(1):
-    structure=surface('Ag', (2,1,1), 5)
-    structure.center(vacuum = 15 ,axis = 2)
+    structure=surface('Au', (2,2,1), 5)
+    structure.center(vacuum = 10 ,axis = 2)
     created_by_artemis.append(structure)
 
 for i,structures in enumerate(created_by_artemis): 
@@ -64,8 +64,8 @@ for i,structures in enumerate(created_by_artemis):
 """
 Stoichoimetry dict can be populated by a function, but here it is initialised simply
 """
-stoichiometry_dict={"Au":[4]}
-iterations=10
+stoichiometry_dict={"Au":[5]}
+iterations=1
 
 #############################################################################
 #############################################################################
@@ -81,16 +81,16 @@ atoms=funcs.get_stoichiometry(stoichiometry_dict)
 
 energies_dict={'Au': -5.0}
 #raffle.Generator.generate(host_structures,atoms,iterations)
-#funcs.raffle(host_structures,atoms,iterations)
+#funcs.rss(host_structures,atoms,iterations)
 
 funcs.RAFFLE(host_structures,atoms,energies_dict,iterations,**kwargs)
 
-
+print(host.children)
 for host in host_structures:
     host.calculate_children(calculator)
+    
     host.dump_children()
 
-    print(host.children)
 
 
 x=[]

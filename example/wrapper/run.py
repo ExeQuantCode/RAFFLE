@@ -48,6 +48,7 @@ database_basis.allocate(num_database)
 for i, atoms in enumerate(database):
     database_basis.items[i].fromase(atoms)
 
+
 print("Database read")
 
 print("Setting database")
@@ -56,6 +57,9 @@ print("Database set")
 
 print("Checking element energies")
 print(generator.distributions.get_element_energies())
+
+print("Checking bond radii")
+print(generator.distributions.get_bond_radii())
 
 print("Setting bins (discretisation of host cell)")
 generator.bins = [12,12,30]

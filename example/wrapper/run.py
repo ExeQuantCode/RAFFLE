@@ -27,6 +27,19 @@ generator.distributions.set_element_energies(
     }
 )
 
+## BOND SETTER
+generator.distributions.set_bond_radii(
+    {
+        ('C', 'C'): 1.5,
+        ('C', 'Mg'): 2.0,
+        ('C', 'O'): 1.5,
+        ('Mg', 'Mg'): 2.0,
+        ('Mg', 'O'): 2.0,
+        ('O', 'O'): 1.5
+    }
+)
+
+
 print("Reading database")
 database = read("../example_files/database/database.xyz", index=":")
 num_database = len(database)

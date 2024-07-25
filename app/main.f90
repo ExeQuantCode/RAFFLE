@@ -69,7 +69,6 @@ program raffle_program
 !!!-----------------------------------------------------------------------------
   generator%distributions = get_evolved_gvectors_from_data( &
        input_dir    = database_list, &
-       bond_file    = "chem.in", &
        file_format  = database_format, &
        gvector_container_template = gvector_container_type(&
             width = width_list, &

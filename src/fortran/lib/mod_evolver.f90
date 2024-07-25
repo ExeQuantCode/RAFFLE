@@ -1,12 +1,11 @@
 module evolver
   use constants, only: real12, pi
-  use misc_raffle, only: set, icount, strip_null
+  use misc_raffle, only: set, icount, strip_null, sort_str
   use misc_maths, only: lnsum, triangular_number
   use misc_linalg, only: get_angle, get_vol, cross, modu
   use rw_geom, only: bas_type
   use elements, only: &
        element_type, element_bond_type, &
-       load_elements, load_element_bonds, &
        element_database, element_bond_database
   implicit none
 
@@ -65,7 +64,11 @@ module evolver
      procedure, pass(this) :: get_element_energies
      procedure, pass(this) :: get_element_energies_staticmem
 
-     procedure, pass(this) :: set_bond_info
+     procedure, pass(this), private :: set_bond_info
+     procedure, pass(this), private :: update_bond_info
+     procedure, pass(this) :: set_bond_radius
+     procedure, pass(this) :: set_bond_radii
+
      
      procedure, pass(this) :: set_best_energy
      procedure, pass(this) :: initialise_gvectors
@@ -469,6 +472,7 @@ module evolver
        stop 1
     end select
     call this%update_element_info()
+    call this%update_bond_info()
     call this%set_best_energy()
 
   end subroutine add
@@ -687,7 +691,7 @@ module evolver
 !###############################################################################
 
 
-! !###############################################################################
+!###############################################################################
   subroutine get_element_energies_staticmem(this, elements, energies)
     !! Return the energies of elements in the container.
     implicit none
@@ -712,29 +716,28 @@ module evolver
     end do
 
   end subroutine get_element_energies_staticmem
-! !###############################################################################
+!###############################################################################
 
 
 !!!#############################################################################
 !!! set the element bond list for the container
 !!!#############################################################################
-  subroutine set_bond_info(this, bond_file)
+  subroutine set_bond_info(this)
     implicit none
     class(gvector_container_type), intent(inout) :: this
-    character(*), intent(in), optional :: bond_file
 
-    integer :: i, j, k
+    integer :: i, j, k, idx1, idx2
     integer :: num_elements, num_pairs
 
 
-    !!--------------------------------------------------------------------------
-    !! load the element bonds database
-    !!--------------------------------------------------------------------------
-    if(present(bond_file))then
-       call load_element_bonds(bond_file)
-    elseif(.not.allocated(element_bond_database))then
-       call load_element_bonds()
-    end if
+   !  !!--------------------------------------------------------------------------
+   !  !! load the element bonds database
+   !  !!--------------------------------------------------------------------------
+   !  if(present(bond_file))then
+   !     call load_element_bonds(bond_file)
+   !  elseif(.not.allocated(element_bond_database))then
+   !     call load_element_bonds()
+   !  end if
 
 
     !!--------------------------------------------------------------------------
@@ -765,24 +768,194 @@ module evolver
                  this%element_info(j)%name .eq. &
                       element_bond_database(k)%element(1) ) then
                 this%bond_info(num_pairs) = element_bond_database(k)
-                this%bond_info(num_pairs)%coordination = &
-                     this%bond_info(num_pairs)%coordination(2:1:-1)
+               !  this%bond_info(num_pairs)%coordination = &
+               !       this%bond_info(num_pairs)%coordination(2:1:-1)
                 this%bond_info(num_pairs)%element = &
                      this%bond_info(num_pairs)%element(2:1:-1)
                 cycle pair_loop2
              end if
           end do
           !! check if all pairs were found
-          write(0,*) 'Error reading element bond data'
-          write(0,*) 'Could not find bond data for ', &
+          write(0,*) 'WARNING: No bond data for element pair ', &
                      this%element_info(i)%name, ' and ', &
                      this%element_info(j)%name
-          stop 1
+          write(0,*) 'WARNING: Setting bond to average of covalent radii'
+
+          !! set bond to average of covalent radii
+          idx1 = findloc( [ element_database(:)%name ], &
+                          this%element_info(i)%name, dim=1 )
+          idx2 = findloc( [ element_database(:)%name ], &
+                           this%element_info(j)%name, dim=1 )
+          if(idx1.lt.1 .or. idx2.lt.1)then
+             write(0,*) 'ERROR: Element ', this%element_info(i)%name, &
+                        ' or ', this%element_info(j)%name, &
+                        ' not found in database'
+          else
+             this%bond_info(num_pairs)%radius_covalent = &
+                   ( element_database(idx1)%radius + &
+                   element_database(idx2)%radius ) / 2._real12
+          end if
+         
        end do pair_loop2
     end do pair_loop1
 
   end subroutine set_bond_info
 !!!#############################################################################
+
+
+!###############################################################################
+  subroutine update_bond_info(this)
+   !! Update the element information in the container.
+   implicit none
+
+   ! Arguments
+   class(gvector_container_type), intent(inout) :: this
+   !! Parent of the procedure. Instance of distribution functions container.
+
+   ! Local variables
+   integer :: i, j, k
+   !! Loop index.
+   character(len=3), dimension(:), allocatable :: element_list
+   !! List of elements in the container.
+   character(len=3), dimension(:,:), allocatable :: bond_list
+   !! List of element pairs in the container.
+
+
+   !---------------------------------------------------------------------------
+   ! check if bond_info is allocated, if not, set it and return
+   !---------------------------------------------------------------------------
+   if(.not.allocated(this%bond_info))then
+      call this%set_bond_info()
+      return
+   end if
+
+
+   !---------------------------------------------------------------------------
+   ! get list of element pairs in dataset
+   !---------------------------------------------------------------------------
+   element_list = [ this%system(1)%species ]
+   do i = 2, size(this%system),1
+      element_list = [ element_list, this%system(i)%species ]
+   end do
+   allocate(bond_list(triangular_number(size(element_list)),2))
+   call set(element_list)
+   k = 0
+   do i = 1, size(element_list)
+      do j = i, size(element_list)
+         k = k + 1
+         bond_list(k,:) = [ element_list(i), element_list(j) ]
+         call sort_str(bond_list(k,:))
+      end do
+   end do
+
+
+   ! ---------------------------------------------------------------------------
+   ! check if all element pairs are in the bond_info array
+   ! ---------------------------------------------------------------------------
+   do i = 1, size(bond_list)
+       do j = 1, size(this%bond_info)
+          if( ( this%bond_info(j)%element(1) .eq. bond_list(i,1) .and. &
+                this%bond_info(j)%element(2) .eq. bond_list(i,2) ) .or. &
+              ( this%bond_info(j)%element(1) .eq. bond_list(i,2) .and. &
+                this%bond_info(j)%element(2) .eq. bond_list(i,1) ) &
+               )then
+             this%bond_info = [ this%bond_info(:), &
+                                element_bond_type(bond_list(i,:)) ]
+             call this%bond_info(size(this%bond_info))%set( &
+                  bond_list(i,1), &
+                  bond_list(i,2) )
+          end if
+       end do
+   end do
+
+ end subroutine update_bond_info
+!###############################################################################
+
+
+!###############################################################################
+  subroutine set_bond_radius(this, elements, radius)
+    !! Set the bond radius for a pair of elements in the container.
+    implicit none
+
+    ! Arguments
+    class(gvector_container_type), intent(inout) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
+    character(len=3), dimension(2), intent(in) :: elements
+    !! Element name.
+    real(real12), intent(in) :: radius
+    !! Bond radius.
+
+    ! Local variables
+    integer :: idx, i
+    !! Index of the bond in the bond_info array.
+    character(len=3) :: element_1, element_2
+    !! Element names.
+
+
+    !---------------------------------------------------------------------------
+    ! remove python formatting
+    !---------------------------------------------------------------------------
+    element_1 = strip_null(elements(1))
+    element_2 = strip_null(elements(2))
+
+
+    !---------------------------------------------------------------------------
+    ! if bond_info is allocated, update radius of associated index
+    !---------------------------------------------------------------------------
+    if(allocated(this%bond_info))then
+       idx = this%get_pair_index(element_1, element_2)
+       if(idx.ge.1) this%bond_info(idx)%radius_covalent = radius
+    end if
+
+
+    !---------------------------------------------------------------------------
+    ! if element_bond_database is allocated, update radius of associated index
+    !---------------------------------------------------------------------------
+    if(.not.allocated(element_bond_database))then
+       allocate(element_bond_database(1))
+       element_bond_database(1)%element = [ element_1, element_2 ]
+       call sort_str(element_bond_database(1)%element)
+       element_bond_database(1)%radius_covalent = radius
+       return
+    end if
+    do i = 1, size(element_bond_database)
+       if( ( element_bond_database(i)%element(1) .eq. element_1 .and. &
+             element_bond_database(i)%element(2) .eq. element_2 ) .or. &
+           ( element_bond_database(i)%element(1) .eq. element_2 .and. &
+             element_bond_database(i)%element(2) .eq. element_1 ) &
+            )then
+          element_bond_database(i)%radius_covalent = radius
+          return
+       end if
+    end do
+
+  end subroutine set_bond_radius
+!###############################################################################
+
+!###############################################################################
+  subroutine set_bond_radii(this, elements, radii)
+    !! Set the bond radii for a pair of elements in the container.
+    implicit none
+
+    ! Arguments
+    class(gvector_container_type), intent(inout) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
+    character(len=3), dimension(:,:), intent(in) :: elements
+    !! Element names.
+    real(real12), dimension(:), intent(in) :: radii
+    !! Bond radii.
+
+    ! Local variables
+    integer :: i
+    !! Loop index.
+
+
+    do i = 1, size(elements,1)
+       call this%set_bond_radius(elements(i,:), radii(i))
+    end do
+
+  end subroutine set_bond_radii
+!###############################################################################
 
 
 !!!#############################################################################

@@ -113,6 +113,21 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             """
             return _raffle.f90wrap_spec_type__get__charge(self._handle)
         
+        @property
+        def radius(self):
+            """
+            Element radius ftype=real(real12) pytype=float
+            
+            
+            Defined at ../src/lib/mod_rw_geom.f90 line 29
+            
+            """
+            return _raffle.f90wrap_spec_type__get__radius(self._handle)
+        
+        @radius.setter
+        def radius(self, radius):
+            _raffle.f90wrap_spec_type__set__radius(self._handle, radius)
+
         @charge.setter
         def charge(self, charge):
             _raffle.f90wrap_spec_type__set__charge(self._handle, charge)
@@ -1237,6 +1252,61 @@ class Evolver(f90wrap.runtime.FortranModule):
             """
             _raffle.f90wrap_evolver__set_bond_info__binding__gvector_container_type(this=self._handle, \
                 bond_file=bond_file)
+        
+        def set_bond_radius(self, radius_dict):
+            """
+            set_bond_radius__binding__gvector_container_type(self, elements, radius)
+            
+            
+            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_evolver.f90 \
+                lines 711-757
+            
+            Parameters
+            ----------
+            this : unknown
+            elements : str array
+            radius : float
+            
+            ---------------------------------------------------------------------------
+             remove python formatting
+            ---------------------------------------------------------------------------
+            """
+            
+            # convert radius_dict to elements and radius
+            # radius_dict = {('C', 'C'): 1.5}
+            elements = list(radius_dict.keys()[0])
+            radius = radius_dict.values()[0]
+
+            _raffle.f90wrap_evolver__set_bond_radius__binding__gvector_containe7df9(this=self._handle, \
+                elements=elements, radius=radius)
+        
+        def set_bond_radii(self, radius_dict):
+            """
+            set_bond_radii__binding__gvector_container_type(self, elements, radii)
+            
+            
+            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_evolver.f90 \
+                lines 761-776
+            
+            Parameters
+            ----------
+            this : unknown
+            elements : str array
+            radii : float array
+            
+            """
+
+            # convert radius_list to elements and radii
+            # radius_list = {('C', 'C'): 1.5, ('C', 'H'): 1.1}
+            elements = []
+            radii = []
+            for key, value in radius_dict.items():
+                elements.append(list(key))
+                radii.append(value)
+               
+
+            _raffle.f90wrap_evolver__set_bond_radii__binding__gvector_container83c5(this=self._handle, \
+                elements=elements, radii=radii)
         
         def set_best_energy(self):
             """

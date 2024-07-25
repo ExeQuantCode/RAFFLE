@@ -57,7 +57,8 @@ def RAFFLE(host_structures,atoms,energies_dict,iterations,**kwargs):
         generator=_initialise_generator()
         generator.set_host(raffle.rw_geom.bas_type(host.structure))
         generator.distributions.set_element_energies(energies_dict)
-        generator.distributions.create(database_basis)
+        generator.distributions.create(database_basis,deallocate_systems=False)
+        generator.distributions.write("dist.txt")
         generator.distributions.get_element_energies()
 
         generator.bins=[50,50,100]

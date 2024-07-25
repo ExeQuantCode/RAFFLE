@@ -60,7 +60,7 @@ def RAFFLE(host_structures,atoms,energies_dict,iterations,**kwargs):
         generator.distributions.create(database_basis)
         generator.distributions.get_element_energies()
 
-        generator.bins=[50,50,50]
+        generator.bins=[50,50,100]
         stoich_list = raffle.generator.stoichiometry_type_xnum_array()
         list_stoich=[]
         print(atoms)
@@ -74,7 +74,8 @@ def RAFFLE(host_structures,atoms,energies_dict,iterations,**kwargs):
             stoich_list.items[i].element=atom.symbol
             stoich_list.items[i].num=1
         
-        generator.generate(num_structures=iterations,stoichiometry=stoich_list,method_probab=[0.0,0.0,1.0])
+        generator.generate(num_structures=iterations,stoichiometry=stoich_list,
+                           method_probab={"void":0.1,"walk":0.0,"min":1.0})
         
         for structure in generator.structures:
             

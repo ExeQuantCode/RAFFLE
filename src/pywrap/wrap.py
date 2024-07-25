@@ -64,7 +64,7 @@ for i,structures in enumerate(created_by_artemis):
 """
 Stoichoimetry dict can be populated by a function, but here it is initialised simply
 """
-stoichiometry_dict={"Au":[5]}
+stoichiometry_dict={"Au":[15]}
 iterations=1
 
 #############################################################################
@@ -82,7 +82,7 @@ except:
     from ase.build import fcc111
 
 
-    database=[bulk("Au"),fcc111("Au",size=(2,2,1))]
+    database=[bulk("Au")]
     for structure in database:
 
         structure.calc = EMT()

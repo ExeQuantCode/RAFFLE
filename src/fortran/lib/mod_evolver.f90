@@ -759,27 +759,15 @@ module evolver
                success &
           )
           if(success) cycle pair_loop2
-          !! check if all pairs were found
           write(0,*) 'WARNING: No bond data for element pair ', &
                      this%element_info(i)%name, ' and ', &
                      this%element_info(j)%name
           write(0,*) 'WARNING: Setting bond to average of covalent radii'
 
-          !! set bond to average of covalent radii
-          idx1 = findloc( [ element_database(:)%name ], &
-                          this%element_info(i)%name, dim=1 )
-          idx2 = findloc( [ element_database(:)%name ], &
-                           this%element_info(j)%name, dim=1 )
-          if(idx1.lt.1 .or. idx2.lt.1)then
-             write(0,*) 'ERROR: Element ', this%element_info(i)%name, &
-                        ' or ', this%element_info(j)%name, &
-                        ' not found in database'
-          else
-             this%bond_info(num_pairs)%radius_covalent = &
-                   ( element_database(idx1)%radius + &
-                   element_database(idx2)%radius ) / 2._real12
-          end if
-         
+          this%bond_info(num_pairs)%radius_covalent = &
+                ( element_database(idx1)%radius + &
+                element_database(idx2)%radius ) / 2._real12
+
        end do pair_loop2
     end do pair_loop1
 

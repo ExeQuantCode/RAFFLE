@@ -4,7 +4,7 @@
   database_format = "xyz"
   database = "../example_files/database/",
   seed = 1,
-  vps_ratio = 1 1 1,
+  method_probab = 1.0 1.0 1.0,
   bins = 12 12 30,
   verbose = 0,
   output_dir = "iteration1"

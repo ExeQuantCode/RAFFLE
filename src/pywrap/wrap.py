@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 
 from ase import Atoms
-from ase.io import read 
+from ase.io import read, write
 from ase.build import surface
 from host import Host
 from ase.calculators.emt import EMT
@@ -69,6 +69,26 @@ iterations=1
 
 #############################################################################
 #############################################################################
+
+"""
+Create Distributions
+"""
+
+try: 
+    read("example_distribution.traj",index=":")
+
+except: 
+    from ase.build import bulk 
+    from ase.build import fcc111
+
+
+    database=[bulk("Au"),fcc111("Au",size=(2,2,1))]
+    for structure in database:
+
+        structure.calc = EMT()
+        structure.get_potential_energy()
+    write("example_distribution.traj",database)
+
 """
 Calculate parallelisation over array job
 """
@@ -85,11 +105,16 @@ energies_dict={'Au': -5.0}
 
 funcs.RAFFLE(host_structures,atoms,energies_dict,iterations,**kwargs)
 
-print(host.children)
 for host in host_structures:
     host.calculate_children(calculator)
     
+    for child in host.children:
+        for atom in child.structure: 
+            print(atom.position)
     host.dump_children()
+
+
+
 
 
 

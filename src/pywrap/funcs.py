@@ -33,7 +33,7 @@ def _populate_database(**kwargs):
     if database_path is not None:
         database = read(kwargs.get("database"),index=":")
     else:
-        #database = read("../../examples/example_files/database/database.xyz", index=":")
+        database = read("example_distribution.traj", index=":")
         from ase.build import bulk
         from ase.build import fcc111
         database=[bulk("Au"),fcc111("Au",size=(2,2,1))]

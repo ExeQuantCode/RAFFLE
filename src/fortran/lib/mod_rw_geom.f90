@@ -24,6 +24,7 @@ module rw_geom
   public :: clone_bas
   public :: convert_bas
   public :: geom_read,geom_write
+  public :: get_element_properties
 
 
   integer :: igeom_input=1,igeom_output=1

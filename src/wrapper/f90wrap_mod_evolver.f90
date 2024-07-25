@@ -483,7 +483,7 @@ subroutine f90wrap_gvector_container_type__array_getitem__system(f90wrap_this, f
         else
             system_ptr%p => this_ptr%p%system(f90wrap_i)
             systemitem = transfer(system_ptr,systemitem)
-        endif
+        end if
     else
         call f90wrap_abort("derived type array not allocated")
     end if
@@ -682,7 +682,11 @@ subroutine f90wrap_evolver__get__num_elements(this, ret_num_elements)
     integer, intent(out) :: ret_num_elements
     
     this_ptr = transfer(this, this_ptr)
-    ret_num_elements = size(this_ptr%p%element_info,1)
+    if(.not.allocated(this_ptr%p%element_info)) then
+        ret_num_elements = 0
+    else
+        ret_num_elements = size(this_ptr%p%element_info,1)
+    end if
 end subroutine f90wrap_evolver__get__num_elements
 
 subroutine f90wrap_evolver__set_element_energies__binding__gvector_con0537(this, elements, energies, n0)
@@ -754,6 +758,23 @@ subroutine f90wrap_evolver__set_bond_radii__binding__gvector_container83c5(this,
     this_ptr = transfer(this, this_ptr)
     call this_ptr%p%set_bond_radii(elements=elements, radii=radii)
 end subroutine f90wrap_evolver__set_bond_radii__binding__gvector_container83c5
+
+subroutine f90wrap_evolver__get_bond_radii_staticmem__binding__gvectord2e1(this, elements, radii, n0)
+    use evolver, only: gvector_container_type
+    implicit none
+    
+    type gvector_container_type_ptr_type
+        type(gvector_container_type), pointer :: p => NULL()
+    end type gvector_container_type_ptr_type
+    type(gvector_container_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    character(3), intent(inout), dimension(n0,2) :: elements
+    real(4), intent(inout), dimension(n0) :: radii
+    integer :: n0
+    !f2py intent(hide), depend(elements) :: n0 = shape(elements,0)
+    this_ptr = transfer(this, this_ptr)
+    call this_ptr%p%get_bond_radii_staticmem(elements=elements, radii=radii)
+end subroutine f90wrap_evolver__get_bond_radii_staticmem__binding__gvectord2e1
 
 subroutine f90wrap_evolver__set_best_energy__binding__gvector_containe4680(this)
     use evolver, only: gvector_container_type

@@ -10,10 +10,10 @@ module elements
 
   type :: element_type
      character(len=3) :: name
-     real(real12) :: mass
-     real(real12) :: charge
-     real(real12) :: radius
-     real(real12) :: energy
+     real(real12) :: mass = 0._real12
+     real(real12) :: charge = 0._real12
+     real(real12) :: radius = 0._real12
+     real(real12) :: energy = 0._real12
    contains
      procedure, pass(this) :: set => set_element
   end type element_type

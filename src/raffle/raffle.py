@@ -1308,6 +1308,48 @@ class Evolver(f90wrap.runtime.FortranModule):
             _raffle.f90wrap_evolver__set_bond_radii__binding__gvector_container83c5(this=self._handle, \
                 elements=elements, radii=radii)
         
+        def get_bond_radii(self):
+            """
+            get_bond_radii_staticmem__binding__gvector_container_type(self, elements, radii)
+            
+            
+            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_evolver.f90 \
+                lines 808-828
+            
+            Parameters
+            ----------
+            this : unknown
+            elements : str array
+            radii : float array
+            
+            Returns
+            -------
+            element_energies : dict
+            
+            """
+
+            num_elements = _raffle.f90wrap_evolver__get__num_elements(self._handle)
+            if num_elements == 0:
+                return {}
+            num_pairs = round(num_elements * ( num_elements + 1 ) / 2)
+            elements = numpy.zeros((num_pairs,2,), dtype='S3', order='F')
+            radii = numpy.zeros((num_pairs,), dtype=numpy.float32, order='F')
+
+            _raffle.f90wrap_evolver__get_bond_radii_staticmem__binding__gvectord2e1(this=self._handle, \
+                elements=elements, radii=radii)
+            # _raffle.f90wrap_evolver__get_element_energies_staticmem__binding__g4f53(this=self._handle, \
+            #     elements=elements, energies=energies)
+            
+            # convert the fortran array to a python dictionary
+            bond_radii = {}
+            print(elements)
+            print(radii)
+            for i, element in enumerate(elements):
+                names = tuple([str(name.decode()).strip() for name in element])
+                bond_radii[names] = radii[i]
+
+            return bond_radii
+        
         def set_best_energy(self):
             """
             set_best_energy__binding__gvector_container_type(self)

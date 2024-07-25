@@ -11,7 +11,6 @@ program raffle_program
   character(1024) :: buffer
 
   ! type(gvector_container_type) :: gvector_container
-  real(real12), dimension(3) :: method_probab
   real(real12), dimension(:), allocatable :: tmp_energies
   character(len=3), dimension(:), allocatable :: tmp_symbols
 
@@ -56,12 +55,21 @@ program raffle_program
 
 
 !!!-----------------------------------------------------------------------------
-!!! set the element energies
+!!! set the element energies and bond radii, if they are provided
 !!!-----------------------------------------------------------------------------
-  call generator%distributions%set_element_energies( &
-       element_symbols, &
-       element_energies &
-  )
+  if(allocated(element_symbols).and.allocated(element_energies)) then
+     call generator%distributions%set_element_energies( &
+          element_symbols, &
+          element_energies &
+     )
+  end if
+
+  if(allocated(bond_pairs).and.allocated(pair_radii)) then
+     call generator%distributions%set_bond_radii( &
+          bond_pairs, &
+          pair_radii &
+     )
+  end if
 
 
 !!!-----------------------------------------------------------------------------
@@ -69,7 +77,6 @@ program raffle_program
 !!!-----------------------------------------------------------------------------
   generator%distributions = get_evolved_gvectors_from_data( &
        input_dir    = database_list, &
-       bond_file    = "chem.in", &
        file_format  = database_format, &
        gvector_container_template = gvector_container_type(&
             width = width_list, &
@@ -88,18 +95,6 @@ program raffle_program
   do i = 1, size(tmp_symbols)
      write(*,*) "Element ", tmp_symbols(i), " energy: ", tmp_energies(i)
   end do
-
-
-!!!-----------------------------------------------------------------------------
-!!! calculate the probability of each placement method
-!!!-----------------------------------------------------------------------------
-  method_probab(1) = vps_ratio(1)/real(sum(vps_ratio),real12)
-  method_probab(2) = method_probab(1) + &
-       vps_ratio(2)/real(sum(vps_ratio),real12)
-  method_probab(3) = method_probab(2) + &
-       vps_ratio(3)/real(sum(vps_ratio),real12)
-  write(*,*) "Method probabilities (void, scan, pseudorandom-walk): ", &
-       method_probab
 
 
 !!!-----------------------------------------------------------------------------

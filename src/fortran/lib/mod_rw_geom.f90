@@ -24,6 +24,7 @@ module rw_geom
   public :: clone_bas
   public :: convert_bas
   public :: geom_read,geom_write
+  public :: get_element_properties
 
 
   integer :: igeom_input=1,igeom_output=1
@@ -32,6 +33,7 @@ module rw_geom
      real(real12), allocatable ,dimension(:,:) :: atom
      real(real12) :: mass
      real(real12) :: charge
+     real(real12) :: radius
      character(len=3) :: name
      integer :: num
   end type spec_type
@@ -1165,7 +1167,7 @@ contains
 !!!#############################################################################
 !!! get elements masses and charges
 !!!#############################################################################
- subroutine get_element_properties(element, charge, mass)
+ subroutine get_element_properties(element, charge, mass, radius)
    !! Set the mass and charge of the element
    implicit none
 
@@ -1176,346 +1178,460 @@ contains
    !! Charge of the element.
    real(real12), intent(out), optional :: mass
    !! Mass of the element.
+   real(real12), intent(out), optional :: radius
+   !! Radius of the element.
 
    ! Local variables
-   real(real12) :: mass_, charge_
+   real(real12) :: mass_, charge_, radius_
+   !! Mass, charge and radius of the element.
 
 
    select case(element)
    case('H')
       mass_ = 1.00784_real12
       charge_ = 1.0_real12
+      radius_ = 0.31_real12
    case('He')
       mass_ = 4.0026_real12
       charge_ = 2.0_real12
+      radius_ = 0.28_real12
    case('Li')
       mass_ = 6.94_real12
       charge_ = 3.0_real12
+      radius_ = 1.28_real12
    case('Be')
       mass_ = 9.0122_real12
       charge_ = 4.0_real12
+      radius_ = 0.96_real12
    case('B')
       mass_ = 10.81_real12
       charge_ = 5.0_real12
+      radius_ = 0.84_real12
    case('C')
       mass_ = 12.011_real12
       charge_ = 4.0_real12
+      radius_ = 0.76_real12
    case('N')
       mass_ = 14.007_real12
       charge_ = 5.0_real12
+      radius_ = 0.71_real12
    case('O')
       mass_ = 15.999_real12
       charge_ = 6.0_real12
+      radius_ = 0.66_real12
    case('F')
       mass_ = 18.998_real12
       charge_ = 7.0_real12
+      radius_ = 0.57_real12
    case('Na')
       mass_ = 22.989_real12
       charge_ = 1.0_real12
+      radius_ = 1.66_real12
    case('Mg')
       mass_ = 24.305_real12
       charge_ = 2.0_real12
+      radius_ = 1.41_real12
    case('Al')
       mass_ = 26.982_real12
       charge_ = 3.0_real12
+      radius_ = 1.21_real12
    case('Si')
       mass_ = 28.085_real12
       charge_ = 4.0_real12
+      radius_ = 1.11_real12
    case('P')
       mass_ = 30.974_real12
       charge_ = 5.0_real12
+      radius_ = 1.07_real12
    case('S')  
       mass_ = 32.06_real12
       charge_ = 6.0_real12
+      radius_ = 1.05_real12
    case('Cl')
       mass_ = 35.453_real12
       charge_ = 8.0_real12
+      radius_ = 1.02_real12
    case('K')
       mass_ = 39.098_real12
       charge_ = 1.0_real12
+      radius_ = 2.03_real12
    case('Ca')
       mass_ = 40.078_real12
       charge_ = 2.0_real12
+      radius_ = 1.74_real12
    case('Sc')
       mass_ = 44.956_real12
       charge_ = 3.0_real12
+      radius_ = 1.44_real12
    case('Ti')
       mass_ = 47.867_real12
       charge_ = 4.0_real12
+      radius_ = 1.32_real12
    case('V')
       mass_ = 50.942_real12
       charge_ = 5.0_real12
+      radius_ = 1.22_real12
    case('Cr')
       mass_ = 51.996_real12
       charge_ = 6.0_real12
+      radius_ = 1.18_real12
    case('Mn')
       mass_ = 54.938_real12
       charge_ = 7.0_real12
+      radius_ = 1.17_real12
    case('Fe')
       mass_ = 55.845_real12
       charge_ = 8.0_real12
+      radius_ = 1.17_real12
    case('Co')
       mass_ = 58.933_real12
       charge_ = 9.0_real12
+      radius_ = 1.16_real12
    case('Ni')
       mass_ = 58.693_real12
       charge_ = 10.0_real12
+      radius_ = 1.15_real12
    case('Cu')
       mass_ = 63.546_real12
       charge_ = 11.0_real12
+      radius_ = 1.17_real12
    case('Zn')
       mass_ = 65.38_real12
       charge_ = 12.0_real12
+      radius_ = 1.25_real12
    case('Ga')
       mass_ = 69.723_real12
       charge_ = 13.0_real12
+      radius_ = 1.26_real12
    case('Ge')
       mass_ = 72.63_real12
       charge_ = 14.0_real12
+      radius_ = 1.22_real12
    case('As')
       mass_ = 74.922_real12
       charge_ = 15.0_real12
+      radius_ = 1.19_real12
    case('Se')
       mass_ = 78.971_real12
       charge_ = 16.0_real12
+      radius_ = 1.16_real12
    case('Br')
       mass_ = 79.904_real12
       charge_ = 17.0_real12
+      radius_ = 1.14_real12
    case('Kr')
       mass_ = 83.798_real12
       charge_ = 18.0_real12
+      radius_ = 1.12_real12
    case('Rb')
       mass_ = 85.468_real12
       charge_ = 19.0_real12
+      radius_ = 2.16_real12
    case('Sr')
       mass_ = 87.62_real12
       charge_ = 20.0_real12
+      radius_ = 1.91_real12
    case('Y')
       mass_ = 88.906_real12
       charge_ = 21.0_real12
+      radius_ = 1.62_real12
    case('Zr')
       mass_ = 91.224_real12
       charge_ = 22.0_real12
+      radius_ = 1.45_real12
    case('Nb')
       mass_ = 92.906_real12
       charge_ = 23.0_real12
+      radius_ = 1.34_real12
    case('Mo')
       mass_ = 95.95_real12
       charge_ = 24.0_real12
+      radius_ = 1.3_real12
    case('Tc')
       mass_ = 98.0_real12
       charge_ = 25.0_real12
+      radius_ = 1.27_real12
    case('Ru')
       mass_ = 101.07_real12
       charge_ = 26.0_real12
+      radius_ = 1.25_real12
    case('Rh')
       mass_ = 102.91_real12
       charge_ = 27.0_real12
+      radius_ = 1.25_real12
    case('Pd')
       mass_ = 106.42_real12
       charge_ = 28.0_real12
+      radius_ = 1.28_real12
    case('Ag')
       mass_ = 107.87_real12
       charge_ = 29.0_real12
+      radius_ = 1.34_real12
    case('Cd')
       mass_ = 112.41_real12
       charge_ = 30.0_real12
+      radius_ = 1.48_real12
    case('In')
       mass_ = 114.82_real12
       charge_ = 31.0_real12
+      radius_ = 1.44_real12
    case('Sn')
       mass_ = 118.71_real12
       charge_ = 32.0_real12
+      radius_ = 1.41_real12
    case('Sb')
       mass_ = 121.76_real12
       charge_ = 33.0_real12
+      radius_ = 1.38_real12
    case('Te')
       mass_ = 127.6_real12
       charge_ = 34.0_real12
+      radius_ = 1.35_real12
    case('I')
       mass_ = 126.9_real12
       charge_ = 35.0_real12
+      radius_ = 1.33_real12
    case('Xe')
       mass_ = 131.29_real12
       charge_ = 36.0_real12
+      radius_ = 1.31_real12
    case('Cs')
       mass_ = 132.91_real12
       charge_ = 37.0_real12
+      radius_ = 2.35_real12
    case('Ba')
       mass_ = 137.33_real12
       charge_ = 38.0_real12
+      radius_ = 1.98_real12
    case('La')
       mass_ = 138.91_real12
       charge_ = 39.0_real12
+      radius_ = 1.69_real12
    case('Ce')
       mass_ = 140.12_real12
       charge_ = 40.0_real12
+      radius_ = 1.65_real12
    case('Pr')
       mass_ = 140.91_real12
       charge_ = 41.0_real12
+      radius_ = 1.65_real12
    case('Nd')
       mass_ = 144.24_real12
       charge_ = 42.0_real12
+      radius_ = 1.64_real12
    case('Pm')
       mass_ = 145.0_real12
       charge_ = 43.0_real12
+      radius_ = 1.63_real12
    case('Sm')
       mass_ = 150.36_real12
       charge_ = 44.0_real12
+      radius_ = 1.62_real12
    case('Eu')
       mass_ = 152.0_real12
       charge_ = 45.0_real12
+      radius_ = 1.85_real12
    case('Gd')
       mass_ = 157.25_real12
       charge_ = 46.0_real12
+      radius_ = 1.61_real12
    case('Tb')
       mass_ = 158.93_real12
       charge_ = 47.0_real12
+      radius_ = 1.59_real12
    case('Dy')
       mass_ = 162.5_real12
       charge_ = 48.0_real12
+      radius_ = 1.59_real12
    case('Ho')
       mass_ = 164.93_real12
       charge_ = 49.0_real12
+      radius_ = 1.58_real12
    case('Er')
       mass_ = 167.26_real12
       charge_ = 50.0_real12
+      radius_ = 1.57_real12
    case('Tm')
       mass_ = 168.93_real12
       charge_ = 51.0_real12
+      radius_ = 1.56_real12
    case('Yb')
       mass_ = 173.05_real12
       charge_ = 52.0_real12
+      radius_ = 1.74_real12
    case('Lu')
       mass_ = 174.97_real12
       charge_ = 53.0_real12
+      radius_ = 1.56_real12
    case('Hf')
       mass_ = 178.49_real12
       charge_ = 54.0_real12
+      radius_ = 1.44_real12
    case('Ta')
       mass_ = 180.95_real12
       charge_ = 55.0_real12
+      radius_ = 1.34_real12
    case('W')
       mass_ = 183.84_real12
       charge_ = 56.0_real12
+      radius_ = 1.3_real12
    case('Re')
       mass_ = 186.21_real12
       charge_ = 57.0_real12
+      radius_ = 1.28_real12
    case('Os')
       mass_ = 190.23_real12
       charge_ = 58.0_real12
+      radius_ = 1.26_real12
    case('Ir')
       mass_ = 192.22_real12
       charge_ = 59.0_real12
+      radius_ = 1.27_real12
    case('Pt')
       mass_ = 195.08_real12
       charge_ = 60.0_real12
+      radius_ = 1.3_real12
    case('Au')
       mass_ = 196.97_real12
       charge_ = 61.0_real12
+      radius_ = 1.34_real12
    case('Hg')
       mass_ = 200.59_real12
       charge_ = 62.0_real12
+      radius_ = 1.49_real12
    case('Tl')
       mass_ = 204.38_real12
       charge_ = 63.0_real12
+      radius_ = 1.48_real12
    case('Pb')
       mass_ = 207.2_real12
       charge_ = 64.0_real12
+      radius_ = 1.47_real12
    case('Bi')
       mass_ = 208.98_real12
       charge_ = 65.0_real12
+      radius_ = 1.46_real12
    case('Th')
       mass_ = 232.04_real12
       charge_ = 66.0_real12
+      radius_ = 1.75_real12
    case('Pa')
       mass_ = 231.04_real12
       charge_ = 67.0_real12
+      radius_ = 1.61_real12
    case('U')
       mass_ = 238.03_real12
       charge_ = 68.0_real12
+      radius_ = 1.58_real12
    case('Np')
       mass_ = 237.0_real12
       charge_ = 69.0_real12
+      radius_ = 1.55_real12
    case('Pu')
       mass_ = 244.0_real12
       charge_ = 70.0_real12
+      radius_ = 1.53_real12
    case('Am')
       mass_ = 243.0_real12
       charge_ = 71.0_real12
+      radius_ = 1.51_real12
    case('Cm')
       mass_ = 247.0_real12
       charge_ = 72.0_real12
+      radius_ = 1.69_real12
    case('Bk')
       mass_ = 247.0_real12
       charge_ = 73.0_real12
+      radius_ = 1.48_real12
    case('Cf')
       mass_ = 251.0_real12
       charge_ = 74.0_real12
+      radius_ = 1.47_real12
    case('Es')
       mass_ = 252.0_real12
       charge_ = 75.0_real12
+      radius_ = 1.46_real12
    case('Fm')
       mass_ = 257.0_real12
       charge_ = 76.0_real12
+      radius_ = 1.45_real12
    case('Md')
       mass_ = 258.0_real12
       charge_ = 77.0_real12
+      radius_ = 1.44_real12
    case('No')
       mass_ = 259.0_real12
       charge_ = 78.0_real12
+      radius_ = 1.43_real12
    case('Lr')
       mass_ = 262.0_real12
       charge_ = 79.0_real12
+      radius_ = 1.62_real12
    case('Rf')
       mass_ = 267.0_real12
       charge_ = 80.0_real12
+      radius_ = 1.57_real12
    case('Db')
       mass_ = 270.0_real12
       charge_ = 81.0_real12
+      radius_ = 1.49_real12
    case('Sg')
       mass_ = 271.0_real12
       charge_ = 82.0_real12
+      radius_ = 1.43_real12
    case('Bh')
       mass_ = 270.0_real12
       charge_ = 83.0_real12
+      radius_ = 1.41_real12
    case('Hs')
       mass_ = 277.0_real12
       charge_ = 84.0_real12
+      radius_ = 1.34_real12
    case('Mt')
       mass_ = 276.0_real12
       charge_ = 85.0_real12
+      radius_ = 1.29_real12
    case('Ds')
       mass_ = 281.0_real12
       charge_ = 86.0_real12
+      radius_ = 1.28_real12
    case('Rg')
       mass_ = 280.0_real12
       charge_ = 87.0_real12
+      radius_ = 1.21_real12
    case('Cn')
       mass_ = 285.0_real12
       charge_ = 88.0_real12
+      radius_ = 1.22_real12
    case('Nh')
       mass_ = 284.0_real12
       charge_ = 89.0_real12
+      radius_ = 1.21_real12
    case('Fl')
       mass_ = 289.0_real12
       charge_ = 90.0_real12
+      radius_ = 1.21_real12
    case('Mc')
       mass_ = 288.0_real12
       charge_ = 91.0_real12
+      radius_ = 1.21_real12
    case('Lv')
       mass_ = 293.0_real12
       charge_ = 92.0_real12
+      radius_ = 1.21_real12
    case('Ts')
       mass_ = 294.0_real12
       charge_ = 93.0_real12
+      radius_ = 1.21_real12
    case('Og')
       mass_ = 294.0_real12
       charge_ = 94.0_real12
+      radius_ = 1.21_real12
    case default
       ! handle unknown element
       mass_ = 0.0_real12
       charge_ = 0.0_real12
+      radius_ = 0.0_real12
    end select
 
    !----------------------------------------------------------------------------
@@ -1523,6 +1639,7 @@ contains
    !----------------------------------------------------------------------------
    if(present(mass)) mass = mass_
    if(present(charge)) charge = charge_
+   if(present(radius)) radius = radius_
 
 
  end subroutine get_element_properties

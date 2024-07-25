@@ -6,25 +6,27 @@ module elements
 
   public :: element_type, element_bond_type
   public :: element_database, element_bond_database
-  public :: load_elements, load_element_bonds
 
 
   type :: element_type
      character(len=3) :: name
-     real(real12) :: mass
-     real(real12) :: charge
-     real(real12) :: energy
+     real(real12) :: mass = 0._real12
+     real(real12) :: charge = 0._real12
+     real(real12) :: radius = 0._real12
+     real(real12) :: energy = 0._real12
    contains
-     procedure, pass(this) :: set
+     procedure, pass(this) :: set => set_element
   end type element_type
   type(element_type), dimension(:), allocatable :: element_database
 
 
   type :: element_bond_type
      real(real12) :: radius_covalent
-     real(real12) :: radius_vdw
-     integer, dimension(2) :: coordination
+    !  real(real12) :: radius_vdw
+    !  integer, dimension(2) :: coordination
      character(3), dimension(2) :: element
+    contains
+      procedure, pass(this) :: set => set_bond
    end type element_bond_type
    type(element_bond_type), dimension(:), allocatable :: element_bond_database
   
@@ -32,17 +34,28 @@ module elements
   interface element_type
     !! Constructor for the element type.
     module function init_element_type( &
-         name, mass, charge, energy) result(this)
+         name, mass, charge, energy) result(element)
       character(len=3), intent(in) :: name
       real(real12), intent(in), optional :: mass, charge, energy
-      type(element_type) :: this
+      type(element_type) :: element
     end function init_element_type
   end interface element_type
+
+   
+  interface element_bond_type
+    !! Constructor for the element bond type.
+    module function init_element_bond_type( &
+         elements, radius) result(bond)
+      character(len=3), dimension(2), intent(in) :: elements
+      real(real12), intent(in), optional :: radius
+      type(element_bond_type) :: bond
+    end function init_element_bond_type
+  end interface element_bond_type
 
 
 contains
 
-  module function init_element_type(name, mass, charge, energy) result(this)
+  module function init_element_type(name, mass, charge, energy) result(element)
     !! Initialise an instance of the element_type.
     implicit none
 
@@ -52,34 +65,64 @@ contains
     real(real12), intent(in), optional :: mass, charge, energy
     !! Element mass, charge, and energy.
 
-    type(element_type) :: this
+    type(element_type) :: element
     !! Instance of element_type.
 
-    this%name = name
-    if(present(mass)) this%mass= mass
-    if(present(charge)) this%charge = charge
-    if(present(energy)) this%energy = energy
+    element%name = name
+    if(present(mass)) element%mass= mass
+    if(present(charge)) element%charge = charge
+    if(present(energy)) element%energy = energy
 
   end function init_element_type
 
 
-!!!#############################################################################
-!!! set element properties from database
-!!!#############################################################################
-  subroutine set(this, name)
+  module function init_element_bond_type(elements, radius) result(bond)
+    !! Initialise an instance of the element_bond_type.
     implicit none
+
+    ! Arguments
+    character(len=3), dimension(2), intent(in) :: elements
+    !! Element names.
+    real(real12), intent(in), optional :: radius
+    !! Element radius.
+
+    type(element_bond_type) :: bond
+    !! Instance of bond_type.
+
+    bond%element = elements
+    if(present(radius)) bond%radius_covalent = radius
+
+  end function init_element_bond_type
+
+
+!###############################################################################
+  subroutine set_element(this, name, in_database)
+    !! Set the element properties.
+    implicit none
+
+    ! Arguments
     class(element_type), intent(inout) :: this
+    !! Parent. Instance of element_type.
     character(len=3), intent(in) :: name
+    !! Element name.
+    logical, intent(out), optional :: in_database
+    !! Boolean whether pair is in database.
 
+    ! Local variables
     integer :: i
+    !! Loop index.
 
+
+    if(present(in_database)) in_database = .false.
     if(allocated(element_database))then
        do i = 1, size(element_database)
           if(trim(element_database(i)%name) .eq. trim(name))then
              this%name = element_database(i)%name
              this%mass = element_database(i)%mass
              this%charge = element_database(i)%charge
+             this%radius = element_database(i)%radius
              this%energy = element_database(i)%energy
+             if(present(in_database)) in_database = .true.
              return
           end if
        end do
@@ -87,111 +130,53 @@ contains
 
     write(0,*) 'WARNING: Element ', trim(name), ' not found in element database'
 
-  end subroutine set
-!!!#############################################################################
+  end subroutine set_element
+!###############################################################################
 
 
-!!!#############################################################################
-!!! load elements data from file
-!!!#############################################################################
-  subroutine load_elements(file)
+!###############################################################################
+  subroutine set_bond(this, element_1, element_2, in_database)
+    !! Set the bond properties for a pair of elements.
     implicit none
-    character(*), intent(in), optional :: file
 
-    integer :: i, unit, ierror
-    type(element_type) :: element
-    character(1024) :: buffer, file_ = "elements.dat"
+    ! Arguments
+    class(element_bond_type), intent(inout) :: this
+    !! Parent. Instance of element_bond_type.
+    character(len=3), intent(in) :: element_1, element_2
+    !! Element names.
+    logical, intent(out), optional :: in_database
+    !! Boolean whether pair is in database.
 
-
-    if (present(file)) file_ = file
-
-    if(allocated(element_database)) deallocate(element_database)
-    allocate(element_database(0))
-    open(newunit=unit, file=file_, status='old', action='read')
-    read(unit, *) buffer
-    if(  index(trim(adjustl(buffer)),"#").ne.1 .and. &
-         index(trim(adjustl(buffer)),"element").eq.0)then
-       write(0,*) 'Invalid elements file'
-       write(0,*) 'Expected "element" in header, found "', trim(buffer), '"'
-       stop 1
-    end if
-    do
-       read(unit, '(A)', iostat=ierror) buffer
-       if(is_iostat_end(ierror))then
-          exit
-       elseif(ierror .ne. 0)then
-          write(0,*) 'Error reading elements file'
-          stop 1
-       end if
-       buffer = trim(adjustl(buffer))
-       if(trim(buffer) .eq. "" .or. buffer(1:1) .eq. "!") cycle
-       read(buffer, *) element%name, element%energy, element%mass, element%charge
-       element_database = [element_database, element]
-    end do
-    close(unit)
-
-  end subroutine load_elements
-!!!#############################################################################
+    ! Local variables
+    integer :: i
+    !! Loop index.
 
 
-!!!#############################################################################
-!!! get element bond data from file
-!!!#############################################################################
-  subroutine load_element_bonds(file)
-    implicit none
-    character(*), intent(in), optional :: file
-
-    integer :: unit
-    integer :: i, ierror
-    type(element_bond_type) :: bond
-    character(1024) :: buffer, file_ = "chem.in"
-
-
-    if (present(file)) file_ = file
-    if(allocated(element_bond_database)) deallocate(element_bond_database)
-    allocate(element_bond_database(0))
-
-
-    !! open file containing element bond data
-    open(newunit=unit, file=file_, status="old")
-    read(unit, *) buffer
-    if(  index(trim(adjustl(buffer)),"#").ne.1 .and. &
-         index(trim(adjustl(buffer)),"element_1").eq.0)then
-       write(0,*) 'Invalid elements file'
-       write(0,*) 'Expected "element_1" in header, found "', trim(buffer), '"'
-       stop 1
-    end if
-
-
-    !! read element bond data
-    do 
-       read(unit, '(A)', iostat=ierror) buffer
-       if(is_iostat_end(ierror))then
-          exit
-       elseif(ierror.ne.0) then
-          stop 1
-       end if
-       buffer = trim(adjustl(buffer))
-       if(trim(buffer) .eq. "" .or. buffer(1:1) .eq. "!") cycle
-       read(buffer, *) &
-            bond%element(:), &
-            bond%radius_covalent, bond%radius_vdw, &
-            bond%coordination(:)
-       check_loop: do i = 1, size(element_bond_database)
-          if( ( element_bond_database(i)%element(1) .eq. bond%element(1) .and. &
-                element_bond_database(i)%element(2) .eq. bond%element(2) ) .or. &
-              ( element_bond_database(i)%element(1) .eq. bond%element(2) .and. &
-                element_bond_database(i)%element(2) .eq. bond%element(1) ) ) then
-             write(0,*) 'Error reading element bond data'
-             write(0,*) 'Duplicate entry for ', bond%element(1), bond%element(2)
-             stop 1
+    if(present(in_database)) in_database = .false.
+    if(allocated(element_bond_database))then
+       do i = 1, size(element_bond_database)
+          if( &
+               (trim(element_bond_database(i)%element(1)) .eq. &
+                    trim(element_1) .and. &
+               (trim(element_bond_database(i)%element(2)) .eq. &
+                    trim(element_2)) ) .or. &
+               (trim(element_bond_database(i)%element(1)) .eq. &
+                    trim(element_2) .and. &
+               (trim(element_bond_database(i)%element(2)) .eq. &
+                    trim(element_1) ) ) &
+          )then
+             this%radius_covalent = element_bond_database(i)%radius_covalent
+             if(present(in_database)) in_database = .true.
+             return
           end if
-       end do check_loop
-       element_bond_database = [element_bond_database, bond]
-    end do
-    close(unit)
+       end do
+    end if
 
-  end subroutine load_element_bonds
-!!!#############################################################################
+    write(0,*) &
+         'WARNING: Bond between ', trim(element_1), &
+         ' and ', trim(element_2), ' not found in bond database'
+
+  end subroutine set_bond
+!###############################################################################
 
 end module elements

@@ -81,6 +81,34 @@ subroutine f90wrap_spec_type__set__charge(this, f90wrap_charge)
     this_ptr%p%charge = f90wrap_charge
 end subroutine f90wrap_spec_type__set__charge
 
+subroutine f90wrap_spec_type__get__radius(this, f90wrap_radius)
+    use rw_geom, only: spec_type
+    implicit none
+    type spec_type_ptr_type
+        type(spec_type), pointer :: p => NULL()
+    end type spec_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(spec_type_ptr_type) :: this_ptr
+    real(4), intent(out) :: f90wrap_radius
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_radius = this_ptr%p%radius
+end subroutine f90wrap_spec_type__get__radius
+
+subroutine f90wrap_spec_type__set__radius(this, f90wrap_radius)
+    use rw_geom, only: spec_type
+    implicit none
+    type spec_type_ptr_type
+        type(spec_type), pointer :: p => NULL()
+    end type spec_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(spec_type_ptr_type) :: this_ptr
+    real(4), intent(in) :: f90wrap_radius
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%radius = f90wrap_radius
+end subroutine f90wrap_spec_type__set__radius
+
 subroutine f90wrap_spec_type__get__name(this, f90wrap_name)
     use rw_geom, only: spec_type
     implicit none

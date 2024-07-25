@@ -28,12 +28,10 @@ contains
 !!! read in the structures from the input directories and generate the gvectors
 !!!#############################################################################
   function get_evolved_gvectors_from_data(input_dir, &
-       bond_file, &
        file_format, gvector_container_template) &
        result(gvector_container)
     implicit none
     character(*), dimension(..), intent(in) :: input_dir
-    character(*), intent(in), optional :: bond_file
     type(gvector_container_type), intent(in), optional :: gvector_container_template
     type(gvector_container_type), allocatable :: gvector_container
     character(*), intent(in), optional :: file_format
@@ -174,15 +172,8 @@ contains
     end do
 
 
-100 if(present(bond_file)) then
-       call gvector_container%set_bond_info(bond_file)
-    else
-      call gvector_container%set_bond_info()
-    end if
 
-
-
-    call gvector_container%evolve(deallocate_systems_after_evolve=.false.)
+100 call gvector_container%evolve(deallocate_systems_after_evolve=.false.)
 
 
 #ifdef ENABLE_ATHENA

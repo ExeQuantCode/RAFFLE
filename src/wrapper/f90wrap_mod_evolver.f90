@@ -483,7 +483,7 @@ subroutine f90wrap_gvector_container_type__array_getitem__system(f90wrap_this, f
         else
             system_ptr%p => this_ptr%p%system(f90wrap_i)
             systemitem = transfer(system_ptr,systemitem)
-        endif
+        end if
     else
         call f90wrap_abort("derived type array not allocated")
     end if
@@ -682,7 +682,11 @@ subroutine f90wrap_evolver__get__num_elements(this, ret_num_elements)
     integer, intent(out) :: ret_num_elements
     
     this_ptr = transfer(this, this_ptr)
-    ret_num_elements = size(this_ptr%p%element_info,1)
+    if(.not.allocated(this_ptr%p%element_info)) then
+        ret_num_elements = 0
+    else
+        ret_num_elements = size(this_ptr%p%element_info,1)
+    end if
 end subroutine f90wrap_evolver__get__num_elements
 
 subroutine f90wrap_evolver__set_element_energies__binding__gvector_con0537(this, elements, energies, n0)
@@ -719,7 +723,7 @@ subroutine f90wrap_evolver__get_element_energies_staticmem__binding__g4f53(this,
     call this_ptr%p%get_element_energies_staticmem(elements=elements, energies=energies)
 end subroutine f90wrap_evolver__get_element_energies_staticmem__binding__g4f53
 
-subroutine f90wrap_evolver__set_bond_info__binding__gvector_container_type(this, bond_file)
+subroutine f90wrap_evolver__set_bond_radius__binding__gvector_containe7df9(this, elements, radius)
     use evolver, only: gvector_container_type
     implicit none
     
@@ -728,10 +732,49 @@ subroutine f90wrap_evolver__set_bond_info__binding__gvector_container_type(this,
     end type gvector_container_type_ptr_type
     type(gvector_container_type_ptr_type) :: this_ptr
     integer, intent(in), dimension(2) :: this
-    character*(*), intent(in), optional :: bond_file
+    character(3), dimension(2), intent(in) :: elements
+    real(4), intent(in) :: radius
     this_ptr = transfer(this, this_ptr)
-    call this_ptr%p%set_bond_info(bond_file=bond_file)
-end subroutine f90wrap_evolver__set_bond_info__binding__gvector_container_type
+    call this_ptr%p%set_bond_radius(elements=elements, radius=radius)
+end subroutine f90wrap_evolver__set_bond_radius__binding__gvector_containe7df9
+
+subroutine f90wrap_evolver__set_bond_radii__binding__gvector_container83c5(this, elements, radii, n0, n1, n2)
+    use evolver, only: gvector_container_type
+    implicit none
+    
+    type gvector_container_type_ptr_type
+        type(gvector_container_type), pointer :: p => NULL()
+    end type gvector_container_type_ptr_type
+    type(gvector_container_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    character(3), intent(in), dimension(n0,n1) :: elements
+    real(4), intent(in), dimension(n2) :: radii
+    integer :: n0
+    !f2py intent(hide), depend(elements) :: n0 = shape(elements,0)
+    integer :: n1
+    !f2py intent(hide), depend(elements) :: n1 = shape(elements,1)
+    integer :: n2
+    !f2py intent(hide), depend(radii) :: n2 = shape(radii,0)
+    this_ptr = transfer(this, this_ptr)
+    call this_ptr%p%set_bond_radii(elements=elements, radii=radii)
+end subroutine f90wrap_evolver__set_bond_radii__binding__gvector_container83c5
+
+subroutine f90wrap_evolver__get_bond_radii_staticmem__binding__gvectord2e1(this, elements, radii, n0)
+    use evolver, only: gvector_container_type
+    implicit none
+    
+    type gvector_container_type_ptr_type
+        type(gvector_container_type), pointer :: p => NULL()
+    end type gvector_container_type_ptr_type
+    type(gvector_container_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    character(3), intent(inout), dimension(n0,2) :: elements
+    real(4), intent(inout), dimension(n0) :: radii
+    integer :: n0
+    !f2py intent(hide), depend(elements) :: n0 = shape(elements,0)
+    this_ptr = transfer(this, this_ptr)
+    call this_ptr%p%get_bond_radii_staticmem(elements=elements, radii=radii)
+end subroutine f90wrap_evolver__get_bond_radii_staticmem__binding__gvectord2e1
 
 subroutine f90wrap_evolver__set_best_energy__binding__gvector_containe4680(this)
     use evolver, only: gvector_container_type

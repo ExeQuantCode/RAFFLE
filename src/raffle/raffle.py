@@ -1342,8 +1342,6 @@ class Evolver(f90wrap.runtime.FortranModule):
             
             # convert the fortran array to a python dictionary
             bond_radii = {}
-            print(elements)
-            print(radii)
             for i, element in enumerate(elements):
                 names = tuple([str(name.decode()).strip() for name in element])
                 bond_radii[names] = radii[i]

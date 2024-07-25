@@ -255,7 +255,6 @@ contains
     allocate(basis_template%spec(num_insert_species))
     do i = 1, size(stoichiometry)
        basis_template%spec(i)%name = strip_null(stoichiometry(i)%element)
-       write(*,*) "Element", basis_template%spec(i)%name, len_trim(basis_template%spec(i)%name)
     end do
     basis_template%spec(:)%num = stoichiometry(:)%num
     basis_template%natom = num_insert_atoms
@@ -271,10 +270,6 @@ contains
     if(.not.allocated(this%host%spec)) stop "Host structure not set"
     basis_template = bas_merge(this%host,basis_template)
     basis_template%lat = this%host%lat
-    write(*,*) "Host basis", this%host%natom, this%host%nspec
-    do i = 1, size(basis_template%spec)
-       write(*,*) "Element", basis_template%spec(i)%name, len_trim(basis_template%spec(i)%name)
-    end do
 
 
     !---------------------------------------------------------------------------
@@ -420,7 +415,7 @@ contains
           if(verbose.gt.0) write(*,*) "Add Atom Void"
           point = add_atom_void( this%bins, &
                 basis, &
-                placement_list_shuffled(iplaced+1:,:), viable)
+                placement_list_shuffled(iplaced+1:,:), viable )
        else if(rtmp1.le.method_probab_(2)) then 
           if(verbose.gt.0) write(*,*) "Add Atom Walk"
           point = add_atom_walk( &
@@ -437,7 +432,7 @@ contains
                 basis, &
                 placement_list_shuffled(iplaced+1:,:), &
                 [ this%distributions%bond_info(:)%radius_covalent ], &
-                viable)
+                viable )
        end if
        if(.not. viable) then
           if(void_ticker.gt.10) &

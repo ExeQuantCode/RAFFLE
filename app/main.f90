@@ -11,7 +11,6 @@ program raffle_program
   character(1024) :: buffer
 
   ! type(gvector_container_type) :: gvector_container
-  real(real12), dimension(3) :: method_probab
   real(real12), dimension(:), allocatable :: tmp_energies
   character(len=3), dimension(:), allocatable :: tmp_symbols
 
@@ -96,18 +95,6 @@ program raffle_program
   do i = 1, size(tmp_symbols)
      write(*,*) "Element ", tmp_symbols(i), " energy: ", tmp_energies(i)
   end do
-
-
-!!!-----------------------------------------------------------------------------
-!!! calculate the probability of each placement method
-!!!-----------------------------------------------------------------------------
-  method_probab(1) = vps_ratio(1)/real(sum(vps_ratio),real12)
-  method_probab(2) = method_probab(1) + &
-       vps_ratio(2)/real(sum(vps_ratio),real12)
-  method_probab(3) = method_probab(2) + &
-       vps_ratio(3)/real(sum(vps_ratio),real12)
-  write(*,*) "Method probabilities (void, scan, pseudorandom-walk): ", &
-       method_probab
 
 
 !!!-----------------------------------------------------------------------------

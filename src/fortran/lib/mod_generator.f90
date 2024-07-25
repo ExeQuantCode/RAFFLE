@@ -171,12 +171,14 @@ contains
     !! Number of seeds for the random number generator.
     integer :: num_insert_atoms, num_insert_species
     !! Number of atoms and species to insert (from stoichiometry).
+    real(real12) :: total_probab
+    !! Total probability of the placement methods.
     logical :: success
     !! Boolean comparison of element symbols.
     type(bas_type) :: basis_template
     !! Basis of the structure to generate (i.e. allocated species and atoms).
     real(real12), dimension(3) :: &
-         method_probab_ = [0.33_real12, 0.66_real12, 1.0_real12]
+         method_probab_ = [1.0_real12, 1.0_real12, 1.0_real12]
     !! Default probability of each placement method.
 
     integer, dimension(:), allocatable :: seed_arr
@@ -199,6 +201,12 @@ contains
     !---------------------------------------------------------------------------
     if(verbose.gt.0) write(*,*) "Setting method probabilities"
     if(present(method_probab)) method_probab_ = method_probab
+    total_probab = real(sum(method_probab_), real12)
+    method_probab_ = method_probab_ / total_probab
+    method_probab_(2) = method_probab_(2) + method_probab_(1)
+    method_probab_(3) = method_probab_(3) + method_probab_(2)
+    if(verbose.gt.0) write(*,*) "Method probabilities (void, walk, min): ", &
+         method_probab_
 
 
     !---------------------------------------------------------------------------

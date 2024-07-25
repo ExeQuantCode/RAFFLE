@@ -15,7 +15,7 @@ module inputs
   private
 
   public :: vdW, volvar
-  public :: bins, vps_ratio
+  public :: bins, method_probab
   public :: seed
   public :: num_structures, task
   public :: stoich
@@ -47,7 +47,7 @@ module inputs
   character(3), dimension(:,:), allocatable :: bond_pairs
 
   integer, dimension(3) :: bins
-  integer, dimension(3) :: vps_ratio
+  real(real12), dimension(3) :: method_probab = [1._real12, 1._real12, 1._real12]
 
   character(1024), dimension(:), allocatable :: database_list ! list of directories containing input database
   character(1024) :: database_format !format of input file (POSCAR, XYZ, etc.
@@ -180,7 +180,7 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! set up namelists for input file
 !!!-----------------------------------------------------------------------------
-    namelist /setup/        task, filename_host, seed, vps_ratio, bins, &
+    namelist /setup/        task, filename_host, seed, method_probab, bins, &
                             database_format, database, verbose, output_dir
     namelist /structure/    num_structures,stoichiometry
     namelist /volume/       vdW, volvar

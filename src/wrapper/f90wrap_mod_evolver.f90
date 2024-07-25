@@ -624,7 +624,7 @@ subroutine f90wrap_evolver__set_cutoff_max__binding__gvector_container047c(this,
     call this_ptr%p%set_cutoff_max(cutoff_max=cutoff_max)
 end subroutine f90wrap_evolver__set_cutoff_max__binding__gvector_container047c
 
-subroutine f90wrap_evolver__create__binding__gvector_container_type(this, basis_list)
+subroutine f90wrap_evolver__create__binding__gvector_container_type(this, basis_list, deallocate_systems)
     use rw_geom, only: bas_type
     use evolver, only: gvector_container_type
     implicit none
@@ -644,10 +644,15 @@ subroutine f90wrap_evolver__create__binding__gvector_container_type(this, basis_
     integer, intent(in), dimension(2) :: this
     type(bas_type_xnum_array_ptr_type) :: basis_list_ptr
     integer, intent(in), dimension(2) :: basis_list
+    logical, intent(in), optional :: deallocate_systems
 
     this_ptr = transfer(this, this_ptr)
     basis_list_ptr = transfer(basis_list, basis_list_ptr)
-    call this_ptr%p%create(basis_list=basis_list_ptr%p%items)
+    if(present(deallocate_systems)) then
+        call this_ptr%p%create(basis_list=basis_list_ptr%p%items, deallocate_systems=deallocate_systems)
+    else
+        call this_ptr%p%create(basis_list=basis_list_ptr%p%items)
+    end if
 end subroutine f90wrap_evolver__create__binding__gvector_container_type
 
 
@@ -837,6 +842,7 @@ subroutine f90wrap_evolver__write__binding__gvector_container_type(this, file)
     integer, intent(in), dimension(2) :: this
     character*(*), intent(in) :: file
     this_ptr = transfer(this, this_ptr)
+    write(*,*) "looky here"
     call this_ptr%p%write(file=file)
 end subroutine f90wrap_evolver__write__binding__gvector_container_type
 

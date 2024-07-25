@@ -56,12 +56,21 @@ program raffle_program
 
 
 !!!-----------------------------------------------------------------------------
-!!! set the element energies
+!!! set the element energies and bond radii, if they are provided
 !!!-----------------------------------------------------------------------------
-  call generator%distributions%set_element_energies( &
-       element_symbols, &
-       element_energies &
-  )
+  if(allocated(element_symbols).and.allocated(element_energies)) then
+     call generator%distributions%set_element_energies( &
+          element_symbols, &
+          element_energies &
+     )
+  end if
+
+  if(allocated(bond_pairs).and.allocated(pair_radii)) then
+     call generator%distributions%set_bond_radii( &
+          bond_pairs, &
+          pair_radii &
+     )
+  end if
 
 
 !!!-----------------------------------------------------------------------------

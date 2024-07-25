@@ -24,6 +24,7 @@ module inputs
   public :: cutoff_min_list, cutoff_max_list, width_list, sigma_list
   public :: output_dir
   public :: element_symbols, element_energies
+  public :: bond_pairs, pair_radii
 
   public :: set_global_vars
 
@@ -41,7 +42,9 @@ module inputs
   real(real12), dimension(3) :: width_list, sigma_list
 
   real(real12), dimension(:), allocatable :: element_energies
+  real(real12), dimension(:), allocatable :: pair_radii
   character(3), dimension(:), allocatable :: element_symbols
+  character(3), dimension(:,:), allocatable :: bond_pairs
 
   integer, dimension(3) :: bins
   integer, dimension(3) :: vps_ratio
@@ -162,10 +165,12 @@ contains
     implicit none
     character(*), intent(in) :: file_name
 
-    integer :: i, num_species
+    integer :: i, num_species, num_bonds
     integer :: Reason,unit, l_pos, r_pos
     character(1) :: fs
-    character(1024) :: stoichiometry, elements, database, buffer, energies
+    character(32) :: pair
+    character(1024) :: stoichiometry, elements, database, buffer, energies, &
+         bond_radii
     real(real12), dimension(3) :: width, sigma
     character(50), dimension(3) :: cutoff_min, cutoff_max
     integer, allocatable, dimension(:) :: stoichiometry_list
@@ -180,7 +185,7 @@ contains
     namelist /structure/    num_structures,stoichiometry
     namelist /volume/       vdW, volvar
     namelist /distribution/ cutoff_min, cutoff_max, width, sigma
-    namelist /element_info/ energies
+    namelist /element_info/ energies, bond_radii
 
 
 !!!-----------------------------------------------------------------------------
@@ -262,9 +267,31 @@ contains
          read(buffer(scan(buffer,":")+1:),*) element_energies(i)
          l_pos = scan(energies(l_pos+1:),",") + l_pos
       end do
-   else
-      stop "No element energies specified"
-   end if
+    else
+       stop "No element energies specified"
+    end if
+
+
+    if(trim(bond_radii).ne."")then !! PAIR_RADII instead?
+       num_bonds = icount(bond_radii,",")
+       allocate(bond_pairs(num_bonds,2))
+       allocate(pair_radii(num_bonds))
+       l_pos = scan(energies,"{")
+       r_pos = scan(energies,"}", back=.true.)
+       do i = 1, num_bonds
+          read(bond_radii(l_pos+1:r_pos-1),'(A)') buffer
+          read(buffer(:scan(buffer,":")-1),*) pair
+          if(index(pair,"-").ne.0)then
+             read(pair(:index(pair,"-")-1),*) bond_pairs(i,1)
+             read(pair(index(pair,"-")+1:),*) bond_pairs(i,2)
+          else
+             read(pair(:),*) bond_pairs(i,1)
+             bond_pairs(i,2) = bond_pairs(i,1)
+          end if
+          read(buffer(scan(buffer,":")+1:),*) pair_radii(i)
+          l_pos = scan(energies(l_pos+1:),",") + l_pos
+       end do
+    end if
 
     
     do i = 1, 3

@@ -733,16 +733,7 @@ module evolver
 
     integer :: i, j, k, idx1, idx2
     integer :: num_elements, num_pairs
-
-
-   !  !!--------------------------------------------------------------------------
-   !  !! load the element bonds database
-   !  !!--------------------------------------------------------------------------
-   !  if(present(bond_file))then
-   !     call load_element_bonds(bond_file)
-   !  elseif(.not.allocated(element_bond_database))then
-   !     call load_element_bonds()
-   !  end if
+    logical :: success
 
 
     !!--------------------------------------------------------------------------
@@ -762,25 +753,12 @@ module evolver
     pair_loop1: do i = 1, num_elements 
        pair_loop2: do j = i, num_elements
           num_pairs = num_pairs + 1
-          do k = 1, size(element_bond_database)
-             if( this%element_info(i)%name .eq. &
-                      element_bond_database(k)%element(1) .and. &
-                 this%element_info(j)%name .eq. &
-                      element_bond_database(k)%element(2) ) then
-                this%bond_info(num_pairs) = element_bond_database(k)
-                cycle pair_loop2
-             elseif( this%element_info(i)%name .eq. &
-                      element_bond_database(k)%element(2) .and. &
-                 this%element_info(j)%name .eq. &
-                      element_bond_database(k)%element(1) ) then
-                this%bond_info(num_pairs) = element_bond_database(k)
-               !  this%bond_info(num_pairs)%coordination = &
-               !       this%bond_info(num_pairs)%coordination(2:1:-1)
-                this%bond_info(num_pairs)%element = &
-                     this%bond_info(num_pairs)%element(2:1:-1)
-                cycle pair_loop2
-             end if
-          end do
+          call this%bond_info(num_pairs)%set( &
+               this%element_info(i)%name, &
+               this%element_info(j)%name, &
+               success &
+          )
+          if(success) cycle pair_loop2
           !! check if all pairs were found
           write(0,*) 'WARNING: No bond data for element pair ', &
                      this%element_info(i)%name, ' and ', &
@@ -880,6 +858,7 @@ module evolver
            element_bond_type(elements=[pair_list(i,:)], radius=radius) ]
       call sort_str(element_bond_database(size(element_bond_database))%element)
    end do pair_loop1
+
 
    ! ---------------------------------------------------------------------------
    ! check if all element pairs are in the bond_info array

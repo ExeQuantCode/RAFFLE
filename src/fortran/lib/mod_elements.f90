@@ -95,16 +95,25 @@ contains
   end function init_element_bond_type
 
 
-!!!#############################################################################
-!!! set element properties from database
-!!!#############################################################################
-  subroutine set_element(this, name)
+!###############################################################################
+  subroutine set_element(this, name, in_database)
+    !! Set the element properties.
     implicit none
+
+    ! Arguments
     class(element_type), intent(inout) :: this
+    !! Parent. Instance of element_type.
     character(len=3), intent(in) :: name
+    !! Element name.
+    logical, intent(out), optional :: in_database
+    !! Boolean whether pair is in database.
 
+    ! Local variables
     integer :: i
+    !! Loop index.
 
+
+    if(present(in_database)) in_database = .false.
     if(allocated(element_database))then
        do i = 1, size(element_database)
           if(trim(element_database(i)%name) .eq. trim(name))then
@@ -113,6 +122,7 @@ contains
              this%charge = element_database(i)%charge
              this%radius = element_database(i)%radius
              this%energy = element_database(i)%energy
+             if(present(in_database)) in_database = .true.
              return
           end if
        end do
@@ -121,11 +131,11 @@ contains
     write(0,*) 'WARNING: Element ', trim(name), ' not found in element database'
 
   end subroutine set_element
-!!!#############################################################################
+!###############################################################################
 
 
 !###############################################################################
-  subroutine set_bond(this, element_1, element_2)
+  subroutine set_bond(this, element_1, element_2, in_database)
     !! Set the bond properties for a pair of elements.
     implicit none
 
@@ -134,11 +144,15 @@ contains
     !! Parent. Instance of element_bond_type.
     character(len=3), intent(in) :: element_1, element_2
     !! Element names.
+    logical, intent(out), optional :: in_database
+    !! Boolean whether pair is in database.
 
     ! Local variables
     integer :: i
+    !! Loop index.
 
-    
+
+    if(present(in_database)) in_database = .false.
     if(allocated(element_bond_database))then
        do i = 1, size(element_bond_database)
           if( &
@@ -152,6 +166,7 @@ contains
                     trim(element_1) ) ) &
           )then
              this%radius_covalent = element_bond_database(i)%radius_covalent
+             if(present(in_database)) in_database = .true.
              return
           end if
        end do

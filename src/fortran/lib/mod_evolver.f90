@@ -817,7 +817,7 @@ module evolver
    !! Loop index.
    character(len=3), dimension(:), allocatable :: element_list
    !! List of elements in the container.
-   character(len=3), dimension(:,:), allocatable :: bond_list
+   character(len=3), dimension(:,:), allocatable :: pair_list
    !! List of element pairs in the container.
 
 
@@ -837,14 +837,14 @@ module evolver
    do i = 2, size(this%system),1
       element_list = [ element_list, this%system(i)%species ]
    end do
-   allocate(bond_list(triangular_number(size(element_list)),2))
    call set(element_list)
+   allocate(pair_list(triangular_number(size(element_list)),2))
    k = 0
    do i = 1, size(element_list)
       do j = i, size(element_list)
          k = k + 1
-         bond_list(k,:) = [ element_list(i), element_list(j) ]
-         call sort_str(bond_list(k,:))
+         pair_list(k,:) = [ element_list(i), element_list(j) ]
+         call sort_str(pair_list(k,:))
       end do
    end do
 
@@ -852,21 +852,22 @@ module evolver
    ! ---------------------------------------------------------------------------
    ! check if all element pairs are in the bond_info array
    ! ---------------------------------------------------------------------------
-   do i = 1, size(bond_list)
-       do j = 1, size(this%bond_info)
-          if( ( this%bond_info(j)%element(1) .eq. bond_list(i,1) .and. &
-                this%bond_info(j)%element(2) .eq. bond_list(i,2) ) .or. &
-              ( this%bond_info(j)%element(1) .eq. bond_list(i,2) .and. &
-                this%bond_info(j)%element(2) .eq. bond_list(i,1) ) &
+   pair_loop: do i = 1, size(pair_list,1)
+       info_loop: do j = 1, size(this%bond_info)
+          if( ( this%bond_info(j)%element(1) .eq. pair_list(i,1) .and. &
+                this%bond_info(j)%element(2) .eq. pair_list(i,2) ) .or. &
+              ( this%bond_info(j)%element(1) .eq. pair_list(i,2) .and. &
+                this%bond_info(j)%element(2) .eq. pair_list(i,1) ) &
                )then
-             this%bond_info = [ this%bond_info(:), &
-                                element_bond_type(bond_list(i,:)) ]
-             call this%bond_info(size(this%bond_info))%set( &
-                  bond_list(i,1), &
-                  bond_list(i,2) )
+             cycle pair_loop
           end if
-       end do
-   end do
+       end do info_loop
+       this%bond_info = [ this%bond_info(:), &
+                          element_bond_type([ pair_list(i,1:2) ]) ]
+       call this%bond_info(size(this%bond_info))%set( &
+            pair_list(i,1), &
+            pair_list(i,2) )
+   end do pair_loop
 
  end subroutine update_bond_info
 !###############################################################################

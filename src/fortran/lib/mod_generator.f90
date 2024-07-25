@@ -141,7 +141,14 @@ contains
     type(bas_type), intent(in) :: host
     !! Basis of the host structure.
 
+    ! Local variables
+    integer :: i
+
+
     this%host = host
+    do i = 1, this%host%nspec
+       this%host%spec(i)%name = strip_null(this%host%spec(i)%name)
+    end do
   end subroutine set_host
 !###############################################################################
 

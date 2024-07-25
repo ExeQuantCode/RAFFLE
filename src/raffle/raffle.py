@@ -1127,7 +1127,7 @@ class Evolver(f90wrap.runtime.FortranModule):
             _raffle.f90wrap_evolver__set_cutoff_max__binding__gvector_container047c(this=self._handle, \
                 cutoff_max=cutoff_max)
         
-        def create(self, basis_list):
+        def create(self, basis_list, deallocate_systems=True):
             """
             create__binding__gvector_container_type(self, basis_list)
 
@@ -1138,10 +1138,11 @@ class Evolver(f90wrap.runtime.FortranModule):
             ----------
             this : unknown
             basis_list : Bas_Type array
+            deallocate_systems : bool
 
             """
             _raffle.f90wrap_evolver__create__binding__gvector_container_type(this=self._handle, \
-                basis_list=basis_list._handle)
+                basis_list=basis_list._handle, deallocate_systems=deallocate_systems)
             
 
         def add_basis(self, lattice, basis):

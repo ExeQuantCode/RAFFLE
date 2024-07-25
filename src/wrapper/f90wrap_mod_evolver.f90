@@ -655,7 +655,6 @@ subroutine f90wrap_evolver__create__binding__gvector_container_type(this, basis_
     end if
 end subroutine f90wrap_evolver__create__binding__gvector_container_type
 
-
 subroutine f90wrap_evolver__add_basis__binding__gvector_container_type(this, basis)
     use rw_geom, only: bas_type
     use evolver, only: gvector_container_type

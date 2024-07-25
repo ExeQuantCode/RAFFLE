@@ -201,7 +201,7 @@ module evolver
   end subroutine set_cutoff_max
 
 
-  subroutine create(this, basis_list)
+  subroutine create(this, basis_list, deallocate_systems)
     !! create the distribution functions from the input file
     implicit none
     ! Arguments
@@ -209,6 +209,14 @@ module evolver
     !! Self, parent of the procedure.
     type(bas_type), dimension(:), intent(in) :: basis_list
     !! List of basis structures.
+    logical, intent(in), optional :: deallocate_systems
+    !! Deallocate the systems after the distribution functions are created.
+
+    ! Local variables
+    logical :: deallocate_systems_ = .true.
+
+
+    if(present(deallocate_systems)) deallocate_systems_ = deallocate_systems
 
     if(allocated(this%total%df_2body)) deallocate(this%total%df_2body)
     if(allocated(this%total%df_3body)) deallocate(this%total%df_3body)
@@ -217,12 +225,12 @@ module evolver
     allocate(this%system(0))
     call this%add(basis_list)
     call this%set_bond_info()
-    call this%evolve()
+    call this%evolve(deallocate_systems_after_evolve=deallocate_systems_)
     
   end subroutine create
 
 
-  subroutine update(this, basis_list)
+  subroutine update(this, basis_list, deallocate_systems)
     !! update the distribution functions from the input file
     implicit none
     ! Arguments
@@ -230,11 +238,18 @@ module evolver
     !! Self, parent of the procedure.
     type(bas_type), dimension(:), intent(in) :: basis_list
     !! List of basis structures.
+    logical, intent(in), optional :: deallocate_systems
+    !! Deallocate the systems after the distribution functions are created.
 
-    
+    ! Local variables
+    logical :: deallocate_systems_ = .true.
+
+
+    if(present(deallocate_systems)) deallocate_systems_ = deallocate_systems
+
     call this%add(basis_list)
     call this%set_bond_info()
-    call this%evolve()
+    call this%evolve(deallocate_systems_after_evolve=deallocate_systems_)
     
   end subroutine update
 
@@ -248,8 +263,18 @@ module evolver
     character(*), intent(in) :: file
 
     integer :: unit, i, j
-    integer, allocatable, dimension(:,:) :: idx
 
+
+    if(.not.allocated(this%system))then
+       write(0,*) "ERROR: No systems to write"
+       write(0,*) "Systems either not created or deallocated after evolve"
+       write(0,*) "To stop automatic deallocation, &
+            &use the following flag in create()"
+       write(0,*)
+       write(0,*) "   deallocate_systems = .false."
+       write(0,*)
+       stop 1
+    end if
     open(newunit=unit, file=file)
     write(unit, *) "nbins", this%nbins
     write(unit, *) "width", this%width

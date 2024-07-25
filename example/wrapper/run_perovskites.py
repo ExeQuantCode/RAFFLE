@@ -56,7 +56,7 @@ for i, atoms in enumerate(database):
 print("Database read")
 
 print("Setting database")
-generator.distributions.create(database_basis)
+generator.distributions.create(database_basis, deallocate_systems=False)
 print("Database set")
 
 print("Printing distributions")

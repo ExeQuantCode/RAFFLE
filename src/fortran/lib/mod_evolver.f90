@@ -538,6 +538,7 @@ module evolver
     class(gvector_container_type), intent(inout) :: this
 
     integer :: i, unit
+    real(real12) :: radius
     character(len=3), dimension(:), allocatable :: element_list
 
 
@@ -550,8 +551,17 @@ module evolver
     end do
     call set(element_list)
     if(allocated(this%element_info)) deallocate(this%element_info)
+    if(.not.allocated(element_database)) allocate(element_database(0))
     allocate(this%element_info(size(element_list)))
     do i = 1, size(element_list)
+       if( findloc( &
+            [ element_database(:)%name ], element_list(i), dim=1 ) .lt. 1 )then
+          call get_element_properties(element_list(i), radius=radius)
+          element_database = [ &
+               element_database(:), &
+               element_type(name = element_list(i), radius = radius) &
+          ]
+       end if
        call this%element_info(i)%set(element_list(i))
     end do
     
@@ -571,6 +581,8 @@ module evolver
     ! Local variables
     integer :: i
     !! Loop index.
+    real(real12) :: radius
+    !! Element radii.
     character(len=3), dimension(:), allocatable :: element_list
     !! List of elements in the container.
 
@@ -597,7 +609,17 @@ module evolver
     !---------------------------------------------------------------------------
     ! check if all elements are in the element_info array
     !---------------------------------------------------------------------------
+    if(.not.allocated(element_database)) allocate(element_database(0))
     do i = 1, size(element_list)
+       if(findloc( &
+            [ element_database(:)%name ], &
+            element_list(i), dim=1 ) .lt. 1 )then
+          call get_element_properties(element_list(i), radius=radius)
+          element_database = [ &
+               element_database(:), &
+               element_type(name = element_list(i), radius = radius) &
+          ]
+       end if
        if( findloc( &
             [ this%element_info(:)%name ], &
             element_list(i), dim=1 ) .lt. 1 )then
@@ -629,7 +651,10 @@ module evolver
     ! Local variables
     integer :: idx, idx_db
     !! Index of the element in the element_info array.
+    real(real12) :: radius
+    !! Element radius.
     character(len=3) :: element_
+    !! Element name without null characters.
 
 
     !---------------------------------------------------------------------------
@@ -653,9 +678,10 @@ module evolver
     if(.not.allocated(element_database)) allocate(element_database(0))
     idx_db = findloc( [ element_database(:)%name ], element_, dim=1 )
     if(idx_db.lt.1)then
+       call get_element_properties( element_, radius = radius )
        element_database = [ &
             element_database(:), &
-            element_type(name = element_, energy = energy) &
+            element_type(name = element_, energy = energy, radius = radius) &
        ]
     else
        element_database(idx_db)%energy = energy
@@ -758,6 +784,7 @@ module evolver
 
     integer :: i, j, k, idx1, idx2
     integer :: num_elements, num_pairs
+    real(real12) :: radius
     logical :: success
 
 
@@ -788,10 +815,22 @@ module evolver
                      this%element_info(i)%name, ' and ', &
                      this%element_info(j)%name
           write(0,*) 'WARNING: Setting bond to average of covalent radii'
-
-          this%bond_info(num_pairs)%radius_covalent = &
-                ( element_database(idx1)%radius + &
+          idx1 = findloc([ element_database(:)%name ], &
+                           this%element_info(i)%name, dim=1)
+          idx2 = findloc([ element_database(:)%name ], &
+                           this%element_info(j)%name, dim=1)
+          radius = ( element_database(idx1)%radius + &
                 element_database(idx2)%radius ) / 2._real12
+          if(idx1.lt.1.or.idx2.lt.1)then
+             write(*,*) "ERROR", idx1, idx2
+             stop 1
+          end if
+          this%bond_info(num_pairs) = element_bond_type( &
+               elements = [ &
+                    this%element_info(i)%name, &
+                    this%element_info(j)%name ], &
+               radius = radius &
+          )
 
        end do pair_loop2
     end do pair_loop1
@@ -863,9 +902,11 @@ module evolver
       is = findloc([ this%element_info(:)%name ], pair_list(i,1), dim=1)
       js = findloc([ this%element_info(:)%name ], pair_list(i,2), dim=1)
       radius1 = this%element_info(is)%radius
-      if(radius1.le.1.E-6) call get_element_properties(pair_list(i,1), radius1)
+      if(radius1.le.1.E-6) &
+           call get_element_properties(pair_list(i,1), radius = radius1)
       radius2 = this%element_info(js)%radius
-      if(radius2.le.1.E-6) call get_element_properties(pair_list(i,2), radius2)
+      if(radius2.le.1.E-6) &
+           call get_element_properties(pair_list(i,2), radius = radius2)
       radius = ( radius1 + radius2 ) / 2._real12
       element_bond_database = [ element_bond_database, &
            element_bond_type(elements=[pair_list(i,:)], radius=radius) ]

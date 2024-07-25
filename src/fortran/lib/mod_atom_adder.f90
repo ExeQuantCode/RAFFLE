@@ -391,7 +391,7 @@ contains
     do while (i .le. num_points)
        i = i + 1
        if( get_min_dist_between_point_and_atom( &
-             basis, points(:,i), atom ) .lt. &
+             basis, points_tmp(:,i), atom ) .lt. &
              radius * 0.95_real12 ) then
           num_points = num_points - 1
           points_tmp(:,i:num_points) = points_tmp(:,i+1:num_points+1)

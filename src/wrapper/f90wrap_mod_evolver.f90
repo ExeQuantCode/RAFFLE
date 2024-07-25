@@ -841,7 +841,6 @@ subroutine f90wrap_evolver__write__binding__gvector_container_type(this, file)
     integer, intent(in), dimension(2) :: this
     character*(*), intent(in) :: file
     this_ptr = transfer(this, this_ptr)
-    write(*,*) "looky here"
     call this_ptr%p%write(file=file)
 end subroutine f90wrap_evolver__write__binding__gvector_container_type
 

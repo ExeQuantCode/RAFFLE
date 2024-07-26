@@ -304,6 +304,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
 
             # check if calculator is present
             if atoms.calc is None:
+                print("WARNING: No calculator present, setting energy to 0.0")
                 atoms.calc = SinglePointCalculator(atoms, energy=0.0)
             self.energy = atoms.get_potential_energy()
             

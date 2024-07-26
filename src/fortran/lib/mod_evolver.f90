@@ -821,6 +821,13 @@ module evolver
                            this%element_info(j)%name, dim=1)
           radius = ( element_database(idx1)%radius + &
                 element_database(idx2)%radius ) / 2._real12
+          if(.not.allocated(element_bond_database)) &
+               allocate(element_bond_database(0))
+          element_bond_database = [ element_bond_database, &
+               element_bond_type(elements=[ &
+                    this%element_info(i)%name, &
+                    this%element_info(j)%name ], radius=radius) ]
+          call sort_str(element_bond_database(size(element_bond_database))%element)
           if(idx1.lt.1.or.idx2.lt.1)then
              write(*,*) "ERROR", idx1, idx2
              stop 1

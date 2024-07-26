@@ -67,7 +67,7 @@ contains
        suitability_grid(i) = buildmap_POINT( gvector_container, &
             gridpoints(:,i), basis, &
             atom_ignore_list, radius_list, &
-            uptol=1.1_real12, lowtol=1.5_real12)
+            uptol=3._real12, lowtol=1.5_real12)
     end do
     if(abs(maxval(suitability_grid)).lt.1.E-6) then
       deallocate(suitability_grid)
@@ -205,7 +205,7 @@ contains
        calculated_value = buildmap_POINT( gvector_container, &
             tmpvector, basis, &
             atom_ignore_list, radius_list, &
-            uptol=1.1_real12, lowtol=1.5_real12)
+            uptol=3._real12, lowtol=1.5_real12)
 
        call random_number(rtmp1)
        if (rtmp1.lt.calculated_value) exit random_loop
@@ -238,7 +238,7 @@ contains
        calculated_test = buildmap_POINT( gvector_container, &
             testvector, basis, &
             atom_ignore_list, radius_list, &
-            uptol=1.1_real12, lowtol=1.5_real12)
+            uptol=3._real12, lowtol=1.5_real12)
      
        if(calculated_test.lt.calculated_value) then 
           l = l + 1
@@ -338,7 +338,7 @@ contains
                    if( get_min_dist_between_point_and_atom( &
                         basis, &
                         [i, j, k] / real(bin_size,real12), [is,ia] ) .lt. &
-                        radius_list(pair_index(is)) * 0.95_real12 ) &
+                        radius_list(pair_index(is)) * 1.5_real12 ) &
                         cycle grid_loop3
                 end do
              end do
@@ -392,7 +392,7 @@ contains
        i = i + 1
        if( get_min_dist_between_point_and_atom( &
              basis, points_tmp(:,i), atom ) .lt. &
-             radius * 0.95_real12 ) then
+             radius * 1.5_real12 ) then
           num_points = num_points - 1
           points_tmp(:,i:num_points) = points_tmp(:,i+1:num_points+1)
           i = i - 1

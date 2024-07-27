@@ -50,7 +50,7 @@ contains
     !! Loop counters.
     integer :: bin
     !! Bin for the distribution function.
-    real(real12) :: contribution, repeat_power
+    real(real12) :: contribution, repeat_power_3body, repeat_power_4body
     !! Contribution to the viability map, repeat power.
     real(real12) :: bondlength_1, bondlength_2, bondlength_3
     !! Bond lengths.
@@ -72,7 +72,8 @@ contains
     
     ! Initialisation
     output = 0._real12
-    repeat_power = 1._real12
+    repeat_power_3body = 2._real12
+    repeat_power_4body = 4._real12
     viability_2body = 0._real12
     viability_3body = 1._real12
     viability_4body = 1._real12
@@ -151,10 +152,9 @@ contains
                    radius_list(pair_index(ls,js))*lowtol)then
                  deallocate(pair_index)
                  return
-              end if
-              if(bondlength_2.lt.&!get_distance(position,position_storage2).lt.&
-                   gvector_container%cutoff_max(1)) then
-                   ! radius_list(pair_index(ls,js))*uptol) then
+              else if(bondlength_2.lt.&!get_distance(position,position_storage2).lt.&
+                   ! gvector_container%cutoff_max(1)) then
+                   radius_list(pair_index(ls,js))*uptol) then
                  bin = gvector_container%get_bin( &
                       get_angle( position_storage1, &
                                  position, &
@@ -163,15 +163,16 @@ contains
                  if(bin.eq.0) cycle atom_loop2
                  contribution = gvector_container%total%df_3body(bin,is)
                  viability_3body = ( viability_3body * &
-                       contribution ** (1._real12/repeat_power))
+                       contribution ** (1._real12/repeat_power_3body))
               end if
               !!! CHECKS WHETHER THE BONDLENGTH BETWEEN THE CURRENT ATOM AND THE ...
               !!! ... THIRD ATOM IS WITHIN THE TOLERANCE
               !!! I have removed the second check as this, again, is just checking ...
               !!! ... the effect of a periodic image
-              if(bondlength_2.lt.&!get_distance(position_storage1,position_storage2).ge.&
-                   gvector_container%cutoff_max(1)) cycle
-                   ! radius_list(pair_index(ls,js))*uptol)) cycle
+              !   if(get_min_dist_between_two_atoms(basis, [is,ia], [js,ja]).lt.&
+              !    !bondlength_2.lt.&!get_distance(position_storage1,position_storage2).ge.&
+              !        ! gvector_container%cutoff_max(1)) cycle
+              !        radius_list(pair_index(ls,js))*uptol) cycle
                  
               ! 4-body map
               ! check dihedral angle between test point and all other atoms
@@ -191,10 +192,9 @@ contains
                          radius_list(pair_index(ls,ks))*lowtol) then
                        deallocate(pair_index)
                        return
-                    end if
-                    if(bondlength_3.lt.&!get_distance(position_storage1,position_storage3).lt.&
-                         gvector_container%cutoff_max(1)) then
-                         ! radius_list(pair_index(is,ks))*uptol) then
+                    else if(bondlength_3.lt.&!get_distance(position_storage1,position_storage3).lt.&
+                         ! gvector_container%cutoff_max(1)) then
+                         radius_list(pair_index(is,ks))*uptol) then
                        bin = gvector_container%get_bin( &
                                 get_dihedral_angle( &
                                            position, &
@@ -212,7 +212,7 @@ contains
                        !...account for sumamtion of atoms in 3D.
                        !Will need to think further on this.
                        viability_4body = ( viability_4body * &
-                            contribution ** (1._real12/repeat_power))
+                            contribution ** (1._real12/repeat_power_4body))
                     end if
                  end do atom_loop3
               end do species_loop3

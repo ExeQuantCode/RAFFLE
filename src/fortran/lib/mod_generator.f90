@@ -397,19 +397,46 @@ contains
     !---------------------------------------------------------------------------
     ! check for viable gridpoints
     !---------------------------------------------------------------------------
-    viable_gridpoints = get_viable_gridpoints( this%bins, &
-         basis, &
-         [ this%distributions%bond_info(:)%radius_covalent ], &
-         placement_list_shuffled )
+    method_probab_ = method_probab
+    if(abs( method_probab_(3) - method_probab_(2) ) .gt. 1.E-3)then
+       viable_gridpoints = get_viable_gridpoints( this%bins, &
+            basis, &
+            [ this%distributions%bond_info(:)%radius_covalent ], &
+            placement_list_shuffled )
+    end if
 
 
     !---------------------------------------------------------------------------
     ! place the atoms
     !---------------------------------------------------------------------------
-    method_probab_ = method_probab
     iplaced = 0
     void_ticker = 0
+    viable = .false.
     placement_loop: do while (iplaced.lt.num_insert_atoms)
+       if(viable)then
+          if(allocated(viable_gridpoints)) &
+               call update_viable_gridpoints( viable_gridpoints, &
+                     basis, &
+                     [ placement_list_shuffled(iplaced,:) ], &
+                     this%distributions%bond_info( &
+                        nint( ( basis%nspec - &
+                          placement_list_shuffled(iplaced,1)/2._real12 ) * &
+                        ( placement_list_shuffled(iplaced,1) - 1 ) + &
+                        placement_list_shuffled(iplaced,1) ) &                       
+                     )%radius_covalent )
+          if(.not.allocated(viable_gridpoints))then
+             if(abs(method_probab_(2)).lt.1.E-3)then
+                write(*,*) "ERROR: No viable gridpoints"
+                write(*,*) "No placement methods available"
+                stop 0
+             else if(abs( method_probab_(3) - method_probab_(2) ) .gt. 1.E-3) then
+                write(*,*) "WARNING: No more viable gridpoints"
+                write(*,*) "Suppressing global minimum method"
+                method_probab_ = method_probab_ / method_probab_(2)
+                method_probab_(3) = method_probab_(2)
+             end if
+          end if
+       end if
        call random_number(rtmp1)
        if(rtmp1.le.method_probab_(1)) then 
           if(verbose.gt.0) write(*,*) "Add Atom Void"
@@ -433,6 +460,12 @@ contains
                 placement_list_shuffled(iplaced+1:,:), &
                 [ this%distributions%bond_info(:)%radius_covalent ], &
                 viable )
+          if(.not. viable .and. abs(method_probab_(2)).lt.1.E-3)then
+             write(*,*) "ERROR: No viable gridpoints"
+             write(*,*) "  Min method is the only method, but cannot place another atom"
+             write(*,*) "  Species to place now: ", basis%spec(placement_list_shuffled(iplaced+1,1))%name
+             stop 0
+          end if
        end if
        if(.not. viable) then
           if(void_ticker.gt.10) &
@@ -441,29 +474,12 @@ contains
           void_ticker = 0
           if(.not.viable) cycle placement_loop
        end if
-       basis%spec(placement_list_shuffled(iplaced+1,1))%atom( &
-            placement_list_shuffled(iplaced+1,2),:3) = point(:3)
+       iplaced = iplaced + 1
+       basis%spec(placement_list_shuffled(iplaced,1))%atom( &
+            placement_list_shuffled(iplaced,2),:3) = point(:3)
        if(verbose.gt.0)then
           write(*,'(A)',ADVANCE='NO') achar(13)
           write(*,*) "placed", viable
-       end if
-       iplaced = iplaced + 1
-       if(allocated(viable_gridpoints)) &
-            call update_viable_gridpoints( viable_gridpoints, &
-                  basis, &
-                  [ placement_list_shuffled(iplaced,:) ], &
-                  this%distributions%bond_info( &
-                     nint( ( basis%nspec - &
-                       placement_list_shuffled(iplaced,1)/2._real12 ) * &
-                     ( placement_list_shuffled(iplaced,1) - 1 ) + &
-                     placement_list_shuffled(iplaced,1) ) &                       
-                  )%radius_covalent )
-       if(.not.allocated(viable_gridpoints).and. &
-            abs( method_probab_(3) - method_probab_(2) ) .gt. 1.E-3) then
-          write(*,*) "WARNING: No more viable gridpoints"
-          write(*,*) "Suppressing global minimum method"
-          method_probab_ = method_probab_ / method_probab_(2)
-          method_probab_(3) = method_probab_(2)
        end if
 
     end do placement_loop

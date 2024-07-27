@@ -248,7 +248,7 @@ module evolver
     if(present(deallocate_systems)) deallocate_systems_ = deallocate_systems
 
     call this%add(basis_list)
-    call this%set_bond_info()
+    call this%update_bond_info()
     call this%evolve(deallocate_systems_after_evolve=deallocate_systems_)
     
   end subroutine update
@@ -829,16 +829,14 @@ module evolver
                     this%element_info(j)%name ], radius=radius) ]
           call sort_str(element_bond_database(size(element_bond_database))%element)
           if(idx1.lt.1.or.idx2.lt.1)then
-             write(*,*) "ERROR", idx1, idx2
+             write(0,*) "ERROR", idx1, idx2
              stop 1
           end if
-          this%bond_info(num_pairs) = element_bond_type( &
-               elements = [ &
-                    this%element_info(i)%name, &
-                    this%element_info(j)%name ], &
-               radius = radius &
+          call this%bond_info(num_pairs)%set( &
+               this%element_info(i)%name, &
+               this%element_info(j)%name, &
+               success &
           )
-
        end do pair_loop2
     end do pair_loop1
 

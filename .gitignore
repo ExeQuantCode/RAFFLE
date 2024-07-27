@@ -4,6 +4,7 @@ bin/
 obj/
 *.mod
 *.smod
+*.so
 *.txt
 DTESTING/
 DTEST/

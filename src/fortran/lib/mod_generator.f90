@@ -426,8 +426,8 @@ contains
                      )%radius_covalent )
           if(.not.allocated(viable_gridpoints))then
              if(abs(method_probab_(2)).lt.1.E-3)then
-                write(*,*) "ERROR: No viable gridpoints"
-                write(*,*) "No placement methods available"
+                write(0,*) "ERROR: No viable gridpoints"
+                write(0,*) "No placement methods available"
                 stop 0
              else if(abs( method_probab_(3) - method_probab_(2) ) .gt. 1.E-3) then
                 write(*,*) "WARNING: No more viable gridpoints"
@@ -461,9 +461,9 @@ contains
                 [ this%distributions%bond_info(:)%radius_covalent ], &
                 viable )
           if(.not. viable .and. abs(method_probab_(2)).lt.1.E-3)then
-             write(*,*) "ERROR: No viable gridpoints"
-             write(*,*) "  Min method is the only method, but cannot place another atom"
-             write(*,*) "  Species to place now: ", basis%spec(placement_list_shuffled(iplaced+1,1))%name
+             write(0,*) "ERROR: No viable gridpoints"
+             write(0,*) "  Min method is the only method, but cannot place another atom"
+             write(0,*) "  Species to place now: ", basis%spec(placement_list_shuffled(iplaced+1,1))%name
              stop 0
           end if
        end if

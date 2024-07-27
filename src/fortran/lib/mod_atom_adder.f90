@@ -10,9 +10,13 @@ module add_atom
   use misc_linalg, only: modu
   use rw_geom, only: bas_type
   use edit_geom, only: get_min_dist, get_min_dist_between_point_and_atom
-  use buildmap, only: buildmap_POINT
+  use evaluator, only: evaluate_point
   use evolver, only: gvector_container_type
   implicit none
+  real(real12) :: lowtol = 1.5_real12
+  !! Lower tolerance for evaluate_point.
+  real(real12) :: uptol = 3._real12
+  !! Upper tolerance for evaluate_point.
 
 
   private
@@ -59,15 +63,15 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! run buildmap_point for a set of points in the unit cell
+    ! run evaluate_point for a set of points in the unit cell
     !---------------------------------------------------------------------------
     viable = .false.
     allocate(suitability_grid(size(gridpoints,dim=2)))
     do concurrent( i = 1:size(gridpoints,dim=2) )
-       suitability_grid(i) = buildmap_POINT( gvector_container, &
+       suitability_grid(i) = evaluate_point( gvector_container, &
             gridpoints(:,i), basis, &
             atom_ignore_list, radius_list, &
-            uptol=3._real12, lowtol=1.5_real12)
+            uptol=uptol, lowtol=lowtol)
     end do
     if(abs(maxval(suitability_grid)).lt.1.E-6) then
       deallocate(suitability_grid)
@@ -202,10 +206,10 @@ contains
           tmpvector(j) = rtmp1
        end do
 
-       calculated_value = buildmap_POINT( gvector_container, &
+       calculated_value = evaluate_point( gvector_container, &
             tmpvector, basis, &
             atom_ignore_list, radius_list, &
-            uptol=3._real12, lowtol=1.5_real12)
+            uptol=uptol, lowtol=lowtol)
 
        call random_number(rtmp1)
        if (rtmp1.lt.calculated_value) exit random_loop
@@ -235,10 +239,10 @@ contains
        end do
        testvector = testvector - floor(testvector)
 
-       calculated_test = buildmap_POINT( gvector_container, &
+       calculated_test = evaluate_point( gvector_container, &
             testvector, basis, &
             atom_ignore_list, radius_list, &
-            uptol=3._real12, lowtol=1.5_real12)
+            uptol=uptol, lowtol=lowtol)
      
        if(calculated_test.lt.calculated_value) then 
           l = l + 1
@@ -338,7 +342,7 @@ contains
                    if( get_min_dist_between_point_and_atom( &
                         basis, &
                         [i, j, k] / real(bin_size,real12), [is,ia] ) .lt. &
-                        radius_list(pair_index(is)) * 1.5_real12 ) &
+                        radius_list(pair_index(is)) * lowtol ) &
                         cycle grid_loop3
                 end do
              end do
@@ -392,7 +396,7 @@ contains
        i = i + 1
        if( get_min_dist_between_point_and_atom( &
              basis, points_tmp(:,i), atom ) .lt. &
-             radius * 1.5_real12 ) then
+             radius * lowtol ) then
           num_points = num_points - 1
           points_tmp(:,i:num_points) = points_tmp(:,i+1:num_points+1)
           i = i - 1

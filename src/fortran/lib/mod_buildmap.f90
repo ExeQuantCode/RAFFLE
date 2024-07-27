@@ -1,4 +1,4 @@
-module buildmap
+module evaluator
   !! Module to build viability map of a structure
   !!
   !! This module handles the viability map for a structure, which is a map of
@@ -16,13 +16,13 @@ module buildmap
 
 
   private
-  public :: buildmap_POINT
+  public :: evaluate_point
 
 
 contains
 
 !###############################################################################
-  pure function buildmap_POINT(gvector_container, &
+  pure function evaluate_point(gvector_container, &
        position, basis, atom_ignore_list, &
        radius_list, uptol, lowtol) &
        result(output)
@@ -226,7 +226,7 @@ contains
 
    deallocate(pair_index)
     
-  end function buildmap_POINT
+  end function evaluate_point
 !###############################################################################
 
-end module buildmap
+end module evaluator

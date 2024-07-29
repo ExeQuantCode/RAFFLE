@@ -9,7 +9,7 @@ description = "A Fortran library and executable for structure prediction at mate
 suffixes = ["F90", "f90"]
 
 [library]
-source-dir="src/lib"
+source-dir="src/fortran"
 
 [fortran]
 implicit-typing = false

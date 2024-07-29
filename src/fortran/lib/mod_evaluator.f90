@@ -8,9 +8,7 @@ module evaluator
   use constants, only: real12
   use misc_linalg, only: get_distance, get_angle, get_dihedral_angle
   use rw_geom, only: bas_type
-  use edit_geom, only: &
-       get_min_dist_between_two_atoms, &
-       get_min_dist_between_point_and_atom
+  use edit_geom, only: get_min_dist_between_point_and_atom
   use evolver, only: gvector_container_type
   implicit none
 

@@ -1,5 +1,5 @@
 program test_edit_geom
-  !! Test program for the module mod_edit_geom
+  !! Test program for the module edit_geom.
   use rw_geom, only: bas_type
   use misc_linalg, only: modu
   use edit_geom, only: &

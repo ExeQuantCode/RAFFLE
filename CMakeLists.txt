@@ -39,25 +39,6 @@ enable_language(Fortran)
 # get the user's home directory
 set(HOME_DIR $ENV{HOME})
 
-# # set coverage compiler flags
-# if (CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*")
-#   list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
-#   set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
-#   if(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
-#       include(CodeCoverage)
-#       setup_target_for_coverage_gcovr_html(
-#         NAME coverage
-#         EXECUTABLE ctest
-#         EXCLUDE "${PROJECT_SOURCE_DIR}/test/*")
-#   endif()
-# endif()
-
-# set the output directories
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-
-# enable testing
-enable_testing()
-
 # set options for building tests and examples
 option(BUILD_TESTS "Build the unit tests" ON)
 option(BUILD_EXAMPLES "Build the examples" ON)
@@ -65,6 +46,25 @@ option(ENABLE_ATHENA "Build energetic predictions with ATHENA" OFF)
 option(BUILD_PYTHON "Build the python library" On)
 option(BUILD_EXECUTABLE "Build the Fortran executable" On)
 option(REMAKE_F90WRAP "Remake the f90wrap signature file" OFF)
+
+# set coverage compiler flags
+if (CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*")
+  list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+  set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+  if(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
+      include(CodeCoverage)
+      setup_target_for_coverage_gcovr_html(
+        NAME coverage
+        EXECUTABLE ctest
+        EXCLUDE "${PROJECT_SOURCE_DIR}/test/*")
+  endif()
+endif()
+
+# set the output directories
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+
+# enable testing
+enable_testing()
 
 # Define the sources
 set(SRC_DIR src)
@@ -221,10 +221,6 @@ target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug>:${DEBUGFLAGS}>"
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Release>:${PYTHONFLAGS}>")
 
 
-# # add coverage compiler flags
-# if (CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*")
-#   append_coverage_compiler_flags()
-# endif()
 
 if (BUILD_EXECUTABLE)
     add_executable(${PROJECT_NAME}_executable ${PREPENDED_EXECUTABLE_FILES})
@@ -240,6 +236,32 @@ if (BUILD_EXECUTABLE)
 endif()
 
 
+# include the build test directory
+if(BUILD_TESTS)
+  add_subdirectory(test)
+endif()
+
+# add coverage compiler flags
+if ( ( CMAKE_Fortran_COMPILER MATCHES ".*gfortran.*" OR CMAKE_Fortran_COMPILER MATCHES ".*gcc.*" ) AND 
+     ( CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*" ) )
+
+    append_coverage_compiler_flags()
+
+    # Copy test data files
+    add_custom_command(
+        OUTPUT ${CMAKE_BINARY_DIR}/test/test
+        COMMAND mkdir -p ${CMAKE_BINARY_DIR}/test/test
+    )
+    add_custom_command(
+        OUTPUT ${CMAKE_BINARY_DIR}/test/test/data
+        COMMAND cp -r ${CMAKE_CURRENT_LIST_DIR}/test/data ${CMAKE_BINARY_DIR}/test/test/.
+        COMMENT "Copying test data files"
+    )
+    add_custom_target(copy_test_data ALL
+        DEPENDS ${CMAKE_BINARY_DIR}/test/test ${CMAKE_BINARY_DIR}/test/test/data
+    )
+
+endif()
 
 if (BUILD_PYTHON)
 
@@ -336,7 +358,7 @@ if (BUILD_PYTHON)
 endif()
 
 
-
+# link the Athena library
 if(ENABLE_ATHENA)
-    target_link_libraries(raffle ${ATHENA_LIBRARY})
+    target_link_libraries(${PROJECT_NAME} ${ATHENA_LIBRARY})
 endif()

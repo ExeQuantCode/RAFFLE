@@ -12,7 +12,7 @@
 !!!#############################################################################
 module rw_geom
   use constants, only: pi,real12
-  use misc_raffle, only: to_upper,jump,Icount
+  use misc_raffle, only: to_upper, to_lower, jump, Icount
   use misc_linalg, only: LUinv,modu
   implicit none
 
@@ -97,32 +97,38 @@ contains
 !!!#############################################################################
 !!! sets up the name of output files and subroutines to read files
 !!!#############################################################################
-  subroutine geom_read(UNIT,basis,length)
+  subroutine geom_read(UNIT, basis, length, iostat)
     implicit none
     integer, intent(in) :: UNIT
     type(bas_type), intent(out) :: basis
     integer, optional, intent(in) :: length
+    integer, optional, intent(out) :: iostat
 
     integer :: dim,i
+    integer :: iostat_ = 0
 
     dim=3
     if(present(length)) dim=length
 
     select case(igeom_input)
     case(1)
-       call VASP_geom_read(UNIT,basis,dim)
+       call VASP_geom_read(UNIT, basis, dim, iostat_)
     case(2)
-       call CASTEP_geom_read(UNIT,basis,dim)
+       call CASTEP_geom_read(UNIT, basis, dim)
     case(3)
        call QE_geom_read(UNIT,basis,dim)
     case(4)
        stop "ERROR: Not yet set up for CRYSTAL"
     case(5)
-       call XYZ_geom_read(UNIT,basis,dim)
+       call XYZ_geom_read(UNIT, basis, dim, iostat_)
        write(0,'("WARNING: XYZ file format does not contain lattice data")')
     case(6)
-       call extXYZ_geom_read(UNIT,basis,dim)
+       call extXYZ_geom_read(UNIT, basis, dim, iostat_)
     end select
+    if(iostat_.ne.0) then
+       if(present(iostat)) iostat = iostat_
+       return
+    end if
     if(dim.eq.4)then
        do i=1,basis%nspec
          basis%spec(i)%atom(:,4)=1._real12
@@ -132,7 +138,6 @@ contains
        call get_element_properties( &
             basis%spec(i)%name, basis%spec(i)%mass, basis%spec(i)%charge )
     end do
-
 
   end subroutine geom_read
 !!!#############################################################################
@@ -173,11 +178,12 @@ contains
 !!!#############################################################################
 !!! read the POSCAR or CONTCAR file
 !!!#############################################################################
- subroutine VASP_geom_read(UNIT,basis,length)
+ subroutine VASP_geom_read(UNIT,basis,length, iostat)
    implicit none
    integer, intent(in) :: UNIT
    type(bas_type), intent(out) :: basis
    integer, intent(in), optional :: length
+   integer, intent(out), optional :: iostat
 
    integer :: pos,count,Reason
    real(real12) :: scal 
@@ -185,6 +191,8 @@ contains
    character(len=1024) :: buffer
    real(real12), dimension(3,3) :: reclat
    integer :: i,j,k,dim
+
+   integer :: iostat_ = 0
 
 
 !!!-----------------------------------------------------------------------------
@@ -201,9 +209,11 @@ contains
 !!!-----------------------------------------------------------------------------
    read(UNIT,'(A)',iostat=Reason) basis%sysname
    if(Reason.ne.0)then
-      write(0,'(" The file is not in POSCAR format.")')
-      write(0,'(" Exiting code ...")')
-      call exit()
+      write(0,'("ERROR: The file is not in POSCAR format.")')
+      write(0,*) "Expected system name, got: ",trim(basis%sysname)
+      iostat_ = 1
+      if(present(iostat)) iostat = iostat_
+      return
    end if
    read(UNIT,*) scal
 
@@ -250,8 +260,9 @@ contains
 !!!-----------------------------------------------------------------------------
    basis%lcart=.false.
    read(UNIT,'(A)') buffer
-   if(verify(trim(buffer),'Direct').eq.0) basis%lcart=.false.
-   if(verify(trim(buffer),'Cartesian').eq.0) then
+   buffer = to_lower(buffer)
+   if(verify(trim(buffer),'direct').eq.0) basis%lcart=.false.
+   if(verify(trim(buffer),'cartesian').eq.0) then
       write(0,*) "NOT SURE IF CARTESIAN COORDINATES ARE SUPPORTED YET!"
       write(0,*) "PLEASE CHECK COORDINATES"
       basis%lcart=.true.
@@ -292,6 +303,7 @@ contains
    end do
    basis%natom=sum(basis%spec(:)%num)
 
+   if(present(iostat)) iostat = iostat_
 
  end subroutine VASP_geom_read
 !!!#############################################################################
@@ -745,11 +757,12 @@ contains
 !!!#############################################################################
 !!! reads atoms from an xyz file
 !!!#############################################################################
- subroutine XYZ_geom_read(UNIT,basis,length)
+ subroutine XYZ_geom_read(UNIT,basis,length, iostat)
    implicit none
    integer, intent(in) :: UNIT
    type(bas_type), intent(out) :: basis
    integer, intent(in), optional :: length
+   integer, intent(out), optional :: iostat
 
    integer :: Reason
    integer, allocatable, dimension(:) :: tmp_num
@@ -758,6 +771,8 @@ contains
    character(len=5) :: ctmp
    character(len=5), allocatable, dimension(:) :: tmp_spec
    integer :: i,j,dim
+   integer :: iostat_ = 0
+
 
    dim=3
    if(present(length)) dim=length
@@ -765,9 +780,10 @@ contains
 
    read(UNIT,*,iostat=Reason) basis%natom
    if(Reason.ne.0)then
-      write(0,'(" The file is not in xyz format.")')
-      write(0,'(" Exiting code ...")')
-      call exit()
+      write(0,'("ERROR: The file is not in xyz format.")')
+      iostat_ = 1
+      if(present(iostat)) iostat = iostat_
+      return
    end if
    read(UNIT,'(A)',iostat=Reason) basis%sysname
 
@@ -815,6 +831,7 @@ contains
       basis%spec(i)%atom(1:tmp_num(i),1:3)=tmp_bas(i,1:tmp_num(i),1:3)
    end do
 
+   if(present(iostat)) iostat = iostat_
 
  end subroutine XYZ_geom_read
 !!!#############################################################################
@@ -848,11 +865,12 @@ contains
 !!!#############################################################################
 !!! reads lattice and basis from an extended xyz file
 !!!#############################################################################
- subroutine extXYZ_geom_read(UNIT,basis,length)
+ subroutine extXYZ_geom_read(UNIT, basis, length, iostat)
    implicit none
    integer, intent(in) :: UNIT
    type(bas_type), intent(out) :: basis
    integer, intent(in), optional :: length
+   integer, intent(out), optional :: iostat
 
    integer :: Reason
    integer :: index1, index2
@@ -863,6 +881,7 @@ contains
    character(len=5), allocatable, dimension(:) :: tmp_spec
    character(len=1024) :: buffer
    integer :: i,j,dim
+   integer :: iostat_ = 0
 
    dim=3
    basis%lcart=.true.
@@ -874,15 +893,17 @@ contains
 !!!-----------------------------------------------------------------------------
    read(UNIT,*,iostat=Reason) basis%natom
    if(Reason.ne.0)then
-      write(0,'(" The file is not in xyz format.")')
-      write(0,'(" Exiting code ...")')
-      call exit()
+      write(0,'("ERROR: The file is not in xyz format.")')
+      iostat_ = 1
+      if(present(iostat)) iostat = iostat_
+      return
    end if
    read(UNIT,'(A)',iostat=Reason) buffer
    if(Reason.ne.0)then
-      write(0,'(" The file is not in xyz format.")')
-      write(0,'(" Exiting code ...")')
-      call exit()
+      write(0,'("ERROR: The file is not in xyz format.")')
+      iostat_ = 1
+      if(present(iostat)) iostat = iostat_
+      return
    end if
    index1 = index(buffer,'Lattice="') + 9
    index2 = index(buffer(index1:),'"') + index1 - 2
@@ -938,6 +959,8 @@ contains
       basis%sysname = basis%sysname//trim(buffer)
       if(i.lt.basis%nspec) basis%sysname = basis%sysname//"_"
    end do
+
+   if(present(iostat)) iostat = iostat_
 
  end subroutine extXYZ_geom_read
 !!!#############################################################################

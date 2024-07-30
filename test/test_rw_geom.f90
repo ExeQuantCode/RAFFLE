@@ -1,7 +1,11 @@
 program test_rw_geom
   !! Test program for the module rw_geom.
   use constants, only: pi,real12
-  use rw_geom, only: bas_type, geom_read, geom_write, igeom_input, igeom_output
+  use rw_geom, only: &
+       bas_type, &
+       geom_read, geom_write, &
+       igeom_input, igeom_output, &
+       clone_bas
   implicit none
 
   integer :: unit, iostat
@@ -55,10 +59,7 @@ program test_rw_geom
   !-----------------------------------------------------------------------------
   bas1%energy = 12.E0
   bas1%sysname = ""
-  bas2%sysname = ""
-  bas2%natom = 0
-  bas2%lat = 0.E0
-  deallocate(bas2%spec)
+  call uninitialise_bas(bas2)
   igeom_input = 6
   igeom_output = 6
   write(*,*) "LOOK", bas1%natom
@@ -75,6 +76,34 @@ program test_rw_geom
   check = compare_bas(bas1, bas2)
   if(.not.check) success = .false.
 
+  
+  !-----------------------------------------------------------------------------
+  ! test clone geometry
+  !-----------------------------------------------------------------------------
+  call uninitialise_bas(bas2)
+  call clone_bas(bas1, bas2)
+  check = compare_bas(bas1, bas2)
+  if(.not.check) success = .false.
+
+  
+  !-----------------------------------------------------------------------------
+  ! test element parameters
+  !-----------------------------------------------------------------------------
+  if(abs(bas1%spec(1)%mass - 28.085E0).gt.1.E-6) then
+     write(0,*) 'Element parameters failed, mass check failed'
+     write(0,*) bas1%spec(1)%mass
+     success = .false.
+  end if
+  if(abs(bas1%spec(1)%charge - 4.0E0).gt.1.E-6) then
+     write(0,*) 'Element parameters failed, charge check failed'
+     write(0,*) bas1%spec(1)%charge
+     success = .false.
+  end if
+  if(abs(bas1%spec(1)%radius - 1.11E0).gt.1.E-6) then
+     write(0,*) 'Element parameters failed, radius check failed'
+     write(0,*) bas1%spec(1)%radius
+     success = .false.
+  end if
 
 
   !-----------------------------------------------------------------------------
@@ -115,5 +144,17 @@ contains
    end if
 
   end function compare_bas
+
+  subroutine uninitialise_bas(bas)
+    type(bas_type), intent(inout) :: bas
+    bas%natom = 0
+    bas%nspec = 0
+    bas%lat = 0.E0
+    bas%energy = 0.E0
+    bas%sysname = ""
+    bas%lcart = .false.
+    bas%pbc = .true.
+    deallocate(bas%spec)
+  end subroutine uninitialise_bas
 
 end program test_rw_geom

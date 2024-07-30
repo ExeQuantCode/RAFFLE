@@ -47,11 +47,11 @@ module rw_geom
      !! Derived type to store information about a basis.
      type(spec_type), allocatable, dimension(:) :: spec
      !! Information about each species in the basis.
-     integer :: nspec
+     integer :: nspec = 0
      !! The number of species in the basis.
-     integer :: natom
+     integer :: natom = 0
      !! The number of atoms in the basis.
-     real(real12) :: energy
+     real(real12) :: energy = 0._real12
      !! The energy of the basis.
      real(real12) :: lat(3,3) = 0._real12
      !! The lattice vectors of the basis.
@@ -59,7 +59,7 @@ module rw_geom
      !! Boolean whether the basis is in cartesian coordinates.
      logical, dimension(3) :: pbc = .true.
      !! Boolean whether the basis has periodic boundary conditions.
-     character(len=1024) :: sysname
+     character(len=128) :: sysname
      !! The name of the system.
    contains
      procedure, pass(this) :: allocate_species
@@ -1184,17 +1184,21 @@ contains
    ! Local variables
    integer :: is, ia, length
    !! Loop index.
-   real(real12), dimension(3,3) :: reclat
+   real(real12), dimension(3,3) :: lattice
    !! The reciprocal lattice vectors.
 
-
-   reclat = transpose( LUinv( this%lat ) ) * 2._real12 * pi
+   
+   if(this%lcart)then
+      lattice = transpose( LUinv( this%lat ) ) * 2._real12 * pi
+   else
+      lattice = this%lat
+   end if
 
    this%lcart = .not.this%lcart
    do is = 1, this%nspec
       do ia = 1, this%spec(is)%num
          this%spec(is)%atom(ia,1:3) = &
-              matmul( reclat, this%spec(is)%atom(ia,1:3) )
+              matmul( lattice, this%spec(is)%atom(ia,1:3) )
       end do
    end do
    
@@ -1332,7 +1336,7 @@ contains
     !---------------------------------------------------------------------------
     ! determines whether user wants output basis extra translational dimension
     !---------------------------------------------------------------------------
-    length_input = size(this%spec(1)%atom(1,:),dim=1)
+    length_input = size(basis%spec(1)%atom(1,:),dim=1)
     if(present(length))then
        length_ = length
     else

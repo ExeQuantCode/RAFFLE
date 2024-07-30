@@ -5,15 +5,18 @@ program test_rw_geom
        bas_type, &
        geom_read, geom_write, &
        igeom_input, igeom_output, &
-       clone_bas
+       clone_bas, &
+       get_element_properties
   implicit none
 
-  integer :: unit, iostat
+  integer :: unit, iostat, i
+  real :: mass, charge, radius
   type(bas_type) :: bas1, bas2
 
   character(len=256) :: cwd, filename = 'test/data/POSCAR_Si'
   logical :: exist, check
   logical :: success = .true.
+  character(len=3), dimension(118) :: element_list
 
 
   ! Read the geometry
@@ -62,7 +65,6 @@ program test_rw_geom
   call uninitialise_bas(bas2)
   igeom_input = 6
   igeom_output = 6
-  write(*,*) "LOOK", bas1%natom
   ! Write the geometry
   open(newunit=unit, status='scratch')
   call geom_write(unit, bas1)
@@ -104,6 +106,56 @@ program test_rw_geom
      write(0,*) bas1%spec(1)%radius
      success = .false.
   end if
+
+
+  !-----------------------------------------------------------------------------
+  ! test element properties
+  !-----------------------------------------------------------------------------
+  element_list = [ &
+       'H  ', 'He ', &
+       'Li ', 'Be ', 'B  ', 'C  ', 'N  ', 'O  ', 'F  ', 'Ne ', &
+       'Na ', 'Mg ', 'Al ', 'Si ', 'P  ', 'S  ', 'Cl ', 'Ar ', &
+       'K  ', 'Ca ', &
+       'Sc ', 'Ti ', 'V  ', 'Cr ', 'Mn ', 'Fe ', 'Co ', 'Ni ', 'Cu ', 'Zn ', &
+       'Ga ', 'Ge ', 'As ', 'Se ', 'Br ', 'Kr ', &
+       'Rb ', 'Sr ', 'Y  ', &
+       'Zr ', 'Nb ', 'Mo ', 'Tc ', 'Ru ', 'Rh ', 'Pd ', 'Ag ', 'Cd ', &
+       'In ', 'Sn ', 'Sb ', 'Te ', 'I  ', 'Xe ', &
+       'Cs ', 'Ba ', 'La ', &
+       'Ce ', 'Pr ', 'Nd ', 'Pm ', 'Sm ', 'Eu ', 'Gd ', 'Tb ', 'Dy ', &
+       'Ho ', 'Er ', 'Tm ', 'Yb ', 'Lu ', &
+       'Hf ', 'Ta ', 'W  ', 'Re ', 'Os ', 'Ir ', 'Pt ', 'Au ', 'Hg ', &
+       'Tl ', 'Pb ', 'Bi ', 'Po ', 'At ', 'Rn ', &
+       'Fr ', 'Ra ', 'Ac ', &
+       'Th ', 'Pa ', 'U  ', 'Np ', 'Pu ', 'Am ', 'Cm ', 'Bk ', 'Cf ', &
+       'Es ', 'Fm ', 'Md ', 'No ', 'Lr ', &
+       'Rf ', 'Db ', 'Sg ', 'Bh ', 'Hs ', 'Mt ', 'Ds ', &
+       'Rg ', 'Cn ', 'Nh ', 'Fl ', 'Mc ', 'Lv ', 'Ts ', 'Og ' &
+  ]
+
+  do i = 1, size(element_list)
+     call get_element_properties(element_list(i), &
+          mass = mass, &
+          charge = charge, &
+          radius = radius &
+     )
+     if(mass.lt.1.E-6) then
+        write(0,*) 'Element properties failed, mass check failed'
+         write(*,*) element_list(i), mass
+        success = .false.
+     end if
+     if(charge.lt.1.E-6) then
+         write(0,*) 'Element properties failed, charge check failed'
+         write(*,*) element_list(i), charge
+         success = .false.
+     end if
+     if(radius.lt.1.E-6) then
+         write(0,*) 'Element properties failed, radius check failed'
+         write(*,*) element_list(i), radius
+         success = .false.
+     end if
+  end do
+
 
 
   !-----------------------------------------------------------------------------

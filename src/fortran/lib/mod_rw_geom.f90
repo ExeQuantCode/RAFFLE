@@ -977,7 +977,7 @@ contains
    integer :: i,j
 
 
-   write(UNIT,'("I0")') basis%natom
+   write(UNIT,'(I0)') basis%natom
    write(UNIT,'(A,8(F0.8,1X),F0.8,A)', advance="no") &
         'Lattice="',((basis%lat(i,j),j=1,3),i=1,3),'"'
    write(UNIT,'(A,F0.8)', advance="no") ' free_energy=',basis%energy

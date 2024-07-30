@@ -16,6 +16,7 @@ program test_rw_geom
   logical :: exist, check
   logical :: success = .true.
   character(len=3), dimension(118) :: element_list
+  real(real12), dimension(:,:), allocatable :: positions
 
 
   ! Read the geometry
@@ -52,8 +53,10 @@ program test_rw_geom
   end if
   close(unit)
   check = compare_bas(bas1, bas2)
-  if(.not.check) success = .false.
-
+  if(.not.check)then
+     write(0,*) 'VASP geometry read/write failed'
+     success = .false.
+  end if
 
 
   !-----------------------------------------------------------------------------
@@ -75,7 +78,10 @@ program test_rw_geom
   end if
   close(unit)
   check = compare_bas(bas1, bas2)
-  if(.not.check) success = .false.
+  if(.not.check)then
+     write(0,*) 'extXYZ geometry read/write failed'
+     success = .false.
+  end if
 
   
   !-----------------------------------------------------------------------------
@@ -88,6 +94,26 @@ program test_rw_geom
 
   
   !-----------------------------------------------------------------------------
+  ! test coordinate system conversion
+  !-----------------------------------------------------------------------------
+  allocate(positions(bas1%spec(1)%num, 3))
+  do i = 1, bas1%spec(1)%num
+     positions(i,:) = matmul(bas1%lat, bas1%spec(1)%atom(i,:3))
+  end do
+  call bas1%convert()
+  if(.not.bas1%lcart) then
+     write(0,*) 'Coordinate system conversion failed, lcart check failed'
+     write(*,*) bas1%lcart
+     success = .false.
+  end if
+  if(any(abs(positions - bas1%spec(1)%atom(:,:3)).gt.1.E-6)) then
+     write(0,*) 'Coordinate system conversion failed, atom positions &
+          &check failed'
+     success = .false.
+  end if
+
+  
+  !-----------------------------------------------------------------------------
   ! test element parameters
   !-----------------------------------------------------------------------------
   if(abs(bas1%spec(1)%mass - 28.085E0).gt.1.E-6) then
@@ -95,7 +121,7 @@ program test_rw_geom
      write(0,*) bas1%spec(1)%mass
      success = .false.
   end if
-  if(abs(bas1%spec(1)%charge - 4.0E0).gt.1.E-6) then
+  if(abs(bas1%spec(1)%charge - 14.0E0).gt.1.E-6) then
      write(0,*) 'Element parameters failed, charge check failed'
      write(0,*) bas1%spec(1)%charge
      success = .false.
@@ -156,7 +182,6 @@ program test_rw_geom
   end do
 
 
-
   !-----------------------------------------------------------------------------
   ! check for any failed tests
   !-----------------------------------------------------------------------------
@@ -183,21 +208,26 @@ contains
    end if
    if(bas1%sysname .ne. bas2%sysname) then
       write(0,*) 'Geometry read/write failed, system name check failed'
+      write(0,*) bas1%sysname, bas2%sysname
       output = .false.
    end if
    if(bas1%natom .ne. bas2%natom) then
       write(0,*) 'Geometry read/write failed, number of atoms check failed'
+      write(0,*) bas1%natom, bas2%natom
       output = .false.
    end if
    if(abs(bas1%energy - bas2%energy).gt.1.E-6) then
       write(0,*) 'Geometry read/write failed, energy check failed'
+      write(0,*) bas1%energy, bas2%energy
       output = .false.
    end if
 
   end function compare_bas
 
   subroutine uninitialise_bas(bas)
+    implicit none
     type(bas_type), intent(inout) :: bas
+
     bas%natom = 0
     bas%nspec = 0
     bas%lat = 0.E0
@@ -206,6 +236,7 @@ contains
     bas%lcart = .false.
     bas%pbc = .true.
     deallocate(bas%spec)
+    
   end subroutine uninitialise_bas
 
 end program test_rw_geom

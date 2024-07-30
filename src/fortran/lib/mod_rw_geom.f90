@@ -136,7 +136,10 @@ contains
     end if
     do i = 1, basis%nspec
        call get_element_properties( &
-            basis%spec(i)%name, basis%spec(i)%mass, basis%spec(i)%charge )
+            basis%spec(i)%name, &
+            mass = basis%spec(i)%mass, &
+            charge = basis%spec(i)%charge, &
+            radius = basis%spec(i)%radius )
     end do
 
   end subroutine geom_read

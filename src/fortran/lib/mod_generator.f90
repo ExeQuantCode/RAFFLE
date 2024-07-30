@@ -12,7 +12,6 @@ module generator
 
   use constants, only: verbose_global => verbose
   use misc_raffle, only: shuffle
-  use rw_geom, only: clone_bas
   use edit_geom, only: bas_merge
   use add_atom, only: add_atom_void, add_atom_walk, add_atom_min, &
        get_viable_gridpoints, update_viable_gridpoints
@@ -383,7 +382,7 @@ contains
     !---------------------------------------------------------------------------
     ! initialise the basis
     !---------------------------------------------------------------------------
-    call clone_bas(basis_initial, basis)
+    call basis%copy(basis_initial)
     num_insert_atoms = basis%natom - this%host%natom
 
 

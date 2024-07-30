@@ -5,7 +5,6 @@ program test_rw_geom
        bas_type, &
        geom_read, geom_write, &
        igeom_input, igeom_output, &
-       clone_bas, &
        get_element_properties
   implicit none
 
@@ -80,10 +79,10 @@ program test_rw_geom
 
   
   !-----------------------------------------------------------------------------
-  ! test clone geometry
+  ! test copy geometry
   !-----------------------------------------------------------------------------
   call uninitialise_bas(bas2)
-  call clone_bas(bas1, bas2)
+  call bas2%copy(bas1)
   check = compare_bas(bas1, bas2)
   if(.not.check) success = .false.
 

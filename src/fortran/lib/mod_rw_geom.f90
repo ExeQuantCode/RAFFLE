@@ -12,7 +12,7 @@ module rw_geom
   private
 
   public :: igeom_input, igeom_output
-  public :: bas_type, spec_type
+  public :: basis_type, species_type
   public :: geom_read, geom_write
   public :: get_element_properties
 
@@ -28,7 +28,7 @@ module rw_geom
   integer :: igeom_output = 1
   !! geometry output file format
 
-  type spec_type
+  type species_type
      !! Derived type to store information about a species/element.
      real(real12), allocatable ,dimension(:,:) :: atom
      !! The atomic positions of the species.
@@ -42,10 +42,10 @@ module rw_geom
      !! The name of the species.
      integer :: num
      !! The number of atoms of this species.
-  end type spec_type
-  type bas_type
+  end type species_type
+  type basis_type
      !! Derived type to store information about a basis.
-     type(spec_type), allocatable, dimension(:) :: spec
+     type(species_type), allocatable, dimension(:) :: spec
      !! Information about each species in the basis.
      integer :: nspec = 0
      !! The number of species in the basis.
@@ -70,37 +70,37 @@ module rw_geom
      !! Procedure to copy the basis.
      procedure, pass(this) :: get_lattice_constants
      !! Procedure to get the lattice constants of the basis.
-  end type bas_type
+  end type basis_type
 
 
-  interface bas_type
-    module function init_bas_type(basis) result(output)
+  interface basis_type
+    module function init_basis_type(basis) result(output)
       !! Initialise the basis type.
-      type(bas_type), intent(out), optional :: basis
+      type(basis_type), intent(out), optional :: basis
       !! Optional. Basis to copy.
-      type(bas_type) :: output
+      type(basis_type) :: output
       !! The basis to initialise.
-    end function init_bas_type
-  end interface bas_type
+    end function init_basis_type
+  end interface basis_type
 
 
 
 contains
 
 !###############################################################################
-  module function init_bas_type(basis) result(output)
+  module function init_basis_type(basis) result(output)
     !! Initialise the basis type.
     implicit none
 
     ! Arguments
-    type(bas_type), intent(out), optional :: basis
+    type(basis_type), intent(out), optional :: basis
     !! Optional. Basis to copy.
-    type(bas_type) :: output
+    type(basis_type) :: output
     !! The basis to initialise.
 
     if(present(basis)) call output%copy(basis)
 
-  end function init_bas_type
+  end function init_basis_type
 !###############################################################################
 
 
@@ -112,7 +112,7 @@ contains
     implicit none
 
     ! Arguments
-    class(bas_type), intent(inout) :: this
+    class(basis_type), intent(inout) :: this
     !! Parent. The basis to allocate the species in.
     integer, intent(in), optional :: num_species
     !! Optional. The number of species in the basis.
@@ -163,7 +163,7 @@ contains
     ! Arguments
     integer, intent(in) :: UNIT
     !! The unit number of the file to read from.
-    type(bas_type), intent(out) :: basis
+    type(basis_type), intent(out) :: basis
     !! The basis to read the geometry into.
     integer, optional, intent(in) :: length
     !! Optional. The dimension of the basis atom positions.
@@ -225,7 +225,7 @@ contains
     ! Arguments
     integer, intent(in) :: UNIT
     !! The unit number of the file to write to.
-    type(bas_type), intent(in) :: basis
+    type(basis_type), intent(in) :: basis
     !! The basis to write the geometry from.
 
 ! MAKE IT CHANGE HERE IF USER SPECIFIES LCART OR NOT
@@ -259,7 +259,7 @@ contains
     ! Arguments
     integer, intent(in) :: UNIT
     !! The unit number of the file to read from.
-    type(bas_type), intent(out) :: basis
+    type(basis_type), intent(out) :: basis
     !! The basis to read the geometry into.
     integer, intent(in), optional :: length
     !! Optional. The dimension of the basis atom positions.
@@ -402,7 +402,7 @@ contains
     ! Arguments
     integer, intent(in) :: UNIT
     !! The unit number of the file to write to.
-    type(bas_type), intent(in) :: basis
+    type(basis_type), intent(in) :: basis
     !! The basis to write the geometry from.
     logical, intent(in), optional :: cartesian
     !! Optional. Whether to write the basis in cartesian coordinates.
@@ -449,7 +449,7 @@ contains
     ! Arguments
     integer, intent(in) :: UNIT
     !! The unit number of the file to read from.
-    type(bas_type), intent(out) :: basis
+    type(basis_type), intent(out) :: basis
     !! The basis to read the geometry into.
     integer, intent(in), optional :: length
     !! Optional. The dimension of the basis atom positions.
@@ -601,7 +601,7 @@ contains
     ! Arguments
     integer, intent(in) :: UNIT
     !! The unit number of the file to write to.
-    type(bas_type), intent(in) :: basis
+    type(basis_type), intent(in) :: basis
     !! The basis to write the geometry from.
     logical, intent(in), optional :: cartesian
     !! Optional. Whether to write the basis in cartesian coordinates.
@@ -647,7 +647,7 @@ contains
     ! Arguments
     integer, intent(in) :: UNIT
     !! The unit number of the file to read from.
-    type(bas_type), intent(out) :: basis
+    type(basis_type), intent(out) :: basis
     !! The basis to read the geometry into.
     integer, intent(in), optional :: length
     !! Optional. The dimension of the basis atom positions.
@@ -819,7 +819,7 @@ contains
     ! Arguments
     integer :: UNIT
     !! The unit number of the file to write to.
-    type(bas_type), intent(in) :: basis
+    type(basis_type), intent(in) :: basis
     !! The basis to write the geometry from.
     logical, intent(in), optional :: labc
     !! Optional. Boolean whether to write the lattice in abc format.
@@ -888,7 +888,7 @@ contains
     ! Arguments
     integer, intent(in) :: UNIT
     !! The unit number of the file to read from.
-    type(bas_type), intent(out) :: basis
+    type(basis_type), intent(out) :: basis
     !! The basis to read the geometry into.
     integer, intent(in), optional :: length
     !! Optional. The dimension of the basis atom positions.
@@ -986,7 +986,7 @@ contains
     ! Arguments
     integer, intent(in) :: UNIT
     !! The unit number of the file to write to.
-    type(bas_type), intent(in) :: basis
+    type(basis_type), intent(in) :: basis
     !! The basis to write the geometry from.
 
     ! Local variables
@@ -1015,7 +1015,7 @@ contains
     ! Arguments
     integer, intent(in) :: UNIT
     !! The unit number of the file to read from.
-    type(bas_type), intent(out) :: basis
+    type(basis_type), intent(out) :: basis
     !! The basis to read the geometry into.
     integer, intent(in), optional :: length
     !! Optional. The dimension of the basis atom positions.
@@ -1137,7 +1137,7 @@ contains
     ! Arguments
     integer, intent(in) :: UNIT
     !! The unit number of the file to write to.
-    type(bas_type), intent(in) :: basis
+    type(basis_type), intent(in) :: basis
     !! The basis to write the geometry from.
 
     ! Local variables
@@ -1178,7 +1178,7 @@ contains
    implicit none
    
    ! Arguments
-   class(bas_type), intent(inout) :: this
+   class(basis_type), intent(inout) :: this
    !! Parent. The basis to convert.
 
    ! Local variables
@@ -1290,7 +1290,7 @@ contains
    implicit none
 
    ! Arguments
-   class(bas_type), intent(in) :: this
+   class(basis_type), intent(in) :: this
    !! Parent. The basis.
    logical, intent(in), optional :: radians
    !! Optional. Boolean whether to return angles in radians.
@@ -1318,9 +1318,9 @@ contains
     implicit none
 
     ! Arguments
-    class(bas_type), intent(inout) :: this
+    class(basis_type), intent(inout) :: this
     !! Parent. The basis to copy into.
-    type(bas_type), intent(in) :: basis
+    type(basis_type), intent(in) :: basis
     !! The basis to copy from.
     integer, intent(in), optional :: length
     !! The dimension of the basis atom positions.

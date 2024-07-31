@@ -236,18 +236,18 @@ end subroutine f90wrap_evolver__gvector_type_finalise
 subroutine f90wrap_evolver__calculate__binding__gvector_type(this, basis, nbins, width, sigma, cutoff_min, &
     cutoff_max)
     use evolver, only: gvector_type
-    use rw_geom, only: bas_type
+    use rw_geom, only: basis_type
     implicit none
     
-    type bas_type_ptr_type
-        type(bas_type), pointer :: p => NULL()
-    end type bas_type_ptr_type
+    type basis_type_ptr_type
+        type(basis_type), pointer :: p => NULL()
+    end type basis_type_ptr_type
     type gvector_type_ptr_type
         type(gvector_type), pointer :: p => NULL()
     end type gvector_type_ptr_type
     type(gvector_type_ptr_type) :: this_ptr
     integer, intent(in), dimension(2) :: this
-    type(bas_type_ptr_type) :: basis_ptr
+    type(basis_type_ptr_type) :: basis_ptr
     integer, intent(in), dimension(2) :: basis
     integer, dimension(3), intent(in), optional :: nbins
     real(4), dimension(3), intent(in), optional :: width
@@ -625,7 +625,7 @@ subroutine f90wrap_evolver__set_cutoff_max__binding__gvector_container047c(this,
 end subroutine f90wrap_evolver__set_cutoff_max__binding__gvector_container047c
 
 subroutine f90wrap_evolver__create__binding__gvector_container_type(this, basis_list, deallocate_systems)
-    use rw_geom, only: bas_type
+    use rw_geom, only: basis_type
     use evolver, only: gvector_container_type
     implicit none
     
@@ -633,16 +633,16 @@ subroutine f90wrap_evolver__create__binding__gvector_container_type(this, basis_
         type(gvector_container_type), pointer :: p => NULL()
     end type gvector_container_type_ptr_type
 
-    type bas_type_xnum_array
-        type(bas_type), dimension(:), allocatable :: items
-    end type bas_type_xnum_array
+    type basis_type_xnum_array
+        type(basis_type), dimension(:), allocatable :: items
+    end type basis_type_xnum_array
 
-    type bas_type_xnum_array_ptr_type
-        type(bas_type_xnum_array), pointer :: p => NULL()
-    end type bas_type_xnum_array_ptr_type
+    type basis_type_xnum_array_ptr_type
+        type(basis_type_xnum_array), pointer :: p => NULL()
+    end type basis_type_xnum_array_ptr_type
     type(gvector_container_type_ptr_type) :: this_ptr
     integer, intent(in), dimension(2) :: this
-    type(bas_type_xnum_array_ptr_type) :: basis_list_ptr
+    type(basis_type_xnum_array_ptr_type) :: basis_list_ptr
     integer, intent(in), dimension(2) :: basis_list
     logical, intent(in), optional :: deallocate_systems
 
@@ -656,19 +656,19 @@ subroutine f90wrap_evolver__create__binding__gvector_container_type(this, basis_
 end subroutine f90wrap_evolver__create__binding__gvector_container_type
 
 subroutine f90wrap_evolver__add_basis__binding__gvector_container_type(this, basis)
-    use rw_geom, only: bas_type
+    use rw_geom, only: basis_type
     use evolver, only: gvector_container_type
     implicit none
     
     type gvector_container_type_ptr_type
         type(gvector_container_type), pointer :: p => NULL()
     end type gvector_container_type_ptr_type
-    type bas_type_ptr_type
-        type(bas_type), pointer :: p => NULL()
-    end type bas_type_ptr_type
+    type basis_type_ptr_type
+        type(basis_type), pointer :: p => NULL()
+    end type basis_type_ptr_type
     type(gvector_container_type_ptr_type) :: this_ptr
     integer, intent(in), dimension(2) :: this
-    type(bas_type_ptr_type) :: basis_ptr
+    type(basis_type_ptr_type) :: basis_ptr
     integer, intent(in), dimension(2) :: basis
     this_ptr = transfer(this, this_ptr)
     basis_ptr = transfer(basis, basis_ptr)

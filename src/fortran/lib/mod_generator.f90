@@ -7,7 +7,7 @@ module generator
   !! provided host structure.
   use constants, only: real12
   use misc_raffle, only: strip_null
-  use rw_geom, only: bas_type
+  use rw_geom, only: basis_type
   use evolver, only: gvector_container_type
 
   use constants, only: verbose_global => verbose
@@ -46,7 +46,7 @@ module generator
     !! structures from a host structure, using the RAFFLE method.
     integer :: num_structures = 0
     !! Number of structures generated. Initialised to zero.
-    type(bas_type) :: host
+    type(basis_type) :: host
     !! Host structure.
     integer, dimension(3) :: bins
     !! Number of bins to divide the host structure into along each axis.
@@ -54,7 +54,7 @@ module generator
     !! Distribution function container for the 2-, 3-, and 4-body interactions.
     real(real12), dimension(3) :: method_probab
     !! Probability of each placement method.
-    type(bas_type), dimension(:), allocatable :: structures
+    type(basis_type), dimension(:), allocatable :: structures
     !! Generated structures.
    contains
     procedure, pass(this) :: set_host
@@ -74,7 +74,7 @@ module generator
     module function init_raffle_generator( &
          host, &
          width, sigma, cutoff_min, cutoff_max) result(generator)
-      type(bas_type), intent(in), optional :: host
+      type(basis_type), intent(in), optional :: host
       real(real12), dimension(3), intent(in), optional :: width
       real(real12), dimension(3), intent(in), optional :: sigma
       real(real12), dimension(3), intent(in), optional :: cutoff_min
@@ -95,7 +95,7 @@ contains
     implicit none
 
     ! Arguments
-    type(bas_type), intent(in), optional :: host
+    type(basis_type), intent(in), optional :: host
     !! Basis of the host structure.
     real(real12), dimension(3), intent(in), optional :: width
     !! Width of the gaussians used in the 2-, 3-, and 4-body 
@@ -137,7 +137,7 @@ contains
     ! Arguments
     class(raffle_generator_type), intent(inout) :: this
     !! Instance of the raffle generator.
-    type(bas_type), intent(in) :: host
+    type(basis_type), intent(in) :: host
     !! Basis of the host structure.
 
     ! Local variables
@@ -185,7 +185,7 @@ contains
     !! Boolean comparison of element symbols.
     integer :: verbose_ = 0
     !! Verbosity level.
-    type(bas_type) :: basis_template
+    type(basis_type) :: basis_template
     !! Basis of the structure to generate (i.e. allocated species and atoms).
     real(real12), dimension(3) :: &
          method_probab_ = [1.0_real12, 1.0_real12, 1.0_real12]
@@ -193,7 +193,7 @@ contains
 
     integer, dimension(:), allocatable :: seed_arr
     !! Array of seeds for the random number generator.
-    type(bas_type), dimension(:), allocatable :: tmp_structures
+    type(basis_type), dimension(:), allocatable :: tmp_structures
     !! Temporary array of structures (for memory reallocation).
 
     integer, dimension(:,:), allocatable :: placement_list
@@ -346,13 +346,13 @@ contains
     ! Arguments
     class(raffle_generator_type), intent(in) :: this
     !! Instance of the raffle generator.
-    type(bas_type), intent(in) :: basis_initial
+    type(basis_type), intent(in) :: basis_initial
     !! Initial basis to build upon.
     integer, dimension(:,:), intent(in) :: placement_list
     !! List of possible placements.
     real(real12), dimension(3) :: method_probab
     !! Probability of each placement method.
-    type(bas_type) :: basis
+    type(basis_type) :: basis
     !! Generated basis.
     integer, intent(in) :: verbose
     !! Verbosity level.
@@ -495,7 +495,7 @@ contains
     ! Arguments
     class(raffle_generator_type), intent(in) :: this
     !! Instance of the raffle generator.
-    type(bas_type), dimension(:), allocatable :: structures
+    type(basis_type), dimension(:), allocatable :: structures
     !! Generated structures.
 
     structures = this%structures
@@ -510,7 +510,7 @@ contains
     ! Arguments
     class(raffle_generator_type), intent(in) :: this
     !! Instance of the raffle generator.
-    type(bas_type), intent(in) :: basis
+    type(basis_type), intent(in) :: basis
     !! Basis of the structure to evaluate.
     real(real12) :: viability
     !! Viability of the generated structures.

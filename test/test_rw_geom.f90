@@ -2,7 +2,7 @@ program test_rw_geom
   !! Test program for the module rw_geom.
   use constants, only: pi,real12
   use rw_geom, only: &
-       bas_type, &
+       basis_type, &
        geom_read, geom_write, &
        igeom_input, igeom_output, &
        get_element_properties
@@ -10,7 +10,7 @@ program test_rw_geom
 
   integer :: unit, iostat, i
   real :: mass, charge, radius
-  type(bas_type) :: bas1, bas2
+  type(basis_type) :: bas1, bas2
 
   character(len=256) :: cwd, filename = 'test/data/POSCAR_Si'
   logical :: exist, check
@@ -197,7 +197,7 @@ program test_rw_geom
 contains
 
   function compare_bas(bas1, bas2) result(output)
-    type(bas_type), intent(in) :: bas1, bas2
+    type(basis_type), intent(in) :: bas1, bas2
     logical :: output
     output = .true.
 
@@ -226,7 +226,7 @@ contains
 
   subroutine uninitialise_bas(bas)
     implicit none
-    type(bas_type), intent(inout) :: bas
+    type(basis_type), intent(inout) :: bas
 
     bas%natom = 0
     bas%nspec = 0

@@ -306,7 +306,7 @@ if (BUILD_PYTHON)
             -m ${PROJECT_NAME}
             -k ${KIND_MAP}
             ${F90WRAP_FORTRAN_SRC_FILES}
-            --only raffle_generator_type stoichiometry_type bas_type gvector_container_type:
+            --only raffle_generator_type stoichiometry_type basis_type gvector_container_type:
             DEPENDS ${F90WRAP_FORTRAN_SRC_FILES}
             WORKING_DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
             COMMENT "Generating f90wrap signature file"

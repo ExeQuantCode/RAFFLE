@@ -2,7 +2,7 @@ module read_structures
   use constants, only: real12
   use misc_raffle, only: grep
   use misc_linalg, only: modu
-  use rw_geom, only: bas_type, geom_read, geom_write, igeom_input
+  use rw_geom, only: basis_type, geom_read, geom_write, igeom_input
   use rw_vasprun, only: get_energy_from_vasprun, get_structure_from_vasprun
   use evolver, only: gvector_container_type
 #ifdef ENABLE_ATHENA
@@ -45,7 +45,7 @@ contains
 
     integer :: xml_unit, unit, ierror
     integer :: num_files
-    type(bas_type) :: basis
+    type(basis_type) :: basis
     character(256), dimension(:), allocatable :: structure_list
 #ifdef ENABLE_ATHENA
     type(graph_type), dimension(:), allocatable :: graphs
@@ -251,7 +251,7 @@ contains
 #ifdef ENABLE_ATHENA
   function get_graph_from_basis(basis) result(graph)
     implicit none
-    type(bas_type), intent(in) :: basis
+    type(basis_type), intent(in) :: basis
     type(graph_type) :: graph
 
     integer :: is, ia, js, ja, i, j, k

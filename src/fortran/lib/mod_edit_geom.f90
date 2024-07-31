@@ -4,7 +4,7 @@ module edit_geom
   !! This module contains procedures that are used to manipulate the geometry
   !! of the system. The geometry type used is defined in the rw_geom module.
   use constants, only: pi,real12
-  use rw_geom, only: bas_type
+  use rw_geom, only: basis_type
   use misc_linalg, only: modu, get_angle
   implicit none
 
@@ -31,7 +31,7 @@ contains
     ! Arguments
     logical, intent(in) :: lignore_close
     !! If true, ignore atoms that are really close to the point.
-    type(bas_type), intent(in) :: bas
+    type(basis_type), intent(in) :: bas
     !! The basis of the cell.
     real(real12), dimension(3), intent(in) :: loc
     !! The location of the point (in crystal coordinates).
@@ -123,7 +123,7 @@ contains
     implicit none
 
     ! Arguments
-    type(bas_type), intent(in) :: bas
+    type(basis_type), intent(in) :: bas
     !! The basis of the cell.
     integer, dimension(2), intent(in) :: atom
     !! The index of the atom in the cell (species, atom).
@@ -153,9 +153,9 @@ contains
     implicit none
 
     ! Arguments
-    type(bas_type) :: mergbas
+    type(basis_type) :: mergbas
     !! Output merged basis.
-    type(bas_type), intent(in) :: bas1, bas2
+    type(basis_type), intent(in) :: bas1, bas2
     !! Input bases to merge.
     integer, intent(in), optional :: length
     !! Number of dimensions for atomic positions (default 3).

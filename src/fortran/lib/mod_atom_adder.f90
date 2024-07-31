@@ -8,7 +8,7 @@ module add_atom
   !! - walk: place the atom using a pseudo-random walk method
   use constants, only: real12
   use misc_linalg, only: modu
-  use rw_geom, only: bas_type
+  use rw_geom, only: basis_type
   use edit_geom, only: get_min_dist, get_min_dist_between_point_and_atom
   use evaluator, only: evaluate_point
   use evolver, only: gvector_container_type
@@ -40,7 +40,7 @@ contains
     ! Arguments
     type(gvector_container_type), intent(in) :: gvector_container
     !! Distribution function (gvector) container.
-    type(bas_type), intent(inout) :: basis
+    type(basis_type), intent(inout) :: basis
     !! Structure to add atom to.
     logical, intent(out) :: viable
     !! Boolean to indicate if point is viable.
@@ -98,7 +98,7 @@ contains
     implicit none
 
     ! Arguments
-    type(bas_type), intent(inout) :: basis
+    type(basis_type), intent(inout) :: basis
     !! Structure to add atom to.
     integer, dimension(3), intent(in) :: bin_size
     !! Number of gridpoints in each direction.
@@ -166,7 +166,7 @@ contains
     ! Arguments
     type(gvector_container_type), intent(in) :: gvector_container
     !! Distribution function (gvector) container.
-    type(bas_type), intent(inout) :: basis
+    type(basis_type), intent(inout) :: basis
     !! Structure to add atom to.
     logical, intent(out) :: viable
     !! Boolean to indicate if point is viable.
@@ -293,7 +293,7 @@ contains
     implicit none
 
     ! Arguments
-    type(bas_type), intent(in) :: basis
+    type(basis_type), intent(in) :: basis
     !! Structure to add atom to.
     integer, dimension(3), intent(in) :: bin_size
     !! Number of gridpoints in each direction.
@@ -365,7 +365,7 @@ contains
     implicit none
 
     ! Arguments
-    type(bas_type), intent(in) :: basis
+    type(basis_type), intent(in) :: basis
     !! Structure to add atom to.
     integer, dimension(2) :: atom
     !! Index of atom to add.

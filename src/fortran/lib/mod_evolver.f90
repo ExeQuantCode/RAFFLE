@@ -3,7 +3,7 @@ module evolver
   use misc_raffle, only: set, icount, strip_null, sort_str
   use misc_maths, only: lnsum, triangular_number
   use misc_linalg, only: get_angle, get_vol, cross, modu
-  use rw_geom, only: bas_type, get_element_properties
+  use rw_geom, only: basis_type, get_element_properties
   use elements, only: &
        element_type, element_bond_type, &
        element_database, element_bond_database
@@ -207,7 +207,7 @@ module evolver
     ! Arguments
     class(gvector_container_type), intent(inout) :: this
     !! Self, parent of the procedure.
-    type(bas_type), dimension(:), intent(in) :: basis_list
+    type(basis_type), dimension(:), intent(in) :: basis_list
     !! List of basis structures.
     logical, intent(in), optional :: deallocate_systems
     !! Deallocate the systems after the distribution functions are created.
@@ -236,7 +236,7 @@ module evolver
     ! Arguments
     class(gvector_container_type), intent(inout) :: this
     !! Self, parent of the procedure.
-    type(bas_type), dimension(:), intent(in) :: basis_list
+    type(basis_type), dimension(:), intent(in) :: basis_list
     !! List of basis structures.
     logical, intent(in), optional :: deallocate_systems
     !! Deallocate the systems after the distribution functions are created.
@@ -471,11 +471,11 @@ module evolver
        select type(system)
        type is (gvector_type)
           this%system = [ this%system, system ]
-       type is (bas_type)
+       type is (basis_type)
           call this%add_basis(system)
        class default
           write(0,*) "ERROR: Invalid type for system"
-          write(0,*) "Expected type gvector_type or bas_type"
+          write(0,*) "Expected type gvector_type or basis_type"
           stop 1
        end select
     rank(1)
@@ -483,13 +483,13 @@ module evolver
        select type(system)
        type is (gvector_type)
           this%system = [ this%system, system ]
-       type is (bas_type)
+       type is (basis_type)
           do i = 1, size(system)
              call this%add_basis(system(i))
           end do
        class default
           write(0,*) "ERROR: Invalid type for system"
-          write(0,*) "Expected type gvector_type or bas_type"
+          write(0,*) "Expected type gvector_type or basis_type"
           stop 1
        end select
     rank default
@@ -512,7 +512,7 @@ module evolver
   subroutine add_basis(this, basis)
     implicit none
     class(gvector_container_type), intent(inout) :: this
-    type(bas_type), intent(in) :: basis
+    type(basis_type), intent(in) :: basis
 
     type(gvector_type) :: system
 
@@ -1359,7 +1359,7 @@ module evolver
        nbins, width, sigma, cutoff_min, cutoff_max)
     implicit none
     class(gvector_type), intent(inout) :: this
-    type(bas_type), intent(in) :: basis
+    type(basis_type), intent(in) :: basis
 
     integer, dimension(3), intent(in), optional :: nbins
     real(real12), dimension(3), intent(in), optional :: width, sigma

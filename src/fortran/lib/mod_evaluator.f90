@@ -7,7 +7,7 @@ module evaluator
   !! bond angles and dihedral angles between the test point and all atoms.
   use constants, only: real12
   use misc_linalg, only: get_distance, get_angle, get_dihedral_angle
-  use rw_geom, only: bas_type
+  use rw_geom, only: basis_type
   use edit_geom, only: get_min_dist_between_point_and_atom
   use evolver, only: gvector_container_type
   implicit none
@@ -32,7 +32,7 @@ contains
     !! Distribution function (gvector) container.
     real(real12), intent(in) :: uptol, lowtol
     !! Upper and lower tolerance for bond lengths and angles.
-    type(bas_type), intent(in) :: basis
+    type(basis_type), intent(in) :: basis
     !! Basis of the system.
     real(real12), dimension(3), intent(in) :: position
     !! Position of the test point.

@@ -14,7 +14,7 @@ generator = raffle.generator.raffle_generator_type()
 
 print("Reading host")
 host = read("../example_files/POSCAR_host")
-host_basis = raffle.rw_geom.bas_type(host)
+host_basis = raffle.rw_geom.basis_type(host)
 generator.set_host(host_basis)
 print("Host read")
 
@@ -43,7 +43,7 @@ generator.distributions.set_bond_radii(
 print("Reading database")
 database = read("../example_files/database/database.xyz", index=":")
 num_database = len(database)
-database_basis = raffle.rw_geom.bas_type_xnum_array()
+database_basis = raffle.rw_geom.basis_type_xnum_array()
 database_basis.allocate(num_database)
 for i, atoms in enumerate(database):
     database_basis.items[i].fromase(atoms)

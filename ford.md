@@ -1,6 +1,8 @@
 project:
 summary: A Fortran library and executable for structure prediction at material interfaces
-src_dir: [".src/fortran", ".app"]
+src_dir: ./src/fortran
+    ./app
+exclude: **/f90wrap_*.f90
 output_dir: doc/html
 preprocess: false
 predocmark: !!

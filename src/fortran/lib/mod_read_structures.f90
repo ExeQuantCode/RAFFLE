@@ -1,4 +1,9 @@
 module read_structures
+  !! Module for reading structures from various file formats.
+  !!
+  !! This module takes a list of directories and reads in the structures from
+  !! the contained files. The structures are then converted to a set of
+  !! generalised vectors (gvectors, aka distribution functions).
   use constants, only: real12
   use misc_raffle, only: grep
   use misc_linalg, only: modu
@@ -24,34 +29,61 @@ module read_structures
 
 contains
 
-!!!#############################################################################
-!!! read in the structures from the input directories and generate the gvectors
-!!!#############################################################################
+!###############################################################################
   function get_evolved_gvectors_from_data(input_dir, &
        file_format, gvector_container_template) &
        result(gvector_container)
+    !! Read structures from the input directories and evolve them to gvectors.
     implicit none
+
+    ! Arguments
     character(*), dimension(..), intent(in) :: input_dir
-    type(gvector_container_type), intent(in), optional :: gvector_container_template
+    !! List of directories containing the structures to be read.
+    type(gvector_container_type), intent(in), optional :: &
+         gvector_container_template
+    !! Optional. A template gvector_container to be used.
     type(gvector_container_type), allocatable :: gvector_container
+    !! The gvector_container containing the evolved gvectors.
     character(*), intent(in), optional :: file_format
+    !! Optional. The format of the input files. Default is vasprun.xml.
 
+    ! Local variables
     character(256) :: name
-    integer :: i, j, ifile_format, num_structures
+    !! The name of the structure file.
+    integer :: i, j
+    !! Loop indices.
+    integer :: ifile_format
+    !! The format of the input files.
+    integer :: num_structures
+    !! The number of structures read.
     real(real12) :: energy
+    !! The energy of the structure.
     character(50) :: buffer
+    !! A buffer for reading strings.
     character(256) :: format
+    !! A format string for writing output.
     logical :: success
+    !! Boolean for success of file operations.
 
-    integer :: xml_unit, unit, ierror
+    integer :: xml_unit, unit
+    !! File units.
+    integer :: iostat
+    !! I/O status.
     integer :: num_files
+    !! The number of files in the input directories.
     type(basis_type) :: basis
+    !! The basis of the structure.
     character(256), dimension(:), allocatable :: structure_list
+    !! The list of structure files.
 #ifdef ENABLE_ATHENA
     type(graph_type), dimension(:), allocatable :: graphs
-
-    real(real12), dimension(:), allocatable :: labels, labels_train, labels_validate
-    real(real12), dimension(:,:), allocatable :: dataset, data_train, data_validate
+    !! Graph representations of the structures.
+    real(real12), dimension(:), allocatable :: &
+         labels, labels_train, labels_validate
+    !! The labels for the structures.
+    real(real12), dimension(:,:), allocatable :: &
+         dataset, data_train, data_validate
+    !! The dataset for the structures.
 #endif
 
 
@@ -79,14 +111,14 @@ contains
        ifile_format = 0
     end if
 
-    !inquire(file='gvector_container.dat', exist=success)
-    !if(success) then
-    !   call gvector_container%read('gvector_container.dat')
-    !   goto 100
-    !end if
-    !!! For each new run of the code, it should populate a new directory and ...
-    !!! ... add to the existing ones.
-    !!! And it should check that output_dir never equals any of the input_dirs (or database_dirs)
+    ! inquire(file='gvector_container.dat', exist=success)
+    ! if(success) then
+    !    call gvector_container%read('gvector_container.dat')
+    !    goto 100
+    ! end if
+    ! ! For each new run of the code, it should populate a new directory and ...
+    ! ! ... add to the existing ones.
+    ! ! And it should check that output_dir never equals any of the input_dirs (or database_dirs)
     select rank(input_dir)
     rank(0)
        structure_list = [ get_structure_list( input_dir, ifile_format ) ]
@@ -136,8 +168,8 @@ contains
           open(newunit=unit, file=trim(adjustl(structure_list(i))))
           write(*,*) "Reading structures from xyz"
           do
-             read(unit,'(A)',iostat=ierror) buffer
-             if(ierror .ne. 0) exit
+             read(unit,'(A)',iostat=iostat) buffer
+             if(iostat .ne. 0) exit
              if(trim(buffer).eq."") cycle
              backspace(unit)
              call geom_read(unit, basis)
@@ -165,10 +197,10 @@ contains
        call gvector_container%add(basis)
        num_structures = num_structures + 1
       
-       !!! STORE THE ENERGY IN AN ARRAY
+       ! ! STORE THE ENERGY IN AN ARRAY
        ! probably new structure format of crystal
        ! where crystal contains lattice, basis, and energy
-       !!! DO SOMETHING ABOUT NESTED RELAXATIONS
+       ! ! DO SOMETHING ABOUT NESTED RELAXATIONS
     end do
 
 
@@ -184,21 +216,31 @@ contains
     igeom_input = 1
 
   end function get_evolved_gvectors_from_data
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! get the list of structures from the input directories
-!!!#############################################################################
+!###############################################################################
   function get_structure_list(input_dir, ifile_format) result(structure_list)
+    !! Get a list of structures from a directory.
     implicit none
-    character(*), intent(in) :: input_dir
-    integer, intent(in) :: ifile_format
-    character(256), dimension(:), allocatable :: structure_list
 
-    integer :: unit, ierror
+    ! Arguments
+    character(*), intent(in) :: input_dir
+    !! The directory containing the structures.
+    integer, intent(in) :: ifile_format
+    !! The format of the input files.
+    character(256), dimension(:), allocatable :: structure_list
+    !! The list of structure files.
+
+    ! Local variables
+    integer :: unit
+    !! File unit.
+    integer :: iostat
+    !! I/O status.
     character(256) :: name
+    !! The name of the structure file.
     logical :: file_exists, addit_file_exists, structures_found
+    !! Booleans for file existence.
 
 
     structures_found = .false.
@@ -206,8 +248,8 @@ contains
          "ls "//trim(adjustl(input_dir))//"/. >structures.txt", wait = .TRUE. )
     open(newunit=unit, file="structures.txt", status="old")
     do
-       read(unit,'(A)',iostat=ierror) name
-       if(is_iostat_end(ierror)) exit
+       read(unit,'(A)',iostat=iostat) name
+       if(is_iostat_end(iostat)) exit
        name = trim(adjustl(input_dir))//"/"//trim(adjustl(name))
        select case(ifile_format)
        case(0)
@@ -242,24 +284,34 @@ contains
     end if
 
   end function get_structure_list
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! 
-!!!#############################################################################
+!###############################################################################
 #ifdef ENABLE_ATHENA
   function get_graph_from_basis(basis) result(graph)
+    !! Get a graph representation of a basis.
     implicit none
-    type(basis_type), intent(in) :: basis
-    type(graph_type) :: graph
 
-    integer :: is, ia, js, ja, i, j, k
-    integer :: iatom, jatom
+    ! Arguments
+    type(basis_type), intent(in) :: basis
+    !! The basis to be converted to a graph.
+    type(graph_type) :: graph
+    !! The graph representation of the basis.
+
+    ! Local variables
+    integer :: is, ia, js, ja, i, j, k, iatom, jatom
+    !! Loop indices.
     integer :: amax, bmax, cmax
+    !! Maximum number of lattice translations.
     type(edge_type) :: edge
-    real(real12) :: rtmp1, cutoff_min, cutoff_max
+    !! An edge in the graph.
+    real(real12) :: rtmp1
+    !! Temporary real.
+    real(real12) :: cutoff_min, cutoff_max
+    !! Cutoff radii.
     real(real12), dimension(3) :: diff, vtmp1
+    !! Difference vector and temporary vector.
 
     
     graph%num_vertices = basis%natom
@@ -323,6 +375,6 @@ contains
 
   end function get_graph_from_basis
 #endif
-!!!#############################################################################
+!###############################################################################
 
 end module read_structures

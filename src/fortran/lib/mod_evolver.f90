@@ -166,12 +166,14 @@ module evolver
          ) result(gvector_container)
          !! Initialise the distribution functions container.
          integer, dimension(3), intent(in), optional :: nbins
-         !! Number of bins for the 2-, 3-, and 4-body distribution functions.
+         !! Optional. Number of bins for the 2-, 3-, and 4-body distribution
+         !! functions.
          real(real12), dimension(3), intent(in), optional :: width, sigma
-         !! Width and sigma of the gaussians used in the 2-, 3-, and 4-body.
+         !! Optional. Width and sigma of the gaussians used in the 2-, 3-, and 
+         !! 4-body.
          real(real12), dimension(3), intent(in), optional :: &
               cutoff_min, cutoff_max
-         !! Minimum and maximum cutoff for the 2-, 3-, and 4-body.
+         !! Optional. Minimum and maximum cutoff for the 2-, 3-, and 4-body.
          type(gvector_container_type) :: gvector_container
          !! Instance of the distribution functions container.
     end function init_gvector_container
@@ -190,11 +192,13 @@ module evolver
 
     ! Arguments
     integer, dimension(3), intent(in), optional :: nbins
-    !! Number of bins for the 2-, 3-, and 4-body distribution functions.
+    !! Optional. Number of bins for the 2-, 3-, and 4-body distribution 
+    !! functions.
     real(real12), dimension(3), intent(in), optional :: width, sigma
-    !! Width and sigma of the gaussians used in the 2-, 3-, and 4-body.
+    !! Optional. Width and sigma of the gaussians used in the 2-, 3-, and 
+    !! 4-body.
     real(real12), dimension(3), intent(in), optional :: cutoff_min, cutoff_max
-    !! Minimum and maximum cutoff for the 2-, 3-, and 4-body.
+    !! Optional. Minimum and maximum cutoff for the 2-, 3-, and 4-body.
     type(gvector_container_type) :: gvector_container
     !! Instance of the distribution functions container.
 
@@ -312,7 +316,8 @@ module evolver
     type(basis_type), dimension(:), intent(in) :: basis_list
     !! List of basis structures.
     logical, intent(in), optional :: deallocate_systems
-    !! Deallocate the systems after the distribution functions are created.
+    !! Optional. Boolean whether to deallocate the systems after the 
+    !! distribution functions are created.
 
     ! Local variables
     logical :: deallocate_systems_ = .true.
@@ -343,7 +348,8 @@ module evolver
     type(basis_type), dimension(:), intent(in) :: basis_list
     !! List of basis structures.
     logical, intent(in), optional :: deallocate_systems
-    !! Deallocate the systems after the distribution functions are created.
+    !! Optional. Boolean whether to deallocate the systems after the
+    !! distribution functions are created.
 
     ! Local variables
     logical :: deallocate_systems_ = .true.
@@ -1424,7 +1430,7 @@ module evolver
     class(gvector_container_type), intent(inout) :: this
     !! Parent of the procedure. Instance of distribution functions container.
     type(gvector_type), dimension(..), intent(in), optional :: system
-    !! System to add to the container.
+    !! Optional. System to add to the container.
     logical, intent(in), optional :: deallocate_systems_after_evolve
     !! Optional. Boolean whether to deallocate the systems after the evolve.
 

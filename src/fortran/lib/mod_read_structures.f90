@@ -14,7 +14,7 @@ module read_structures
   use machine_learning, only: network_setup, &
        network_train, network_train_graph, &
        network_predict, network_predict_graph
-  use athena, only: shuffle, random_setup, split, graph_type, edge_type
+  use athena, only: graph_type
 #endif
   implicit none
 
@@ -22,9 +22,6 @@ module read_structures
   private
 
   public :: get_evolved_gvectors_from_data
-#ifdef ENABLE_ATHENA
-  public :: get_graph_from_basis
-#endif
 
 
 contains
@@ -284,97 +281,6 @@ contains
     end if
 
   end function get_structure_list
-!###############################################################################
-
-
-!###############################################################################
-#ifdef ENABLE_ATHENA
-  function get_graph_from_basis(basis) result(graph)
-    !! Get a graph representation of a basis.
-    implicit none
-
-    ! Arguments
-    type(basis_type), intent(in) :: basis
-    !! The basis to be converted to a graph.
-    type(graph_type) :: graph
-    !! The graph representation of the basis.
-
-    ! Local variables
-    integer :: is, ia, js, ja, i, j, k, iatom, jatom
-    !! Loop indices.
-    integer :: amax, bmax, cmax
-    !! Maximum number of lattice translations.
-    type(edge_type) :: edge
-    !! An edge in the graph.
-    real(real12) :: rtmp1
-    !! Temporary real.
-    real(real12) :: cutoff_min, cutoff_max
-    !! Cutoff radii.
-    real(real12), dimension(3) :: diff, vtmp1
-    !! Difference vector and temporary vector.
-
-    
-    graph%num_vertices = basis%natom
-    graph%num_vertex_features = 2
-    graph%num_edge_features = 1
-
-    allocate(graph%vertex(graph%num_vertices))
-
-    iatom = 0
-    do is = 1, basis%nspec
-       do ia = 1, basis%spec(is)%num
-          iatom = iatom + 1
-          allocate(graph%vertex(iatom)%feature(graph%num_vertex_features))
-          graph%vertex(iatom)%feature = [ basis%spec(is)%charge / 100._real12, &
-               basis%spec(is)%mass / 52._real12 ]
-       end do
-    end do
-
-    cutoff_min = 0.5_real12
-    cutoff_max = 6.0_real12
-    amax = ceiling(cutoff_max/modu(basis%lat(1,:)))
-    bmax = ceiling(cutoff_max/modu(basis%lat(2,:)))
-    cmax = ceiling(cutoff_max/modu(basis%lat(3,:)))
-
-    iatom = 0
-    allocate(graph%edge(0))
-    spec_loop1: do is=1,basis%nspec
-       atom_loop1: do ia=1,basis%spec(is)%num
-          iatom = iatom + 1
-          jatom = 0
-          spec_loop2: do js=is,basis%nspec
-             atom_loop2: do ja=1,basis%spec(js)%num
-                jatom = jatom + 1
-                if(is.eq.js.and.ja.lt.ia) cycle atom_loop2
-                diff = basis%spec(is)%atom(ia,:3) -  basis%spec(js)%atom(ja,:3)
-                diff = diff - ceiling(diff - 0.5_real12)
-                do i=-amax,amax+1,1
-                   vtmp1(1) = diff(1) + real(i, real12)
-                   do j=-bmax,bmax+1,1
-                      vtmp1(2) = diff(2) + real(j, real12)
-                      do k=-cmax,cmax+1,1
-                         vtmp1(3) = diff(3) + real(k, real12)
-                         rtmp1 = modu(matmul(vtmp1,basis%lat))
-                         if( rtmp1 .gt. cutoff_min .and. &
-                             rtmp1 .lt. cutoff_max )then
-                            edge%index = [iatom,jatom]
-                            edge%feature = [rtmp1]
-                            graph%edge = [ graph%edge, edge ]
-                         end if
-                      end do
-                   end do
-                end do
-             end do atom_loop2
-          end do spec_loop2
-       end do atom_loop1
-    end do spec_loop1
-    graph%num_edges = size(graph%edge)
-    call graph%generate_adjacency()
-    call graph%calculate_degree()
-
-
-  end function get_graph_from_basis
-#endif
 !###############################################################################
 
 end module read_structures

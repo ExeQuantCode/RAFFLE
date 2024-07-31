@@ -17,8 +17,7 @@ module generator
        get_viable_gridpoints, update_viable_gridpoints
 
 #ifdef ENABLE_ATHENA
-  use read_structures, only: get_graph_from_basis
-  use machine_learning, only: network_predict_graph
+  use machine_learning, only: network_predict_graph, get_graph_from_basis
   use athena, only: graph_type
 #endif
 

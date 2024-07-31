@@ -5,25 +5,16 @@
 !!!#############################################################################
 !!! module contains various miscellaneous functions and subroutines.
 !!! module includes the following functions and subroutines:
-!!! increment_list   (iteratively increment a list)
-!!! alloc            (allocate using an 1D array as the shape) 
-!!! find_loc         (version of findloc for pre fortran2008)
-!!! closest_below    (returns closest element below input number)
-!!! closest_above    (returns closest element above input number)
 !!! sort1D           (sort 1st col of array by size. Opt:sort 2nd array wrt 1st)
 !!! sort2D           (sort 1st two columns of an array by size)
 !!! sort_str         (sort a list of strings)
 !!! set              (return the sorted set of unique elements)
-!!! sort_col         (sort array with respect to col column)
 !!! swap             (swap two variables around)
 !!! shuffle          (randomly shuffle a 2D array along one dimension)
 !!!##################
 !!! Icount           (counts words on line)
-!!! readcl           (read string and separate into a char array using user fs)
 !!! grep             (finds 1st line containing the pattern)
-!!! count_occ        (count number of occurances of substring in string)
 !!! flagmaker        (read flag inputs supplied and stores variable if present)
-!!! loadbar          (writes out a loading bar to the terminal)
 !!! jump             (moves file to specified line number)
 !!! file_check       (checks whether file exists and prompts user otherwise)
 !!! touch            (creates a file if it doesn't exist)
@@ -38,20 +29,13 @@ module misc_raffle
 
   private
 
-  public :: increment_list, find_loc, closest_below, closest_above
-  public :: alloc
   public :: sort1D, sort2D, sort_str, sort_str_order
-  public :: set, set_str_output_order
-  public :: sort_col
-  public :: swap, shuffle
-  public :: Icount, readcl, grep, count_occ, flagmaker, loadbar
+  public :: set
+  public :: shuffle
+  public :: Icount, grep, flagmaker
   public :: jump, file_check, touch, to_upper, to_lower
   public :: strip_null
 
-
-  interface alloc
-     procedure ralloc2D,ralloc3D
-  end interface alloc
 
   interface sort1D
      procedure isort1D,rsort1D
@@ -74,150 +58,6 @@ module misc_raffle
 
 
 contains
-!!!#####################################################
-!!! increment a list
-!!!#####################################################
- recursive subroutine increment_list(list,max_list,dim,fixed_dim)
-   implicit none
-   integer, intent(in) :: dim,fixed_dim
-   integer, dimension(:), intent(in) :: max_list
-   integer, dimension(:), intent(inout) :: list
-
-   if(dim.eq.fixed_dim)then
-      call increment_list(list,max_list,dim-1,fixed_dim)
-      return
-   elseif(dim.gt.size(list))then
-      call increment_list(list,max_list,size(list),fixed_dim)
-   elseif(dim.le.0)then
-      list = 0
-      return
-   end if
-
-   list(dim) = list(dim) + 1
-   
-   if(list(dim).gt.max_list(dim))then
-      list(dim) = 1
-      call increment_list(list,max_list,dim-1,fixed_dim)
-   end if
-
- end subroutine increment_list
-!!!#####################################################
-
-
-!!!#####################################################
-!!! find location of true in vector
-!!!#####################################################
-  subroutine ralloc2D(arr,list)
-    implicit none
-    integer, dimension(2), intent(in) :: list
-    real(real12), allocatable, dimension(:,:) :: arr
-    
-    allocate(arr(list(1),list(2)))
-
-  end subroutine ralloc2D
-!!!-----------------------------------------------------
-!!!-----------------------------------------------------
-  subroutine ralloc3D(arr,list)
-    implicit none
-    integer, dimension(3), intent(in) :: list
-    real(real12), allocatable, dimension(:,:,:) :: arr
-
-    allocate(arr(list(1),list(2),list(3)))
-
-  end subroutine ralloc3D
-!!!#####################################################
-
-
-!!!#####################################################
-!!! find location of true in vector
-!!!#####################################################
-  function find_loc(array,dim,mask,back) result(idx)
-    implicit none
-    integer :: i,idx
-    integer :: istep,istart,iend,idim
-    integer, optional, intent(in) :: dim
-    logical, dimension(:) :: array
-    logical, optional, intent(in) :: back
-    logical, dimension(:), optional, intent(in) :: mask
-
-    idim=1
-    if(present(dim)) idim=dim
-    istep=1;istart=1;iend=size(array,dim=idim)
-    if(present(back))then
-       if(back)then
-          istep=-1;istart=size(array,dim=idim);iend=1
-       end if
-    end if
-
-    idx = 0
-    do i=istart,iend,istep
-       if(present(mask))then
-          if(.not.mask(i)) cycle
-       end if
-       idx = idx + 1
-       if(array(i)) exit
-    end do
-
-    return
-  end function find_loc
-!!!#####################################################
-
-
-!!!#####################################################
-!!! function to find closest -ve element in array
-!!!#####################################################
-  function closest_below(vec,val,optmask) result(int)
-    implicit none
-    integer :: i,int
-    real(real12) :: val,best,dtmp1
-    real(real12), dimension(:) :: vec
-    logical, dimension(:), optional :: optmask
-
-    int=0
-    best=-huge(0._real12)
-    do i=1,size(vec)
-       dtmp1=vec(i)-val
-       if(present(optmask))then
-          if(.not.optmask(i)) cycle
-       end if
-       if(dtmp1.gt.best.and.dtmp1.lt.-1.D-8)then
-          best=dtmp1
-          int=i
-       end if
-    end do
-
-    return
-  end function closest_below
-!!!#####################################################
-
-
-!!!#####################################################
-!!! function to find closest +ve element in array
-!!!#####################################################
-  function closest_above(vec,val,optmask) result(int)
-    implicit none
-    integer :: i,int
-    real(real12) :: val,best,dtmp1
-    real(real12), dimension(:) :: vec
-    logical, dimension(:), optional :: optmask
-
-    int=0
-    best=huge(0._real12)
-    do i=1,size(vec)
-       dtmp1=vec(i)-val
-       if(present(optmask))then
-          if(.not.optmask(i)) cycle
-       end if
-       if(dtmp1.lt.best.and.dtmp1.gt.1.D-8)then
-          best=dtmp1
-          int=i
-       end if
-    end do
-
-    return
-  end function closest_above
-!!!#####################################################
-
 
 !!!#####################################################
 !!! sorts a character list
@@ -562,55 +402,6 @@ contains
     end if
 
   end subroutine cset
-!!!-----------------------------------------------------
-!!!-----------------------------------------------------
-  function set_str_output_order(arr,lcase,lkeep_size) result(order)
-    implicit none
-    integer :: i, n
-    logical :: ludef_keep_size
-    integer, allocatable, dimension(:) :: order
-    character(len=:), allocatable, dimension(:) :: tmp_arr
-    character(*), allocatable, dimension(:) :: arr
-    logical, intent(in), optional :: lcase, lkeep_size
-
-    allocate(order(size(arr)))
-    if(present(lcase))then
-       order=sort_str_order(arr,lcase)
-    else
-       order=sort_str_order(arr)
-    end if
-    
-    allocate(character(len=len(arr(1))) :: tmp_arr(size(arr)))
-    tmp_arr(1) = arr(1)
-    n=1
-
-    do i=2,size(arr)
-       if(trim(arr(i)).eq.trim(tmp_arr(n)))then
-          where(order.gt.order(n))
-             order = order - 1
-          end where
-          cycle
-       end if
-       n = n + 1
-       tmp_arr(n) = arr(i)
-    end do
-    write(0,*) order
-    
-    if(present(lkeep_size))then
-       ludef_keep_size=lkeep_size
-    else
-       ludef_keep_size=.false.
-    end if
-
-    if(ludef_keep_size)then
-       call move_alloc(tmp_arr,arr)!!!CONSISTENCY WITH OTHER SET FORMS
-    else
-       deallocate(arr)
-       allocate(arr(n))
-       arr(:n) = tmp_arr(:n)
-    end if
-
-  end function set_str_output_order
 !!!#####################################################
 
 
@@ -847,51 +638,6 @@ contains
 
 
 !!!#####################################################
-!!! counts the number of words on a line
-!!!#####################################################
-  subroutine readcl(full_line,store,tmpchar)
-    character(*) :: full_line
-    !ONLY WORKS WITH IFORT COMPILER
-    !      character(1) :: fs
-    character(len=:),allocatable :: fs
-    character(*),optional :: tmpchar
-    character(100),dimension(1000) :: tmp_store
-    character(*),allocatable,dimension(:),optional :: store
-    integer ::items,pos,k,length
-    items=0
-    pos=1
-
-    length=1
-    if(present(tmpchar)) length=len(trim(tmpchar))
-    allocate(character(len=length) :: fs)
-    if(present(tmpchar)) then
-       fs=tmpchar
-    else
-       fs=" "
-    end if
-
-    loop: do
-       k=verify(full_line(pos:),fs)
-       if (k.eq.0) exit loop
-       pos=k+pos-1
-       k=scan(full_line(pos:),fs)
-       if (k.eq.0) exit loop
-       items=items+1
-       tmp_store(items)=full_line(pos:pos+k-1)
-       pos=k+pos-1
-    end do loop
-
-    if(present(store))then
-       if(.not.allocated(store)) allocate(store(items))
-       do k=1,items
-          store(k)=trim(tmp_store(k))
-       end do
-    end if
-
-  end subroutine readcl
-!!!#####################################################
-
-!!!#####################################################
 !!! grep 
 !!!#####################################################
 !!! searches a file untill it finds the mattching patern
@@ -946,32 +692,6 @@ contains
 
 
 !!!#####################################################
-!!! count number of occurances of substring in string
-!!!#####################################################
-  function count_occ(string,substring)
-    implicit none
-    integer :: pos,i,count_occ
-    character(*) :: string,substring
-
-    pos=1
-    count_occ=0
-    countloop: do 
-       i=verify(string(pos:), substring)
-       if (i.eq.0) exit countloop
-       if(pos.eq.len(string)) exit countloop
-       count_occ=count_occ+1
-       pos=i+pos-1
-       i=scan(string(pos:), ' ')
-       if (i.eq.0) exit countloop
-       pos=i+pos-1
-    end do countloop
-
-    return
-  end function count_occ
-!!!#####################################################
-
-
-!!!#####################################################
 !!! Assigns variables of flags from getarg
 !!!#####################################################
 !!! SHOULD MAKE THIS A FUNCTION INSTEAD !!!
@@ -994,38 +714,6 @@ contains
 
     return
   end subroutine flagmaker
-!!!#####################################################
-
-
-!!!#####################################################
-!!! Writes out a loading bar to the terminal
-!!!#####################################################
-  subroutine loadbar(count,div,loaded)
-    implicit none
-    integer :: count,div !div=10
-    real(real12) :: tiny=1.E-5
-    character(1) :: yn,creturn = achar(13)
-    character(1), optional :: loaded
-
-    if(.not.present(loaded)) then
-       yn='n'
-    else
-       yn=loaded
-    end if
-
-    if(yn.eq.'l'.or.yn.eq.'y') then
-       write(*,'(A,20X,A)',advance='no') achar(13),achar(13)
-       return
-    end if
-
-    if((real(count)/real(4*div)-floor(real(count)/real(4*div))).lt.tiny) then
-       write(6,'(A,20X,A,"CALCULATING")',advance='no') creturn,creturn
-    else if((real(count)/real(div)-floor(real(count)/real(div))).lt.tiny) then
-       write(6,'(".")',advance='no')
-    end if
-
-    return
-  end subroutine loadbar
 !!!#####################################################
 
 

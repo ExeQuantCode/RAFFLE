@@ -60,11 +60,11 @@ if (CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*")
   endif()
 endif()
 
-# set the output directories
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-
 # enable testing
 enable_testing()
+
+# set the output directories
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 # Define the sources
 set(SRC_DIR src)
@@ -81,7 +81,6 @@ set(LIB_FILES
 	mod_elements.f90
 	mod_evaluator.f90
 	mod_atom_adder.f90
-	mod_read_structures.f90
 )
 
 set(SPECIAL_LIB_FILES
@@ -94,22 +93,38 @@ set(SPECIAL_LIB_FILES
 
 # Add Athena library
 if(ENABLE_ATHENA)
-    # Specify the paths to the include and library directories
-    set(ATHENA_ROOT ${HOME_DIR}/.local/athena)
-    set(ATHENA_INCLUDE_DIR ${HOME_DIR}/.local/athena/include)
-    set(ATHENA_LIBRARY ${HOME_DIR}/.local/athena/lib/libathena.a)  # or libfoo.a for static libraries
 
-    find_library(ATHENA_LIBRARY NAMES athena)
+    include(FetchContent)
+    FetchContent_Declare(
+        athena
+        GIT_REPOSITORY https://github.com/nedtaylor/athena.git
+        GIT_TAG        74e988b8538e57d57cd5c9cfaebd3181782e03dd # branch-message_passing_neural_network
+        FIND_PACKAGE_ARGS NAMES athena
+    )
+    FetchContent_MakeAvailable(athena)
+
+
+    # Specify the paths to the include and library directories
+    # set(ATHENA_ROOT ${HOME_DIR}/.local/athena)
+    # set(ATHENA_INCLUDE_DIR ${HOME_DIR}/.local/athena/include)
+    # set(ATHENA_LIBRARY ${HOME_DIR}/.local/athena/lib/libathena.a)  # or libfoo.a for static libraries
+
+    # find_library(ATHENA_LIBRARY NAMES athena)
+    find_package(athena REQUIRED)
 
     # Add the include directory
     include_directories(${ATHENA_INCLUDE_DIR})
     list(APPEND LIB_FILES mod_ml.f90)
 
-    set(F2PY_ATHENA_LIBRARY_FLAGS
-        -L${ATHENA_ROOT}/lib
-        -I${ATHENA_ROOT}/include
-        -lathena
-    )
+    # set(F2PY_ATHENA_LIBRARY_FLAGS
+    #     -L${ATHENA_ROOT}/lib
+    #     -I${ATHENA_ROOT}/include
+    #     -lathena
+    # )
+
+    message(STATUS "Athena library: ${ATHENA_LIBRARY}")
+    message(STATUS "Athena home directory: ${athena_DIR}")
+    message(STATUS "Athena install directory: ${athena_INSTALL_DIR}")
 endif()
 
 foreach(lib ${LIB_FILES})
@@ -135,6 +150,7 @@ endforeach()
 
 
 set(EXECUTABLE_FILES
+    mod_read_structures.f90
     inputs.f90
     main.f90
 )
@@ -236,32 +252,6 @@ if (BUILD_EXECUTABLE)
 endif()
 
 
-# include the build test directory
-if(BUILD_TESTS)
-  add_subdirectory(test)
-endif()
-
-# add coverage compiler flags
-if ( ( CMAKE_Fortran_COMPILER MATCHES ".*gfortran.*" OR CMAKE_Fortran_COMPILER MATCHES ".*gcc.*" ) AND 
-     ( CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*" ) )
-
-    append_coverage_compiler_flags()
-
-    # Copy test data files
-    add_custom_command(
-        OUTPUT ${CMAKE_BINARY_DIR}/test/test
-        COMMAND mkdir -p ${CMAKE_BINARY_DIR}/test/test
-    )
-    add_custom_command(
-        OUTPUT ${CMAKE_BINARY_DIR}/test/test/data
-        COMMAND cp -r ${CMAKE_CURRENT_LIST_DIR}/test/data ${CMAKE_BINARY_DIR}/test/test/.
-        COMMENT "Copying test data files"
-    )
-    add_custom_target(copy_test_data ALL
-        DEPENDS ${CMAKE_BINARY_DIR}/test/test ${CMAKE_BINARY_DIR}/test/test/data
-    )
-
-endif()
 
 if (BUILD_PYTHON)
 
@@ -321,7 +311,7 @@ if (BUILD_PYTHON)
         COMMENT "Copying raffle class file"
     )
 
-    set(F2PY_OUTPUT_FLAG --quiet > /dev/null 2>&1)
+    # set(F2PY_OUTPUT_FLAG --quiet > /dev/null 2>&1)
 
     # Create a Python module using f2py
     add_custom_command(
@@ -360,5 +350,34 @@ endif()
 
 # link the Athena library
 if(ENABLE_ATHENA)
-    target_link_libraries(${PROJECT_NAME} ${ATHENA_LIBRARY})
+    add_dependencies(${PROJECT_NAME} athena)
+    target_link_libraries(${PROJECT_NAME} athena)
+endif()
+
+
+# include the build test directory
+if(BUILD_TESTS)
+  add_subdirectory(test)
+endif()
+
+# add coverage compiler flags
+if ( ( CMAKE_Fortran_COMPILER MATCHES ".*gfortran.*" OR CMAKE_Fortran_COMPILER MATCHES ".*gcc.*" ) AND 
+     ( CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*" ) )
+
+    append_coverage_compiler_flags()
+
+    # Copy test data files
+    add_custom_command(
+        OUTPUT ${CMAKE_BINARY_DIR}/test/test
+        COMMAND mkdir -p ${CMAKE_BINARY_DIR}/test/test
+    )
+    add_custom_command(
+        OUTPUT ${CMAKE_BINARY_DIR}/test/test/data
+        COMMAND cp -r ${CMAKE_CURRENT_LIST_DIR}/test/data ${CMAKE_BINARY_DIR}/test/test/.
+        COMMENT "Copying test data files"
+    )
+    add_custom_target(copy_test_data ALL
+        DEPENDS ${CMAKE_BINARY_DIR}/test/test ${CMAKE_BINARY_DIR}/test/test/data
+    )
+
 endif()

@@ -1,6 +1,6 @@
 project:
 summary: A Fortran library and executable for structure prediction at material interfaces
-src_dir: src
+src_dir: [".src/fortran", ".app"]
 output_dir: doc/html
 preprocess: false
 predocmark: !!

@@ -89,7 +89,7 @@ contains
        end do
     end do
 
-    !!! NEED get_distance, AND THEM USE SUPERCELLS TO HANDLE BONDS
+    ! NEED get_distance, AND THEM USE SUPERCELLS TO HANDLE BONDS
 
     !---------------------------------------------------------------------------
     ! loop over all atoms in the system
@@ -102,16 +102,16 @@ contains
          do i = 1, size(atom_ignore_list,dim=1), 1
             if(all(atom_ignore_list(i,:).eq.[is,ia])) cycle atom_loop1
          end do
-         !!! NEED TO HAVE A LOOP FOR REPEATING CELLS
+         ! NEED TO HAVE A LOOP FOR REPEATING CELLS
          position_storage1 = basis%spec(is)%atom(ia,:)
          contribution=0._real12
-         !!! ONLY NEEDS TO CHECK FOR THE SMALLEST BONDLENGTH BETWEEN A ...
-         !!! ... PERIODIC ATOM AND THE CURRENT ATOM
-         !!! if not looping over periodic images explicitly, doesn't need ...
-         !!! ... to check if the bondlength is larger than the upper tolerance
-         !!! But cycling still needed as it fits that criteria if it is ...
-         !!! ... above upper tolerance, and doesn't fall within 3- and 4-body ...
-         !!! ... check requirements
+         ! ONLY NEEDS TO CHECK FOR THE SMALLEST BONDLENGTH BETWEEN A ...
+         ! ... PERIODIC ATOM AND THE CURRENT ATOM
+         ! if not looping over periodic images explicitly, doesn't need ...
+         ! ... to check if the bondlength is larger than the upper tolerance
+         ! But cycling still needed as it fits that criteria if it is ...
+         ! ... above upper tolerance, and doesn't fall within 3- and 4-body ...
+         ! ... check requirements
     
          bondlength_1 = get_min_dist_between_point_and_atom(basis, &
               position, [is, ia])
@@ -134,8 +134,8 @@ contains
          ! 3-body map
          ! check bondangle between test point and all other atoms
          !! i.e. nested loop here
-         !!! NEEDS TO BE SPECIES AND ATOM
-         !!! SHOULD BE ITS OWN PROCEDURE
+         ! NEEDS TO BE SPECIES AND ATOM
+         ! SHOULD BE ITS OWN PROCEDURE
          !----------------------------------------------------------------------
          species_loop2: do js = is, basis%nspec, 1
            atom_loop2: do ja = 1, basis%spec(js)%num
@@ -163,10 +163,10 @@ contains
                  viability_3body = ( viability_3body * &
                        contribution ** (1._real12/repeat_power_3body))
               end if
-              !!! CHECKS WHETHER THE BONDLENGTH BETWEEN THE CURRENT ATOM AND THE ...
-              !!! ... THIRD ATOM IS WITHIN THE TOLERANCE
-              !!! I have removed the second check as this, again, is just checking ...
-              !!! ... the effect of a periodic image
+              ! CHECKS WHETHER THE BONDLENGTH BETWEEN THE CURRENT ATOM AND THE ...
+              ! ... THIRD ATOM IS WITHIN THE TOLERANCE
+              ! I have removed the second check as this, again, is just checking ...
+              ! ... the effect of a periodic image
               !   if(get_min_dist_between_two_atoms(basis, [is,ia], [js,ja]).lt.&
               !    !bondlength_2.lt.&!get_distance(position_storage1,position_storage2).ge.&
               !        ! gvector_container%cutoff_max(1)) cycle
@@ -174,9 +174,9 @@ contains
                  
               ! 4-body map
               ! check dihedral angle between test point and all other atoms
-              !! i.e. nested loop here
-              !!! NEEDS TO BE SPECIES AND ATOM
-              !!! SHOULD BE ITS OWN PROCEDURE
+              ! i.e. nested loop here
+              ! NEEDS TO BE SPECIES AND ATOM
+              ! SHOULD BE ITS OWN PROCEDURE
               !-----------------------------------------------------------------
               species_loop3: do ks = 1, basis%nspec, 1
                  atom_loop3: do ka = 1, basis%spec(ks)%num

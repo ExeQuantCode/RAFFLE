@@ -389,7 +389,10 @@ contains
     ! shuffle the placement list
     !---------------------------------------------------------------------------
     placement_list_shuffled = placement_list
-    call shuffle(placement_list_shuffled,1) !!! NEED TO SORT OUT RANDOM SEED
+    call shuffle(placement_list_shuffled,1)
+    !! @note
+    !! NEED TO SORT OUT RANDOM SEED
+    !! @endnote
 
 
     !---------------------------------------------------------------------------

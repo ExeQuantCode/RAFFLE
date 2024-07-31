@@ -475,7 +475,7 @@ subroutine sort_str(list, lcase)
     end if
 
     if(lkeep_size_)then
-       call move_alloc(tmp_arr,arr)!!!CONSISTENCY WITH OTHER SET FORMS
+       call move_alloc(tmp_arr,arr)
     else
        deallocate(arr)
        allocate(arr(n))

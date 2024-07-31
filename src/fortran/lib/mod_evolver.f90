@@ -90,6 +90,10 @@ module evolver
      !! Information about the elements in the container.
      type(element_bond_type), dimension(:), allocatable :: bond_info
      !! Information about the 2-body bonds in the container.
+
+     !! @note
+     !! Defaults for distribution function parametsr are randomly chosen for now.
+     !! @endnote
    contains
      procedure, pass(this) :: set_width
      !! Set the width of the bins used in the 2-, 3-, and 4-body.
@@ -1592,10 +1596,10 @@ module evolver
     integer, dimension(3) :: nbins_
     !! Number of bins for the distribution functions.
     real(real12), dimension(3) :: &
-         sigma_ = [0.1_real12, 0.05_real12, 0.05_real12] !!! RANDOMLY CHOSEN DEFAULTS FOR NOW
+         sigma_ = [0.1_real12, 0.05_real12, 0.05_real12]
     !! Sigma for the distribution functions.
     real(real12), dimension(3) :: &
-         width_ = [0.25_real12, pi/24._real12, pi/32._real12] !!! RANDOMLY CHOSEN DEFAULTS FOR NOW
+         width_ = [0.25_real12, pi/24._real12, pi/32._real12]
     !! Width of the bins for the distribution functions.
     real(real12), dimension(3) :: &
          cutoff_min_ = [0._real12, 0._real12, 0._real12]
@@ -1604,7 +1608,11 @@ module evolver
          cutoff_max_ = [6._real12, pi, pi/2._real12]
     !! Cutoff maximum for the distribution functions.
 
-    ! Local variables
+
+    !! @note
+    !! Defaults for distribution function parametsr are randomly chosen for now.
+    !! @endnote
+
     integer :: bin, max_num_steps
     !! Bin index and maximum number of steps.
     integer :: i, j, k, b, itmp1

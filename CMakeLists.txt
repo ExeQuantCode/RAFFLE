@@ -76,7 +76,6 @@ set(LIB_FILES
   mod_misc.f90
 	mod_misc_maths.f90
 	mod_misc_linalg.f90
-	mod_rw_vasprun.f90
 	mod_edit_geom.f90
 	mod_elements.f90
 	mod_evaluator.f90
@@ -150,6 +149,7 @@ endforeach()
 
 
 set(EXECUTABLE_FILES
+    mod_rw_vasprun.f90
     mod_read_structures.f90
     inputs.f90
     main.f90

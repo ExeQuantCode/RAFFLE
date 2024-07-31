@@ -436,7 +436,7 @@ subroutine f90wrap_basis_type__get__sysname(this, f90wrap_sysname)
     end type basis_type_ptr_type
     integer, intent(in)   :: this(2)
     type(basis_type_ptr_type) :: this_ptr
-    character(1024), intent(out) :: f90wrap_sysname
+    character(128), intent(out) :: f90wrap_sysname
     
     this_ptr = transfer(this, this_ptr)
     f90wrap_sysname = this_ptr%p%sysname
@@ -450,7 +450,7 @@ subroutine f90wrap_basis_type__set__sysname(this, f90wrap_sysname)
     end type basis_type_ptr_type
     integer, intent(in)   :: this(2)
     type(basis_type_ptr_type) :: this_ptr
-    character(1024), intent(in) :: f90wrap_sysname
+    character(128), intent(in) :: f90wrap_sysname
     
     this_ptr = transfer(this, this_ptr)
     this_ptr%p%sysname = f90wrap_sysname
@@ -670,6 +670,130 @@ subroutine f90wrap_rw_geom__allocate_species__binding__basis_type( &
          atoms=atoms &
     )
 end subroutine f90wrap_rw_geom__allocate_species__binding__basis_type
+
+subroutine f90wrap_rw_geom__convert__binding__basis_type(this)
+    use rw_geom, only: basis_type
+    implicit none
+    
+    type basis_type_ptr_type
+        type(basis_type), pointer :: p => NULL()
+    end type basis_type_ptr_type
+    type(basis_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    this_ptr = transfer(this, this_ptr)
+    call this_ptr%p%convert()
+end subroutine f90wrap_rw_geom__convert__binding__basis_type
+
+subroutine f90wrap_rw_geom__copy__binding__basis_type(this, basis, length)
+    use rw_geom, only: basis_type
+    implicit none
+    
+    type basis_type_ptr_type
+        type(basis_type), pointer :: p => NULL()
+    end type basis_type_ptr_type
+    type(basis_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    type(basis_type_ptr_type) :: basis_ptr
+    integer, intent(in), dimension(2) :: basis
+    integer, intent(in), optional :: length
+    this_ptr = transfer(this, this_ptr)
+    basis_ptr = transfer(basis, basis_ptr)
+    call this_ptr%p%copy(basis=basis_ptr%p, length=length)
+end subroutine f90wrap_rw_geom__copy__binding__basis_type
+
+subroutine f90wrap_rw_geom__get_lattice_constants__binding__basis_type(this, ret_output, radians)
+    use rw_geom, only: basis_type
+    implicit none
+    
+    type basis_type_ptr_type
+        type(basis_type), pointer :: p => NULL()
+    end type basis_type_ptr_type
+    type(basis_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    real(4), dimension(2,3), intent(out) :: ret_output
+    logical, intent(in), optional :: radians
+    this_ptr = transfer(this, this_ptr)
+    ret_output = this_ptr%p%get_lattice_constants(radians=radians)
+end subroutine f90wrap_rw_geom__get_lattice_constants__binding__basis_type
+
+subroutine f90wrap_rw_geom__geom_read(unit, basis, length, iostat)
+    use rw_geom, only: geom_read, basis_type
+    implicit none
+    
+    type basis_type_ptr_type
+        type(basis_type), pointer :: p => NULL()
+    end type basis_type_ptr_type
+    integer, intent(in) :: unit
+    type(basis_type_ptr_type) :: basis_ptr
+    integer, intent(out), dimension(2) :: basis
+    integer, optional, intent(in) :: length
+    integer, optional, intent(inout) :: iostat
+    allocate(basis_ptr%p)
+    call geom_read(UNIT=unit, basis=basis_ptr%p, length=length, iostat=iostat)
+    basis = transfer(basis_ptr, basis)
+end subroutine f90wrap_rw_geom__geom_read
+
+subroutine f90wrap_rw_geom__geom_write(unit, basis)
+    use rw_geom, only: geom_write, basis_type
+    implicit none
+    
+    type basis_type_ptr_type
+        type(basis_type), pointer :: p => NULL()
+    end type basis_type_ptr_type
+    integer, intent(in) :: unit
+    type(basis_type_ptr_type) :: basis_ptr
+    integer, intent(in), dimension(2) :: basis
+    basis_ptr = transfer(basis, basis_ptr)
+    call geom_write(UNIT=unit, basis=basis_ptr%p)
+end subroutine f90wrap_rw_geom__geom_write
+
+subroutine f90wrap_rw_geom__get_element_properties(element, charge, mass, radius)
+    use rw_geom, only: get_element_properties
+    implicit none
+    
+    character(3), intent(in) :: element
+    real(4), optional, intent(inout) :: charge
+    real(4), optional, intent(inout) :: mass
+    real(4), optional, intent(inout) :: radius
+    call get_element_properties( &
+         element=element, &
+         charge=charge, &
+         mass=mass, &
+         radius=radius &
+    )
+end subroutine f90wrap_rw_geom__get_element_properties
+
+subroutine f90wrap_rw_geom__get__igeom_input(f90wrap_igeom_input)
+    use rw_geom, only: rw_geom_igeom_input => igeom_input
+    implicit none
+    integer, intent(out) :: f90wrap_igeom_input
+    
+    f90wrap_igeom_input = rw_geom_igeom_input
+end subroutine f90wrap_rw_geom__get__igeom_input
+
+subroutine f90wrap_rw_geom__set__igeom_input(f90wrap_igeom_input)
+    use rw_geom, only: rw_geom_igeom_input => igeom_input
+    implicit none
+    integer, intent(in) :: f90wrap_igeom_input
+    
+    rw_geom_igeom_input = f90wrap_igeom_input
+end subroutine f90wrap_rw_geom__set__igeom_input
+
+subroutine f90wrap_rw_geom__get__igeom_output(f90wrap_igeom_output)
+    use rw_geom, only: rw_geom_igeom_output => igeom_output
+    implicit none
+    integer, intent(out) :: f90wrap_igeom_output
+    
+    f90wrap_igeom_output = rw_geom_igeom_output
+end subroutine f90wrap_rw_geom__get__igeom_output
+
+subroutine f90wrap_rw_geom__set__igeom_output(f90wrap_igeom_output)
+    use rw_geom, only: rw_geom_igeom_output => igeom_output
+    implicit none
+    integer, intent(in) :: f90wrap_igeom_output
+    
+    rw_geom_igeom_output = f90wrap_igeom_output
+end subroutine f90wrap_rw_geom__set__igeom_output
 
 ! End of module rw_geom defined in file ../src/lib/mod_rw_geom.f90
 

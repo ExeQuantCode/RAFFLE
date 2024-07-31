@@ -1,15 +1,5 @@
-!!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor and Francis Huw Davies
-!!! Code part of the ARTEMIS group (Hepplestone research group).
-!!! Think Hepplestone, think HRG.
-!!!#############################################################################
-!!! module contains various miscellaneous maths functions and subroutines.
-!!! module includes the following functionsand subroutines:
-!!! lnsum            (sum a set of log(i), where i=1,n)
-!!! triangular_number (returns the nth triangular number)
-!!!#############################################################################
 module misc_maths
-  use constants, only: real12, pi
+  !! Module for miscellaneous mathematical functions.
   implicit none
 
 
@@ -18,17 +8,22 @@ module misc_maths
   public :: lnsum, triangular_number
 
 
-!!!updated 2020/02/03
-
 
 contains
 
-!!!#####################################################
-!!! Sum of logs of range from 1 to n
-!!!#####################################################
-  double precision function lnsum(n) 
+!###############################################################################
+double precision function lnsum(n) 
+    !! Return the sum of the logs of the integers from 1 to n.
     implicit none
-    integer :: i,n
+
+    ! Arguments
+    integer :: n
+    !! The upper limit of the range.
+
+    ! Local variables
+    integer :: i
+    !! Loop index.
+
     lnsum=0
     do i=1,n
        lnsum=lnsum+log(real(i))
@@ -36,17 +31,19 @@ contains
 
     return
   end function lnsum
-!!!#####################################################
+!###############################################################################
 
 
-!!!#####################################################
-!!! returns the nth triangular number
-!!!#####################################################
+!###############################################################################
   integer function triangular_number(n)
+    !! Return the nth triangular number.
     implicit none
+
+    ! Arguments
     integer :: n
+    !! The index of the triangular number to return.
     triangular_number = n * ( n + 1 ) / 2
   end function triangular_number
-!!!#####################################################
+!###############################################################################
 
 end module misc_maths

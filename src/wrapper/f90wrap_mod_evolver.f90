@@ -182,7 +182,7 @@ subroutine f90wrap_gvector_type__array__stoichiometry(this, nd, dtype, dshape, d
     end if
 end subroutine f90wrap_gvector_type__array__stoichiometry
 
-subroutine f90wrap_gvector_type__array__species(this, nd, dtype, dshape, dloc)
+subroutine f90wrap_gvector_type__array__element_symbols(this, nd, dtype, dshape, dloc)
     use evolver, only: gvector_type
     use, intrinsic :: iso_c_binding, only : c_int
     implicit none
@@ -199,13 +199,14 @@ subroutine f90wrap_gvector_type__array__species(this, nd, dtype, dshape, dloc)
     nd = 2
     dtype = 2
     this_ptr = transfer(this, this_ptr)
-    if (allocated(this_ptr%p%species)) then
-        dshape(1:2) = (/len(this_ptr%p%species(1)), shape(this_ptr%p%species)/)
-        dloc = loc(this_ptr%p%species)
+    if (allocated(this_ptr%p%element_symbols)) then
+        dshape(1:2) = (/len(this_ptr%p%element_symbols(1)), &
+             shape(this_ptr%p%element_symbols)/)
+        dloc = loc(this_ptr%p%element_symbols)
     else
         dloc = 0
     end if
-end subroutine f90wrap_gvector_type__array__species
+end subroutine f90wrap_gvector_type__array__element_symbols
 
 subroutine f90wrap_evolver__gvector_type_initialise(this)
     use evolver, only: gvector_type

@@ -1,4 +1,10 @@
 module evolver
+  !! Module for handling distribution functions.
+  !!
+  !! This module contains the types and subroutines for handling distribution
+  !! distributions. The distribution functions are used as fingerprints for
+  !! atomic structures to identify similarities and differences between
+  !! structures.
   use constants, only: real12, pi
   use misc_raffle, only: set, icount, strip_null, sort_str
   use misc_maths, only: lnsum, triangular_number
@@ -16,16 +22,32 @@ module evolver
   
   
   type :: gvector_base_type
+     !! Base type for distribution functions.
      real(real12), dimension(:,:), allocatable :: df_2body
+     !! 2-body distribution function.
      real(real12), dimension(:,:), allocatable :: df_3body
+     !! 3-body distribution function.
      real(real12), dimension(:,:), allocatable :: df_4body
+     !! 4-body distribution function.
   end type gvector_base_type
 
   type, extends(gvector_base_type) :: gvector_type
+     !! Type for distribution functions.
+     !!
+     !! This type contains the distribution functions for a single atomic
+     !! structure. It also contains other structure properties, including:
+     !! - energy
+     !! - stoichiometry
+     !! - elements
+     !! - number of atoms
      integer :: num_atoms = 0
-     real(real12) :: energy = 0.0_real12 !! should be formation energy
+     !! Number of atoms in the structure.
+     real(real12) :: energy = 0.0_real12
+     !! Energy of the structure.
      integer, dimension(:), allocatable :: stoichiometry
-     character(len=3), dimension(:), allocatable :: species
+     !! Stoichiometry of the structure.
+     character(len=3), dimension(:), allocatable :: element_symbols
+     !! Elements contained within the structure.
    contains
      procedure, pass(this) :: calculate
   end type gvector_type
@@ -35,79 +57,147 @@ module evolver
   !! if one for each system, do not contain nbins, width, as this would ...
   !! ... result in lots of duplicated data
   type :: gvector_container_type
+     !! Container for distribution functions.
+     !!
+     !! This type contains the distribution functions for a set of atomic
+     !! structures, alongside parameters for initialising the distributions.
      integer :: best_system = 0
+     !! Index of the best system.
      real(real12) :: best_energy = 0.0_real12
+     !! Energy of the best system.
      integer, dimension(3) :: nbins = -1
-     real(real12), dimension(3) :: sigma = [ 0.1_real12, 0.05_real12, 0.05_real12 ]
-     real(real12), dimension(3) :: width = [ 0.025_real12, pi/24._real12, pi/32._real12 ]
-     real(real12), dimension(3) :: cutoff_min = [ 0.5_real12, 0._real12, 0._real12 ]
-     real(real12), dimension(3) :: cutoff_max = [ 6._real12, pi, pi/2._real12 ]
+     !! Number of bins for the 2-, 3-, and 4-body distribution functions.
+     real(real12), dimension(3) :: &
+          sigma = [ 0.1_real12, 0.05_real12, 0.05_real12 ]
+     !! Sigma of the gaussians used in the 2-, 3-, and 4-body 
+     !! distribution functions.
+     real(real12), dimension(3) :: &
+          width = [ 0.025_real12, pi/24._real12, pi/32._real12 ]
+     !! Width of the bins used in the 2-, 3-, and 4-body distribution functions.
+     real(real12), dimension(3) :: &
+          cutoff_min = [ 0.5_real12, 0._real12, 0._real12 ]
+     !! Minimum cutoff for the 2-, 3-, and 4-body distribution functions.
+     real(real12), dimension(3) :: &
+          cutoff_max = [ 6._real12, pi, pi/2._real12 ]
+     !! Maximum cutoff for the 2-, 3-, and 4-body distribution functions.
      type(gvector_base_type) :: total !! name it best instead?
+     !! Total distribution functions for all systems.
+     !! Generated from combining the energy-weighted distribution functions
+     !! of all systems
      type(gvector_type), dimension(:), allocatable :: system
+     !! Distribution functions for each system.
      type(element_type), dimension(:), allocatable :: element_info
+     !! Information about the elements in the container.
      type(element_bond_type), dimension(:), allocatable :: bond_info
+     !! Information about the 2-body bonds in the container.
    contains
      procedure, pass(this) :: set_width
+     !! Set the width of the bins used in the 2-, 3-, and 4-body.
      procedure, pass(this) :: set_sigma
+     !! Set the sigma of the gaussians used in the 2-, 3-, and 4-body.
      procedure, pass(this) :: set_cutoff_min
+     !! Set the minimum cutoff for the 2-, 3-, and 4-body.
      procedure, pass(this) :: set_cutoff_max
+     !! Set the maximum cutoff for the 2-, 3-, and 4-body.
 
      procedure, pass(this) :: create
+     !! Create the distribution functions for all systems, and the learned one.
      procedure, pass(this) :: update
+     !! Update the distribution functions for all systems, and the learned one.
      
      procedure, pass(this) :: add, add_basis
+     !! Add a system to the container.
 
      procedure, pass(this), private :: set_element_info
+     !! Set the list of elements for the container.
      procedure, pass(this), private :: update_element_info
+     !! Update the element information in the container.
      procedure, pass(this) :: set_element_energy
+     !! Set the energy of an element in the container.
      procedure, pass(this) :: set_element_energies
+     !! Set the energies of elements in the container.
      procedure, pass(this) :: get_element_energies
+     !! Return the energies of elements in the container.
      procedure, pass(this) :: get_element_energies_staticmem
+     !! Return the energies of elements in the container.
+     !! Used in Python interface.
 
      procedure, pass(this), private :: set_bond_info
+     !! Set the 2-body bond information for the container.
      procedure, pass(this), private :: update_bond_info
+     !! Update the bond information in the container.
      procedure, pass(this) :: set_bond_radius
+     !! Set the radius of a bond in the container.
      procedure, pass(this) :: set_bond_radii
+     !! Set the radii of multiple bonds in the container.
      procedure, pass(this) :: get_bond_radii
+     !! Return the radii of all bonds in the container.
      procedure, pass(this) :: get_bond_radii_staticmem
+     !! Return the radii of all bonds in the container.
+     !! Used in Python interface.
 
      
      procedure, pass(this) :: set_best_energy
+     !! Set the best energy and system in the container.
      procedure, pass(this) :: initialise_gvectors
+     !! Initialise the distribution functions in the container.
      procedure, pass(this) :: evolve
+     !! Evolve the learned distribution function.
      procedure, pass(this) :: write
+     !! Write all distribution functions to a file.
      procedure, pass(this) :: read
+     !! Read all distribution functions from a file.
      procedure, pass(this) :: write_2body
+     !! Write the learned 2-body distribution function to a file.
      procedure, pass(this) :: write_3body
+     !! Write the learned 3-body distribution function to a file.
      procedure, pass(this) :: write_4body
+     !! Write the learned 4-body distribution function to a file.
      procedure, pass(this) :: get_pair_index
+     !! Return the index for bond_info given two elements.
      procedure, pass(this) :: get_bin
-  !   procedure :: read
+     !! Return the bin index for a given distance.
   end type gvector_container_type
 
   interface gvector_container_type
+    !! Interface for the distribution functions container.
     module function init_gvector_container( &
          nbins, width, sigma, cutoff_min, cutoff_max &
          ) result(gvector_container)
+         !! Initialise the distribution functions container.
          integer, dimension(3), intent(in), optional :: nbins
+         !! Number of bins for the 2-, 3-, and 4-body distribution functions.
          real(real12), dimension(3), intent(in), optional :: width, sigma
-         real(real12), dimension(3), intent(in), optional :: cutoff_min, cutoff_max
+         !! Width and sigma of the gaussians used in the 2-, 3-, and 4-body.
+         real(real12), dimension(3), intent(in), optional :: &
+              cutoff_min, cutoff_max
+         !! Minimum and maximum cutoff for the 2-, 3-, and 4-body.
          type(gvector_container_type) :: gvector_container
+         !! Instance of the distribution functions container.
     end function init_gvector_container
   end interface gvector_container_type
 
 
   contains
-!!!#############################################################################
-!!! initialise gvector container type
-!!!#############################################################################
-  module function init_gvector_container(nbins, width, sigma, cutoff_min, cutoff_max) &
+  
+!###############################################################################
+  module function init_gvector_container( &
+       nbins, width, sigma, &
+       cutoff_min, cutoff_max ) &
        result(gvector_container)
+    !! Initialise the distribution functions container.
     implicit none
+
+    ! Arguments
     integer, dimension(3), intent(in), optional :: nbins
+    !! Number of bins for the 2-, 3-, and 4-body distribution functions.
     real(real12), dimension(3), intent(in), optional :: width, sigma
+    !! Width and sigma of the gaussians used in the 2-, 3-, and 4-body.
     real(real12), dimension(3), intent(in), optional :: cutoff_min, cutoff_max
+    !! Minimum and maximum cutoff for the 2-, 3-, and 4-body.
     type(gvector_container_type) :: gvector_container
+    !! Instance of the distribution functions container.
+
 
     if(present(nbins))then
        if(all(nbins .gt. 0)) gvector_container%nbins = nbins
@@ -122,10 +212,12 @@ module evolver
     end if
 
     if(present(cutoff_min))then
-       if(all(cutoff_min.ge.0._real12)) gvector_container%cutoff_min = cutoff_min
+       if(all(cutoff_min.ge.0._real12)) &
+            gvector_container%cutoff_min = cutoff_min
     end if
     if(present(cutoff_max))then
-       if(all(cutoff_max.ge.0._real12)) gvector_container%cutoff_max = cutoff_max
+       if(all(cutoff_max.ge.0._real12)) &
+            gvector_container%cutoff_max = cutoff_max
     end if
     if(any(gvector_container%cutoff_max .le. gvector_container%cutoff_min))then
        write(0,*) "ERROR: cutoff_max <= cutoff_min"
@@ -135,8 +227,10 @@ module evolver
     end if
 
   end function init_gvector_container
-!!!#############################################################################
+!###############################################################################
 
+
+!###############################################################################
   subroutine set_width(this, width)
     !! Set the width of the gaussians used in the 2-, 3-, and 4-body
     !! distribution functions.
@@ -144,7 +238,7 @@ module evolver
 
     ! Arguments
     class(gvector_container_type), intent(inout) :: this
-    !! Self, parent of the procedure
+    !! Parent. Instance of distribution functions container.
     real(real12), dimension(3), intent(in) :: width
     !! Width of the gaussians used in the 2-, 3-, and 4-body
     !! distribution functions.
@@ -152,8 +246,10 @@ module evolver
     this%width = width
 
   end subroutine set_width
+!###############################################################################
 
 
+!###############################################################################
   subroutine set_sigma(this, sigma)
     !! Set the sigma of the gaussians used in the 2-, 3-, and 4-body
     !! distribution functions.
@@ -161,52 +257,58 @@ module evolver
 
     ! Arguments
     class(gvector_container_type), intent(inout) :: this
-    !! Self, parent of the procedure.
+    !! Parent. Instance of distribution functions container.
     real(real12), dimension(3), intent(in) :: sigma
-    !! Sigma of the gaussians used in the 2-, 3-, and 4-body
-    !! distribution functions.
+    !! Sigma of the gaussians used in the 2-, 3-, and 4-body distribution
+    !! functions.
 
     this%sigma = sigma
 
   end subroutine set_sigma
+!###############################################################################
 
 
+!###############################################################################
   subroutine set_cutoff_min(this, cutoff_min)
     !! Set the minimum cutoff for the 2-, 3-, and 4-body distribution functions.
     implicit none
 
     ! Arguments
     class(gvector_container_type), intent(inout) :: this
-    !! Self, parent of the procedure.
+    !! Parent. Instance of distribution functions container.
     real(real12), dimension(3), intent(in) :: cutoff_min
     !! Minimum cutoff for the 2-, 3-, and 4-body distribution functions.
 
      this%cutoff_min = cutoff_min
 
   end subroutine set_cutoff_min
+!###############################################################################
 
 
+!###############################################################################
   subroutine set_cutoff_max(this, cutoff_max)
     !! Set the maximum cutoff for the 2-, 3-, and 4-body distribution functions.
     implicit none
    
     ! Arguments
     class(gvector_container_type), intent(inout) :: this
-    !! Self, parent of the procedure.
+    !! Parent. Instance of distribution functions container.
     real(real12), dimension(3), intent(in) :: cutoff_max
     !! Maximum cutoff for the 2-, 3-, and 4-body distribution functions.
    
     this%cutoff_max = cutoff_max
    
   end subroutine set_cutoff_max
+!###############################################################################
 
 
+!###############################################################################
   subroutine create(this, basis_list, deallocate_systems)
     !! create the distribution functions from the input file
     implicit none
     ! Arguments
     class(gvector_container_type), intent(inout) :: this
-    !! Self, parent of the procedure.
+    !! Parent. Instance of distribution functions container.
     type(basis_type), dimension(:), intent(in) :: basis_list
     !! List of basis structures.
     logical, intent(in), optional :: deallocate_systems
@@ -228,14 +330,16 @@ module evolver
     call this%evolve(deallocate_systems_after_evolve=deallocate_systems_)
     
   end subroutine create
+!###############################################################################
 
 
+!###############################################################################
   subroutine update(this, basis_list, deallocate_systems)
     !! update the distribution functions from the input file
     implicit none
     ! Arguments
     class(gvector_container_type), intent(inout) :: this
-    !! Self, parent of the procedure.
+    !! Parent. Instance of distribution functions container.
     type(basis_type), dimension(:), intent(in) :: basis_list
     !! List of basis structures.
     logical, intent(in), optional :: deallocate_systems
@@ -252,17 +356,25 @@ module evolver
     call this%evolve(deallocate_systems_after_evolve=deallocate_systems_)
     
   end subroutine update
+!###############################################################################
 
 
-!!!#############################################################################
-!!! write all systems
-!!!#############################################################################
+!###############################################################################
   subroutine write(this, file)
+    !! Write all distribution functions for each system to a file.
     implicit none
-    class(gvector_container_type), intent(in) :: this
-    character(*), intent(in) :: file
 
-    integer :: unit, i, j
+    ! Arguments
+    class(gvector_container_type), intent(in) :: this
+    !! Parent. Instance of distribution functions container.
+    character(*), intent(in) :: file
+    !! Filename to write the distribution functions to.
+
+    ! Local variables
+    integer :: unit
+    !! File unit.
+    integer :: i, j
+    !! Loop indices.
 
 
     if(.not.allocated(this%system))then
@@ -284,7 +396,7 @@ module evolver
     write(unit, *)
     do i = 1, size(this%system,1)
        write(unit, *) this%system(i)%energy
-       write(unit, *) this%system(i)%species
+       write(unit, *) this%system(i)%element_symbols
        write(unit, *) this%system(i)%stoichiometry
        do j = 1, this%nbins(1)
           write(unit, *) this%system(i)%df_2body(j,:)
@@ -300,21 +412,33 @@ module evolver
     close(unit)
 
   end subroutine write
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! read all systems
-!!!#############################################################################
+!###############################################################################
   subroutine read(this, file)
+    !! Read all distribution functions for each system from a file.
     implicit none
-    class(gvector_container_type), intent(inout) :: this
-    character(*), intent(in) :: file
 
-    integer :: unit, i, j, ierror
+    ! Arguments
+    class(gvector_container_type), intent(inout) :: this
+    !! Parent. Instance of distribution functions container.
+    character(*), intent(in) :: file
+    !! Filename to read the distribution functions from.
+
+    ! Local variables
+    integer :: unit
+    !! File unit.
+    integer :: i, j
+    !! Loop indices.
+    integer :: iostat
+    !! I/O status.
     integer :: num_species, num_pairs
+    !! Number of species and pairs.
     character(256) :: buffer
+    !! Buffer for reading lines.
     type(gvector_type) :: system
+    !! System to read distribution functions into.
 
    
     open(newunit=unit, file=file)
@@ -324,15 +448,15 @@ module evolver
     read(unit, *) buffer, this%cutoff_min
     read(unit, *) buffer, this%cutoff_max
     do
-       read(unit, '(A)', iostat=ierror) buffer
-       if(ierror.ne.0) exit
+       read(unit, '(A)', iostat=iostat) buffer
+       if(iostat.ne.0) exit
        if(trim(buffer).eq.''.or.trim(buffer).eq.'#') cycle
        read(buffer, *) system%energy
        read(unit, '(A)') buffer
        num_species = icount(buffer)
-       allocate(system%species(num_species))
+       allocate(system%element_symbols(num_species))
        allocate(system%stoichiometry(num_species))
-       read(buffer, *) system%species
+       read(buffer, *) system%element_symbols
        read(unit, *) system%stoichiometry
        system%num_atoms = sum(system%stoichiometry)
        num_pairs = gamma(real(num_species + 2, real12)) / &
@@ -351,26 +475,35 @@ module evolver
        end do
 
        this%system = [ this%system, system ]
-       deallocate(system%species, system%stoichiometry, &
+       deallocate(system%element_symbols, system%stoichiometry, &
                   system%df_2body, system%df_3body, system%df_4body)
     end do
     close(unit)
 
   end subroutine read
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! write the 2body gvectors to a file
-!!!#############################################################################
+!###############################################################################
   subroutine write_2body(this, file)
+    !! Write the learned 2-body distribution functions to a file.
     implicit none
-    class(gvector_container_type), intent(in) :: this
-    character(*), intent(in) :: file
 
-    integer :: unit, i, j, is, js
+    ! Arguments
+    class(gvector_container_type), intent(in) :: this
+    !! Parent. Instance of distribution functions container.
+    character(*), intent(in) :: file
+    !! Filename to write the 2-body distribution functions to.
+
+    ! Local variables
+    integer :: unit
+    !! File unit.
+    integer :: i, j, is, js
+    !! Loop indices.
     integer :: num_pairs
+    !! Number of pairs.
     integer, allocatable, dimension(:,:) :: idx
+    !! Pair indices.
 
 
     num_pairs = gamma(real(size(this%element_info) + 2, real12)) / &
@@ -399,18 +532,25 @@ module evolver
     close(unit)
 
   end subroutine write_2body
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! write the 3body gvectors to a file
-!!!#############################################################################
-    subroutine write_3body(this, file)
+!###############################################################################
+  subroutine write_3body(this, file)
+    !! Write the learned 3-body distribution functions to a file.
     implicit none
-    class(gvector_container_type), intent(in) :: this
-    character(*), intent(in) :: file
 
-    integer :: unit, i, j
+    ! Arguments
+    class(gvector_container_type), intent(in) :: this
+    !! Parent. Instance of distribution functions container.
+    character(*), intent(in) :: file
+    !! Filename to write the 3-body distribution functions to.
+
+    ! Local variables
+    integer :: unit
+    !! File unit.
+    integer :: i, j
+    !! Loop indices.
 
 
     open(newunit=unit, file=file)
@@ -425,18 +565,25 @@ module evolver
     close(unit)
 
   end subroutine write_3body
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! write the 3body gvectors to a file
-!!!#############################################################################
-    subroutine write_4body(this, file)
+!###############################################################################
+  subroutine write_4body(this, file)
+    !! Write the learned 4-body distribution functions to a file.
     implicit none
-    class(gvector_container_type), intent(in) :: this
-    character(*), intent(in) :: file
 
-    integer :: unit, i, j
+    ! Arguments
+    class(gvector_container_type), intent(in) :: this
+    !! Parent. Instance of distribution functions container.
+    character(*), intent(in) :: file
+    !! Filename to write the 4-body distribution functions to.
+
+    ! Local variables
+    integer :: unit
+    !! File unit.
+    integer :: i, j
+    !! Loop indices.
 
 
     open(newunit=unit, file=file)
@@ -451,19 +598,27 @@ module evolver
     close(unit)
 
   end subroutine write_4body
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! add system (basis or gvector) to the container
-!!!#############################################################################
+!###############################################################################
   subroutine add(this, system)
+    !! Add a system to the container.
     implicit none
-    class(gvector_container_type), intent(inout) :: this
-    class(*), dimension(..), intent(in) :: system
 
-    integer :: i, num_structures_previous
+    ! Arguments
+    class(gvector_container_type), intent(inout) :: this
+    !! Parent. Instance of distribution functions container.
+    class(*), dimension(..), intent(in) :: system
+    !! System to add to the container.
+
+    ! Local variables
+    integer :: i
+    !! Loop index.
+    integer :: num_structures_previous
+    !! Number of structures in the container before adding the system.
     character(128) :: buffer
+    !! Buffer for writing messages.
 
 
     select rank(system)
@@ -503,18 +658,23 @@ module evolver
     call this%set_best_energy()
 
   end subroutine add
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! generate gvectors from basis and add to the container
-!!!#############################################################################
+!###############################################################################
   subroutine add_basis(this, basis)
+    !! Add a basis to the container.
     implicit none
-    class(gvector_container_type), intent(inout) :: this
-    type(basis_type), intent(in) :: basis
 
+    ! Arguments
+    class(gvector_container_type), intent(inout) :: this
+    !! Parent. Instance of distribution functions container.
+    type(basis_type), intent(in) :: basis
+    !! Basis to add to the container.
+
+    ! Local variables
     type(gvector_type) :: system
+    !! System to add to the container.
 
     call system%calculate(basis, width = this%width, &
                      sigma = this%sigma, &
@@ -527,27 +687,33 @@ module evolver
        this%system = [ this%system, system ]
     end if
   end subroutine add_basis
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! set the species list for the container
-!!!#############################################################################
+!###############################################################################
   subroutine set_element_info(this)
+    !! Set the list of elements for the container.
     implicit none
+
+    ! Arguments
     class(gvector_container_type), intent(inout) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
 
-    integer :: i, unit
+    ! Local variables
+    integer :: i
+    !! Loop index.
     real(real12) :: radius
+    !! Element radii.
     character(len=3), dimension(:), allocatable :: element_list
+    !! List of elements in the container.
 
 
-    !!--------------------------------------------------------------------------
-    !! get list of species in dataset
-    !!--------------------------------------------------------------------------
-    element_list = [ this%system(1)%species ]
+    !---------------------------------------------------------------------------
+    ! get list of species in dataset
+    !---------------------------------------------------------------------------
+    element_list = [ this%system(1)%element_symbols ]
     do i = 2, size(this%system),1
-       element_list = [ element_list, this%system(i)%species ]
+       element_list = [ element_list, this%system(i)%element_symbols ]
     end do
     call set(element_list)
     if(allocated(this%element_info)) deallocate(this%element_info)
@@ -566,7 +732,7 @@ module evolver
     end do
     
   end subroutine set_element_info
-!!!#############################################################################
+!###############################################################################
 
 
 !###############################################################################
@@ -599,9 +765,9 @@ module evolver
     !---------------------------------------------------------------------------
     ! get list of species in dataset
     !---------------------------------------------------------------------------
-    element_list = [ this%system(1)%species ]
+    element_list = [ this%system(1)%element_symbols ]
     do i = 2, size(this%system),1
-       element_list = [ element_list, this%system(i)%species ]
+       element_list = [ element_list, this%system(i)%element_symbols ]
     end do
     call set(element_list)
 
@@ -775,22 +941,29 @@ module evolver
 !###############################################################################
 
 
-!!!#############################################################################
-!!! set the element bond list for the container
-!!!#############################################################################
+!###############################################################################
   subroutine set_bond_info(this)
+    !! Set the 2-body bond information for the container.
     implicit none
+
+    ! Arguments
     class(gvector_container_type), intent(inout) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
 
+    ! Local variables
     integer :: i, j, k, idx1, idx2
+    !! Loop index.
     integer :: num_elements, num_pairs
+    !! Number of elements and pairs.
     real(real12) :: radius
+    !! Average of covalent radii.
     logical :: success
+    !! Success flag.
 
 
-    !!--------------------------------------------------------------------------
-    !! allocate the bond information array
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! allocate the bond information array
+    !---------------------------------------------------------------------------
     num_elements = size(this%element_info)
     num_pairs = nint(gamma(real(num_elements + 2, real12)) / &
          ( gamma(real(num_elements, real12)) * gamma( 3._real12 ) ) )
@@ -798,9 +971,9 @@ module evolver
     allocate(this%bond_info(num_pairs))
 
 
-    !!--------------------------------------------------------------------------
-    !! loop over all pairs of elements to set the bond information
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! loop over all pairs of elements to set the bond information
+    !---------------------------------------------------------------------------
     num_pairs = 0
     pair_loop1: do i = 1, num_elements 
        pair_loop2: do j = i, num_elements
@@ -827,7 +1000,8 @@ module evolver
                element_bond_type(elements=[ &
                     this%element_info(i)%name, &
                     this%element_info(j)%name ], radius=radius) ]
-          call sort_str(element_bond_database(size(element_bond_database))%element)
+          call sort_str( &
+               element_bond_database(size(element_bond_database))%element )
           if(idx1.lt.1.or.idx2.lt.1)then
              write(0,*) "ERROR", idx1, idx2
              stop 1
@@ -841,7 +1015,7 @@ module evolver
     end do pair_loop1
 
   end subroutine set_bond_info
-!!!#############################################################################
+!###############################################################################
 
 
 !###############################################################################
@@ -864,21 +1038,21 @@ module evolver
    !! List of element pairs in the container.
 
 
-   !---------------------------------------------------------------------------
+   !----------------------------------------------------------------------------
    ! check if bond_info is allocated, if not, set it and return
-   !---------------------------------------------------------------------------
+   !----------------------------------------------------------------------------
    if(.not.allocated(this%bond_info).or.size(this%bond_info).eq.0)then
       call this%set_bond_info()
       return
    end if
 
 
-   !---------------------------------------------------------------------------
+   !----------------------------------------------------------------------------
    ! get list of element pairs in dataset
-   !---------------------------------------------------------------------------
-   element_list = [ this%system(1)%species ]
+   !----------------------------------------------------------------------------
+   element_list = [ this%system(1)%element_symbols ]
    do i = 2, size(this%system),1
-      element_list = [ element_list, this%system(i)%species ]
+      element_list = [ element_list, this%system(i)%element_symbols ]
    end do
    call set(element_list)
    allocate(pair_list(triangular_number(size(element_list)),2))
@@ -1094,21 +1268,26 @@ module evolver
 !###############################################################################
 
 
-!!!#############################################################################
-!!! set the best energy and system
-!!!#############################################################################
+!###############################################################################
   subroutine set_best_energy(this)
+    !! Set the best energy in the container.
     implicit none
-    class(gvector_container_type), intent(inout) :: this
 
+    ! Arguments
+    class(gvector_container_type), intent(inout) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
+
+    ! Local variables
     integer :: i, is, idx
+    !! Loop index.
     real(real12) :: energy
+    !! Energy of the system.
 
     do i = 1, size(this%system)
        energy = this%system(i)%energy
-       do is = 1, size(this%system(i)%species)
+       do is = 1, size(this%system(i)%element_symbols)
           idx = findloc( [ this%element_info(:)%name ], &
-                           this%system(i)%species(is), dim=1 )
+                           this%system(i)%element_symbols(is), dim=1 )
           if(idx.lt.1)then
              write(0,*) "ERROR: Species not found in element_info"
              stop 1
@@ -1124,19 +1303,25 @@ module evolver
     end do
 
   end subroutine set_best_energy
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! get index corresponding to element pair
-!!!#############################################################################
+!###############################################################################
   pure function get_pair_index(this, species1, species2) result(idx)
+    !! Get the index of a pair of elements in the container.
     implicit none
-    class(gvector_container_type), intent(in) :: this
-    character(len=3), intent(in) :: species1, species2
-    integer :: idx
 
+    ! Arguments
+    class(gvector_container_type), intent(in) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
+    character(len=3), intent(in) :: species1, species2
+    !! Element names.
+    integer :: idx
+    !! Index of the pair in the bond_info array.
+
+    ! Local variables
     integer :: is, js
+    !! Index of the elements in the element_info array.
 
     is = findloc([ this%element_info(:)%name ], species1, dim=1)
     js = findloc([ this%element_info(:)%name ], species2, dim=1)
@@ -1150,18 +1335,23 @@ module evolver
           ( min( is, js ) - 1._real12 ) + max( is, js ) )
 
   end function get_pair_index
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! get bin number associated with input value
-!!!#############################################################################
+!###############################################################################
   pure function get_bin(this, value, dim) result(bin)
+    !! Get the bin index for a value in a dimension.
     implicit none
+
+    ! Arguments
     class(gvector_container_type), intent(in) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
     real(real12), intent(in) :: value
+    !! Value to get the bin index for.
     integer, intent(in) :: dim
+    !! Dimension to get the bin index for.
     integer :: bin
+    !! Bin index for the value.
 
     if(value .lt. this%cutoff_min(dim) - this%width(dim) .or. &
          value .gt. this%cutoff_max(dim) + this%width(dim))then
@@ -1173,18 +1363,25 @@ module evolver
     end if
 
   end function get_bin
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! initialise the gvectors
-!!!#############################################################################
+!###############################################################################
   subroutine initialise_gvectors(this)
+    !! Initialise the g-vectors for the container.
     implicit none
-    class(gvector_container_type), intent(inout) :: this
 
-    integer :: i, num_pairs
+    ! Arguments
+    class(gvector_container_type), intent(inout) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
+
+    ! Local variables
+    integer :: i
+    !! Loop index.
+    integer :: num_pairs
+    !! Number of pairs.
     real(real12) :: eta, weight, height
+    !! Parameters for the g-vectors.
     !real(real12), dimension(42) :: bonds_cubic
 
     num_pairs = nint( gamma(real(size(this%element_info) + 2, real12)) / &
@@ -1215,37 +1412,49 @@ module evolver
     !end do
 
   end subroutine initialise_gvectors
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! generate the evolved gvectors
-!!!#############################################################################
-!!! EASIER TO STORE THE LIST OF LENGTHS, AND ANGLES, OR THE INDIVIDUAL SYSTEM GVECTORS?
+!###############################################################################
   subroutine evolve(this, system, deallocate_systems_after_evolve)
+    !! Evolve the g-vectors for the container.
     implicit none
-    class(gvector_container_type), intent(inout) :: this
-    type(gvector_type), dimension(..), intent(in), optional :: system
-    logical, intent(in), optional :: deallocate_systems_after_evolve
 
+    ! Arguments
+    class(gvector_container_type), intent(inout) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
+    type(gvector_type), dimension(..), intent(in), optional :: system
+    !! System to add to the container.
+    logical, intent(in), optional :: deallocate_systems_after_evolve
+    !! Optional. Boolean whether to deallocate the systems after the evolve.
+
+    ! Local variables
+    integer :: i, j, is, js
+    !! Loop index.
     integer :: idx1, idx2
-    integer :: i, j, is, js, num_structures_previous
+    !! Index of the element in the element_info array.
+   integer :: num_structures_previous
+   !! Number of structures in the container before the evolve.
     real(real12) :: weight, energy, best_energy_old
+    !! Energy and weight variables for a system.
     logical :: deallocate_systems_after_evolve_ = .true.
+    !! Boolean whether to  the systems after the evolve.
     real(real12), dimension(:), allocatable :: height
+    !! Height of the g-vectors.
     integer, dimension(:,:), allocatable :: idx_list
+    !! Index list for the element pairs in a system.
     
 
-    !!--------------------------------------------------------------------------
-    !! if present, set the deallocate flag
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! if present, set the deallocate flag
+    !---------------------------------------------------------------------------
     if(present(deallocate_systems_after_evolve)) &
        deallocate_systems_after_evolve_ = deallocate_systems_after_evolve
 
 
-    !!--------------------------------------------------------------------------
-    !! if present, add the system to the container
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! if present, add the system to the container
+    !---------------------------------------------------------------------------
     if(present(system)) call this%add(system)
     do i = 1, 3
        if(this%nbins(i).eq.-1)then
@@ -1255,16 +1464,16 @@ module evolver
     end do
 
 
-    !!--------------------------------------------------------------------------
-    !! get the energy from the lowest formation energy system
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! get the energy from the lowest formation energy system
+    !---------------------------------------------------------------------------
     best_energy_old = this%best_energy
     call this%set_best_energy()
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise the total gvectors
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! initialise the total gvectors
+    !---------------------------------------------------------------------------
     if(.not.allocated(this%total%df_2body))then
        call this%initialise_gvectors()
     else
@@ -1273,18 +1482,18 @@ module evolver
     end if
 
 
-    !!--------------------------------------------------------------------------
-    !! loop over all systems to calculate the total gvectors
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! loop over all systems to calculate the total gvectors
+    !---------------------------------------------------------------------------
     do i = 1, size(this%system)
-       !!-----------------------------------------------------------------------
-       !! get the list of 2-body species pairs the system
-       !!-----------------------------------------------------------------------
+       !------------------------------------------------------------------------
+       ! get the list of 2-body species pairs the system
+       !------------------------------------------------------------------------
        j = 0
-       allocate(idx_list(size(this%system(i)%species),&
-                         size(this%system(i)%species)))
-       do is = 1, size(this%system(i)%species)
-          do js = is, size(this%system(i)%species), 1
+       allocate(idx_list(size(this%system(i)%element_symbols),&
+                         size(this%system(i)%element_symbols)))
+       do is = 1, size(this%system(i)%element_symbols)
+          do js = is, size(this%system(i)%element_symbols), 1
              j = j + 1
              idx_list(is,js) = j
              idx_list(js,is) = j
@@ -1292,13 +1501,13 @@ module evolver
        end do
        
        
-       !!-----------------------------------------------------------------------
-       !! calculate the weight for the system
-       !!-----------------------------------------------------------------------
+       !------------------------------------------------------------------------
+       ! calculate the weight for the system
+       !------------------------------------------------------------------------
        energy = this%system(i)%energy
-       do is = 1, size(this%system(i)%species)
+       do is = 1, size(this%system(i)%element_symbols)
           idx1 = findloc( [ this%element_info(:)%name ], &
-                          this%system(i)%species(is), dim=1)
+                          this%system(i)%element_symbols(is), dim=1)
           if(idx1.lt.1)then
              write(0,*) "ERROR: Species not found in species list"
              stop 1
@@ -1310,13 +1519,13 @@ module evolver
        weight = exp( this%best_energy - energy )
        j = 0
 
-       !!-----------------------------------------------------------------------
-       !! loop over all species in the system to add the gvectors
-       !!-----------------------------------------------------------------------
-       do is = 1, size(this%system(i)%species)
+       !------------------------------------------------------------------------
+       ! loop over all species in the system to add the gvectors
+       !------------------------------------------------------------------------
+       do is = 1, size(this%system(i)%element_symbols)
 
           idx1 = findloc( [ this%element_info(:)%name ], &
-                          this%system(i)%species(is), dim=1)
+                          this%system(i)%element_symbols(is), dim=1)
 
           height = 1._real12 / ( 1._real12 + this%total%df_3body(:,idx1) )
           this%total%df_3body(:,idx1) = this%total%df_3body(:,idx1) + &
@@ -1326,9 +1535,9 @@ module evolver
           this%total%df_4body(:,idx1) = this%total%df_4body(:,idx1) + &
                height * weight * this%system(i)%df_4body(:,is)
           
-          do js = is, size(this%system(i)%species), 1
+          do js = is, size(this%system(i)%element_symbols), 1
              idx2 = findloc( [ this%element_info(:)%name ], &
-                             this%system(i)%species(js), dim=1)
+                             this%system(i)%element_symbols(js), dim=1)
              j = nint( ( size(this%element_info) - &
                          min( idx1, idx2 ) / 2._real12 ) * &
                          ( min( idx1, idx2 ) - 1._real12 ) + max( idx1, idx2 ) )
@@ -1343,54 +1552,92 @@ module evolver
     end do
 
 
-    !!--------------------------------------------------------------------------
-    !! deallocate the individual gvectors
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! deallocate the individual gvectors
+    !---------------------------------------------------------------------------
     if(deallocate_systems_after_evolve_) deallocate(this%system)
 
   end subroutine evolve
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! calculate the gvectors for a system from its basis
-!!!#############################################################################
+!###############################################################################
   subroutine calculate(this, basis, &
        nbins, width, sigma, cutoff_min, cutoff_max)
+    !! Calculate the distribution functions for the container.
+    !!
+    !! This procedure calculates the 2-, 3-, and 4-body distribution function 
+    !! for a given atomic structure (i.e. basis).
     implicit none
+
+    ! Arguments
     class(gvector_type), intent(inout) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
     type(basis_type), intent(in) :: basis
-
+    !! Atomic structure.
     integer, dimension(3), intent(in), optional :: nbins
+    !! Optional. Number of bins for the distribution functions.
     real(real12), dimension(3), intent(in), optional :: width, sigma
+    !! Optional. Width and sigma for the distribution functions.
     real(real12), dimension(3), intent(in), optional :: cutoff_min, cutoff_max
+    !! Optional. Cutoff minimum and maximum for the distribution functions.
 
+    ! Local variables
     integer, dimension(3) :: nbins_
-    real(real12), dimension(3) :: sigma_ = [0.1_real12, 0.05_real12, 0.05_real12] !!! RANDOMLY CHOSEN DEFAULTS FOR NOW
-    real(real12), dimension(3) :: width_ = [0.25_real12, pi/24._real12, pi/32._real12] !!! RANDOMLY CHOSEN DEFAULTS FOR NOW
-    real(real12), dimension(3) :: cutoff_min_ = [0._real12, 0._real12, 0._real12]
-    real(real12), dimension(3) :: cutoff_max_ = [6._real12, pi, pi/2._real12]
+    !! Number of bins for the distribution functions.
+    real(real12), dimension(3) :: &
+         sigma_ = [0.1_real12, 0.05_real12, 0.05_real12] !!! RANDOMLY CHOSEN DEFAULTS FOR NOW
+    !! Sigma for the distribution functions.
+    real(real12), dimension(3) :: &
+         width_ = [0.25_real12, pi/24._real12, pi/32._real12] !!! RANDOMLY CHOSEN DEFAULTS FOR NOW
+    !! Width of the bins for the distribution functions.
+    real(real12), dimension(3) :: &
+         cutoff_min_ = [0._real12, 0._real12, 0._real12]
+    !! Cutoff minimum for the distribution functions.
+    real(real12), dimension(3) :: &
+         cutoff_max_ = [6._real12, pi, pi/2._real12]
+    !! Cutoff maximum for the distribution functions.
 
+    ! Local variables
     integer :: bin, max_num_steps
+    !! Bin index and maximum number of steps.
     integer :: i, j, k, b, itmp1
+    !! Loop index.
     integer :: is, js, ia, ja
+    !! Loop index.
     integer :: num_pairs, num_angles
+    !! Number of pairs and angles.
     integer :: amax, bmax, cmax
-    real(real12) :: rtmp1, rtmp2, fc, weight, scale
+    !! Maximum number of lattice vectors to consider.
+    real(real12) :: rtmp1, rtmp2
+    !! Temporary real variables.
+    real(real12) :: fc, weight, scale
+    !! Cutoff, weight and scale for the distribution functions.
     real(real12), dimension(3) :: eta, limit
+    !! Parameters for the distribution functions.
     real(real12), dimension(3) :: vtmp1, vtmp2, vtmp3, diff
+    !! Temporary real arrays.
     real(real12), allocatable, dimension(:) :: gvector_tmp, angle
+    !! Temporary real arrays.
     integer, dimension(:), allocatable :: idx_list!, count_list
+    !! Index list for the element pairs in a system.
 
     integer, dimension(3,2) :: loop_limits
+    !! Loop limits for the 3-body distribution function.
     integer, allocatable, dimension(:,:) :: idx
+    !! Index list for the element pairs in a system.
 
     type :: bond_type
+       !! Derived type for a bond.
        integer, dimension(2) :: species, atom
+       !! Species and atom indices.
        logical :: skip = .false.
+       !! Boolean whether to skip the bond.
        real(real12), dimension(3) :: vector
+       !! Vector of the bond.
     end type bond_type
     type(bond_type), dimension(:), allocatable :: bond_list
+    !! List of bonds in the system.
 
     !type :: plane_type
     !   real(real12), dimension(3) :: vector
@@ -1399,9 +1646,9 @@ module evolver
     !type(plane_type), dimension(:), allocatable :: plane_list
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise optional variables
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! initialise optional variables
+    !---------------------------------------------------------------------------
     if(present(cutoff_min)) cutoff_min_ = cutoff_min
     if(present(cutoff_max)) cutoff_max_ = cutoff_max
     if(present(width)) width_ = width
@@ -1415,17 +1662,17 @@ module evolver
     limit = cutoff_max_ - cutoff_min_
 
 
-    !!--------------------------------------------------------------------------
-    !! get the number of pairs of species
-    !!--------------------------------------------------------------------------
-    !! combination calculator with repetition
+    !---------------------------------------------------------------------------
+    ! get the number of pairs of species
+    ! (this uses a combination calculator with repetition)
+    !---------------------------------------------------------------------------
     i = 0
     num_pairs = gamma(real(basis%nspec + 2, real12)) / &
                 ( gamma(real(basis%nspec, real12)) * gamma( 3._real12 ) )
     allocate(idx(2,num_pairs))
-    allocate(this%species(basis%nspec))
+    allocate(this%element_symbols(basis%nspec))
     do is = 1, basis%nspec
-       this%species(is) = strip_null(basis%spec(is)%name)
+       this%element_symbols(is) = strip_null(basis%spec(is)%name)
     end do
     do is = 1, basis%nspec
        do js = is, basis%nspec, 1
@@ -1435,34 +1682,28 @@ module evolver
     end do
 
 
-    !!--------------------------------------------------------------------------
-    !! get the stoichiometry, energy, and number of atoms
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! get the stoichiometry, energy, and number of atoms
+    !---------------------------------------------------------------------------
     this%stoichiometry = basis%spec(:)%num
     this%energy = basis%energy
     this%num_atoms = basis%natom
 
 
-    !!--------------------------------------------------------------------------
-    !! get the maximum number of lattice vectors to consider
-    !!--------------------------------------------------------------------------
-    !! this is not perfect
-    !! won't work for extremely acute/obtuse angle cells
-    !! (due to diagonal path being shorter than individual lattice vectors)
+    !---------------------------------------------------------------------------
+    ! get the maximum number of lattice vectors to consider
+    ! NOTE: this is not perfect
+    !       won't work for extremely acute/obtuse angle cells
+    !       (due to diagonal path being shorter than individual lattice vectors)
+    !---------------------------------------------------------------------------
     amax = ceiling(cutoff_max_(1)/modu(basis%lat(1,:)))
     bmax = ceiling(cutoff_max_(1)/modu(basis%lat(2,:)))
     cmax = ceiling(cutoff_max_(1)/modu(basis%lat(3,:)))
 
 
-    !!--------------------------------------------------------------------------
-    !! build the bond list
-    !!--------------------------------------------------------------------------
-    !write(*,*) amax, bmax, cmax
-    !! estimate number of bonds
-    !write(*,*) "estimated number of bonds: ", triangular_number(basis%natom) * &
-    !     ceiling( (pi * 4._real12/3._real12) * &
-    !     (cutoff_max(1)**3 - cutoff_min(1)**3)/ get_vol(basis%lat) )
-
+    !---------------------------------------------------------------------------
+    ! build the bond list
+    !---------------------------------------------------------------------------
     allocate(bond_list(0)) !if doesn't work, allocate a dummy bond first
     spec_loop1: do is=1,basis%nspec
        atom_loop1: do ia=1,basis%spec(is)%num
@@ -1495,21 +1736,17 @@ module evolver
        end do atom_loop1
     end do spec_loop1
 
-    !write(*,*) "number of bonds: ", size(bond_list)
-    !write(*,*)
-    !return
 
-
-    !!--------------------------------------------------------------------------
-    !! calculate the gaussian width
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! calculate the gaussian width
+    !---------------------------------------------------------------------------
     eta = 1._real12 / ( 2._real12 * sigma_**2._real12 )
     max_num_steps = ceiling( sqrt(16._real12/eta(1)) / width_(1) )
 
-    !write(*,*) "starting 2-body gvectors"
-    !!--------------------------------------------------------------------------
-    !! build the 2-body gvectors (radial distribution functions)
-    !!--------------------------------------------------------------------------
+
+    !---------------------------------------------------------------------------
+    ! build the 2-body gvectors (radial distribution functions)
+    !---------------------------------------------------------------------------
     allocate(this%df_2body(nbins_(1),num_pairs), source = 0._real12)
     allocate(gvector_tmp(nbins_(1)),             source = 0._real12)
     do i = 1, size(bond_list)
@@ -1518,9 +1755,9 @@ module evolver
        is = bond_list(i)%species(1)
        js = bond_list(i)%species(2)
        rtmp1 = modu(bond_list(i)%vector)
-       !!-----------------------------------------------------------------------
-       !! get number of equivalent bonds
-       !!-----------------------------------------------------------------------
+       !------------------------------------------------------------------------
+       ! get number of equivalent bonds
+       !------------------------------------------------------------------------
        scale = 1._real12
        do j = i+1, size(bond_list)
           !! don't need to look at reverse of species, as the ordering will ...
@@ -1532,21 +1769,21 @@ module evolver
              scale = scale + 1._real12
           end if          
        end do
-       !!-----------------------------------------------------------------------
+       !------------------------------------------------------------------------
        bin = nint( ( rtmp1 - cutoff_min_(1) ) / width_(1) ) + 1
        if(bin.gt.nbins_(1).or.bin.lt.1) cycle
 
        fc = 0.5_real12 * cos( pi * ( rtmp1 - cutoff_min_(1) ) / limit(1) ) + &
             0.5_real12
 
-       !!-----------------------------------------------------------------------
-       !! calculate the gaussian for this bond
-       !!-----------------------------------------------------------------------
+       !------------------------------------------------------------------------
+       ! calculate the gaussian for this bond
+       !------------------------------------------------------------------------
        gvector_tmp = 0._real12
        loop_limits(:,1) = [ bin, min(nbins_(1), (bin + max_num_steps) ), 1 ]
        loop_limits(:,2) = [ bin - 1, max(1, bin - max_num_steps), -1 ]
        
-       !! do forward and backward loops to add gaussian for larger distances
+       ! do forward and backward loops to add gaussian for larger distances
        do concurrent ( j = 1:2 )
           do concurrent ( b = &
                             loop_limits(1,j):loop_limits(2,j):loop_limits(3,j) )
@@ -1572,18 +1809,17 @@ module evolver
     end do
 
 
-    !write(*,*) "starting 3-body gvectors"
-    !!--------------------------------------------------------------------------
-    !! build the 3-body gvectors (angular distribution functions)
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! build the 3-body gvectors (angular distribution functions)
+    !---------------------------------------------------------------------------
     deallocate(gvector_tmp)
     allocate(this%df_3body(nbins_(2), basis%nspec), source = 0._real12)
     allocate(gvector_tmp(nbins_(2)),                source = 0._real12)
     do is = 1, basis%nspec
        num_angles = 0
-       !! number of comibnations without repetitions:
-       !! = n! / (n - r)! r!
-       !! as r = 1, this simplifies to n
+       ! number of comibnations without repetitions:
+       !    = n! / (n - r)! r!
+       !    as r = 1, this simplifies to n
        do i = 1, size(bond_list), 1
           if( is .eq. bond_list(i)%species(1) )then
              ia = bond_list(i)%atom(1)
@@ -1602,9 +1838,9 @@ module evolver
        allocate(angle(num_angles))
        num_angles = 0
 
-       !!-----------------------------------------------------------------------
-       !! loop over all bonds to find the first bond
-       !!-----------------------------------------------------------------------
+       !------------------------------------------------------------------------
+       ! loop over all bonds to find the first bond
+       !------------------------------------------------------------------------
        do i = 1, size(bond_list)
           if( is .eq. bond_list(i)%species(1) )then
              vtmp1 = bond_list(i)%vector
@@ -1617,9 +1853,9 @@ module evolver
              cycle
           end if
         
-          !!--------------------------------------------------------------------
-          !! loop over all bonds to find the second bond
-          !!--------------------------------------------------------------------
+          !---------------------------------------------------------------------
+          ! loop over all bonds to find the second bond
+          !---------------------------------------------------------------------
           do j = i + 1, size(bond_list)
              if( is .eq. bond_list(j)%species(1) .and. &
                  ia .eq. bond_list(j)%atom(1) )then
@@ -1628,13 +1864,12 @@ module evolver
                      ia .eq. bond_list(j)%atom(2) )then
                 vtmp2 = -bond_list(j)%vector
              else
-                !write(0,*) "ERROR: Species not found in bond list2", is, i
                 cycle
              end if
  
-             !!-----------------------------------------------------------------
-             !! calculate the angle between the two bonds
-             !!-----------------------------------------------------------------
+             !------------------------------------------------------------------
+             ! calculate the angle between the two bonds
+             !------------------------------------------------------------------
              num_angles = num_angles + 1
              angle(num_angles) = get_angle( vtmp1, vtmp2 )
 
@@ -1653,17 +1888,16 @@ module evolver
     end do
 
   
-    !write(*,*) "starting 4-body gvectors"
-    !!--------------------------------------------------------------------------
-    !! build the 4-body gvectors (angular distribution functions)
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! build the 4-body gvectors (angular distribution functions)
+    !---------------------------------------------------------------------------
     deallocate(gvector_tmp)
     allocate(this%df_4body(nbins_(3),basis%nspec), source = 0._real12)
     allocate(gvector_tmp(nbins_(3)),               source = 0._real12)
     do is = 1, basis%nspec
        num_angles = 0
-       !! number of comibnations without repetitions:
-       !! = n! / (n - r)! r!
+       ! number of comibnations without repetitions:
+       ! = n! / (n - r)! r!
        do i = 1, size(bond_list), 1
           if( is .eq. bond_list(i)%species(1) )then
              ia = bond_list(i)%atom(1)
@@ -1685,9 +1919,9 @@ module evolver
        !allocate(count_list(num_angles))
        num_angles = 0
 
-       !!-----------------------------------------------------------------------
-       !! loop over all bonds to find the first bond
-       !!-----------------------------------------------------------------------
+       !------------------------------------------------------------------------
+       ! loop over all bonds to find the first bond
+       !------------------------------------------------------------------------
        do i = 1, size(bond_list)
           if(abs(modu(bond_list(i)%vector)).lt.1.E-3) cycle
  
@@ -1700,10 +1934,10 @@ module evolver
           else
              cycle
           end if
-          !!! make list of indices where species is in bond_list(i)%species and atom is in bond_list(i)%atom
-          !allocate(idx_list(0))
-          !write(*,*) "START"
-          !allocate(plane_list(0))
+          ! ! make list of indices where species is in bond_list(i)%species and atom is in bond_list(i)%atom
+          ! allocate(idx_list(0))
+          ! write(*,*) "START"
+          ! allocate(plane_list(0))
           allocate(idx_list(count( [ ( ( bond_list(j)%species(1) .eq. is .and. &
                                          bond_list(j)%atom(1) .eq. ia ) .or. &
                                        ( bond_list(j)%species(2) .eq. is .and. &
@@ -1719,61 +1953,60 @@ module evolver
                 k = k + 1
                 idx_list(k) = j
              end if
-             !! get a list of unique plane normal vectors
-             !vtmp2 = cross( vtmp1, bond_list(j)%vector )
-             !vtmp2 = vtmp2 / modu(vtmp2)
-             !plane_check_loop: do k = 1, size(plane_list)
-             !   if(abs(dot_product(vtmp2, plane_list(k)%vector)) .lt. 1.E-3)then
-             !      plane_list(k)%count = plane_list(k)%count + 1
-             !      cycle index_list_loop
-             !   end if
-             !end do plane_check_loop
-             !plane_list = [ plane_list, plane_type(vector = vtmp2, count = 1) ]
+             ! ! get a list of unique plane normal vectors
+             ! vtmp2 = cross( vtmp1, bond_list(j)%vector )
+             ! vtmp2 = vtmp2 / modu(vtmp2)
+             ! plane_check_loop: do k = 1, size(plane_list)
+             !    if(abs(dot_product(vtmp2, plane_list(k)%vector)) .lt. 1.E-3)then
+             !       plane_list(k)%count = plane_list(k)%count + 1
+             !       cycle index_list_loop
+             !    end if
+             ! end do plane_check_loop
+             ! plane_list = [ plane_list, plane_type(vector = vtmp2, count = 1) ]
           end do index_list_loop
-          !write(*,*) "END", idx_list
 
-          !!--------------------------------------------------------------------
-          !! loop over all bonds to find the second bond
-          !!--------------------------------------------------------------------
+          !---------------------------------------------------------------------
+          ! loop over all bonds to find the second bond
+          !---------------------------------------------------------------------
           do j = 1, size(idx_list)!size(plane_list)!size(idx_list)
  
              vtmp2 = cross(vtmp1, bond_list(idx_list(j))%vector)
-             !!-----------------------------------------------------------------
-             !! loop over all bonds to find the third bond
-             !!-----------------------------------------------------------------
+             !------------------------------------------------------------------
+             ! loop over all bonds to find the third bond
+             !------------------------------------------------------------------
              !count_list(num_angles+1:num_angles+(size(idx_list)-j)) = plane_list(j)%count
              do k = j + 1, size(idx_list)
  
-                !!--------------------------------------------------------------
-                !! calculate the angle between the two bonds
-                !!--------------------------------------------------------------
-                !rtmp1 = get_angle( vtmp2, &
-                !     bond_list(idx_list(k))%vector )
-                !if(rtmp1 .gt. pi/2._real12) rtmp1 = pi - rtmp1
-                !if(any(abs(rtmp1 - angle(:num_angles)) .lt. 1.E-3)) cycle
+                !---------------------------------------------------------------
+                ! calculate the angle between the two bonds
+                !---------------------------------------------------------------
+                ! rtmp1 = get_angle( vtmp2, &
+                !      bond_list(idx_list(k))%vector )
+                ! if(rtmp1 .gt. pi/2._real12) rtmp1 = pi - rtmp1
+                ! if(any(abs(rtmp1 - angle(:num_angles)) .lt. 1.E-3)) cycle
                 num_angles = num_angles + 1
-                !angle(num_angles) = rtmp1
+                ! angle(num_angles) = rtmp1
                 angle(num_angles) = &
-                          !get_angle( plane_list(j)%vector, &
-                          !           bond_list(idx_list(k))%vector )
+                          ! get_angle( plane_list(j)%vector, &
+                          !            bond_list(idx_list(k))%vector )
                            get_angle( vtmp2, &
                                       bond_list(idx_list(k))%vector )
 
-                !! angle never greater than 90, as this corresponds to ...
-                !! ... perpendicular to plane
-                !if(angle(num_angles) .gt. pi/2._real12) &
-                !     angle(num_angles) = pi - angle(num_angles)
-                angle(num_angles) = abs( anint( angle(num_angles)/pi )*pi - angle(num_angles) )
+                ! ! angle never greater than 90, as this corresponds to ...
+                ! ! ... perpendicular to plane
+                ! if(angle(num_angles) .gt. pi/2._real12) &
+                !      angle(num_angles) = pi - angle(num_angles)
+                angle(num_angles) = abs( &
+                     anint( angle(num_angles)/pi )*pi - angle(num_angles) )
                 
-                !count_list(num_angles) = plane_list(j)%count
+                ! count_list(num_angles) = plane_list(j)%count
 
              end do
-             !num_angles = num_angles + size(idx_list) - j
+             ! num_angles = num_angles + size(idx_list) - j
           end do
           deallocate(idx_list)
-          !deallocate(plane_list)
+          ! deallocate(plane_list)
        end do
-       !write(*,'("Expected ",I0," got ",I0)') size(angle), num_angles
        if(num_angles.ne.size(angle))then
           write(0,*) "ERROR: Number of 4-body angles exceeds allocated array"
           write(0,'("Expected ",I0," got ",I0)') size(angle), num_angles
@@ -1784,92 +2017,103 @@ module evolver
                                cutoff_min(3), &
                                limit(3))!, count_list(:num_angles) )
        deallocate(angle)
-       !deallocate(count_list)
+       ! deallocate(count_list)
     end do
-    !write(*,*) "finished 4-body gvectors"
 
   end subroutine calculate
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! get the gvector for a distribution of values
-!!!#############################################################################
+!###############################################################################
   function get_gvector(vector, nbins, eta, width, cutoff_min, limit) &!, count_list) &
        result(gvector)
+    !! Calculate the angular distribution function for a list of vectors.
     implicit none
-    integer, intent(in) :: nbins
-    real(real12), intent(in) :: eta, width, cutoff_min, limit
-    real(real12), dimension(:), intent(in) :: vector
-    real(real12), dimension(nbins) :: gvector
-    !integer, dimension(:), intent(in), optional :: count_list
 
-    integer :: i, j, b, bin, max_num_steps
+    ! Arguments
+    integer, intent(in) :: nbins
+    !! Number of bins for the distribution functions.
+    real(real12), intent(in) :: eta, width, cutoff_min, limit
+    !! Parameters for the distribution functions.
+    real(real12), dimension(:), intent(in) :: vector
+    !! List of vectors.
+    real(real12), dimension(nbins) :: gvector
+    !! Distribution function for the list of vectors.
+    ! integer, dimension(:), intent(in), optional :: count_list
+
+    ! Local variables
+    integer :: i, j, b, bin
+    !! Loop index.
+    integer :: max_num_steps
+    !! Maximum number of steps.
     !integer, dimension(:), allocatable :: scale_list
     !real(real12), dimension(nbins) :: gvector_tmp
     !real(real12), dimension(:), allocatable :: vector_copy
     integer, dimension(3,2) :: loop_limits
+    !! Loop limits for the 3-body distribution function.
 
 
     ! max_num_steps = ceiling( abs( vector_copy(i) - sqrt(16._real12/eta) ) / width )
     max_num_steps = ceiling( sqrt(16._real12/eta) / width )
     gvector = 0._real12
 
-    !!--------------------------------------------------------------------------
-    !! calculate the gvector for a list of vectors
-    !!--------------------------------------------------------------------------
-    !vector_copy = vector
-    !itmp1 = 0
-    !!  order the vector list, and remove duplicates within a tolerance
-    !call set(vector_copy, 1.E-3, scale_list)
+    !---------------------------------------------------------------------------
+    ! calculate the gvector for a list of vectors
+    !---------------------------------------------------------------------------
+    ! vector_copy = vector
+    ! itmp1 = 0
+    ! !  order the vector list, and remove duplicates within a tolerance
+    ! call set(vector_copy, 1.E-3, scale_list)
     do i = 1, size(vector)
-        !if( vector_copy(i) .lt. -1.E-3 ) cycle
-        !!-----------------------------------------------------------------------
-        !! remove duplicates
-        !!-----------------------------------------------------------------------
-        !scale = 1._real12
-        !do j = i + 1, size(vector_copy)
-        !   if(abs(vector_copy(i)-vector_copy(j)) .lt. 1.E-3 )then
-        !      !vector_copy(j) = -1.E3_real12
-        !      !scale = scale + 1._real12
-        !      !itmp1 = itmp1 + 1
-        !   end if
-        !end do
+        ! if( vector_copy(i) .lt. -1.E-3 ) cycle
+        ! !-----------------------------------------------------------------------
+        ! ! remove duplicates
+        ! !-----------------------------------------------------------------------
+        ! scale = 1._real12
+        ! do j = i + 1, size(vector_copy)
+        !    if(abs(vector_copy(i)-vector_copy(j)) .lt. 1.E-3 )then
+        !       !vector_copy(j) = -1.E3_real12
+        !       !scale = scale + 1._real12
+        !       !itmp1 = itmp1 + 1
+        !    end if
+        ! end do
 
 
-       !!-----------------------------------------------------------------------
-       !! get the bin closest to the value
-       !!-----------------------------------------------------------------------
+       !------------------------------------------------------------------------
+       ! get the bin closest to the value
+       !------------------------------------------------------------------------
        bin = nint( ( vector(i) - cutoff_min ) / width ) + 1
-       !if(bin.gt.nbins.or.bin.lt.1) cycle
+       ! if(bin.gt.nbins.or.bin.lt.1) cycle
 
 
-       !!-----------------------------------------------------------------------
-       !! calculate the gaussian for this bond
-       !!-----------------------------------------------------------------------
-       !gvector_tmp = 0._real12
-       loop_limits(:,1) = [ min(nbins, bin), min(nbins, bin + max_num_steps), 1 ]
-       loop_limits(:,2) = [ min(1, bin - 1), max(1, bin - max_num_steps), -1 ]
+       !------------------------------------------------------------------------
+       ! calculate the gaussian for this bond
+       !------------------------------------------------------------------------
+       ! gvector_tmp = 0._real12
+       loop_limits(:,1) = &
+            [ min(nbins, bin), min(nbins, bin + max_num_steps), 1 ]
+       loop_limits(:,2) = &
+            [ min(1, bin - 1), max(1, bin - max_num_steps), -1 ]
 
 
-       !!-----------------------------------------------------------------------
-       !! do forward and backward loops to add gaussian from its centre
-       !!-----------------------------------------------------------------------
+       !------------------------------------------------------------------------
+       ! do forward and backward loops to add gaussian from its centre
+       !------------------------------------------------------------------------
        do concurrent ( j = 1:2 )
-          do concurrent ( b = loop_limits(1,j):loop_limits(2,j):loop_limits(3,j) )
+          do concurrent ( &
+                 b = loop_limits(1,j):loop_limits(2,j):loop_limits(3,j) )
              gvector(b) = gvector(b) + &
                   exp( -eta * ( vector(i) - &
                                    ( width * real(b-1, real12) + &
                                      cutoff_min ) ) ** 2._real12 )
           end do
        end do
-       !if(present(count_list)) gvector_tmp = gvector_tmp * count_list(i)
-       !gvector(:) = gvector(:) + gvector_tmp !* scale !real(scale_list(i), real12)
+       ! if(present(count_list)) gvector_tmp = gvector_tmp * count_list(i)
+       ! gvector(:) = gvector(:) + gvector_tmp !* scale !real(scale_list(i), real12)
     end do
     gvector = gvector * sqrt( eta / pi ) / real(size(vector),real12) ! / width
-    !write(*,*) "LOOK", size(vector_copy), itmp1
 
   end function get_gvector
-!!!#############################################################################
+!###############################################################################
 
 end module evolver

@@ -1,5 +1,5 @@
 module misc_linalg
-  !! Module providing various linear algebra functions and subroutines.
+  !! Module contains various linear algebra functions and subroutines.
   use constants, only: real12, pi
   implicit none
 

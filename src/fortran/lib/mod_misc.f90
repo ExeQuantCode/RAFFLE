@@ -1,28 +1,5 @@
-!!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor and Francis Huw Davies
-!!! Code part of the ARTEMIS group (Hepplestone research group).
-!!! Think Hepplestone, think HRG.
-!!!#############################################################################
-!!! module contains various miscellaneous functions and subroutines.
-!!! module includes the following functions and subroutines:
-!!! sort1D           (sort 1st col of array by size. Opt:sort 2nd array wrt 1st)
-!!! sort2D           (sort 1st two columns of an array by size)
-!!! sort_str         (sort a list of strings)
-!!! set              (return the sorted set of unique elements)
-!!! swap             (swap two variables around)
-!!! shuffle          (randomly shuffle a 2D array along one dimension)
-!!!##################
-!!! Icount           (counts words on line)
-!!! grep             (finds 1st line containing the pattern)
-!!! flagmaker        (read flag inputs supplied and stores variable if present)
-!!! jump             (moves file to specified line number)
-!!! file_check       (checks whether file exists and prompts user otherwise)
-!!! touch            (creates a file if it doesn't exist)
-!!! to_upper         (converts all characters in string to upper case)
-!!! to_lower         (converts all characters in string to lower case)
-!!! strip_null       (removes null characters from a string)
-!!!#############################################################################
 module misc_raffle
+  !! Module contains various miscellaneous functions and subroutines.
   use constants, only: real12
   implicit none
 
@@ -32,49 +9,61 @@ module misc_raffle
   public :: sort1D, sort2D, sort_str, sort_str_order
   public :: set
   public :: shuffle
-  public :: Icount, grep, flagmaker
+  public :: icount, grep, flagmaker
   public :: jump, file_check, touch, to_upper, to_lower
   public :: strip_null
 
 
   interface sort1D
+     !! Sort a 1D array from min to max.
      procedure isort1D,rsort1D
   end interface sort1D
 
   interface set
+     !! Reduce an array to its unique elements.
      procedure iset,rset, cset
   end interface set
 
   interface swap
+     !! Swap two elements.
      procedure iswap, rswap, rswap_vec, cswap
   end interface swap
 
   interface shuffle
+     !! Shuffle an array.
      procedure ishuffle, rshuffle
   end interface shuffle
 
 
-!!!updated 2024/07/19
-
 
 contains
 
-!!!#####################################################
-!!! sorts a character list
-!!!#####################################################
-  subroutine sort_str(list,lcase)
+!###############################################################################
+subroutine sort_str(list, lcase)
+    !! Sort a list of strings.
     implicit none
-    integer :: i,loc
-    integer :: charlen
-    logical :: ludef_case
+
+    ! Arguments
     character(*), dimension(:), intent(inout) :: list
+    !! List of strings to be sorted.
+    logical, optional, intent(in) :: lcase
+    !! Optional. Boolean whether case insensitive sorting is required.
+    !! Default is .false.
+
+    ! Local variables
+    integer :: i,loc
+    !! Loop index.
+    integer :: charlen
+    !! Length of the strings.
+    logical :: lcase_
+    !! Boolean whether case insensitive sorting is required.
     character(:), allocatable, dimension(:) :: tlist
-    logical, optional, intent(in) :: lcase !default is false
+    !! Temporary list for case insensitive sorting.
 
     charlen = len(list(1))
     if(present(lcase))then
        if(lcase)then
-          ludef_case = lcase
+          lcase_ = lcase
           allocate(character(len=charlen) :: tlist(size(list)))
           tlist = list
           do i=1,size(tlist)
@@ -82,35 +71,49 @@ contains
           end do
        end if
     else
-       ludef_case = .false.
+       lcase_ = .false.
     end if
     do i=1,size(list)
        loc = minloc(list(i:),dim=1)
        if(loc.eq.1) cycle
-       if(ludef_case) call cswap(tlist(i),tlist(loc+i-1))
+       if(lcase_) call cswap(tlist(i),tlist(loc+i-1))
        call cswap(list(i),list(loc+i-1))
     end do
-    if(ludef_case) list=tlist
+    if(lcase_) list=tlist
     
-    return
   end subroutine sort_str
-!!!-----------------------------------------------------
-!!!-----------------------------------------------------
+!###############################################################################
+
+
+!###############################################################################
   function sort_str_order(list,lcase) result(order)
+    !! Sort a list of strings and return the order.
     implicit none
-    integer :: i,loc
-    integer :: charlen
-    logical :: ludef_case
+
+    ! Arguments
     character(*), dimension(:), intent(inout) :: list
+    !! List of strings to be sorted.
+    logical, optional, intent(in) :: lcase
+    !! Optional. Boolean whether case insensitive sorting is required.
+    !! Default is .false.
+
+    ! Local variables
+    integer :: i,loc
+    !! Loop index.
+    integer :: charlen
+    !! Length of the strings.
+    logical :: lcase_
+    !! Boolean whether case insensitive sorting is required.
     character(:), allocatable, dimension(:) :: tlist
-    logical, optional, intent(in) :: lcase !default is false
+    !! Temporary list for case insensitive sorting.
 
     integer, allocatable, dimension(:) :: torder,order
+    !! Order of the sorted list.
 
     charlen = len(list(1))
     if(present(lcase))then
        if(lcase)then
-          ludef_case = lcase
+          lcase_ = lcase
           allocate(character(len=charlen) :: tlist(size(list)))
           tlist = list
           do i=1,size(tlist)
@@ -118,7 +121,7 @@ contains
           end do
        end if
     else
-       ludef_case = .false.
+       lcase_ = .false.
     end if
 
     allocate(torder(size(list)))
@@ -129,7 +132,7 @@ contains
     do i=1,size(list)
        loc = minloc(list(i:),dim=1)
        if(loc.eq.1) cycle
-       if(ludef_case) call cswap(tlist(i),tlist(loc+i-1))
+       if(lcase_) call cswap(tlist(i),tlist(loc+i-1))
        call cswap(list(i),list(loc+i-1))
        call iswap(torder(i),torder(loc+i-1))
     end do
@@ -139,25 +142,33 @@ contains
        order(i) = findloc(torder,i,dim=1)
     end do
     
-    if(ludef_case) list=tlist
+    if(lcase_) list=tlist
     
     return
   end function sort_str_order
-!!!#####################################################
+!###############################################################################
 
 
-!!!#####################################################
-!!! sorts two arrays from min to max
-!!! sorts the optional second array wrt the first array
-!!!#####################################################
+!###############################################################################
   subroutine isort1D(arr1,arr2,reverse)
+    !! Sort a 1D integer array from min to max.
     implicit none
-    integer :: i,dim,loc
-    integer :: ibuff
-    logical :: reverse_
-    integer, dimension(:) :: arr1
+
+    ! Arguments
+    integer, dimension(:), intent(inout) :: arr1
+    !! Array to be sorted.
     integer, dimension(:),intent(inout),optional :: arr2
+    !! Optional. Second array to be sorted.
     logical, optional, intent(in) :: reverse
+    !! Optional. Boolean whether to sort in reverse order.
+
+    ! Local variables
+    integer :: i,dim,loc
+    !! Loop index.
+    integer :: ibuff
+    !! Buffer for swapping elements.
+    logical :: reverse_
+    !! Boolean whether to sort in reverse order.
 
     if(present(reverse))then
        reverse_=reverse
@@ -185,16 +196,29 @@ contains
 
     return
   end subroutine isort1D
-!!!-----------------------------------------------------
-!!!-----------------------------------------------------
+!###############################################################################
+
+
+!###############################################################################
   subroutine rsort1D(arr1,arr2,reverse)
+    !! Sort a 1D real array from min to max.
     implicit none
-    integer :: i,dim,loc
-    real(real12) :: rbuff
-    logical :: reverse_
-    real(real12), dimension(:) :: arr1
+
+    ! Arguments
+    real(real12), dimension(:), intent(inout) :: arr1
+    !! Array to be sorted.
     integer, dimension(:),intent(inout),optional :: arr2
+    !! Optional. Second array to be sorted.
     logical, optional, intent(in) :: reverse
+    !! Optional. Boolean whether to sort in reverse order.
+
+    ! Local variables
+    integer :: i,dim,loc
+    !! Loop index.
+    real(real12) :: rbuff
+    !! Buffer for swapping elements.
+    logical :: reverse_
+    !! Boolean whether to sort in reverse order.
 
     if(present(reverse))then
        reverse_=reverse
@@ -223,18 +247,27 @@ contains
 
     return
   end subroutine rsort1D
-!!!#####################################################
+!###############################################################################
 
 
-!!!#####################################################
-!!! quicksort an array from min to max
-!!!#####################################################
+!###############################################################################
   pure recursive subroutine quicksort(arr, low, high)
+    !! Sort a 1D real array from min to max.
+    !!
+    !! This is a recursive implementation of the quicksort algorithm.
     implicit none
+
+    ! Arguments
     real(real12), dimension(:), intent(inout) :: arr
+    !! Array to be sorted.
     integer, intent(in) :: low, high
+    !! Lower and upper bounds of the array to be sorted.
+
+    ! Local variables
     integer :: i, j
+    !! Loop indices.
     real(real12) :: pivot, temp
+    !! Pivot element and temporary buffer.
 
     if (low .lt. high) then
         pivot = arr((low + high) / 2)
@@ -259,24 +292,37 @@ contains
         call quicksort(arr, i, high)
     end if
   end subroutine quicksort
-!!!#####################################################
+!###############################################################################
 
 
-!!!#####################################################
-!!! sort an array from min to max
-!!!#####################################################
+!###############################################################################
   subroutine sort2D(arr,dim)
+    !! Sort a 2D array along the first column.
     implicit none
-    integer :: i,j,dim,loc,istart
-    integer, dimension(3) :: a123
-    real(real12), dimension(3) :: buff
+
+    ! Arguments
     real(real12), dimension(dim,3) :: arr
+    !! Array to be sorted.
+    integer, intent(in) :: dim
+    !! Dimension to sort along.
+
+    ! Local variables
+    integer :: i,j,loc,istart
+    !! Loop indices.
+    integer, dimension(3) :: a123
+    !! Array to store the order of sorting.
+    real(real12), dimension(3) :: buff
+    !! Buffer for swapping elements.
 
     a123(:)=(/1,2,3/)
     istart=1
     do j=1,3
        do i=j,dim
-          loc=minloc(abs(arr(i:dim,a123(1))),dim=1,mask=(abs(arr(i:dim,a123(1))).gt.1.D-5))+i-1
+          loc = minloc( &
+               abs(arr(i:dim,a123(1))), &
+               dim = 1, &
+               mask = (abs(arr(i:dim,a123(1))).gt.1.D-5) &
+               )+i-1
           buff(:)=arr(i,:)
           arr(i,:)=arr(loc,:)
           arr(loc,:)=buff(:)
@@ -296,18 +342,24 @@ contains
 
     return
   end subroutine sort2D
-!!!#####################################################
+!###############################################################################
 
 
-!!!#####################################################
-!!! return the sorted set of unique elements
-!!!#####################################################
+!###############################################################################
   subroutine iset(arr)
+    !! Reduce an integer array to its unique elements.
     implicit none
+
+    ! Arguments
+    integer, dimension(:), intent(inout) :: arr
+    !! Array to be reduced.
+
+    ! Local variables
     integer :: i,n
+    !! Loop index.
     integer, allocatable, dimension(:) :: tmp_arr
+    !! Temporary array for storing unique elements.
     
-    integer, allocatable, dimension(:) :: arr
 
     call sort1D(arr)
     allocate(tmp_arr(size(arr)))
@@ -324,18 +376,32 @@ contains
     !call move_alloc(tmp_arr, arr)
     
   end subroutine iset
-!!!-----------------------------------------------------
-!!!-----------------------------------------------------
+!###############################################################################
+
+
+!###############################################################################
   subroutine rset(arr, tol, count_list)
+    !! Reduce a real array to its unique elements.
     implicit none
+
+    ! Arguments
+    real(real12), allocatable, dimension(:), intent(inout) :: arr
+    !! Array to be reduced.
+    real(real12), intent(in), optional :: tol
+    !! Tolerance for comparing real numbers.
+    integer, dimension(:), allocatable, intent(out), optional :: count_list
+    !! List of counts for each unique element.
+
+    ! Local variables
     integer :: i,n
+    !! Loop index.
     real(real12) :: tol_
+    !! Tolerance for comparing real numbers.
     real(real12), allocatable, dimension(:) :: tmp_arr
+    !! Temporary array for storing unique elements.
     integer, allocatable, dimension(:) :: count_list_
+    !! List of counts for each unique element.
     
-    real(real12), allocatable, dimension(:) :: arr
-    real(real12), optional :: tol
-    integer, dimension(:), allocatable, optional :: count_list
 
     if(present(tol))then
        tol_ = tol
@@ -362,15 +428,30 @@ contains
     if(present(count_list)) count_list = count_list_(:n)
     
   end subroutine rset
-!!!-----------------------------------------------------
-!!!-----------------------------------------------------
+!###############################################################################
+
+
+!###############################################################################
   subroutine cset(arr,lcase,lkeep_size)
+    !! Reduce a character array to its unique elements.
     implicit none
+
+    ! Arguments
+    character(*), allocatable, dimension(:), intent(inout) :: arr
+    !! Array to be reduced.
+    logical, intent(in), optional :: lcase
+    !! Optional. Boolean whether to perform case insensitive comparison.
+    logical, intent(in), optional :: lkeep_size
+    !! Optional. Boolean whether to keep the original size of the array.
+
+    ! Local variables
     integer :: i, n
-    logical :: ludef_keep_size
+    !! Loop index.
+    logical :: lkeep_size_
+   !! Boolean whether to keep the original size of the array.
     character(len=:), allocatable, dimension(:) :: tmp_arr
-    character(*), allocatable, dimension(:) :: arr
-    logical, intent(in), optional :: lcase, lkeep_size
+    !! Temporary array for storing unique elements.
+
 
     if(present(lcase))then
        call sort_str(arr,lcase)
@@ -388,12 +469,12 @@ contains
        tmp_arr(n) = arr(i)
     end do
     if(present(lkeep_size))then
-       ludef_keep_size=lkeep_size
+       lkeep_size_=lkeep_size
     else
-       ludef_keep_size=.false.
+       lkeep_size_=.false.
     end if
 
-    if(ludef_keep_size)then
+    if(lkeep_size_)then
        call move_alloc(tmp_arr,arr)!!!CONSISTENCY WITH OTHER SET FORMS
     else
        deallocate(arr)
@@ -402,23 +483,29 @@ contains
     end if
 
   end subroutine cset
-!!!#####################################################
+!###############################################################################
 
 
-!!!#####################################################
-!!! sort an array over specified column
-!!!#####################################################
-!!! Have it optionally take in an integer vector that ...
-!!! ... lists the order of imporance of columns
+!###############################################################################
   subroutine sort_col(arr1,col,reverse)
+    !! Sort a 2D array along a specified column.
     implicit none
-    integer :: i,dim,loc
-    logical :: reverse_
-    real(real12), allocatable, dimension(:) :: dbuff
-    real(real12), dimension(:,:) :: arr1
-
+    
+    ! Arguments
+    real(real12), dimension(:,:), intent(inout) :: arr1
+    !! Array to be sorted.
     integer, intent(in) :: col
+    !! Column to sort along.
     logical, optional, intent(in) :: reverse
+    !! Optional. Boolean whether to sort in reverse order.
+
+    ! Local variables
+    integer :: i,dim,loc
+    !! Loop index.
+    logical :: reverse_
+    !! Boolean whether to sort in reverse order.
+    real(real12), allocatable, dimension(:) :: dbuff
+    !! Buffer for swapping elements.
 
 
     if(present(reverse))then
@@ -444,119 +531,177 @@ contains
 
     return
   end subroutine sort_col
-!!!#####################################################
+!###############################################################################
 
 
-!!!#####################################################
-!!! swap two ints
-!!!#####################################################
+!###############################################################################
   subroutine iswap(i1,i2)
+    !! Swap two integers.
     implicit none
-    integer :: i1,i2,itmp
+
+    ! Arguments
+    integer, intent(inout) :: i1, i2
+    !! Integers to be swapped.
+
+    ! Local variables
+    integer :: itmp
+    !! Temporary buffer for swapping elements.
 
     itmp=i1
     i1=i2
     i2=itmp
   end subroutine iswap
-!!!-----------------------------------------------------
-!!!-----------------------------------------------------
+!###############################################################################
+
+
+!###############################################################################
   subroutine rswap(d1,d2)
-    implicit none
-    real(real12) :: d1,d2,dtmp
+   !! Swap two reals.
+   implicit none
+
+   ! Arguments
+   real, intent(inout) :: d1, d2
+   !! Reals to be swapped.
+
+   ! Local variables
+   real :: dtmp
+   !! Temporary buffer for swapping elements.
 
     dtmp=d1
     d1=d2
     d2=dtmp
   end subroutine rswap
-!!!-----------------------------------------------------
-!!!-----------------------------------------------------
+!###############################################################################
+
+
+!###############################################################################
   subroutine cswap(c1,c2)
+   !! Swap two character strings.
     implicit none
-    character(*) :: c1,c2
+
+    ! Arguments
+    character(*), intent(inout) :: c1, c2
+    !! Strings to be swapped.
+
+    ! Local variables
     character(len=:), allocatable :: ctmp
+    !! Temporary buffer for swapping elements.
 
     ctmp=c1
     c1=c2
     c2=ctmp
   end subroutine cswap
-!!!-----------------------------------------------------
-!!!-----------------------------------------------------
+!###############################################################################
+
+
+!###############################################################################
   subroutine rswap_vec(vec1,vec2)
+    !! Swap two real vectors.
     implicit none
-    real(real12),dimension(:)::vec1,vec2
+
+    ! Arguments
+    real(real12),dimension(:), intent(inout) :: vec1, vec2
+    !! Vectors to be swapped.
+
+    ! Local variables
     real(real12),allocatable,dimension(:)::tvec
+    !! Temporary buffer for swapping elements.
 
     allocate(tvec(size(vec1)))
     tvec=vec1(:)
     vec1(:)=vec2(:)
     vec2(:)=tvec
   end subroutine rswap_vec
-!!!#####################################################
+!###############################################################################
 
 
-!!!#####################################################
-!!! shuffle an array along one dimension
-!!!#####################################################
+!###############################################################################
   subroutine ishuffle(arr,dim,seed)
-   implicit none
-   integer :: iseed,istart
-   integer :: i,j,k,n_data,iother
-   integer :: i1s,i2s,i1e,i2e,j1s,j2s,j1e,j2e
-   real(real12) :: r
-   integer, allocatable, dimension(:,:) :: tlist
-
-   integer, intent(in) :: dim
-   integer, dimension(:,:), intent(inout) :: arr
-
-   integer, optional, intent(in) :: seed
-
-   if(present(seed)) iseed = seed
-
-   call random_seed(iseed)
-   n_data = size(arr,dim=dim)
-   if(dim.eq.1)then
-      iother = 2
-      i2s=1;i2e=size(arr,dim=iother)
-      j2s=1;j2e=size(arr,dim=iother)
-   else
-      iother = 1
-      i1s=1;i1e=size(arr,dim=iother)
-      j1s=1;j1e=size(arr,dim=iother)
-   end if
-   istart=1
-   allocate(tlist(1,size(arr,dim=iother)))
-   do k=1,2
-      do i=1,n_data
-         call random_number(r)
-         j = istart + floor((n_data+1-istart)*r)
-         if(dim.eq.1)then
-            i1s=i;i1e=i
-            j1s=j;j1e=j
-         else
-            i2s=i;i2e=i
-            j2s=j;j2e=j
-         end if
-         tlist(1:1,:) = arr(i1s:i1e,i2s:i2e)
-         arr(i1s:i1e,i2s:i2e) = arr(j1s:j1e,j2s:j2e)
-         arr(j1s:j1e,j2s:j2e) = tlist(1:1,:)
-      end do
-   end do
-
- end subroutine ishuffle
-!!!-----------------------------------------------------
-!!!-----------------------------------------------------
-  subroutine rshuffle(arr,dim,seed)
+    !! Shuffle a 2D integer array.
     implicit none
-    integer :: iseed,istart
-    integer :: i,j,k,n_data,iother
-    integer :: i1s,i2s,i1e,i2e,j1s,j2s,j1e,j2e
-    real(real12) :: r
-    real(real12), allocatable, dimension(:,:) :: tlist
 
+    ! Arguments
+    integer, dimension(:,:), intent(inout) :: arr
+    !! Array to be shuffled.
     integer, intent(in) :: dim
-    real(real12), dimension(:,:), intent(inout) :: arr
+    !! Dimension to shuffle along.
+    integer, intent(in), optional :: seed
+    !! Seed for random number generator.
 
-    integer, optional, intent(in) :: seed
+    ! Local variables
+    integer :: iseed
+    !! Seed for random number generator.
+    integer :: i, j, k, n_data, iother, istart
+    !! Loop indices.
+    integer :: i1s,i2s,i1e,i2e,j1s,j2s,j1e,j2e
+    !! Indices for swapping elements.
+    real(real12) :: r
+    !! Random number for shuffling.
+    integer, allocatable, dimension(:,:) :: tlist
+    !! Temporary list for swapping elements.
+
+
+    if(present(seed)) iseed = seed
+
+    call random_seed(iseed)
+    n_data = size(arr,dim=dim)
+    if(dim.eq.1)then
+       iother = 2
+       i2s=1;i2e=size(arr,dim=iother)
+       j2s=1;j2e=size(arr,dim=iother)
+    else
+       iother = 1
+       i1s=1;i1e=size(arr,dim=iother)
+       j1s=1;j1e=size(arr,dim=iother)
+    end if
+    istart=1
+    allocate(tlist(1,size(arr,dim=iother)))
+    do k=1,2
+       do i=1,n_data
+          call random_number(r)
+          j = istart + floor((n_data+1-istart)*r)
+          if(dim.eq.1)then
+             i1s=i;i1e=i
+             j1s=j;j1e=j
+          else
+             i2s=i;i2e=i
+             j2s=j;j2e=j
+          end if
+          tlist(1:1,:) = arr(i1s:i1e,i2s:i2e)
+          arr(i1s:i1e,i2s:i2e) = arr(j1s:j1e,j2s:j2e)
+          arr(j1s:j1e,j2s:j2e) = tlist(1:1,:)
+       end do
+    end do
+
+  end subroutine ishuffle
+!###############################################################################
+
+
+!###############################################################################
+  subroutine rshuffle(arr,dim,seed)
+    !! Shuffle a 2D real array.
+    implicit none
+
+    ! Arguments
+    real(real12), dimension(:,:), intent(inout) :: arr
+    !! Array to be shuffled.
+    integer, intent(in) :: dim
+    !! Dimension to shuffle along.
+    integer, intent(in), optional :: seed
+    !! Seed for random number generator.
+
+    ! Local variables
+    integer :: iseed
+    !! Seed for random number generator.
+    integer :: i, j, k, n_data, iother, istart
+    !! Loop indices.
+    integer :: i1s,i2s,i1e,i2e,j1s,j2s,j1e,j2e
+    !! Indices for swapping elements.
+    real(real12) :: r
+    !! Random number for shuffling.
+    real(real12), allocatable, dimension(:,:) :: tlist
+    !! Temporary list for swapping elements.
+
 
     if(present(seed)) iseed = seed
 
@@ -591,64 +736,86 @@ contains
     end do
 
   end subroutine rshuffle
-!!!#####################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!!#############################################################################
-!!!  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *
-!!!#############################################################################
-!!!#############################################################################
+!###############################################################################
+  integer function icount(line,fs)
+    !! Count the number of fields separated by specified delimiter.
+    !!
+    !! This function counts the number of fields separated by a specified
+    !! delimiter in a string. The default delimiter is a space.
+    implicit none
 
+    ! Arguments
+    character(*) :: line
+    !! String to be counted.
+    character(*), intent(in), optional :: fs
+    !! Optional. Delimiter (aka field separator).
 
-!!!#####################################################
-!!! counts the number of words on a line
-!!!#####################################################
-  integer function Icount(full_line,tmpchar)
-    character(*) :: full_line
-    !ONLY WORKS WITH IFORT COMPILER
-    !      character(1) :: fs
-    character(len=:),allocatable :: fs
-    character(*),optional :: tmpchar
-    integer ::items,pos,k,length
-    items=0
-    pos=1
+    ! Local variables
+    integer :: k
+    !! Loop index.
+    integer :: items = 0, pos = 1, length = 1
+    !! Number of fields and position in the string.
+    character(len=:), allocatable :: fs_
+    !! Delimiter (aka field separator).
+
 
     length=1
-    if(present(tmpchar)) length=len(trim(tmpchar))
-    allocate(character(len=length) :: fs)
-    if(present(tmpchar)) then
-       fs=trim(tmpchar)
+    if(present(fs)) length=len(trim(fs))
+    allocate(character(len=length) :: fs_)
+    if(present(fs)) then
+       fs_=trim(fs)
     else
-       fs=" "
+       fs_=" "
     end if
 
     loop: do
-       k=verify(full_line(pos:),fs)
+       k=verify(line(pos:),fs_)
        if (k.eq.0) exit loop
        items=items+1
        pos=k+pos-1
-       k=scan(full_line(pos:),fs)
+       k=scan(line(pos:),fs_)
        if (k.eq.0) exit loop
        pos=k+pos-1
     end do loop
-    Icount=items
-  end function Icount
-!!!#####################################################
+    icount=items
+
+  end function icount
+!###############################################################################
 
 
-!!!#####################################################
-!!! grep 
-!!!#####################################################
-!!! searches a file untill it finds the mattching patern
+!###############################################################################
   subroutine grep(unit,input,lstart,lline,success)
-    integer :: unit,Reason
+    !! Search a file for a pattern.
+    !!
+    !! This subroutine searches a file for a pattern. It can search for the
+    !! first line that contains the pattern or for the first line that starts
+    !! with the pattern.
+    implicit none
+
+    ! Arguments
+    integer :: unit
+    !! Unit number of the file.
     character(*) :: input
+    !! Pattern to search for.
+    logical, intent(in), optional :: lstart
+    !! Optional. Boolean whether to rewind file.
+    logical, intent(in), optional :: lline
+    !! Optional. Boolean whether the pattern is at the start of the line.
+    logical, intent(out), optional :: success
+    !! Optional. Boolean whether the pattern is found.
+
+    ! Local variables
     character(1024) :: buffer
-    logical :: lline_ = .false., success_ = .false.
-    logical, optional, intent(out) :: success
-    logical, optional, intent(in) :: lstart, lline
-    !  character(1024), intent(out), optional :: linechar
+    !! Buffer for reading lines.
+    logical :: lline_ = .false.
+    !! Boolean whether the pattern is at the start of the line.
+    logical :: success_ = .false.
+    !! Boolean whether the pattern is found.
+
+
     if(present(lstart))then
        if(lstart) rewind(unit)
     else
@@ -658,10 +825,10 @@ contains
     if(present(lline)) lline_ = lline
     if(lline_)then
        wholeloop: do
-          read(unit,'(A100)',iostat=Reason) buffer
-          if(is_iostat_end(Reason))then
+          read(unit,'(A100)',iostat=iostat) buffer
+          if(is_iostat_end(iostat))then
              exit wholeloop
-          elseif(Reason.ne.0)then
+          elseif(iostat.ne.0)then
              write(0,*) "Error reading file"
              stop 1
           end if
@@ -672,10 +839,10 @@ contains
        end do wholeloop
     else
        greploop: do
-          read(unit,'(A100)',iostat=Reason) buffer
-          if(is_iostat_end(Reason))then
+          read(unit,'(A100)',iostat=iostat) buffer
+          if(is_iostat_end(iostat))then
              exit greploop
-          elseif(Reason.ne.0)then
+          elseif(iostat.ne.0)then
              write(0,*) "Error reading file"
              stop 1
           end if
@@ -688,112 +855,155 @@ contains
 
     if(present(success)) success = success_
   end subroutine grep
-!!!#####################################################
+!###############################################################################
 
 
-!!!#####################################################
-!!! Assigns variables of flags from getarg
-!!!#####################################################
-!!! SHOULD MAKE THIS A FUNCTION INSTEAD !!!
+!###############################################################################
   subroutine flagmaker(buffer,flag,i,skip,empty)
-    integer :: i
-    logical :: skip,empty
-    character(*) :: flag,buffer
+   !! Assign variables of flags from get_command_argument.
+   implicit none
 
-    if(len(trim(buffer)).eq.len(trim(flag))) then
-       call get_command_argument(i+1,buffer)
-       if(scan(buffer,'-').eq.1.or.buffer.eq.'') then
-          buffer=""
-          empty=.true.
-       else
-          skip=.true.
-       end if
-    else
-       buffer=buffer(len(trim(flag))+1:)
-    end if
-
-    return
-  end subroutine flagmaker
-!!!#####################################################
+   ! Arguments
+   character(*), intent(inout) :: buffer
+   !! Buffer to be assigned a flag.
+   integer :: i
+   !! Index of command argument.
+   logical :: skip
+   !! Boolean whether to skip the next argument.
+   logical, intent(out) :: empty
+   !! Boolean whether the buffer is empty.
 
 
-!!!#####################################################
-!!! Jumps UNIT to input line number
-!!!#####################################################
+   skip = .false.
+   empty = .false.
+   if(len(trim(buffer)).eq.len(trim(flag))) then
+      call get_command_argument(i+1,buffer)
+      if(scan(buffer,'-').eq.1.or.buffer.eq.'') then
+         buffer=""
+         empty=.true.
+      else
+         skip=.true.
+      end if
+   else
+      buffer=buffer(len(trim(flag))+1:)
+   end if
+
+ end subroutine flagmaker
+!###############################################################################
+
+
+!###############################################################################
   subroutine jump(unit,linenum)
-    integer :: unit, linenum, move
+    !! Go to a specific line in a file.
+    implicit none
+
+    ! Arguments
+    integer :: unit
+    !! Unit number of the file.
+    integer :: linenum
+    !! Line number to jump to.
+
+    ! Local variables
+    integer :: i
+    !! Loop index.
+
+
     rewind(unit)
-    do move = 1, linenum, 1
+    do i = 1, linenum, 1
        read(unit,*)
     end do
-    return
+
   end subroutine jump
-!!!#####################################################
+!###############################################################################
 
 
-!!!#####################################################
-!!! File checker
-!!!#####################################################
-  subroutine file_check(UNIT,FILENAME,ACTION)
+!###############################################################################
+  subroutine file_check(unit,filename,action)
+    !! Check if a file exists and open it.
     implicit none
-    integer :: i,UNIT,Reason
-    character(len=*) :: FILENAME
-    character(20) :: udef_action
-    character(20), optional :: ACTION
-    logical :: filefound
 
-    udef_action="READWRITE"
-    if(present(ACTION)) udef_action=ACTION
-    udef_action=to_upper(udef_action)
+    ! Arguments
+    integer, intent(inout) :: unit
+    !! Unit number of the file.
+    character(*), intent(in) :: filename
+    !! Name of the file.
+    character(len=20), optional, intent(in) :: action
+    !! Optional. Action to be taken on the file.
+
+    ! Local variables
+    integer :: i
+    !! Loop index.
+    integer :: iostat
+    !! I/O status.
+    character(20) :: action_
+    !! Action to be taken on the file.
+    logical :: filefound
+    !! Boolean whether the file is found.
+
+
+    action_="READWRITE"
+    if(present(action)) action_=action
+    action_=to_upper(action_)
     do i=1,5
-       inquire(file=trim(FILENAME),exist=filefound)
+       inquire(file=trim(filename),exist=filefound)
        if(.not.filefound) then
           write(6,'("File name ",A," not found.")')&
-               "'"//trim(FILENAME)//"'"
+               "'"//trim(filename)//"'"
           write(6,'("Supply another filename: ")')
-          read(*,*) FILENAME
+          read(*,*) filename
        else
           write(6,'("Using file ",A)')  &
-               "'"//trim(FILENAME)//"'"
+               "'"//trim(filename)//"'"
           exit
        end if
        if(i.ge.4) then
           stop "Nope"
        end if
     end do
-    if(trim(adjustl(udef_action)).eq.'NONE')then
+    if(trim(adjustl(action_)).eq.'NONE')then
        write(6,*) "File found, but not opened."
     else
-       open(newunit=UNIT,file=trim(FILENAME),&
-            action=trim(udef_action),iostat=Reason)
+       open(newunit=unit,file=trim(filename),&
+            action=trim(action_),iostat=iostat)
     end if
 
-
-    return
   end subroutine file_check
-!!!#####################################################
+!###############################################################################
 
-!!!#####################################################
-!!! create a file if it doesn't exist
-!!!#####################################################
+
+!###############################################################################
   subroutine touch(file)
+    !! Create a directory if it does not exist.
     implicit none
+
+    ! Arguments
     character(*), intent(in) :: file
+    !! Directory to be created.
+
+    ! Local variables
     logical :: exists
+    !! Boolean whether the directory exists.
   
     inquire(file=file, exist=exists)
     if(.not.exists) call execute_command_line("mkdir -p "//file)
   end subroutine touch
-!!!#####################################################
+!###############################################################################
 
-!!!#####################################################
-!!! converts all characters in string to upper case
-!!!#####################################################
+
+!###############################################################################
   function to_upper(buffer) result(upper)
+    !! Convert a string to upper case.
     implicit none
-    integer :: i,j
-    character(*) :: buffer
+
+    ! Arguments
+    character(*), intent(in) :: buffer
+    !! String to be converted to upper case.
     character(len=:),allocatable :: upper
+    !! Upper case string.
+
+    ! Local variables
+    integer :: i,j
+    !! Loop index.
 
 
     allocate(character(len=len(buffer)) :: upper)
@@ -806,19 +1016,24 @@ contains
        end if
     end do
 
-    return
   end function to_upper
-!!!#####################################################
+!###############################################################################
 
 
-!!!#####################################################
-!!! converts all characters in string to lower case
-!!!#####################################################
+!###############################################################################
   function to_lower(buffer) result(lower)
+    !! Convert a string to lower case.
     implicit none
+
+    ! Arguments
+    character(*), intent(in) :: buffer
+    !! String to be converted to lower case.
+    character(len=:), allocatable :: lower
+    !! Lower case string.
+
+    ! Local variables
     integer :: i,j
-    character(*) :: buffer
-    character(len=:),allocatable :: lower
+    !! Loop index.
 
 
     allocate(character(len=len(buffer)) :: lower)
@@ -831,19 +1046,24 @@ contains
        end if
     end do
 
-    return
   end function to_lower
-!!!#####################################################
+!###############################################################################
 
 
-!!!#####################################################
-!!! strip null characters from string
-!!!#####################################################
+!###############################################################################
   function strip_null(buffer) result(stripped)
+    !! Strip null characters from a string.
     implicit none
-    integer :: i
-    character(*) :: buffer
+
+    ! Arguments
+    character(*), intent(in) :: buffer
+    !! String to be stripped.
     character(len=len(buffer)) :: stripped
+    !! Stripped string.
+
+    ! Local variables
+    integer :: i
+    !! Loop index.
 
     stripped = ""
     do i=1,len(buffer)
@@ -854,8 +1074,7 @@ contains
        end if
     end do
 
-    return
   end function strip_null
-  !!!#####################################################
+!###############################################################################
 
 end module misc_raffle

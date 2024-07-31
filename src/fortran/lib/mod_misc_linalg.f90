@@ -1,23 +1,5 @@
-!!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor and Francis Huw Davies
-!!! Code part of the ARTEMIS group (Hepplestone research group).
-!!! Think Hepplestone, think HRG.
-!!!#############################################################################
-!!! module contains various linear algebra functions and subroutines.
-!!! module includes the following functions and subroutines:
-!!! uvec             (unit vector of vector of any size)
-!!! modu             (magnitude of vector of any size)
-!!! cross            (cross product of two vectors)
-!!!##################
-!!! get_distance     (get the distance between two points)
-!!! get_angle        (get the angle between two vectors)
-!!! get_dihedral_angle (get the dihedral angle between two planes)
-!!! get_area         (get the area made by two vectors)
-!!! get_vol          (get the volume of a matrix)
-!!! LUinv            (inverse of a matrix of any size using LUdecomposition)
-!!! LUdecompose      (decompose a matrix into upper and lower matrices. A=LU)
-!!!#############################################################################
 module misc_linalg
+  !! Module providing various linear algebra functions and subroutines.
   use constants, only: real12, pi
   implicit none
 
@@ -38,164 +20,198 @@ module misc_linalg
   end interface get_dihedral_angle
 
 
-!!!updated 2021/12/09
-
-
 contains
-!!!#####################################################
-!!! finds unit vector of an arbitrary vector
-!!!#####################################################
-  pure function uvec(vec)
+
+!###############################################################################
+pure function uvec(vector)
+    !! Return the unit vector of a vector of any size.
     implicit none
-    real(real12),dimension(:), intent(in)::vec
+
+    ! Arguments
+    real(real12),dimension(:), intent(in)::vector
+    !! Input vector.
     real(real12),allocatable,dimension(:)::uvec
-    allocate(uvec(size(vec)))
-    uvec=vec/modu(vec)
+    !! Output unit vector.
+
+    allocate(uvec(size(vector)))
+    uvec = vector/modu(vector)
   end function uvec
-!!!#####################################################
+!###############################################################################
 
 
-!!!#####################################################
-!!! finds modulus of an arbitrary length vector
-!!!#####################################################
-  pure function modu(vec)
+!###############################################################################
+  pure function modu(vector)
+    !! Return the magnitude of a vector of any size.
     implicit none
-    real(real12),dimension(:), intent(in)::vec
+
+    ! Arguments
+    real(real12),dimension(:), intent(in)::vector
+    !! Input vector.
     real(real12)::modu
-    modu=abs(sqrt(sum(vec(:)**2)))
+    !! Output magnitude.
+
+    modu = abs(sqrt(sum(vector(:)**2)))
   end function modu
-!!!#####################################################
+!###############################################################################
 
 
-!!!#####################################################
-!!! cross product
-!!!#####################################################
+!###############################################################################
   pure function cross(a,b)
+    !! Return the cross product of two vectors.
     implicit none
-    real(real12), dimension(3) :: cross
+
+    ! Arguments
     real(real12), dimension(3), intent(in) :: a,b
+    !! Input vectors.
+    real(real12), dimension(3) :: cross
+    !! Output cross product.
 
     cross(1) = a(2)*b(3) - a(3)*b(2)
     cross(2) = a(3)*b(1) - a(1)*b(3)
     cross(3) = a(1)*b(2) - a(2)*b(1)
 
-    return
   end function cross
-!!!#####################################################
+!###############################################################################
 
 
-
-!!!#############################################################################
-!!!#############################################################################
-!!!  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *  *
-!!!#############################################################################
-!!!#############################################################################
-
-
-
-!!!#####################################################
-!!! returns distance between two points
-!!!#####################################################
-  pure function get_distance(point1,point2) result(distance)
+!###############################################################################
+  pure function get_distance(point1, point2) result(distance)
+    !! Return the distance between two points.
     implicit none
-    real(real12) :: distance
+
+    ! Arguments
     real(real12), dimension(3), intent(in) :: point1,point2
+    !! Input points.
+    real(real12) :: distance
+    !! Output distance.
 
     distance = modu(point1-point2)
 
     return
   end function get_distance
-!!!#####################################################
+!###############################################################################
 
 
-!!!#####################################################
-!!! returns angle between two vectors
-!!!#####################################################
-  pure function get_angle_from_vectors(vec1,vec2) result(angle)
+!###############################################################################
+  pure function get_angle_from_vectors(vector1, vector2) result(angle)
+    !! Return the angle between two vectors.
     implicit none
-    real(real12), dimension(3), intent(in) :: vec1,vec2
-    real(real12) :: angle
 
-    angle = acos( dot_product(vec1,vec2)/&
-         ( modu(vec1) * modu(vec2) ))
+    ! Arguments
+    real(real12), dimension(3), intent(in) :: vector1,vector2
+    !! Input vectors.
+    real(real12) :: angle
+    !! Output angle.
+
+    angle = acos( dot_product(vector1,vector2)/&
+         ( modu(vector1) * modu(vector2) ))
     if (isnan(angle)) angle = 0._real12
 
-    return
   end function get_angle_from_vectors
-!!!-----------------------------------------------------
-!!! get the angle between vectors point1point2 and point2point3
-!!! i.e. follow the path of point1 -> point2 -> point3
-!!!-----------------------------------------------------
+!###############################################################################
+
+
+!###############################################################################
   pure function get_angle_from_points(point1, point2, point3) result(angle)
+    !! Return the angle formed by three points.
+    !!
+    !! The angle is formed by the path point1 -> point2 -> point3.
     implicit none
+
+    ! Arguments
     real(real12), dimension(3), intent(in) :: point1, point2, point3
+    !! Input points.
     real(real12) :: angle
+    !! Output angle.
 
     angle = acos( ( dot_product( point2 - point1, point3 - point2 ) ) / &
          ( modu( point2 - point1 ) * modu( point3 - point2 ) ) )
     if(isnan(angle)) angle = 0._real12
   end function get_angle_from_points
-!!!#####################################################
+!###############################################################################
 
 
-!!!#####################################################
-!!! returns the dihedral angle between the plane defined by the vectors ...
-!!! vec1 x vec2 and the vector vec3
-!!!#####################################################
-  pure function get_dihedral_angle_from_vectors(vec1,vec2,vec3) result(angle)
+!###############################################################################
+  pure function get_dihedral_angle_from_vectors( &
+       vector1, vector2, vector3) result(angle)
+    !! Return the dihedral angle between two planes.
+    !!
+    !! The dihedral angle is the angle between the plane defined by the cross
+    !! product of two vectors and a third vector.
+    !! i.e. ( vector1 x vector2 ) . vector3
     implicit none
-    real(real12), dimension(3), intent(in) :: vec1,vec2,vec3
-    real(real12) :: angle
 
-    angle = get_angle(cross(vec1, vec2), vec3)
+    ! Arguments
+    real(real12), dimension(3), intent(in) :: vector1,vector2,vector3
+    !! Input vectors.
+    real(real12) :: angle
+    !! Output angle.
+
+    angle = get_angle(cross(vector1, vector2), vector3)
 
   end function get_dihedral_angle_from_vectors
-!!!-----------------------------------------------------
-!!! get the angle between the plane defined by ...
-!!! ... point1point2point3 and the vector point2point4
-!!!-----------------------------------------------------
+!###############################################################################
+
+
+!###############################################################################
   pure function get_dihedral_angle_from_points(point1, point2, point3, point4) &
          result(angle)
-     implicit none
-     real(real12), dimension(3), intent(in) :: point1, point2, point3, point4
-     real(real12) :: angle
+    !! Return the dihedral angle between two planes.
+    !!
+    !! The dihedral angle is the angle between the plane defined by four points.
+    !! i.e. ( point2 - point1 ) x ( point3 - point2 ) . ( point4 - point2 )
+    !! alt. angle between plane point1point2point3 and vector point2point4
+    implicit none
+    real(real12), dimension(3), intent(in) :: point1, point2, point3, point4
+    real(real12) :: angle
   
-     angle = get_angle(cross(point2 - point1, point3 - point2), point4 - point2)
+    angle = get_angle(cross(point2 - point1, point3 - point2), point4 - point2)
   
   end function get_dihedral_angle_from_points
-!!!#####################################################
+!###############################################################################
 
 
-!!!#####################################################
-!!! returns area made by two vectors
-!!!#####################################################
+!###############################################################################
   pure function get_area(a,b) result(area)
+    !! Return the area made by two vectors.
     implicit none
+
+    ! Arguments
     real(real12), dimension(3), intent(in) :: a,b
+    !! Input vectors.
     real(real12) :: area
+    !! Output area.
     real(real12), dimension(3) :: vec
+    !! Cross product of a and b.
 
     vec = cross(a,b)
     area = sqrt(dot_product(vec,vec))
 
-    return
   end function get_area
-!!!#####################################################
+!###############################################################################
 
 
-!!!#####################################################
-!!! returns volume of a lattice
-!!!#####################################################
-  function get_vol(lat) result(vol)
+!###############################################################################
+  function get_vol(matrix) result(vol)
+    !! Return the volume of a matrix.
     implicit none
-    integer :: n,i,j,k,l
-    real(real12) :: vol,scale
-    real(real12), dimension(3,3) :: lat
-    real(real12), dimension(3) :: a,b,c
 
-    a=lat(1,:)
-    b=lat(2,:)
-    c=lat(3,:)
+    ! Arguments
+    real(real12), dimension(3,3), intent(in) :: matrix
+    !! Input matrix.
+
+    ! Local variables
+    integer :: n,i,j,k,l
+    !! Loop indices.
+    real(real12) :: vol,scale
+    !! Volume and scale factor.
+    real(real12), dimension(3) :: a,b,c
+    !! Vectors of the matrix.
+
+
+    a=matrix(1,:)
+    b=matrix(2,:)
+    c=matrix(3,:)
     vol = 0._real12;scale = 1._real12
     i=1;j=2;k=3
 1   do n=1,3
@@ -205,38 +221,45 @@ contains
     i=2;j=1;k=3;scale=-scale
     if(scale<0._real12) goto 1
 
-    return
   end function get_vol
-!!!#####################################################
+!###############################################################################
 
 
-!!!#####################################################
-!!! inverse of n x n matrix
-!!!#####################################################
-!!! doesn't work if a diagonal element = 0
-!!! L = lower
-!!! U = upper
-!!! inmat = input nxn matrix
-!!! LUinv = output nxn inverse of matrix
-!!! Lz=b
-!!! Ux=z
-!!! x=column vectors of the inverse matrix
-  function LUinv(inmat)
+!###############################################################################
+  function LUinv(matrix)
+    !! Inverse of a matrix of any size using LU decomposition.
+    !!
+    !! The function uses LU decomposition to solve the equation Ax=b for x.
+    !! The function returns the inverse of the input matrix.
+    !! L = lower matrix, U = upper matrix.
+    !! NOTE: The function does not work if a diagonal element = 0.
     implicit none
+
+    ! Arguments
+    real(real12), dimension(:,:), intent(in) :: matrix
+    !! Input matrix.
+
+    ! Local variables
     integer :: i,m,N
-    real(real12), dimension(:,:) :: inmat
-    real(real12), dimension(size(inmat,1),size(inmat,1)) :: LUinv
-    real(real12), dimension(size(inmat,1),size(inmat,1)) :: L,U
-    real(real12), dimension(size(inmat,1)) :: c,z,x
+    !! Loop indices.
+    real(real12), dimension(size(matrix,1),size(matrix,1)) :: LUinv
+    !! Inverse of the input matrix.
+    real(real12), dimension(size(matrix,1),size(matrix,1)) :: L,U
+    !! Lower and upper matrices.
+    real(real12), dimension(size(matrix,1)) :: c,z,x
+    !! Column vectors of the identity matrix.
+
 
     L=0._real12
     U=0._real12
-    N=size(inmat,1)
-    call LUdecompose(inmat,L,U)
+    N=size(matrix,1)
+    call LUdecompose(matrix,L,U)
 
-!!! Lz=c
-!!! c are column vectors of the identity matrix
-!!! uses forward substitution to solve
+    !---------------------------------------------------------------------------
+    ! Lz=c
+    ! c are column vectors of the identity matrix
+    ! use forward substitution to solve
+    !---------------------------------------------------------------------------
     do m=1,N
        c=0._real12
        c(m)=1._real12
@@ -247,9 +270,11 @@ contains
        end do
 
 
-!!! Ux=z
-!!! x are the rows of the inversion matrix
-!!! uses backwards substitution to solve
+       !------------------------------------------------------------------------
+       ! Ux=z
+       ! x are the rows of the inversion matrix
+       ! use backwards substitution to solve
+       !------------------------------------------------------------------------
        x(N)=z(N)/U(N,N)
        do i=N-1,1,-1
           x(i)=z(i)-dot_product(U(i,i+1:N),x(i+1:N))
@@ -259,34 +284,44 @@ contains
        LUinv(:,m)=x(:)
     end do
 
-    return
   end function LUinv
-!!!#####################################################
+!###############################################################################
 
 
-!!!#####################################################
-!!! A=LU matrix decomposer
-!!!#####################################################
-!!! Method: Based on Doolittle LU factorization for Ax=b
-!!! doesn't work if a diagonal element = 0
-!!! L = lower
-!!! U = upper
-!!! inmat = input nxn matrix
-  subroutine LUdecompose(inmat,L,U)
+!###############################################################################
+  subroutine LUdecompose(matrix,L,U)
+    !! Decompose a matrix into upper and lower matrices. A=LU
+    !!
+    !! The subroutine uses LU decomposition to solve the equation Ax=b for x.
+    !! NOTE: The subroutine does not work if a diagonal element = 0.
     implicit none
-    integer :: i,j,N
-    real(real12), dimension(:,:) :: inmat,L,U
-    real(real12), dimension(size(inmat,1),size(inmat,1)) :: mat
 
-    N=size(inmat,1)
-    mat=inmat
+    ! Arguments
+    integer :: i,j,N
+    !! Loop indices.
+    real(real12), dimension(:,:), intent(in) :: matrix
+    !! Input matrix, lower and upper matrices.
+    real(real12), dimension(size(matrix,1),size(matrix,1)) :: L,U
+    !! Lower and upper matrices.
+
+    ! Local variables
+    real(real12), dimension(size(matrix,1),size(matrix,1)) :: mat
+    !! Temporary matrix.
+
+
+    N=size(matrix,1)
+    mat=matrix
     L=0._real12
     U=0._real12
 
     do j=1,N
        L(j,j)=1._real12
     end do
-!!! Solves the lower matrix
+
+
+    !---------------------------------------------------------------------------
+    ! Solve the lower matrix
+    !---------------------------------------------------------------------------
     do j=1,N-1
        do i=j+1,N
           L(i,j)=mat(i,j)/mat(j,j)
@@ -294,15 +329,17 @@ contains
        end do
     end do
 
-!!! Equates upper half of remaining mat to upper matrix
+
+    !---------------------------------------------------------------------------
+    ! Equate upper half of remaining mat to upper matrix
+    !---------------------------------------------------------------------------
     do j=1,N
        do i=1,j
           U(i,j)=mat(i,j)
        end do
     end do
 
-    return
   end subroutine LUdecompose
-!!!#####################################################
+!###############################################################################
 
 end module misc_linalg

@@ -163,7 +163,7 @@ contains
 !!!#############################################################################
   subroutine read_input_file(file_name)
     implicit none
-    character(*), intent(in) :: file_name
+    character(*), intent(inout) :: file_name
 
     integer :: i, num_species, num_bonds
     integer :: Reason,unit, l_pos, r_pos

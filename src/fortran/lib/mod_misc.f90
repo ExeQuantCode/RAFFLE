@@ -351,13 +351,13 @@ subroutine sort_str(list, lcase)
     implicit none
 
     ! Arguments
-    integer, dimension(:), intent(inout) :: arr
+    integer, dimension(:), allocatable, intent(inout) :: arr
     !! Array to be reduced.
 
     ! Local variables
     integer :: i,n
     !! Loop index.
-    integer, allocatable, dimension(:) :: tmp_arr
+    integer, dimension(:), allocatable :: tmp_arr
     !! Temporary array for storing unique elements.
     
 
@@ -385,7 +385,7 @@ subroutine sort_str(list, lcase)
     implicit none
 
     ! Arguments
-    real(real12), allocatable, dimension(:), intent(inout) :: arr
+    real(real12), dimension(:), allocatable, intent(inout) :: arr
     !! Array to be reduced.
     real(real12), intent(in), optional :: tol
     !! Tolerance for comparing real numbers.
@@ -397,9 +397,9 @@ subroutine sort_str(list, lcase)
     !! Loop index.
     real(real12) :: tol_
     !! Tolerance for comparing real numbers.
-    real(real12), allocatable, dimension(:) :: tmp_arr
+    real(real12), dimension(:), allocatable :: tmp_arr
     !! Temporary array for storing unique elements.
-    integer, allocatable, dimension(:) :: count_list_
+    integer, dimension(:), allocatable :: count_list_
     !! List of counts for each unique element.
     
 
@@ -808,6 +808,8 @@ subroutine sort_str(list, lcase)
     !! Optional. Boolean whether the pattern is found.
 
     ! Local variables
+    integer :: iostat
+    !! I/O status.
     character(1024) :: buffer
     !! Buffer for reading lines.
     logical :: lline_ = .false.
@@ -866,6 +868,8 @@ subroutine sort_str(list, lcase)
    ! Arguments
    character(*), intent(inout) :: buffer
    !! Buffer to be assigned a flag.
+   character(*), intent(in) :: flag
+   !! Flag to look for.
    integer :: i
    !! Index of command argument.
    logical :: skip
@@ -925,7 +929,7 @@ subroutine sort_str(list, lcase)
     ! Arguments
     integer, intent(inout) :: unit
     !! Unit number of the file.
-    character(*), intent(in) :: filename
+    character(*), intent(inout) :: filename
     !! Name of the file.
     character(len=20), optional, intent(in) :: action
     !! Optional. Action to be taken on the file.

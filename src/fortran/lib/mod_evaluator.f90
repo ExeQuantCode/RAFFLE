@@ -6,7 +6,8 @@ module evaluator
   !! that point for a new atom. The map is built by checking the bond lengths,
   !! bond angles and dihedral angles between the test point and all atoms.
   use constants, only: real12
-  use misc_linalg, only: get_distance, get_angle, get_dihedral_angle
+  use misc_linalg, only: modu, get_distance, get_angle, get_dihedral_angle, &
+       get_improper_dihedral_angle
   use rw_geom, only: basis_type
   use extended_geom, only: extended_basis_type
   use edit_geom, only: get_min_dist_between_point_and_atom
@@ -45,25 +46,19 @@ contains
     !! Suitability of the test point.
     
     ! Local variables
-    integer :: i, is, ia, js, ja, ks, ka, ls
+    integer :: i, is, js, ia, ls
     !! Loop counters.
     integer :: bin
     !! Bin for the distribution function.
-    real(real12) :: contribution, repeat_power_3body, repeat_power_4body
-    !! Contribution to the viability map, repeat power.
-    real(real12) :: bondlength_1, bondlength_2, bondlength_3
-    !! Bond lengths.
+    real(real12) :: contribution
+    !! Contribution to the viability map
     real(real12) :: viability_2body
     !! Viability of the test point for 2-body interactions.
     !! 2-body viabilities are summed.
-    real(real12) :: viability_3body
-    !! Viability of the test point for 3-body interactions.
-    !! 3-body viabilities are multiplied.
-    real(real12) :: viability_4body
-    !! Viability of the test point for 4-body interactions.
-    !! 4-body viabilities are multiplied.
-    real(real12), dimension(3) :: &
-         position_storage1, position_storage2, position_storage3
+    real(real12) :: viability_angles
+    !! Viability of the test point for 3- and 4-body interactions.
+    !! Angle viabilities are multiplied.
+    real(real12), dimension(3) :: position_store
     !! Storage for atom positions.
     integer, dimension(:,:), allocatable :: pair_index
     !! Index of element pairs.
@@ -71,11 +66,8 @@ contains
     
     ! Initialisation
     output = 0._real12
-    repeat_power_3body = 2._real12
-    repeat_power_4body = 4._real12
     viability_2body = 0._real12
-    viability_3body = 1._real12
-    viability_4body = 1._real12
+    viability_angles = 1._real12
     
 
     !---------------------------------------------------------------------------
@@ -90,142 +82,420 @@ contains
        end do
     end do
 
-    ! NEED get_distance, AND THEM USE SUPERCELLS TO HANDLE BONDS
 
     !---------------------------------------------------------------------------
     ! loop over all atoms in the system
     !---------------------------------------------------------------------------
-    species_loop1: do is=1, basis%nspec
-      ! 2-body map
-      ! check bondlength between test point and all other atoms
-      !-------------------------------------------------------------------------
-      atom_loop1: do ia = 1, basis%spec(is)%num
-         do i = 1, size(atom_ignore_list,dim=1), 1
-            if(all(atom_ignore_list(i,:).eq.[is,ia])) cycle atom_loop1
-         end do
-         ! NEED TO HAVE A LOOP FOR REPEATING CELLS
-         position_storage1 = basis%spec(is)%atom(ia,:)
-         contribution=0._real12
-         ! ONLY NEEDS TO CHECK FOR THE SMALLEST BONDLENGTH BETWEEN A ...
-         ! ... PERIODIC ATOM AND THE CURRENT ATOM
-         ! if not looping over periodic images explicitly, doesn't need ...
-         ! ... to check if the bondlength is larger than the upper tolerance
-         ! But cycling still needed as it fits that criteria if it is ...
-         ! ... above upper tolerance, and doesn't fall within 3- and 4-body ...
-         ! ... check requirements
-    
-         bondlength_1 = get_min_dist_between_point_and_atom(basis, &
-              position, [is, ia])
+    species_loop: do is=1, basis%nspec
+       ! 2-body map
+       ! check bondlength between test point and all other atoms
+       !-------------------------------------------------------------------------
+       atom_loop: do ia = 1, basis%spec(is)%num
+          do i = 1, size(atom_ignore_list,dim=1), 1
+             if(all(atom_ignore_list(i,:).eq.[is,ia])) exit atom_loop
+          end do
+          position_store = basis%spec(is)%atom(ia,:)
+          contribution = get_2body_contribution( gvector_container, &
+               position, position_store, basis%lat, &
+               radius_list(pair_index(ls,is))*lowtol, &
+               gvector_container%cutoff_max(1), &
+               pair_index(ls,is) &
+          )
+          if(contribution .lt. -100._real12) return
+          viability_2body = viability_2body + contribution
 
-         !! check if the bondlength is within the tolerance for bonds ...
-         !! ... between its own element and the element of the current atom
-         if(bondlength_1 .lt. radius_list(pair_index(ls,is))*lowtol)then
-            deallocate(pair_index)
-            return
-         else if(bondlength_1 .gt. gvector_container%cutoff_max(1))then!radius_list(pair_index(ls,is))*uptol)then
-            cycle atom_loop1
-         end if
+          ! 3-body map
+          ! check bondangle between test point and all other atoms
+          !----------------------------------------------------------------------
+          viability_angles = viability_angles * &
+               evaluate_3body_contributions( gvector_container, &
+                    position, position_store, basis, atom_ignore_list, &
+                    radius_list, uptol, lowtol, pair_index, ls, [is, ia] &
+               )
+          if(viability_angles .lt. 1.E-6) return
+       end do atom_loop
 
-         bin = gvector_container%get_bin(bondlength_1, dim = 1)
-         if(bin.eq.0) cycle atom_loop1
-         contribution = gvector_container%total%df_2body(bin, pair_index(ls,is))
-   
-         viability_2body = viability_2body + contribution
+       image_loop: do ia = 1, basis%image_spec(is)%num, 1
+          position_store = basis%image_spec(is)%atom(ia,:)
+          contribution = get_2body_contribution( gvector_container, &
+               position, position_store, basis%lat, &
+               radius_list(pair_index(ls,is))*lowtol, &
+               gvector_container%cutoff_max(1), &
+               pair_index(ls,is) &
+          )
+          if(contribution .lt. -100._real12) return
+          viability_2body = viability_2body + contribution
 
-         ! 3-body map
-         ! check bondangle between test point and all other atoms
-         !! i.e. nested loop here
-         ! NEEDS TO BE SPECIES AND ATOM
-         ! SHOULD BE ITS OWN PROCEDURE
-         !----------------------------------------------------------------------
-         species_loop2: do js = is, basis%nspec, 1
-           atom_loop2: do ja = 1, basis%spec(js)%num
-              if(js.eq.is .and. ja.lt.ia) cycle
-              do i = 2, size(atom_ignore_list,dim=1)
-                 if(all(atom_ignore_list(i,:).eq.[js,ja])) cycle atom_loop1
-              end do
-              position_storage2 = basis%spec(js)%atom(ja,:)
-              bondlength_2 = get_min_dist_between_point_and_atom(basis, &
-                   position, [js, ja])
-              if(bondlength_2.lt.&! get_distance(position,position_storage2).lt.&
-                   radius_list(pair_index(ls,js))*lowtol)then
-                 deallocate(pair_index)
-                 return
-              else if(bondlength_2.lt.&!get_distance(position,position_storage2).lt.&
-                   ! gvector_container%cutoff_max(1)) then
-                   radius_list(pair_index(ls,js))*uptol) then
-                 bin = gvector_container%get_bin( &
-                      get_angle( position_storage1, &
-                                 position, &
-                                 position_storage2 ), &
-                      dim = 2 )
-                 if(bin.eq.0) cycle atom_loop2
-                 contribution = gvector_container%total%df_3body(bin,is)
-                 viability_3body = ( viability_3body * &
-                       contribution ** (1._real12/repeat_power_3body))
-              end if
-              ! CHECKS WHETHER THE BONDLENGTH BETWEEN THE CURRENT ATOM AND THE ...
-              ! ... THIRD ATOM IS WITHIN THE TOLERANCE
-              ! I have removed the second check as this, again, is just checking ...
-              ! ... the effect of a periodic image
-              !   if(get_min_dist_between_two_atoms(basis, [is,ia], [js,ja]).lt.&
-              !    !bondlength_2.lt.&!get_distance(position_storage1,position_storage2).ge.&
-              !        ! gvector_container%cutoff_max(1)) cycle
-              !        radius_list(pair_index(ls,js))*uptol) cycle
-                 
-              ! 4-body map
-              ! check dihedral angle between test point and all other atoms
-              ! i.e. nested loop here
-              ! NEEDS TO BE SPECIES AND ATOM
-              ! SHOULD BE ITS OWN PROCEDURE
-              !-----------------------------------------------------------------
-              species_loop3: do ks = 1, basis%nspec, 1
-                 atom_loop3: do ka = 1, basis%spec(ks)%num
-                    do i = 2, size(atom_ignore_list,dim=1)
-                       if(all(atom_ignore_list(i,:).eq.[ks,ka])) cycle atom_loop1
-                    end do
-                    position_storage3 = basis%spec(js)%atom(ja,:)
-                    bondlength_3 = get_min_dist_between_point_and_atom(basis, &
-                         position, [ks, ka])
-                    if(bondlength_3.lt.&!get_distance(position,position_storage3).lt.&
-                         radius_list(pair_index(ls,ks))*lowtol) then
-                       deallocate(pair_index)
-                       return
-                    else if(bondlength_3.lt.&!get_distance(position_storage1,position_storage3).lt.&
-                         ! gvector_container%cutoff_max(1)) then
-                         radius_list(pair_index(is,ks))*uptol) then
-                       bin = gvector_container%get_bin( &
-                                get_dihedral_angle( &
-                                           position, &
-                                           position_storage1, &
-                                           position_storage2, &
-                                           position_storage3), &
-                                dim = 3 )
-                       if(bin.eq.0) cycle atom_loop3
-                       contribution = gvector_container%total%df_4body(bin,is)
-                       if(abs(contribution).lt.1.E-6) then
-                          deallocate(pair_index)
-                          return
-                       end if
-                       !Here have taken a large root of value return, to ...
-                       !...account for sumamtion of atoms in 3D.
-                       !Will need to think further on this.
-                       viability_4body = ( viability_4body * &
-                            contribution ** (1._real12/repeat_power_4body))
-                    end if
-                 end do atom_loop3
-              end do species_loop3
-           end do atom_loop2
-         end do species_loop2
-      end do atom_loop1
-   end do species_loop1
+          ! 3-body map
+          ! check bondangle between test point and all other atoms
+          !----------------------------------------------------------------------
+          viability_angles = viability_angles * &
+               evaluate_3body_contributions( gvector_container, &
+                    position, position_store, basis, atom_ignore_list, &
+                    radius_list, uptol, lowtol, pair_index, ls, &
+                    [is, basis%spec(is)%num + ia] &
+               )
+          if(viability_angles .lt. 1.E-6) return
+       end do image_loop
+    end do species_loop
 
-   if(abs(viability_2body).lt.1.E-6) viability_2body = 1._real12
-   output = viability_2body * viability_4body * viability_3body
+    if(abs(viability_2body).lt.1.E-6) viability_2body = 1._real12
+    output = viability_2body * viability_angles
 
-   deallocate(pair_index)
+    deallocate(pair_index)
     
   end function evaluate_point
+!###############################################################################
+
+
+!###############################################################################
+  pure function get_2body_contribution( gvector_container, &
+       position_1, position_2, lattice, lower_limit, upper_limit, pair_index ) &
+       result(output)
+    !! Return the contribution to the viability map for a 2-body interaction
+    implicit none
+
+    ! Arguments
+    type(gvector_container_type), intent(in) :: gvector_container
+    !! Distribution function (gvector) container.
+    real(real12), dimension(3), intent(in) :: position_1, position_2
+    !! Positions of the atoms.
+    real(real12), dimension(3,3), intent(in) :: lattice
+    !! Lattice vectors.
+    real(real12), intent(in) :: lower_limit, upper_limit
+    !! Lower and upper limits for the bond length.
+    integer, intent(in) :: pair_index
+    !! Index of the pair of elements.
+    real(real12) :: output
+    !! Contribution from the 2-body interaction.
+
+    ! Local variables
+    integer :: bin
+    !! Bin for the distribution function.
+    real(real12) :: bondlength
+    !! Bond length between the test point and the second atom.
+
+
+    output = 1._real12
+    
+    bondlength = modu( matmul(position_1 - position_2, lattice) )
+
+    !! check if the bondlength is within the tolerance for bonds ...
+    !! ... between its own element and the element of the current atom
+    if(bondlength .lt. lower_limit)then
+       output = -200._real12
+       return
+    else if(bondlength.gt.gvector_container%cutoff_max(1))then
+       return
+    end if
+
+    bin = gvector_container%get_bin(bondlength, dim = 1)
+    if(bin.eq.0)then
+       output = 0._real12
+       return
+    end if
+    output = gvector_container%total%df_2body(bin, pair_index)
+
+  end function get_2body_contribution
+!###############################################################################
+
+
+!###############################################################################
+  pure function evaluate_3body_contributions( gvector_container, &
+       position_1, position_2, basis, &
+       atom_ignore_list, radius_list, uptol, lowtol, &
+       pair_index, ls, atom_index ) result(output)
+    !! Return the contribution to the viability map from 3-body interactions
+    implicit none
+
+    ! Arguments
+    type(gvector_container_type), intent(in) :: gvector_container
+    !! Distribution function (gvector) container.
+    real(real12), dimension(3), intent(in) :: position_1, position_2
+    !! Positions of the atoms.
+    type(extended_basis_type), intent(in) :: basis
+    !! Basis of the system.
+    integer, dimension(:,:), intent(in) :: atom_ignore_list
+    !! List of atoms to ignore (i.e. indices of atoms not yet placed).
+    real(real12), dimension(:), intent(in) :: radius_list
+    !! List of radii for each pair of elements.
+    real(real12), intent(in) :: uptol, lowtol
+    !! Upper and lower tolerance for bond lengths and angles.
+    integer, dimension(:,:), intent(in) :: pair_index
+    !! Index of the pair of elements.
+    integer, intent(in) :: ls
+    !! Index of the query element.
+    integer, dimension(2), intent(in) :: atom_index
+    !! Index of the 1st atom.
+    real(real12) :: output
+    !! Contribution to the viability map.
+
+    ! Local variables
+    integer :: i, js, ja
+    !! Bin for the distribution function.
+    real(real12) :: contribution
+    !! Contribution to the viability map.
+    real(real12) :: repeat_power
+    !! Repeat power for 3-body interactions.
+    real(real12), dimension(3) :: position_store
+    !! Storage for atom positions.
+    real(real12) :: viability_4body
+    !! Viability of the test point for 4-body interactions.
+
+
+    repeat_power = 2._real12
+    output = 1._real12
+    species_loop: do js = atom_index(1), basis%nspec, 1
+      atom_loop: do ja = 1, basis%spec(js)%num
+         if(js.eq.atom_index(1) .and. ja.le.atom_index(2)) cycle atom_loop
+         do i = 1, size(atom_ignore_list,dim=1)
+            if(all(atom_ignore_list(i,:).eq.[js,ja])) exit atom_loop
+         end do
+         position_store = basis%image_spec(js)%atom(ja,:)
+         contribution = get_3body_contribution( gvector_container, &
+              position_1, position_2, position_store, basis%lat, &
+              radius_list(pair_index(ls,js))*lowtol, &
+              radius_list(pair_index(ls,js))*uptol, &
+              ls &
+         )
+         if (contribution .lt. 1.E-6) then
+            output = 0._real12
+            return
+         end if
+         output = output * contribution
+            
+         ! 4-body map
+         ! check improperdihedral angle between test point and all other atoms
+         !----------------------------------------------------------------------
+         contribution = evaluate_4body_contributions( gvector_container, &
+              position_1, position_2, position_store, &
+              basis, atom_ignore_list, radius_list, uptol, lowtol, &
+              pair_index, ls, [js, ja] )
+         if (contribution .lt. 1.E-6) then
+            output = 0._real12
+            return
+         end if
+         viability_4body = viability_4body * contribution
+      end do atom_loop
+
+      image_loop: do ja = 1, basis%image_spec(js)%num, 1
+         if( js.eq.atom_index(1) .and. &
+              basis%spec(js)%num + ja.le.atom_index(2)) cycle
+         position_store = basis%image_spec(js)%atom(ja,:)
+         contribution = get_3body_contribution( gvector_container, &
+              position_1, position_2, position_store, basis%lat, &
+              radius_list(pair_index(ls,js))*lowtol, &
+              radius_list(pair_index(ls,js))*uptol, &
+              ls &
+         )
+         if (contribution .lt. 1.E-6) then
+            output = 0._real12
+            return
+         end if
+         output = output * contribution
+
+         ! 4-body map
+         ! check improperdihedral angle between test point and all other atoms
+         !----------------------------------------------------------------------
+         contribution = evaluate_4body_contributions( gvector_container, &
+              position_1, position_2, position_store, &
+              basis, atom_ignore_list, radius_list, uptol, lowtol, &
+              pair_index, ls, [js, basis%spec(js)%num + ja] )
+         if (contribution .lt. 1.E-6) then
+            output = 0._real12
+            return
+         end if
+         viability_4body = viability_4body * contribution
+      end do image_loop
+    end do species_loop
+    output = output ** (1._real12/repeat_power)
+    output = output * viability_4body
+
+  end function evaluate_3body_contributions
+!###############################################################################
+
+
+!###############################################################################
+  pure function get_3body_contribution( gvector_container, &
+       position_1, position_2, position_3, &
+       lattice, lower_limit, upper_limit, ls ) &
+       result(output)
+    !! Return the contribution to the viability map for a 3-body interaction
+    implicit none
+
+    ! Arguments
+    type(gvector_container_type), intent(in) :: gvector_container
+    !! Distribution function (gvector) container.
+    real(real12), dimension(3), intent(in) :: position_1, position_2, position_3
+    !! Positions of the atoms.
+    real(real12), dimension(3,3), intent(in) :: lattice
+    !! Lattice vectors.
+    real(real12), intent(in) :: lower_limit, upper_limit
+    !! Lower and upper limits for the bond angle.
+    integer, intent(in) :: ls
+    !! Index of the query element.
+    real(real12) :: output
+    !! Contribution from the 3-body interaction.
+
+    ! Local variables
+    integer :: bin
+    !! Bin for the distribution function.
+    real(real12) :: bondlength
+    !! Bond length between the test point and the third atom.
+
+
+    output = 1._real12
+    bondlength = modu( matmul(position_1 - position_3, lattice) )
+    if(bondlength.lt.lower_limit)then
+       output = 0._real12
+       return
+    else if(bondlength.lt.upper_limit) then
+       bin = gvector_container%get_bin( &
+            get_angle( position_2, &
+                       position_1, &
+                       position_3 ), &
+            dim = 2 )
+       if(bin.eq.0) return
+       output = gvector_container%total%df_3body(bin,ls)
+    end if
+
+  end function get_3body_contribution
+!###############################################################################
+
+
+!###############################################################################
+  pure function evaluate_4body_contributions( gvector_container, &
+       position_1, position_2, position_3, basis, &
+       atom_ignore_list, radius_list, uptol, lowtol, &
+       pair_index, ls, atom_index ) result(output)
+    !! Return the contribution to the viability map from 4-body interactions
+    implicit none
+
+    ! Arguments
+    type(gvector_container_type), intent(in) :: gvector_container
+    !! Distribution function (gvector) container.
+    real(real12), dimension(3), intent(in) :: position_1, position_2, position_3
+    !! Positions of the atoms.
+    type(extended_basis_type), intent(in) :: basis
+    !! Basis of the system.
+    integer, dimension(:,:), intent(in) :: atom_ignore_list
+    !! List of atoms to ignore (i.e. indices of atoms not yet placed).
+    real(real12), dimension(:), intent(in) :: radius_list
+    !! List of radii for each pair of elements.
+    real(real12), intent(in) :: uptol, lowtol
+    !! Upper and lower tolerance for bond lengths and angles.
+    integer, dimension(:,:), intent(in) :: pair_index
+    !! Index of the pair of elements.
+    integer, dimension(2), intent(in) :: atom_index
+    !! Index of the 1st atom.
+    integer, intent(in) :: ls
+    !! Index of the query element.
+    real(real12) :: output
+    !! Contribution to the viability map.
+
+    ! Local variables
+    integer :: i, ks, ka
+    !! Loop indices.
+    integer :: bin
+    !! Bin for the distribution function.
+    real(real12) :: contribution
+    !! Contribution to the viability map.
+    real(real12) :: repeat_power
+    !! Repeat power for 4-body interactions.
+    real(real12), dimension(3) :: position_store
+    !! Storage for atom positions.
+
+
+    repeat_power = 4._real12
+    output = 1._real12
+    species_loop: do ks = atom_index(1), basis%nspec, 1
+       atom_loop: do ka = 1, basis%spec(ks)%num
+          if(ks.eq.atom_index(1) .and. ka.le.atom_index(2)) cycle atom_loop
+          do i = 1, size(atom_ignore_list,dim=1)
+             if(all(atom_ignore_list(i,:).eq.[ks,ka])) exit atom_loop
+          end do
+          position_store = basis%spec(ks)%atom(ka,:)
+          contribution = get_4body_contribution( gvector_container, &
+               position_1, position_2, position_3, position_store, &
+               basis%lat, radius_list(pair_index(ls,ks))*lowtol, &
+               radius_list(pair_index(ls,ks))*uptol, ls )
+          if(contribution .lt. 1.E-6) then
+             output = 0._real12
+             return
+          end if
+          output = output * contribution
+       end do atom_loop
+
+       image_loop: do ka = 1, basis%image_spec(ks)%num, 1
+          if(ks.eq.atom_index(1) .and. &
+             basis%spec(ks)%num + ka.le.atom_index(2)) cycle
+          position_store = basis%image_spec(ks)%atom(ka,:)
+          contribution = get_4body_contribution( gvector_container, &
+               position_1, position_2, position_3, position_store, &
+               basis%lat, radius_list(pair_index(ls,ks))*lowtol, &
+               radius_list(pair_index(ls,ks))*uptol, ls )
+          if(contribution .lt. 1.E-6) then
+             output = 0._real12
+             return
+          end if
+          output = output * contribution
+       end do image_loop
+    end do species_loop
+    output = output ** (1._real12/repeat_power)
+
+  end function evaluate_4body_contributions
+!###############################################################################
+
+
+!###############################################################################
+  pure function get_4body_contribution( gvector_container, &
+       position_1, position_2, position_3, position_4, &
+       lattice, lower_limit, upper_limit, ls ) &
+       result(output)
+    !! Return the contribution to the viability map for a 4-body interaction
+    implicit none
+
+    ! Arguments
+    type(gvector_container_type), intent(in) :: gvector_container
+    !! Distribution function (gvector) container.
+    real(real12), dimension(3), intent(in) :: position_1, position_2, position_3, position_4
+    !! Positions of the atoms.
+    real(real12), dimension(3,3), intent(in) :: lattice
+    !! Lattice vectors.
+    real(real12), intent(in) :: lower_limit, upper_limit
+    !! Lower and upper limits for the dihedral angle.
+    integer, intent(in) :: ls
+    !! Index of the query element.
+    real(real12) :: output
+    !! Contribution from the 4-body interaction.
+
+    ! Local variables
+    integer :: bin
+    !! Bin for the distribution function.
+    real(real12) :: bondlength
+    !! Bond length between the test point and the fourth atom.
+
+
+    output = 1._real12
+    bondlength = modu( matmul(position_1 - position_4, lattice) )
+    if(bondlength.lt.lower_limit) then
+      output = 0._real12
+      return
+    else if(bondlength.lt.upper_limit) then
+      bin = gvector_container%get_bin( &
+               get_improper_dihedral_angle( &
+                          position_1, &
+                          position_2, &
+                          position_3, &
+                          position_4), &
+               dim = 3 )
+      !!! HANDLE IF IT IS GREATER THAN 90 DEGREES!!!
+      !!! Should map back into 0-90 degrees !!!
+      if(bin.eq.0) return
+      output = gvector_container%total%df_4body(bin,ls)
+    end if
+
+   end function get_4body_contribution
 !###############################################################################
 
 end module evaluator

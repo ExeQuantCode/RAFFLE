@@ -1,5 +1,5 @@
 module extended_geom
-  use constants, only: real12
+  use constants, only: real12, pi
   use misc_linalg, only: modu, LUinv, cross
   use rw_geom, only: basis_type, species_type
   implicit none
@@ -14,7 +14,7 @@ module extended_geom
      real(real12) :: max_extension
      integer :: nspec_images
      integer :: num_images
-     type(species_type), dimension(:), allocatable :: image_species
+     type(species_type), dimension(:), allocatable :: image_spec
    contains
      procedure, pass(this) :: create_images
   end type extended_basis_type
@@ -27,7 +27,7 @@ contains
 
     type(species_type), dimension(this%nspec) :: image_species
 
-    integer :: is, ia, js, i, j, k
+    integer :: is, ia, i, j, k
     integer :: amax, bmax, cmax
     real(real12), dimension(3) :: vtmp1
 
@@ -65,7 +65,7 @@ contains
                    if( get_distance_from_unit_cell(vtmp1, this%lat) .le. max_bondlength ) then
                       ! add the image to the list
                       image_species(is)%num = this%spec(is)%num + 1
-                      this%image_species(is)%atom(image_species(is)%num,:3) = vtmp1
+                      this%image_spec(is)%atom(image_species(is)%num,:3) = vtmp1
                    end if
                 end do
              end do
@@ -74,18 +74,22 @@ contains
     end do spec_loop1
 
 
-    this%nspec_images = count(image_species%num.gt.0)
-    allocate(this%image_species(this%nspec_images))
-    js = 0
+   !  this%nspec_images = count(image_species%num.gt.0)
+    allocate(this%image_spec(this%nspec))
+   !  js = 0
     do is = 1, this%nspec
-      js = js + 1
-      this%image_species(js)%num = image_species(is)%num
-      this%image_species(js)%mass = image_species(is)%mass
-      this%image_species(js)%charge = image_species(is)%charge
-      this%image_species(js)%radius = image_species(is)%radius
-      this%image_species(js)%name = image_species(is)%name
-      allocate(this%image_species(js)%atom(image_species(is)%num,size(image_species(is)%atom,2)))
-      this%image_species(js)%atom(:,:) = image_species(is)%atom(:this%nspec_images,:)
+      ! js = js + 1
+      this%image_spec(is)%num = image_species(is)%num
+      this%image_spec(is)%mass = image_species(is)%mass
+      this%image_spec(is)%charge = image_species(is)%charge
+      this%image_spec(is)%radius = image_species(is)%radius
+      this%image_spec(is)%name = image_species(is)%name
+      if(image_species(is)%num .eq. 0) cycle
+      allocate(this%image_spec(is)%atom( &
+           image_species(is)%num, &
+           size(image_species(is)%atom,2) &
+      ) )
+      this%image_spec(is)%atom(:,:) = image_species(is)%atom(:this%nspec_images,:)
     end do
 
   end subroutine create_images
@@ -120,13 +124,13 @@ contains
 
     if(present(is_cartesian)) is_cartesian_ = is_cartesian
       
-    inverse_lattice = LUinv(lattice)
+    inverse_lattice = transpose( LUinv( lattice ) ) * 2._real12 * pi
     if(is_cartesian_) then
         ! Convert point to fractional coordinates
         ! point_ = matmul(LUinv(lattice), point)
         point_ = point
     else
-        point_ = matmul(lattice, point)
+        point_ = matmul(point, lattice)
     end if
 
     min_distance = huge(1._real12)
@@ -188,7 +192,7 @@ contains
        if(is_cartesian_) then
           closest_point = closest_point_
        else
-          closest_point = matmul(inverse_lattice, closest_point_)
+          closest_point = matmul(closest_point_, inverse_lattice)
        end if
     end if
 

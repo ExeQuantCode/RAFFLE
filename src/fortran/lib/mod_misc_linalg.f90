@@ -8,6 +8,7 @@ module misc_linalg
 
   public :: uvec, modu, cross
   public :: get_distance, get_angle, get_dihedral_angle, get_area, get_vol
+  public :: get_improper_dihedral_angle
   public :: LUinv, LUdecompose
 
 
@@ -19,6 +20,10 @@ module misc_linalg
      procedure get_dihedral_angle_from_points, get_dihedral_angle_from_vectors
   end interface get_dihedral_angle
 
+  interface get_improper_dihedral_angle
+     procedure get_improper_dihedral_angle_from_points, &
+          get_improper_dihedral_angle_from_vectors
+  end interface get_improper_dihedral_angle
 
 contains
 
@@ -168,6 +173,51 @@ pure function uvec(vector)
     angle = get_angle(cross(point2 - point1, point3 - point2), point4 - point2)
   
   end function get_dihedral_angle_from_points
+!###############################################################################
+
+
+!###############################################################################
+  pure function get_improper_dihedral_angle_from_vectors( &
+       vector1, vector2, vector3 ) &
+       result(angle)
+    !! Return the improper dihedral angle between two planes.
+    !!
+    !! The dihedral angle is the angle between the plane defined by four points.
+    !! i.e. ( vector1 x vector2 ) . ( vector2 x vector3 )
+       !! alt. angle between plane vector1vector2 and vector2vector3
+       implicit none
+    real(real12), dimension(3), intent(in) :: vector1, vector2, vector3
+    real(real12) :: angle
+
+    angle = get_angle( &
+         cross(vector1, vector2), &
+          cross(vector2, vector3) &
+    )
+
+  end function get_improper_dihedral_angle_from_vectors
+!###############################################################################
+
+
+!###############################################################################
+  pure function get_improper_dihedral_angle_from_points( &
+       point1, point2, point3, point4 ) &
+       result(angle)
+    !! Return the improper dihedral angle between two planes.
+    !!
+    !! The dihedral angle is the angle between the plane defined by four points.
+    !! i.e. ( point2 - point1 ) x ( point3 - point1 ) . 
+    !! ( point4 - point2 ) x ( point3 - point1 )
+    !! alt. angle between plane point1point2point3 and point1point3point4
+    implicit none
+    real(real12), dimension(3), intent(in) :: point1, point2, point3, point4
+    real(real12) :: angle
+
+    angle = get_angle( &
+         cross(point2 - point1, point3 - point1), &
+          cross(point3 - point1, point4 - point1) &
+    )
+
+  end function get_improper_dihedral_angle_from_points
 !###############################################################################
 
 

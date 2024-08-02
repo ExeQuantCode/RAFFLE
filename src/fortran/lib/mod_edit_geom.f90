@@ -13,6 +13,7 @@ module edit_geom
 
   public :: get_min_dist
   public :: get_min_dist_between_point_and_atom
+  public :: get_dist_between_point_and_atom
   public :: bas_merge
 
 
@@ -142,6 +143,37 @@ contains
     dist = modu(vec)
 
   end function get_min_dist_between_point_and_atom
+!###############################################################################
+
+
+!###############################################################################
+  pure function get_dist_between_point_and_atom(bas,loc,atom) &
+  result(dist)
+!! Return the minimum distance between a point and an atom in a cell.
+!!
+!! This function returns the minimum distance between a point and an atom
+!! in a periodic cell.
+implicit none
+
+! Arguments
+class(basis_type), intent(in) :: bas
+!! The basis of the cell.
+integer, dimension(2), intent(in) :: atom
+!! The index of the atom in the cell (species, atom).
+real(real12), dimension(3), intent(in) :: loc
+!! The location of the point (in crystal coordinates).
+real(real12) :: dist
+!! The minimum distance between the point and the atom.
+
+! Local variables
+real(real12), dimension(3) :: vec
+!! Vector between the point and the atom.
+
+vec = loc - bas%spec(atom(1))%atom(atom(2),:3)
+vec = matmul(vec,bas%lat)
+dist = modu(vec)
+
+end function get_dist_between_point_and_atom
 !###############################################################################
 
 

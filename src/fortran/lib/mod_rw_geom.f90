@@ -76,7 +76,7 @@ module rw_geom
   interface basis_type
     module function init_basis_type(basis) result(output)
       !! Initialise the basis type.
-      type(basis_type), intent(out), optional :: basis
+      type(basis_type), intent(in), optional :: basis
       !! Optional. Basis to copy.
       type(basis_type) :: output
       !! The basis to initialise.
@@ -93,7 +93,7 @@ contains
     implicit none
 
     ! Arguments
-    type(basis_type), intent(out), optional :: basis
+    type(basis_type), intent(in), optional :: basis
     !! Optional. Basis to copy.
     type(basis_type) :: output
     !! The basis to initialise.
@@ -1320,7 +1320,7 @@ contains
     ! Arguments
     class(basis_type), intent(inout) :: this
     !! Parent. The basis to copy into.
-    type(basis_type), intent(in) :: basis
+    class(basis_type), intent(in) :: basis
     !! The basis to copy from.
     integer, intent(in), optional :: length
     !! The dimension of the basis atom positions.

@@ -31,7 +31,7 @@ contains
     ! Arguments
     logical, intent(in) :: lignore_close
     !! If true, ignore atoms that are really close to the point.
-    type(basis_type), intent(in) :: bas
+    class(basis_type), intent(in) :: bas
     !! The basis of the cell.
     real(real12), dimension(3), intent(in) :: loc
     !! The location of the point (in crystal coordinates).
@@ -123,7 +123,7 @@ contains
     implicit none
 
     ! Arguments
-    type(basis_type), intent(in) :: bas
+    class(basis_type), intent(in) :: bas
     !! The basis of the cell.
     integer, dimension(2), intent(in) :: atom
     !! The index of the atom in the cell (species, atom).
@@ -155,7 +155,7 @@ contains
     ! Arguments
     type(basis_type) :: mergbas
     !! Output merged basis.
-    type(basis_type), intent(in) :: bas1, bas2
+    class(basis_type), intent(in) :: bas1, bas2
     !! Input bases to merge.
     integer, intent(in), optional :: length
     !! Number of dimensions for atomic positions (default 3).

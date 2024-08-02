@@ -72,11 +72,12 @@ set(FORTRAN_SRC_DIR ${SRC_DIR}/fortran)
 set(LIB_DIR ${FORTRAN_SRC_DIR}/lib)
 
 set(LIB_FILES
-  mod_constants.f90
-  mod_misc.f90
+    mod_constants.f90
+    mod_misc.f90
 	mod_misc_maths.f90
 	mod_misc_linalg.f90
 	mod_edit_geom.f90
+    mod_extended_geom.f90
 	mod_elements.f90
 	mod_evaluator.f90
 	mod_atom_adder.f90

@@ -8,6 +8,7 @@ module generator
   use constants, only: real12
   use misc_raffle, only: strip_null
   use rw_geom, only: basis_type
+  use extended_geom, only: extended_basis_type
   use evolver, only: gvector_container_type
 
   use constants, only: verbose_global => verbose
@@ -315,8 +316,12 @@ contains
     structure_loop: do istructure = num_structures_old + 1, num_structures_new
     
        if(verbose_.gt.0) write(*,*) "Generating structure", istructure
-       this%structures(istructure) = this%generate_structure( basis_template, &
-            placement_list, method_probab_, verbose_ )
+      !  this%structures(istructure) = this%generate_structure( basis_template, &
+      !       placement_list, method_probab_, verbose_ )
+       call this%structures(istructure)%copy( basis = &
+            this%generate_structure( basis_template, &
+            placement_list, method_probab_, verbose_ ) &
+       )
        this%num_structures = istructure
        
 #ifdef ENABLE_ATHENA
@@ -351,7 +356,7 @@ contains
     !! List of possible placements.
     real(real12), dimension(3) :: method_probab
     !! Probability of each placement method.
-    type(basis_type) :: basis
+    type(extended_basis_type) :: basis
     !! Generated basis.
     integer, intent(in) :: verbose
     !! Verbosity level.
@@ -382,6 +387,7 @@ contains
     ! initialise the basis
     !---------------------------------------------------------------------------
     call basis%copy(basis_initial)
+    call basis%create_images(max_bondlength=this%distributions%cutoff_max(1))
     num_insert_atoms = basis%natom - this%host%natom
 
 
@@ -478,6 +484,7 @@ contains
        iplaced = iplaced + 1
        basis%spec(placement_list_shuffled(iplaced,1))%atom( &
             placement_list_shuffled(iplaced,2),:3) = point(:3)
+      !  basis%update_images(placement_list_shuffled(iplaced,1))
        if(verbose.gt.0)then
           write(*,'(A)',ADVANCE='NO') achar(13)
           write(*,*) "placed", viable

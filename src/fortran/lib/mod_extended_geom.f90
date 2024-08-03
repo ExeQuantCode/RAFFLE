@@ -155,7 +155,7 @@ contains
 
           ! check if projection is outside the surface
           
-          inverse_projection = matmul(inverse_lattice, projection)
+          inverse_projection = matmul(projection, inverse_lattice)
           if( any( inverse_projection .lt. 0._real12 ) .or. &
               any( inverse_projection .gt. 1._real12 ) ) then
              ! projection is outside the surface
@@ -169,7 +169,7 @@ contains
                    inverse_projection(k) = 1._real12
                 end if
              end do
-             projection = matmul(lattice, inverse_projection)
+             projection = matmul(inverse_projection, lattice)
           end if
           distance = norm2(point_ - projection)
           if( distance .lt. min_distance ) then

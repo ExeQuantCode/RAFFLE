@@ -1189,7 +1189,7 @@ contains
 
    
    if(this%lcart)then
-      lattice = transpose( LUinv( this%lat ) ) * 2._real12 * pi
+      lattice = LUinv( this%lat ) !transpose( LUinv( this%lat ) ) !* 2._real12 * pi
    else
       lattice = this%lat
    end if
@@ -1198,7 +1198,8 @@ contains
    do is = 1, this%nspec
       do ia = 1, this%spec(is)%num
          this%spec(is)%atom(ia,1:3) = &
-              matmul( lattice, this%spec(is)%atom(ia,1:3) )
+              matmul( this%spec(is)%atom(ia,1:3), lattice )
+              ! matmul( lattice, this%spec(is)%atom(ia,1:3) )
       end do
    end do
    

@@ -387,7 +387,10 @@ contains
     ! initialise the basis
     !---------------------------------------------------------------------------
     call basis%copy(basis_initial)
-    call basis%create_images(max_bondlength=this%distributions%cutoff_max(1))
+    call basis%create_images( &
+         max_bondlength = this%distributions%cutoff_max(1), &
+         atom_ignore_list = placement_list &
+    )
     num_insert_atoms = basis%natom - this%host%natom
 
 

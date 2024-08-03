@@ -92,7 +92,7 @@ contains
        !-------------------------------------------------------------------------
        atom_loop: do ia = 1, basis%spec(is)%num
           do i = 1, size(atom_ignore_list,dim=1), 1
-             if(all(atom_ignore_list(i,:).eq.[is,ia])) exit atom_loop
+             if(all(atom_ignore_list(i,:).eq.[is,ia])) cycle atom_loop
           end do
           position_store = basis%spec(is)%atom(ia,:)
           contribution = get_2body_contribution( gvector_container, &
@@ -249,7 +249,7 @@ contains
       atom_loop: do ja = 1, basis%spec(js)%num
          if(js.eq.atom_index(1) .and. ja.le.atom_index(2)) cycle atom_loop
          do i = 1, size(atom_ignore_list,dim=1)
-            if(all(atom_ignore_list(i,:).eq.[js,ja])) exit atom_loop
+            if(all(atom_ignore_list(i,:).eq.[js,ja])) cycle atom_loop
          end do
          position_store = basis%image_spec(js)%atom(ja,:)
          contribution = get_3body_contribution( gvector_container, &
@@ -412,7 +412,7 @@ contains
        atom_loop: do ka = 1, basis%spec(ks)%num
           if(ks.eq.atom_index(1) .and. ka.le.atom_index(2)) cycle atom_loop
           do i = 1, size(atom_ignore_list,dim=1)
-             if(all(atom_ignore_list(i,:).eq.[ks,ka])) exit atom_loop
+             if(all(atom_ignore_list(i,:).eq.[ks,ka])) cycle atom_loop
           end do
           position_store = basis%spec(ks)%atom(ka,:)
           contribution = get_4body_contribution( gvector_container, &

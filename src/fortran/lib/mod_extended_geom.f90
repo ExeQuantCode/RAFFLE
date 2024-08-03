@@ -64,8 +64,8 @@ contains
                    vtmp1(3) = this%spec(is)%atom(ia,3) + real(k, real12)
                    if( get_distance_from_unit_cell(vtmp1, this%lat) .le. max_bondlength ) then
                       ! add the image to the list
-                      image_species(is)%num = this%spec(is)%num + 1
-                      this%image_spec(is)%atom(image_species(is)%num,:3) = vtmp1
+                      image_species(is)%num = image_species(is)%num + 1
+                      image_species(is)%atom(image_species(is)%num,:3) = vtmp1
                    end if
                 end do
              end do

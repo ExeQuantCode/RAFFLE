@@ -16,6 +16,7 @@ module extended_geom
      type(species_type), dimension(:), allocatable :: image_spec
    contains
      procedure, pass(this) :: create_images
+     procedure, pass(this) :: update_images
   end type extended_basis_type
 
 contains
@@ -94,6 +95,72 @@ contains
 
   end subroutine create_images
 
+
+  subroutine update_images(this, max_bondlength, is, ia)
+    !! Update the images for a specific atom
+    implicit none
+
+    ! Arguments
+    class(extended_basis_type), intent(inout) :: this
+    real(real12), intent(in) :: max_bondlength
+    integer, intent(in) :: is, ia
+
+
+    type(species_type) :: image_species
+
+    integer :: i, j, k, num_images
+    integer :: amax, bmax, cmax
+    real(real12), dimension(3) :: vtmp1
+
+
+    !---------------------------------------------------------------------------
+    ! get the maximum number of lattice vectors to consider
+    ! NOTE: this is not perfect
+    !       won't work for extremely acute/obtuse angle cells
+    !       (due to diagonal path being shorter than individual lattice vectors)
+    !---------------------------------------------------------------------------
+    num_images = this%image_spec(is)%num
+    amax = ceiling(max_bondlength/modu(this%lat(1,:)))
+    bmax = ceiling(max_bondlength/modu(this%lat(2,:)))
+    cmax = ceiling(max_bondlength/modu(this%lat(3,:)))
+    allocate( image_species%atom( &
+         num_images + &
+         (2*amax+1)*(2*bmax+1)*(2*cmax+1), &
+         size(this%spec(is)%atom,2) ) &
+    )
+    image_species%atom(:num_images,:) = &
+         this%image_spec(is)%atom(:num_images,:)
+
+
+    !!! WARNING, NEED IGNORE LIST IN HERE TO ONLY APPLY TO ATOMS WE WANT TO EXTEND !!!
+    !!! needs and update_images subroutine !!!
+    do i=-amax,amax+1,1
+       vtmp1(1) = this%spec(is)%atom(ia,1) + real(i, real12)
+       do j=-bmax,bmax+1,1
+          vtmp1(2) = this%spec(is)%atom(ia,2) + real(j, real12)
+          do k=-cmax,cmax+1,1
+             vtmp1(3) = this%spec(is)%atom(ia,3) + real(k, real12)
+             if( get_distance_from_unit_cell(vtmp1, this%lat) .le. max_bondlength ) then
+                ! add the image to the list
+                num_images = num_images + 1
+                image_species%atom(num_images,:3) = vtmp1
+             end if
+          end do
+       end do
+    end do
+    if( num_images .eq. this%image_spec(is)%num ) return
+
+
+    this%image_spec(is)%num = num_images
+    deallocate(this%image_spec(is)%atom)
+    allocate(this%image_spec(is)%atom( &
+         num_images, &
+         size(image_species%atom,2) &
+    ) )
+    this%image_spec(is)%atom(:,:) = &
+         image_species%atom(:num_images,:)
+
+  end subroutine update_images
 
 
 

@@ -484,7 +484,11 @@ contains
        iplaced = iplaced + 1
        basis%spec(placement_list_shuffled(iplaced,1))%atom( &
             placement_list_shuffled(iplaced,2),:3) = point(:3)
-      !  basis%update_images(placement_list_shuffled(iplaced,1))
+       call basis%update_images( &
+            max_bondlength = this%distributions%cutoff_max(1), &
+            is = placement_list_shuffled(iplaced,1), &
+            ia = placement_list_shuffled(iplaced,2) &
+       )
        if(verbose.gt.0)then
           write(*,'(A)',ADVANCE='NO') achar(13)
           write(*,*) "placed", viable

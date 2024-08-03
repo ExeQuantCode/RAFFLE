@@ -2004,7 +2004,10 @@ module evolver
                           ! get_angle( plane_list(j)%vector, &
                           !            bond_list(idx_list(k))%vector )
                            get_angle( vtmp2, &
-                                      bond_list(idx_list(k))%vector )
+                                      cross( &
+                                           vtmp1, &
+                                           bond_list(idx_list(k))%vector ) &
+                           )
 
                 ! ! angle never greater than 90, as this corresponds to ...
                 ! ! ... perpendicular to plane

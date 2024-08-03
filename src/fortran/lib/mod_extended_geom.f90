@@ -12,7 +12,6 @@ module extended_geom
 
   type, extends(basis_type) :: extended_basis_type
      real(real12) :: max_extension
-     integer :: nspec_images
      integer :: num_images
      type(species_type), dimension(:), allocatable :: image_spec
    contains
@@ -76,20 +75,21 @@ contains
 
    !  this%nspec_images = count(image_species%num.gt.0)
     allocate(this%image_spec(this%nspec))
-   !  js = 0
+    !  js = 0
     do is = 1, this%nspec
-      ! js = js + 1
-      this%image_spec(is)%num = image_species(is)%num
-      this%image_spec(is)%mass = image_species(is)%mass
-      this%image_spec(is)%charge = image_species(is)%charge
-      this%image_spec(is)%radius = image_species(is)%radius
-      this%image_spec(is)%name = image_species(is)%name
-      if(image_species(is)%num .eq. 0) cycle
-      allocate(this%image_spec(is)%atom( &
-           image_species(is)%num, &
-           size(image_species(is)%atom,2) &
-      ) )
-      this%image_spec(is)%atom(:,:) = image_species(is)%atom(:this%nspec_images,:)
+       ! js = js + 1
+       this%image_spec(is)%num = image_species(is)%num
+       this%image_spec(is)%mass = image_species(is)%mass
+       this%image_spec(is)%charge = image_species(is)%charge
+       this%image_spec(is)%radius = image_species(is)%radius
+       this%image_spec(is)%name = image_species(is)%name
+       if(image_species(is)%num .eq. 0) cycle
+       allocate(this%image_spec(is)%atom( &
+            image_species(is)%num, &
+            size(image_species(is)%atom,2) &
+       ) )
+       this%image_spec(is)%atom(:,:) = &
+            image_species(is)%atom(:image_species(is)%num,:)
     end do
 
   end subroutine create_images

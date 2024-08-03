@@ -130,10 +130,12 @@ contains
     allocate( image_species%atom( &
          num_images + &
          (2*amax+1)*(2*bmax+1)*(2*cmax+1), &
-         size(this%spec(is)%atom,2) ) &
+         size(this%image_spec(is)%atom,2) ) &
     )
-    image_species%atom(:num_images,:) = &
-         this%image_spec(is)%atom(:num_images,:)
+    if( num_images .ne. 0 ) then
+       image_species%atom(:num_images,:) = &
+            this%image_spec(is)%atom(:num_images,:)
+    end if
 
 
     !!! WARNING, NEED IGNORE LIST IN HERE TO ONLY APPLY TO ATOMS WE WANT TO EXTEND !!!
@@ -156,7 +158,7 @@ contains
 
 
     this%image_spec(is)%num = num_images
-    deallocate(this%image_spec(is)%atom)
+    if(allocated(this%image_spec(is)%atom)) deallocate(this%image_spec(is)%atom)
     allocate(this%image_spec(is)%atom( &
          num_images, &
          size(image_species%atom,2) &

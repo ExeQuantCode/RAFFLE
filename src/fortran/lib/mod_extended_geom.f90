@@ -21,9 +21,10 @@ module extended_geom
 
 contains
 
-  subroutine create_images(this, max_bondlength)
+  subroutine create_images(this, max_bondlength, atom_ignore_list)
     class(extended_basis_type), intent(inout) :: this
     real(real12), intent(in) :: max_bondlength
+    integer, dimension(:,:), intent(in) :: atom_ignore_list
 
     type(species_type), dimension(this%nspec) :: image_species
 
@@ -56,6 +57,9 @@ contains
        image_species(is)%radius = this%spec(is)%radius
        image_species(is)%name = this%spec(is)%name
        atom_loop1: do ia=1,this%spec(is)%num
+          do i = 1, size(atom_ignore_list,1)
+             if(all(atom_ignore_list(i,:).eq.[is,ia])) cycle atom_loop1
+          end do
           do i=-amax,amax+1,1
              vtmp1(1) = this%spec(is)%atom(ia,1) + real(i, real12)
              do j=-bmax,bmax+1,1

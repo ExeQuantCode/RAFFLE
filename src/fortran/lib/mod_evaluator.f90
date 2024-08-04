@@ -101,7 +101,11 @@ contains
                gvector_container%cutoff_max(1), &
                pair_index(ls,is) &
           )
-          if(contribution .lt. -100._real12) return
+          if(contribution .lt. -100._real12)then
+             return
+          elseif(contribution.lt.-50._real12)then
+             cycle atom_loop
+          end if
           viability_2body = viability_2body + contribution
 
           ! 3-body map
@@ -112,7 +116,9 @@ contains
                     position, position_store, basis, atom_ignore_list, &
                     radius_list, uptol, lowtol, pair_index, ls, [is, ia] &
                )
-          if(viability_angles .lt. 1.E-6) return
+          if(viability_angles .lt. 1.E-6)then
+             return
+          end if
        end do atom_loop
 
        image_loop: do ia = 1, basis%image_spec(is)%num, 1
@@ -123,7 +129,11 @@ contains
                gvector_container%cutoff_max(1), &
                pair_index(ls,is) &
           )
-          if(contribution .lt. -100._real12) return
+          if(contribution .lt. -100._real12)then
+             return
+          elseif(contribution.lt.-50._real12)then
+             cycle image_loop
+          end if
           viability_2body = viability_2body + contribution
 
           ! 3-body map
@@ -135,7 +145,9 @@ contains
                     radius_list, uptol, lowtol, pair_index, ls, &
                     [is, basis%spec(is)%num + ia] &
                )
-          if(viability_angles .lt. 1.E-6) return
+          if(viability_angles .lt. 1.E-6)then
+             return
+          end if
        end do image_loop
     end do species_loop
 
@@ -176,16 +188,17 @@ contains
     !! Bond length between the test point and the second atom.
 
 
-    output = 1._real12
+    output = 0._real12
     
     bondlength = modu( matmul(position_1 - position_2, lattice) )
 
     !! check if the bondlength is within the tolerance for bonds ...
     !! ... between its own element and the element of the current atom
     if(bondlength .lt. lower_limit)then
-       output = -200._real12
+       output = -120._real12
        return
     else if(bondlength.gt.gvector_container%cutoff_max(1))then
+       output = -60._real12
        return
     end if
 
@@ -245,6 +258,7 @@ contains
 
     repeat_power = 2._real12
     output = 1._real12
+    viability_4body = 1._real12
     species_loop: do js = atom_index(1), basis%nspec, 1
       atom_loop: do ja = 1, basis%spec(js)%num
          if(js.eq.atom_index(1) .and. ja.le.atom_index(2)) cycle atom_loop
@@ -258,9 +272,11 @@ contains
               radius_list(pair_index(ls,js))*uptol, &
               ls &
          )
-         if (contribution .lt. 1.E-6) then
+         if (contribution .lt. -100._real12) then
             output = 0._real12
             return
+         elseif (contribution .lt. -50._real12) then
+            cycle atom_loop
          end if
          output = output * contribution
             
@@ -288,9 +304,11 @@ contains
               radius_list(pair_index(ls,js))*uptol, &
               ls &
          )
-         if (contribution .lt. 1.E-6) then
+         if (contribution .lt. -100._real12) then
             output = 0._real12
             return
+         elseif (contribution .lt. -50._real12) then
+            cycle image_loop
          end if
          output = output * contribution
 
@@ -347,7 +365,7 @@ contains
     output = 1._real12
     bondlength = modu( matmul(position_1 - position_3, lattice) )
     if(bondlength.lt.lower_limit)then
-       output = 0._real12
+       output = -120._real12
        return
     else if(bondlength.lt.upper_limit) then
        bin = gvector_container%get_bin( &
@@ -357,6 +375,8 @@ contains
             dim = 2 )
        if(bin.eq.0) return
        output = gvector_container%total%df_3body(bin,ls)
+    else
+       output = -60._real12
     end if
 
   end function get_3body_contribution
@@ -419,9 +439,11 @@ contains
                position_1, position_2, position_3, position_store, &
                basis%lat, radius_list(pair_index(ls,ks))*lowtol, &
                radius_list(pair_index(ls,ks))*uptol, ls )
-          if(contribution .lt. 1.E-6) then
+          if(contribution .lt. -100._real12) then
              output = 0._real12
              return
+          elseif(contribution .lt. -50._real12) then
+             cycle atom_loop
           end if
           output = output * contribution
        end do atom_loop
@@ -434,9 +456,11 @@ contains
                position_1, position_2, position_3, position_store, &
                basis%lat, radius_list(pair_index(ls,ks))*lowtol, &
                radius_list(pair_index(ls,ks))*uptol, ls )
-          if(contribution .lt. 1.E-6) then
+          if(contribution .lt. -100._real12) then
              output = 0._real12
              return
+          elseif(contribution .lt. -50._real12) then
+             cycle image_loop
           end if
           output = output * contribution
        end do image_loop
@@ -479,7 +503,7 @@ contains
     output = 1._real12
     bondlength = modu( matmul(position_1 - position_4, lattice) )
     if(bondlength.lt.lower_limit) then
-      output = 0._real12
+      output = -120._real12
       return
     else if(bondlength.lt.upper_limit) then
       bin = gvector_container%get_bin( &
@@ -493,6 +517,9 @@ contains
       !!! Should map back into 0-90 degrees !!!
       if(bin.eq.0) return
       output = gvector_container%total%df_4body(bin,ls)
+    else
+      output = -60._real12
+      return
     end if
 
    end function get_4body_contribution

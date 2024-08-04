@@ -93,13 +93,7 @@ contains
        ) )
        this%image_spec(is)%atom(:,:) = &
             image_species(is)%atom(:image_species(is)%num,:)
-       write(*,*) "images created for species ", this%image_spec(is)%name
-       write(*,*) "number of images: ", this%image_spec(is)%num
-       do i = 1, this%image_spec(is)%num
-          write(*,*) this%image_spec(is)%atom(i,:)
-       end do
     end do
-    stop 0
 
   end subroutine create_images
 
@@ -131,7 +125,6 @@ contains
     amax = ceiling(max_bondlength/modu(this%lat(1,:)))
     bmax = ceiling(max_bondlength/modu(this%lat(2,:)))
     cmax = ceiling(max_bondlength/modu(this%lat(3,:)))
-    write(*,*) "test0.3.1"
     allocate( image_species%atom( &
          num_images + &
          (2*amax+1)*(2*bmax+1)*(2*cmax+1), &
@@ -143,7 +136,6 @@ contains
     end if
 
 
-    write(*,*) "test0.3.2"
     !!! WARNING, NEED IGNORE LIST IN HERE TO ONLY APPLY TO ATOMS WE WANT TO EXTEND !!!
     !!! needs and update_images subroutine !!!
     do i=-amax,amax+1,1
@@ -163,18 +155,14 @@ contains
     if( num_images .eq. this%image_spec(is)%num ) return
 
 
-    write(*,*) "test0.3.3", allocated(this%image_spec(is)%atom), this%image_spec(is)%name
     this%image_spec(is)%num = num_images
     if(allocated(this%image_spec(is)%atom)) deallocate(this%image_spec(is)%atom)
-    write(*,*) "test0.3.4"
     allocate(this%image_spec(is)%atom( &
          num_images, &
          size(image_species%atom,2) &
     ) )
-    write(*,*) "test0.3.5"
     this%image_spec(is)%atom(:,:) = &
          image_species%atom(:num_images,:)
-    write(*,*) "test0.3.6", num_images, size(this%image_spec(is)%atom,1)
     deallocate(image_species%atom)
 
   end subroutine update_images

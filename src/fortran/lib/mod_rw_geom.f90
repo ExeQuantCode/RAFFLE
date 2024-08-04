@@ -350,11 +350,7 @@ contains
     read(UNIT,'(A)') buffer
     buffer = to_lower(buffer)
     if(verify(trim(buffer),'direct').eq.0) basis%lcart=.false.
-    if(verify(trim(buffer),'cartesian').eq.0) then
-       write(0,*) "NOT SURE IF CARTESIAN COORDINATES ARE SUPPORTED YET!"
-       write(0,*) "PLEASE CHECK COORDINATES"
-       basis%lcart=.true.
-    end if
+    if(verify(trim(buffer),'cartesian').eq.0) basis%lcart=.true.
 
 
     !---------------------------------------------------------------------------

@@ -44,9 +44,7 @@ contains
     cmax = ceiling(max_bondlength/modu(this%lat(3,:)))
 
 
-    !!! WARNING, NEED IGNORE LIST IN HERE TO ONLY APPLY TO ATOMS WE WANT TO EXTEND !!!
-    !!! needs and update_images subroutine !!!
-    spec_loop1: do is=1,this%nspec
+    spec_loop: do is=1,this%nspec
        allocate( image_species(is)%atom( &
             this%spec(is)%num*(2*amax+1)*(2*bmax+1)*(2*cmax+1), &
             size(this%spec(is)%atom,2) ) &
@@ -56,9 +54,9 @@ contains
        image_species(is)%charge = this%spec(is)%charge
        image_species(is)%radius = this%spec(is)%radius
        image_species(is)%name = this%spec(is)%name
-       atom_loop1: do ia=1,this%spec(is)%num
+       atom_loop: do ia=1,this%spec(is)%num
           do i = 1, size(atom_ignore_list,1)
-             if(all(atom_ignore_list(i,:).eq.[is,ia])) cycle atom_loop1
+             if(all(atom_ignore_list(i,:).eq.[is,ia])) cycle atom_loop
           end do
           do i=-amax,amax+1,1
              vtmp1(1) = this%spec(is)%atom(ia,1) + real(i, real12)
@@ -74,8 +72,8 @@ contains
                 end do
              end do
           end do
-       end do atom_loop1
-    end do spec_loop1
+       end do atom_loop
+    end do spec_loop
 
 
    !  this%nspec_images = count(image_species%num.gt.0)
@@ -95,7 +93,13 @@ contains
        ) )
        this%image_spec(is)%atom(:,:) = &
             image_species(is)%atom(:image_species(is)%num,:)
+       write(*,*) "images created for species ", this%image_spec(is)%name
+       write(*,*) "number of images: ", this%image_spec(is)%num
+       do i = 1, this%image_spec(is)%num
+          write(*,*) this%image_spec(is)%atom(i,:)
+       end do
     end do
+    stop 0
 
   end subroutine create_images
 
@@ -127,6 +131,7 @@ contains
     amax = ceiling(max_bondlength/modu(this%lat(1,:)))
     bmax = ceiling(max_bondlength/modu(this%lat(2,:)))
     cmax = ceiling(max_bondlength/modu(this%lat(3,:)))
+    write(*,*) "test0.3.1"
     allocate( image_species%atom( &
          num_images + &
          (2*amax+1)*(2*bmax+1)*(2*cmax+1), &
@@ -138,6 +143,7 @@ contains
     end if
 
 
+    write(*,*) "test0.3.2"
     !!! WARNING, NEED IGNORE LIST IN HERE TO ONLY APPLY TO ATOMS WE WANT TO EXTEND !!!
     !!! needs and update_images subroutine !!!
     do i=-amax,amax+1,1
@@ -157,14 +163,19 @@ contains
     if( num_images .eq. this%image_spec(is)%num ) return
 
 
+    write(*,*) "test0.3.3", allocated(this%image_spec(is)%atom), this%image_spec(is)%name
     this%image_spec(is)%num = num_images
     if(allocated(this%image_spec(is)%atom)) deallocate(this%image_spec(is)%atom)
+    write(*,*) "test0.3.4"
     allocate(this%image_spec(is)%atom( &
          num_images, &
          size(image_species%atom,2) &
     ) )
+    write(*,*) "test0.3.5"
     this%image_spec(is)%atom(:,:) = &
          image_species%atom(:num_images,:)
+    write(*,*) "test0.3.6", num_images, size(this%image_spec(is)%atom,1)
+    deallocate(image_species%atom)
 
   end subroutine update_images
 
@@ -197,7 +208,7 @@ contains
 
     if(present(is_cartesian)) is_cartesian_ = is_cartesian
       
-    inverse_lattice = transpose( LUinv( lattice ) ) * 2._real12 * pi
+    inverse_lattice = LUinv( lattice )
     if(is_cartesian_) then
         ! Convert point to fractional coordinates
         ! point_ = matmul(LUinv(lattice), point)
@@ -213,12 +224,12 @@ contains
   ! if negative, then the point is inside the unit cell
   ! if positive, then the point is outside the unit cell
   ! if the projection falls outside of the cell edges, use edge or corner distances
-    
     do i = 1, 3
        index_list = cshift(index_list, 1)
        plane_point = 0._real12
        do j = 1, 2
           normal = (-1._real12)**j * cross(lattice(index_list(2),:), lattice(index_list(3),:))
+          normal = normal / norm2(normal)
           projection = project_point_onto_plane(point_, plane_point, normal)
 
           ! check if point minus projection is negative
@@ -242,8 +253,8 @@ contains
                    inverse_projection(k) = 1._real12
                 end if
              end do
-             projection = matmul(inverse_projection, lattice)
           end if
+          projection = matmul(inverse_projection, lattice)
           distance = norm2(point_ - projection)
           if( distance .lt. min_distance ) then
              min_distance = distance

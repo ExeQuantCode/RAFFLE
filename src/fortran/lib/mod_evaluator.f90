@@ -150,6 +150,7 @@ contains
           end if
        end do image_loop
     end do species_loop
+    !!! CHECK FOR NaN VALUES FOR VIABILITY_ANGLES
 
     if(abs(viability_2body).lt.1.E-6) viability_2body = 1._real12
     output = viability_2body * viability_angles
@@ -280,18 +281,18 @@ contains
          end if
          output = output * contribution
             
-         ! 4-body map
-         ! check improperdihedral angle between test point and all other atoms
-         !----------------------------------------------------------------------
-         contribution = evaluate_4body_contributions( gvector_container, &
-              position_1, position_2, position_store, &
-              basis, atom_ignore_list, radius_list, uptol, lowtol, &
-              pair_index, ls, [js, ja] )
-         if (contribution .lt. 1.E-6) then
-            output = 0._real12
-            return
-         end if
-         viability_4body = viability_4body * contribution
+         ! ! 4-body map
+         ! ! check improperdihedral angle between test point and all other atoms
+         ! !----------------------------------------------------------------------
+         ! contribution = evaluate_4body_contributions( gvector_container, &
+         !      position_1, position_2, position_store, &
+         !      basis, atom_ignore_list, radius_list, uptol, lowtol, &
+         !      pair_index, ls, [js, ja] )
+         ! if (contribution .lt. 1.E-6) then
+         !    output = 0._real12
+         !    return
+         ! end if
+         ! viability_4body = viability_4body * contribution
       end do atom_loop
 
       image_loop: do ja = 1, basis%image_spec(js)%num, 1
@@ -312,18 +313,18 @@ contains
          end if
          output = output * contribution
 
-         ! 4-body map
-         ! check improperdihedral angle between test point and all other atoms
-         !----------------------------------------------------------------------
-         contribution = evaluate_4body_contributions( gvector_container, &
-              position_1, position_2, position_store, &
-              basis, atom_ignore_list, radius_list, uptol, lowtol, &
-              pair_index, ls, [js, basis%spec(js)%num + ja] )
-         if (contribution .lt. 1.E-6) then
-            output = 0._real12
-            return
-         end if
-         viability_4body = viability_4body * contribution
+         ! ! 4-body map
+         ! ! check improperdihedral angle between test point and all other atoms
+         ! !----------------------------------------------------------------------
+         ! contribution = evaluate_4body_contributions( gvector_container, &
+         !      position_1, position_2, position_store, &
+         !      basis, atom_ignore_list, radius_list, uptol, lowtol, &
+         !      pair_index, ls, [js, basis%spec(js)%num + ja] )
+         ! if (contribution .lt. 1.E-6) then
+         !    output = 0._real12
+         !    return
+         ! end if
+         ! viability_4body = viability_4body * contribution
       end do image_loop
     end do species_loop
     output = output ** (1._real12/repeat_power)

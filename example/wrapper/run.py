@@ -73,7 +73,7 @@ stoich_list.items[1].element = 'Mg'
 stoich_list.items[1].num = 8
 
 print("Generating...")
-generator.generate(num_structures=10, stoichiometry=stoich_list, seed=0, verbose=1, method_probab={"void":0.0, "walk":0.0, "min":1.0})
+generator.generate(num_structures=10, stoichiometry=stoich_list, seed=0, verbose=1, method_probab={"void":1.0, "walk":1.0, "min":1.0})
 print("Generated")
 
 print("Getting structures")

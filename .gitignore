@@ -13,3 +13,4 @@ src/*.egg-info
 *.egg-info
 iteration*
 doc/html
+settings.json

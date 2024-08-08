@@ -187,9 +187,9 @@ program test_rw_geom
   !-----------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
-     write(*,*) 'test_accuracy passed all tests'
+     write(*,*) 'test_rw_geom passed all tests'
   else
-     write(0,*) 'test_accuracy failed one or more tests'
+     write(0,*) 'test_rw_geom failed one or more tests'
      stop 1
   end if
 

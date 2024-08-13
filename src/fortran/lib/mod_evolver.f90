@@ -8,7 +8,8 @@ module evolver
   use constants, only: real12, pi
   use misc_raffle, only: set, icount, strip_null, sort_str
   use misc_maths, only: lnsum, triangular_number
-  use misc_linalg, only: get_angle, get_vol, cross, modu
+  use misc_linalg, only: get_angle, get_vol, get_improper_dihedral_angle, &
+       cross, modu
   use rw_geom, only: basis_type, get_element_properties
   use elements, only: &
        element_type, element_bond_type, &
@@ -1828,7 +1829,7 @@ module evolver
     end do
     do b = 1, nbins_(1)
        this%df_2body(b,:) = this%df_2body(b,:) / ( cutoff_min_(1) + &
-            width_(1) * real(b-1, real12) ) ** 2._real12
+            width_(1) * real(b-1, real12) ) ** 2
     end do
 
 
@@ -1897,9 +1898,9 @@ module evolver
              !------------------------------------------------------------------
              num_angles = num_angles + 1
              angle(num_angles) = get_angle( vtmp1, vtmp2 )
-             distance(num_angles) = &
-                  sqrt( modu(vtmp1) ** 2 + modu(vtmp2) ** 2 ) ** 3
-            !  distance(num_angles) = 1._real12
+             distance(num_angles) = ( &
+                  ( modu(vtmp1) + modu(vtmp2) ) / 2._real12 & 
+             ) ** 3
 
           end do
        end do
@@ -1966,9 +1967,6 @@ module evolver
              cycle
           end if
           ! ! make list of indices where species is in bond_list(i)%species and atom is in bond_list(i)%atom
-          ! allocate(idx_list(0))
-          ! write(*,*) "START"
-          ! allocate(plane_list(0))
           allocate(idx_list(count( [ ( ( bond_list(j)%species(1) .eq. is .and. &
                                          bond_list(j)%atom(1) .eq. ia ) .or. &
                                        ( bond_list(j)%species(2) .eq. is .and. &
@@ -2018,13 +2016,11 @@ module evolver
                 num_angles = num_angles + 1
                 ! angle(num_angles) = rtmp1
                 angle(num_angles) = &
-                          ! get_angle( plane_list(j)%vector, &
-                          !            bond_list(idx_list(k))%vector )
-                           get_angle( vtmp2, &
-                                      cross( &
-                                           vtmp1, &
-                                           bond_list(idx_list(k))%vector ) &
-                           )
+                     get_improper_dihedral_angle( &
+                          vtmp1, &
+                          vtmp2, &
+                          bond_list(idx_list(k))%vector &
+                     )
 
                 ! ! angle never greater than 90, as this corresponds to ...
                 ! ! ... perpendicular to plane
@@ -2032,10 +2028,10 @@ module evolver
                 !      angle(num_angles) = pi - angle(num_angles)
                 angle(num_angles) = abs( &
                      anint( angle(num_angles)/pi )*pi - angle(num_angles) )
-                distance(num_angles) = &
-                    sqrt( modu(vtmp1) ** 2 + modu(vtmp2) ** 2 + &
-                          modu( bond_list(idx_list(k))%vector ) ** 2 ) ** 4
-               !  distance(num_angles) = 1._real12
+                distance(num_angles) = ( ( &
+                    modu(vtmp1) + modu(vtmp2) + &
+                    modu( bond_list(idx_list(k))%vector ) ) / 3._real12 &
+                 ) ** 4
                 
                 ! count_list(num_angles) = plane_list(j)%count
 

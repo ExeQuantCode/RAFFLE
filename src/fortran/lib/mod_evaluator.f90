@@ -58,8 +58,6 @@ contains
     real(real12) :: viability_angles
     !! Viability of the test point for 3- and 4-body interactions.
     !! Angle viabilities are multiplied.
-    real(real12), dimension(3) :: position_store
-    !! Storage for atom positions.
     integer, dimension(:,:), allocatable :: pair_index
     !! Index of element pairs.
  
@@ -89,59 +87,61 @@ contains
     species_loop: do is=1, basis%nspec
        ! 2-body map
        ! check bondlength between test point and all other atoms
-       !-------------------------------------------------------------------------
+       !------------------------------------------------------------------------
        atom_loop: do ia = 1, basis%spec(is)%num
           do i = 1, size(atom_ignore_list,dim=1), 1
              if(all(atom_ignore_list(i,:).eq.[is,ia])) cycle atom_loop
           end do
-          position_store = basis%spec(is)%atom(ia,:)
-          contribution = get_2body_contribution( gvector_container, &
-               position, position_store, basis%lat, &
-               radius_list(pair_index(ls,is))*lowtol, &
-               gvector_container%cutoff_max(1), &
-               pair_index(ls,is) &
-          )
-          if(contribution .lt. -100._real12)then
-             return
-          elseif(contribution.lt.-50._real12)then
-             cycle atom_loop
-          end if
-          viability_2body = viability_2body + contribution
+          associate(position_store => basis%spec(is)%atom(ia,:))
+             contribution = get_2body_contribution( gvector_container, &
+                  position, position_store, basis%lat, &
+                  radius_list(pair_index(ls,is))*lowtol, &
+                  gvector_container%cutoff_max(1), &
+                  pair_index(ls,is) &
+             )
+             if(contribution .lt. -100._real12)then
+                return
+             elseif(contribution.lt.-50._real12)then
+                cycle atom_loop
+             end if
+             viability_2body = viability_2body + contribution
 
-          ! 3-body map
-          ! check bondangle between test point and all other atoms
-          !----------------------------------------------------------------------
-          viability_angles = viability_angles + &
-               evaluate_3body_contributions( gvector_container, &
-                    position, position_store, basis, atom_ignore_list, &
-                    radius_list, uptol, lowtol, pair_index, ls, [is, ia] &
-               )
+             ! 3-body map
+             ! check bondangle between test point and all other atoms
+             !------------------------------------------------------------------
+             viability_angles = viability_angles + &
+                  evaluate_3body_contributions( gvector_container, &
+                       position, position_store, basis, atom_ignore_list, &
+                       radius_list, uptol, lowtol, pair_index, ls, [is, ia] &
+                  )
+          end associate
        end do atom_loop
 
        image_loop: do ia = 1, basis%image_spec(is)%num, 1
-          position_store = basis%image_spec(is)%atom(ia,:)
-          contribution = get_2body_contribution( gvector_container, &
-               position, position_store, basis%lat, &
-               radius_list(pair_index(ls,is))*lowtol, &
-               gvector_container%cutoff_max(1), &
-               pair_index(ls,is) &
-          )
-          if(contribution .lt. -100._real12)then
-             return
-          elseif(contribution.lt.-50._real12)then
-             cycle image_loop
-          end if
-          viability_2body = viability_2body + contribution
+          associate(position_store => basis%image_spec(is)%atom(ia,:))
+             contribution = get_2body_contribution( gvector_container, &
+                  position, position_store, basis%lat, &
+                  radius_list(pair_index(ls,is))*lowtol, &
+                  gvector_container%cutoff_max(1), &
+                  pair_index(ls,is) &
+             )
+             if(contribution .lt. -100._real12)then
+                return
+             elseif(contribution.lt.-50._real12)then
+                cycle image_loop
+             end if
+             viability_2body = viability_2body + contribution
 
-          ! 3-body map
-          ! check bondangle between test point and all other atoms
-          !----------------------------------------------------------------------
-          viability_angles = viability_angles + &
-               evaluate_3body_contributions( gvector_container, &
-                    position, position_store, basis, atom_ignore_list, &
-                    radius_list, uptol, lowtol, pair_index, ls, &
-                    [is, basis%spec(is)%num + ia] &
-               )
+             ! 3-body map
+             ! check bondangle between test point and all other atoms
+             !------------------------------------------------------------------
+             viability_angles = viability_angles + &
+                  evaluate_3body_contributions( gvector_container, &
+                       position, position_store, basis, atom_ignore_list, &
+                       radius_list, uptol, lowtol, pair_index, ls, &
+                       [is, basis%spec(is)%num + ia] &
+                  )
+          end associate
        end do image_loop
     end do species_loop
     !!! CHECK FOR NaN VALUES FOR VIABILITY_ANGLES
@@ -243,8 +243,6 @@ contains
     !! Contribution to the viability map.
     real(real12) :: repeat_power
     !! Repeat power for 3-body interactions.
-    real(real12), dimension(3) :: position_store
-    !! Storage for atom positions.
     real(real12) :: viability_4body
     !! Viability of the test point for 4-body interactions.
 
@@ -258,65 +256,69 @@ contains
          do i = 1, size(atom_ignore_list,dim=1)
             if(all(atom_ignore_list(i,:).eq.[js,ja])) cycle atom_loop
          end do
-         position_store = basis%image_spec(js)%atom(ja,:)
-         contribution = get_3body_contribution( gvector_container, &
-              position_1, position_2, position_store, basis%lat, &
-              radius_list(pair_index(ls,js))*lowtol, &
-              radius_list(pair_index(ls,js))*uptol, &
-              ls &
-         )
-         if (contribution .lt. -100._real12) then
-            output = 0._real12
-            return
-         elseif (contribution .lt. -50._real12) then
-            cycle atom_loop
-         end if
-         output = output + contribution
+         associate(position_store => basis%spec(js)%atom(ja,:))
+            contribution = get_3body_contribution( gvector_container, &
+                 position_1, position_2, position_store, basis%lat, &
+                 radius_list(pair_index(ls,js))*lowtol, &
+                 radius_list(pair_index(ls,js))*uptol, &
+                 ls &
+            )
+            if (contribution .lt. -100._real12) then
+               output = 0._real12
+               return
+            elseif (contribution .lt. -50._real12) then
+               cycle atom_loop
+            end if
+            output = output + contribution
             
-         ! ! 4-body map
-         ! ! check improperdihedral angle between test point and all other atoms
-         ! !----------------------------------------------------------------------
-         ! contribution = evaluate_4body_contributions( gvector_container, &
-         !      position_1, position_2, position_store, &
-         !      basis, atom_ignore_list, radius_list, uptol, lowtol, &
-         !      pair_index, ls, [js, ja] )
-         ! if (contribution .lt. 1.E-6) then
-         !    output = 0._real12
-         !    return
-         ! end if
-         ! viability_4body = viability_4body + contribution
+            ! 4-body map
+            ! check improperdihedral angle between test point and all other
+            ! atoms
+            !-------------------------------------------------------------------
+            contribution = evaluate_4body_contributions( gvector_container, &
+                 position_1, position_2, position_store, &
+                 basis, atom_ignore_list, radius_list, uptol, lowtol, &
+                 pair_index, ls, [js, ja] )
+            if (contribution .lt. 1.E-6) then
+               output = 0._real12
+               return
+            end if
+         end associate
+         viability_4body = viability_4body + contribution
       end do atom_loop
 
       image_loop: do ja = 1, basis%image_spec(js)%num, 1
          if( js.eq.atom_index(1) .and. &
               basis%spec(js)%num + ja.le.atom_index(2)) cycle
-         position_store = basis%image_spec(js)%atom(ja,:)
-         contribution = get_3body_contribution( gvector_container, &
-              position_1, position_2, position_store, basis%lat, &
-              radius_list(pair_index(ls,js))*lowtol, &
-              radius_list(pair_index(ls,js))*uptol, &
-              ls &
-         )
-         if (contribution .lt. -100._real12) then
-            output = 0._real12
-            return
-         elseif (contribution .lt. -50._real12) then
-            cycle image_loop
-         end if
-         output = output + contribution
+         associate(position_store => basis%spec(js)%atom(ja,:))
+            contribution = get_3body_contribution( gvector_container, &
+                 position_1, position_2, position_store, basis%lat, &
+                 radius_list(pair_index(ls,js))*lowtol, &
+                 radius_list(pair_index(ls,js))*uptol, &
+                 ls &
+            )
+            if (contribution .lt. -100._real12) then
+               output = 0._real12
+               return
+            elseif (contribution .lt. -50._real12) then
+               cycle image_loop
+            end if
+            output = output + contribution
 
-         ! ! 4-body map
-         ! ! check improperdihedral angle between test point and all other atoms
-         ! !----------------------------------------------------------------------
-         ! contribution = evaluate_4body_contributions( gvector_container, &
-         !      position_1, position_2, position_store, &
-         !      basis, atom_ignore_list, radius_list, uptol, lowtol, &
-         !      pair_index, ls, [js, basis%spec(js)%num + ja] )
-         ! if (contribution .lt. 1.E-6) then
-         !    output = 0._real12
-         !    return
-         ! end if
-         ! viability_4body = viability_4body + contribution
+            ! 4-body map
+            ! check improperdihedral angle between test point and all other
+            ! atoms
+            !-------------------------------------------------------------------
+            contribution = evaluate_4body_contributions( gvector_container, &
+                 position_1, position_2, position_store, &
+                 basis, atom_ignore_list, radius_list, uptol, lowtol, &
+                 pair_index, ls, [js, basis%spec(js)%num + ja] )
+            if (contribution .lt. 1.E-6) then
+               output = 0._real12
+               return
+            end if
+         end associate
+         viability_4body = viability_4body + contribution
       end do image_loop
     end do species_loop
     ! output = output ** (1._real12/repeat_power)
@@ -414,8 +416,6 @@ contains
     !! Contribution to the viability map.
     real(real12) :: repeat_power
     !! Repeat power for 4-body interactions.
-    real(real12), dimension(3) :: position_store
-    !! Storage for atom positions.
 
 
     repeat_power = 4._real12
@@ -426,11 +426,12 @@ contains
           do i = 1, size(atom_ignore_list,dim=1)
              if(all(atom_ignore_list(i,:).eq.[ks,ka])) cycle atom_loop
           end do
-          position_store = basis%spec(ks)%atom(ka,:)
-          contribution = get_4body_contribution( gvector_container, &
-               position_1, position_2, position_3, position_store, &
-               basis%lat, radius_list(pair_index(ls,ks))*lowtol, &
-               radius_list(pair_index(ls,ks))*uptol, ls )
+          associate(position_store => basis%spec(ks)%atom(ka,:))
+             contribution = get_4body_contribution( gvector_container, &
+                  position_1, position_2, position_3, position_store, &
+                  basis%lat, radius_list(pair_index(ls,ks))*lowtol, &
+                  radius_list(pair_index(ls,ks))*uptol, ls )
+          end associate
           if(contribution .lt. -100._real12) then
              output = 0._real12
              return
@@ -443,11 +444,12 @@ contains
        image_loop: do ka = 1, basis%image_spec(ks)%num, 1
           if(ks.eq.atom_index(1) .and. &
              basis%spec(ks)%num + ka.le.atom_index(2)) cycle
-          position_store = basis%image_spec(ks)%atom(ka,:)
-          contribution = get_4body_contribution( gvector_container, &
-               position_1, position_2, position_3, position_store, &
-               basis%lat, radius_list(pair_index(ls,ks))*lowtol, &
-               radius_list(pair_index(ls,ks))*uptol, ls )
+          associate(position_store => basis%spec(ks)%atom(ka,:))
+             contribution = get_4body_contribution( gvector_container, &
+                  position_1, position_2, position_3, position_store, &
+                  basis%lat, radius_list(pair_index(ls,ks))*lowtol, &
+                  radius_list(pair_index(ls,ks))*uptol, ls )
+          end associate
           if(contribution .lt. -100._real12) then
              output = 0._real12
              return
@@ -474,7 +476,8 @@ contains
     ! Arguments
     type(gvector_container_type), intent(in) :: gvector_container
     !! Distribution function (gvector) container.
-    real(real12), dimension(3), intent(in) :: position_1, position_2, position_3, position_4
+    real(real12), dimension(3), intent(in) :: &
+         position_1, position_2, position_3, position_4
     !! Positions of the atoms.
     real(real12), dimension(3,3), intent(in) :: lattice
     !! Lattice vectors.

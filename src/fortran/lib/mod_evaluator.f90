@@ -497,23 +497,23 @@ contains
 
     bondlength = modu( matmul(position_1 - position_4, lattice) )
     if(bondlength.lt.lower_limit) then
-      output = -120._real12
-      return
+       output = -120._real12
+       return
     else if(bondlength.lt.upper_limit) then
-      bin = gvector_container%get_bin( &
-               get_improper_dihedral_angle( &
-                          position_1, &
-                          position_2, &
-                          position_3, &
-                          position_4), &
-               dim = 3 )
-      !!! HANDLE IF IT IS GREATER THAN 90 DEGREES!!!
-      !!! Should map back into 0-90 degrees !!!
-      if(bin.eq.0) return
-      output = gvector_container%total%df_4body(bin,ls)
+       bin = gvector_container%get_bin( &
+                get_improper_dihedral_angle( &
+                           position_1, &
+                           position_2, &
+                           position_3, &
+                           position_4), &
+                dim = 3 )
+       !!! HANDLE IF IT IS GREATER THAN 90 DEGREES!!!
+       !!! Should map back into 0-90 degrees !!!
+       if(bin.eq.0) return
+       output = gvector_container%total%df_4body(bin,ls)
     else
-      output = -60._real12
-      return
+       output = -60._real12
+       return
     end if
 
    end function get_4body_contribution

@@ -5,7 +5,7 @@ module evaluator
   !! the system with each point in the map representing the suitability of
   !! that point for a new atom. The map is built by checking the bond lengths,
   !! bond angles and dihedral angles between the test point and all atoms.
-  use constants, only: real12
+  use constants, only: real12, pi
   use misc_linalg, only: modu, get_distance, get_angle, get_dihedral_angle, &
        get_improper_dihedral_angle
   use rw_geom, only: basis_type
@@ -493,6 +493,8 @@ contains
     !! Bin for the distribution function.
     real(real12) :: bondlength
     !! Bond length between the test point and the fourth atom.
+    real(real12) :: angle
+    !! Improper dihedral angle between the test point and the fourth atom.
 
 
     bondlength = modu( matmul(position_1 - position_4, lattice) )
@@ -500,17 +502,18 @@ contains
        output = -120._real12
        return
     else if(bondlength.lt.upper_limit) then
-       bin = gvector_container%get_bin( &
-                get_improper_dihedral_angle( &
+       angle = get_improper_dihedral_angle( &
                            position_1, &
                            position_2, &
                            position_3, &
-                           position_4), &
-                dim = 3 )
-       !!! HANDLE IF IT IS GREATER THAN 90 DEGREES!!!
-       !!! Should map back into 0-90 degrees !!!
-       if(bin.eq.0) return
-       output = gvector_container%total%df_4body(bin,ls)
+                           position_4 &
+       )
+       !! map angle back into the range [0, pi/2]
+       if(angle.gt.pi/2._real12) angle = pi - angle
+       output = gvector_container%total%df_4body( &
+            gvector_container%get_bin(angle, dim = 3), &
+            ls &
+       )
     else
        output = -60._real12
        return

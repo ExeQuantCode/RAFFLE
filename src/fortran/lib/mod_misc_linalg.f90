@@ -194,6 +194,9 @@ pure function uvec(vector)
          cross(vector1, vector2), &
           cross(vector2, vector3) &
     )
+    !! map angle back into the range [0, pi]
+    if(angle .gt. pi) angle = 2*pi - angle
+
 
   end function get_improper_dihedral_angle_from_vectors
 !###############################################################################

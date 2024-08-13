@@ -110,7 +110,7 @@ contains
 
     type(species_type) :: image_species
 
-    integer :: i, j, k, num_images
+    integer :: i, j, k, num_images, dim
     integer :: amax, bmax, cmax
     real(real12), dimension(3) :: vtmp1
 
@@ -125,10 +125,14 @@ contains
     amax = ceiling(max_bondlength/modu(this%lat(1,:)))
     bmax = ceiling(max_bondlength/modu(this%lat(2,:)))
     cmax = ceiling(max_bondlength/modu(this%lat(3,:)))
+    dim = 3
+    do i = 1, this%nspec
+       if ( size(this%spec(i)%atom,2) .gt. dim) dim =  size(this%spec(i)%atom,2)
+    end do
     allocate( image_species%atom( &
          num_images + &
          (2*amax+1)*(2*bmax+1)*(2*cmax+1), &
-         size(this%image_spec(is)%atom,2) ) &
+         dim ) &
     )
     if( num_images .ne. 0 ) then
        image_species%atom(:num_images,:) = &

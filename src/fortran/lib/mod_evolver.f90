@@ -1396,13 +1396,18 @@ module evolver
 
     num_pairs = nint( gamma(real(size(this%element_info) + 2, real12)) / &
          ( gamma(real(size(this%element_info), real12)) * gamma( 3._real12 ) ) )
-    allocate(this%total%df_2body(this%nbins(1),num_pairs), source = 0._real12)
+    allocate(this%total%df_2body(this%nbins(1),num_pairs), &
+         source = 0._real12 )
     allocate(this%total%df_3body(this%nbins(2),size(this%element_info)), &
-         source = 1._real12/this%nbins(2))
+         source = 0._real12 )
     allocate(this%total%df_4body(this%nbins(3),size(this%element_info)), &
-         source = 1._real12/this%nbins(3))
+         source = 0._real12 )
+   !  allocate(this%total%df_3body(this%nbins(2),size(this%element_info)), &
+   !       source = 1._real12/this%nbins(2))
+   !  allocate(this%total%df_4body(this%nbins(3),size(this%element_info)), &
+   !       source = 1._real12/this%nbins(3))
 
-    this%total%df_2body(:,:) = 1._real12 / this%nbins(1)
+    !  this%total%df_2body(:,:) = 1._real12 / this%nbins(1)
     !! make it extra broad
     !bonds_cubic(:6) = 1._real12
     !bonds_cubic(7:14) = sqrt(2._real12)

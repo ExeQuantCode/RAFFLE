@@ -469,8 +469,8 @@ module evolver
        read(buffer, *) system%element_symbols
        read(unit, *) system%stoichiometry
        system%num_atoms = sum(system%stoichiometry)
-       num_pairs = gamma(real(num_species + 2, real12)) / &
-                   ( gamma(real(num_species, real12)) * gamma( 3._real12 ) )
+       num_pairs = nint( gamma(real(num_species + 2, real12)) / &
+                   ( gamma(real(num_species, real12)) * gamma( 3._real12 ) ) )
        allocate(system%df_2body(this%nbins(1),num_pairs))
        do j = 1, this%nbins(1)
           read(unit, *) system%df_2body(j,:)
@@ -516,9 +516,9 @@ module evolver
     !! Pair indices.
 
 
-    num_pairs = gamma(real(size(this%element_info) + 2, real12)) / &
+    num_pairs = nint( gamma(real(size(this%element_info) + 2, real12)) / &
                 ( gamma(real(size(this%element_info), real12)) * &
-                  gamma( 3._real12 ) )
+                  gamma( 3._real12 ) ) )
     allocate(idx(2,num_pairs))
     i = 0 
     do is = 1, size(this%element_info)
@@ -1631,7 +1631,7 @@ module evolver
     !! Parameters for the distribution functions.
     real(real12), dimension(3) :: vtmp1, vtmp2, vtmp3, diff
     !! Temporary real arrays.
-    real(real12), allocatable, dimension(:) :: gvector_tmp, angle
+    real(real12), allocatable, dimension(:) :: gvector_tmp, angle, distance
     !! Temporary real arrays.
     integer, dimension(:), allocatable :: idx_list!, count_list
     !! Index list for the element pairs in a system.
@@ -1671,7 +1671,7 @@ module evolver
        nbins_ = nbins
        width_ = ( cutoff_max_ - cutoff_min_ )/real( nbins_ - 1, real12 )
     else
-       nbins_ = 1 + (cutoff_max_ - cutoff_min_)/width_
+       nbins_ = 1 + nint( (cutoff_max_ - cutoff_min_)/width_ )
     end if
     limit = cutoff_max_ - cutoff_min_
 
@@ -1821,6 +1821,10 @@ module evolver
        this%df_2body(:,k) = this%df_2body(:,k) + &
             gvector_tmp * scale * sqrt( eta(1) / pi ) / real(itmp1,real12) ! / width_(1)
     end do
+    do b = 1, nbins_(1)
+       this%df_2body(b,:) = this%df_2body(b,:) / ( cutoff_min_(1) + &
+            width_(1) * real(b-1, real12) ) ** 2._real12
+    end do
 
 
     !---------------------------------------------------------------------------
@@ -1850,7 +1854,9 @@ module evolver
                      j = i + 1, size(bond_list), 1 ) ] )
        end do
        allocate(angle(num_angles))
+       allocate(distance(num_angles))
        num_angles = 0
+
 
        !------------------------------------------------------------------------
        ! loop over all bonds to find the first bond
@@ -1886,6 +1892,9 @@ module evolver
              !------------------------------------------------------------------
              num_angles = num_angles + 1
              angle(num_angles) = get_angle( vtmp1, vtmp2 )
+             distance(num_angles) = &
+                  sqrt( modu(vtmp1) ** 2 + modu(vtmp2) ** 2 ) ** 3
+            !  distance(num_angles) = 1._real12
 
           end do
        end do
@@ -1897,8 +1906,10 @@ module evolver
        this%df_3body(:,is) = this%df_3body(:,is) + &
             get_gvector( angle, nbins_(2), eta(2), width_(2), &
                                cutoff_min(2), &
-                               limit(2) )
+                               limit(2), scale = distance &
+            )
        deallocate(angle)
+       deallocate(distance)
     end do
 
   
@@ -1930,6 +1941,7 @@ module evolver
                nint(exp(lnsum(itmp1) - lnsum(itmp1 - 2) - lnsum(2)))
        end do
        allocate(angle(num_angles))
+       allocate(distance(num_angles))
        !allocate(count_list(num_angles))
        num_angles = 0
 
@@ -2015,6 +2027,10 @@ module evolver
                 !      angle(num_angles) = pi - angle(num_angles)
                 angle(num_angles) = abs( &
                      anint( angle(num_angles)/pi )*pi - angle(num_angles) )
+                distance(num_angles) = &
+                    sqrt( modu(vtmp1) ** 2 + modu(vtmp2) ** 2 + &
+                          modu( bond_list(idx_list(k))%vector ) ** 2 ) ** 4
+               !  distance(num_angles) = 1._real12
                 
                 ! count_list(num_angles) = plane_list(j)%count
 
@@ -2032,8 +2048,11 @@ module evolver
        this%df_4body(:,is) = this%df_4body(:,is) + &
             get_gvector( angle(:num_angles), nbins_(3), eta(3), width_(3), &
                                cutoff_min(3), &
-                               limit(3))!, count_list(:num_angles) )
+                               limit(3), &
+                               scale = distance &
+            )!, count_list(:num_angles) )
        deallocate(angle)
+       deallocate(distance)
        ! deallocate(count_list)
     end do
 
@@ -2042,8 +2061,8 @@ module evolver
 
 
 !###############################################################################
-  function get_gvector(vector, nbins, eta, width, cutoff_min, limit) &!, count_list) &
-       result(gvector)
+  function get_gvector(vector, nbins, eta, width, cutoff_min, limit, &
+       scale ) result(gvector)
     !! Calculate the angular distribution function for a list of vectors.
     implicit none
 
@@ -2053,7 +2072,9 @@ module evolver
     real(real12), intent(in) :: eta, width, cutoff_min, limit
     !! Parameters for the distribution functions.
     real(real12), dimension(:), intent(in) :: vector
-    !! List of vectors.
+    !! List of angles.
+    real(real12), dimension(:), intent(in) :: scale
+    !! List of scaling for each angle (distance**3 or distance**4)
     real(real12), dimension(nbins) :: gvector
     !! Distribution function for the list of vectors.
     ! integer, dimension(:), intent(in), optional :: count_list
@@ -2122,7 +2143,8 @@ module evolver
              gvector(b) = gvector(b) + &
                   exp( -eta * ( vector(i) - &
                                    ( width * real(b-1, real12) + &
-                                     cutoff_min ) ) ** 2._real12 )
+                                     cutoff_min ) ) ** 2._real12 &
+                  ) / scale(i)
           end do
        end do
        ! if(present(count_list)) gvector_tmp = gvector_tmp * count_list(i)

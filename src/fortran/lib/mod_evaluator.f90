@@ -67,7 +67,7 @@ contains
     ! Initialisation
     output = 0._real12
     viability_2body = 0._real12
-    viability_angles = 1._real12
+    viability_angles = 0._real12
     
 
     !---------------------------------------------------------------------------
@@ -111,14 +111,11 @@ contains
           ! 3-body map
           ! check bondangle between test point and all other atoms
           !----------------------------------------------------------------------
-          viability_angles = viability_angles * &
+          viability_angles = viability_angles + &
                evaluate_3body_contributions( gvector_container, &
                     position, position_store, basis, atom_ignore_list, &
                     radius_list, uptol, lowtol, pair_index, ls, [is, ia] &
                )
-          if(viability_angles .lt. 1.E-6)then
-             return
-          end if
        end do atom_loop
 
        image_loop: do ia = 1, basis%image_spec(is)%num, 1
@@ -139,21 +136,18 @@ contains
           ! 3-body map
           ! check bondangle between test point and all other atoms
           !----------------------------------------------------------------------
-          viability_angles = viability_angles * &
+          viability_angles = viability_angles + &
                evaluate_3body_contributions( gvector_container, &
                     position, position_store, basis, atom_ignore_list, &
                     radius_list, uptol, lowtol, pair_index, ls, &
                     [is, basis%spec(is)%num + ia] &
                )
-          if(viability_angles .lt. 1.E-6)then
-             return
-          end if
        end do image_loop
     end do species_loop
     !!! CHECK FOR NaN VALUES FOR VIABILITY_ANGLES
 
-    if(abs(viability_2body).lt.1.E-6) viability_2body = 1._real12
-    output = viability_2body * viability_angles
+   !  if(abs(viability_2body).lt.1.E-6) viability_2body = 1._real12
+    output = viability_2body + viability_angles
 
     deallocate(pair_index)
     
@@ -189,8 +183,6 @@ contains
     !! Bond length between the test point and the second atom.
 
 
-    output = 0._real12
-    
     bondlength = modu( matmul(position_1 - position_2, lattice) )
 
     !! check if the bondlength is within the tolerance for bonds ...
@@ -258,8 +250,8 @@ contains
 
 
     repeat_power = 2._real12
-    output = 1._real12
-    viability_4body = 1._real12
+    output = 0._real12
+    viability_4body = 0._real12
     species_loop: do js = atom_index(1), basis%nspec, 1
       atom_loop: do ja = 1, basis%spec(js)%num
          if(js.eq.atom_index(1) .and. ja.le.atom_index(2)) cycle atom_loop
@@ -279,7 +271,7 @@ contains
          elseif (contribution .lt. -50._real12) then
             cycle atom_loop
          end if
-         output = output * contribution
+         output = output + contribution
             
          ! ! 4-body map
          ! ! check improperdihedral angle between test point and all other atoms
@@ -292,7 +284,7 @@ contains
          !    output = 0._real12
          !    return
          ! end if
-         ! viability_4body = viability_4body * contribution
+         ! viability_4body = viability_4body + contribution
       end do atom_loop
 
       image_loop: do ja = 1, basis%image_spec(js)%num, 1
@@ -311,7 +303,7 @@ contains
          elseif (contribution .lt. -50._real12) then
             cycle image_loop
          end if
-         output = output * contribution
+         output = output + contribution
 
          ! ! 4-body map
          ! ! check improperdihedral angle between test point and all other atoms
@@ -324,11 +316,11 @@ contains
          !    output = 0._real12
          !    return
          ! end if
-         ! viability_4body = viability_4body * contribution
+         ! viability_4body = viability_4body + contribution
       end do image_loop
     end do species_loop
-    output = output ** (1._real12/repeat_power)
-    output = output * viability_4body
+    ! output = output ** (1._real12/repeat_power)
+    ! output = output + viability_4body
 
   end function evaluate_3body_contributions
 !###############################################################################
@@ -363,7 +355,6 @@ contains
     !! Bond length between the test point and the third atom.
 
 
-    output = 1._real12
     bondlength = modu( matmul(position_1 - position_3, lattice) )
     if(bondlength.lt.lower_limit)then
        output = -120._real12
@@ -428,7 +419,7 @@ contains
 
 
     repeat_power = 4._real12
-    output = 1._real12
+    output = 0._real12
     species_loop: do ks = atom_index(1), basis%nspec, 1
        atom_loop: do ka = 1, basis%spec(ks)%num
           if(ks.eq.atom_index(1) .and. ka.le.atom_index(2)) cycle atom_loop
@@ -446,7 +437,7 @@ contains
           elseif(contribution .lt. -50._real12) then
              cycle atom_loop
           end if
-          output = output * contribution
+          output = output + contribution
        end do atom_loop
 
        image_loop: do ka = 1, basis%image_spec(ks)%num, 1
@@ -463,10 +454,10 @@ contains
           elseif(contribution .lt. -50._real12) then
              cycle image_loop
           end if
-          output = output * contribution
+          output = output + contribution
        end do image_loop
     end do species_loop
-    output = output ** (1._real12/repeat_power)
+    !output = output ** (1._real12/repeat_power)
 
   end function evaluate_4body_contributions
 !###############################################################################
@@ -501,7 +492,6 @@ contains
     !! Bond length between the test point and the fourth atom.
 
 
-    output = 1._real12
     bondlength = modu( matmul(position_1 - position_4, lattice) )
     if(bondlength.lt.lower_limit) then
       output = -120._real12

@@ -182,7 +182,8 @@ pure function uvec(vector)
        result(angle)
     !! Return the improper dihedral angle between two planes.
     !!
-    !! The dihedral angle is the angle between the plane defined by four points.
+    !! The improper dihedral angle is the angle between two planes made by
+    !! three vectors.
     !! i.e. ( vector1 x vector2 ) . ( vector2 x vector3 )
        !! alt. angle between plane vector1vector2 and vector2vector3
        implicit none

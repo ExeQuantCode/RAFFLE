@@ -1975,9 +1975,9 @@ module evolver
           stop 1
        end if
        this%df_3body(:,is) = this%df_3body(:,is) + &
-            get_gvector( angle, nbins_(2), eta(2), width_(2), &
-                               cutoff_min(2), &
-                               limit(2), scale = distance &
+            get_gvector( angle(:num_angles), nbins_(2), eta(2), width_(2), &
+                               cutoff_min_(2), &
+                               limit(2), scale = distance(:num_angles) &
             )
        deallocate(angle)
        deallocate(distance)
@@ -2123,9 +2123,9 @@ module evolver
        end if
        this%df_4body(:,is) = this%df_4body(:,is) + &
             get_gvector( angle(:num_angles), nbins_(3), eta(3), width_(3), &
-                               cutoff_min(3), &
+                               cutoff_min_(3), &
                                limit(3), &
-                               scale = distance &
+                               scale = distance(:num_angles) &
             )!, count_list(:num_angles) )
        deallocate(angle)
        deallocate(distance)

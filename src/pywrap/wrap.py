@@ -8,7 +8,7 @@ from host import Host
 from ase.calculators.emt import EMT
 from argparse import ArgumentParser
 import numpy as np
-import funcs 
+#import funcs 
 from funcs import RAFFLE
 from raffle import raffle
 

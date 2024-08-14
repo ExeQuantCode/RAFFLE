@@ -1162,6 +1162,21 @@ class Evolver(f90wrap.runtime.FortranModule):
             _raffle.f90wrap_evolver__update__binding__gvector_container_type(this=self._handle, \
                 basis_list=basis_list._handle, deallocate_systems=deallocate_systems)
             
+        def deallocate_systems(self):
+            """
+            deallocate_systems__binding__gvector_container_type(self)
+            
+            
+            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_evolver.f90 \
+                lines 323-331
+            
+            Parameters
+            ----------
+            this : unknown
+            
+            """
+            _raffle.f90wrap_evolver__deallocate_systems__binding__gvector_conta8f02(this=self._handle)
+        
         def add_basis(self, lattice, basis):
             """
             add_basis__binding__gvector_container_type(self, lattice, basis)
@@ -1399,7 +1414,7 @@ class Evolver(f90wrap.runtime.FortranModule):
             """
             _raffle.f90wrap_evolver__initialise_gvectors__binding__gvector_contc1f2(this=self._handle)
         
-        def evolve(self, system=None, deallocate_systems_after_evolve=None):
+        def evolve(self, system=None):
             """
             evolve__binding__gvector_container_type(self[, system, \
                 deallocate_systems_after_evolve])
@@ -1419,8 +1434,7 @@ class Evolver(f90wrap.runtime.FortranModule):
             --------------------------------------------------------------------------
             """
             _raffle.f90wrap_evolver__evolve__binding__gvector_container_type(this=self._handle, \
-                system=None if system is None else system._handle, \
-                deallocate_systems_after_evolve=deallocate_systems_after_evolve)
+                system=None if system is None else system._handle)
         
         def write(self, file):
             """
@@ -1554,6 +1568,41 @@ class Evolver(f90wrap.runtime.FortranModule):
                 _raffle.f90wrap_evolver__get_bin__binding__gvector_container_type(this=self._handle, \
                 value=value, dim=dim)
             return bin
+        
+        @property
+        def num_evaluated(self):
+            """
+            Element num_evaluated ftype=integer  pytype=int
+            
+            
+            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_evolver.f90 \
+                line 57
+            
+            """
+            return _raffle.f90wrap_gvector_container_type__get__num_evaluated(self._handle)
+        
+        @num_evaluated.setter
+        def num_evaluated(self, num_evaluated):
+            _raffle.f90wrap_gvector_container_type__set__num_evaluated(self._handle, \
+                num_evaluated)
+        
+        @property
+        def num_evaluated_allocated(self):
+            """
+            Element num_evaluated_allocated ftype=integer  pytype=int
+            
+            
+            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_evolver.f90 \
+                line 59
+            
+            """
+            return \
+                _raffle.f90wrap_gvector_container_type__get__num_evaluated_allocated(self._handle)
+        
+        @num_evaluated_allocated.setter
+        def num_evaluated_allocated(self, num_evaluated_allocated):
+            _raffle.f90wrap_gvector_container_type__set__num_evaluated_allocated(self._handle, \
+                num_evaluated_allocated)
         
         @property
         def best_system(self):

@@ -62,6 +62,10 @@ module evolver
      !!
      !! This type contains the distribution functions for a set of atomic
      !! structures, alongside parameters for initialising the distributions.
+     integer :: num_evaluated = 0
+     !! Number of evaluated systems.
+     integer :: num_evaluated_allocated = 0
+     !! Number of evaluated systems still allocated.
      integer :: best_system = 0
      !! Index of the best system.
      real(real12) :: best_energy = 0.0_real12
@@ -110,6 +114,9 @@ module evolver
      procedure, pass(this) :: update
      !! Update the distribution functions for all systems, and the learned one.
      
+     procedure, pass(this) :: deallocate_systems
+     !! Deallocate the systems in the container.
+
      procedure, pass(this) :: add, add_basis
      !! Add a system to the container.
 
@@ -325,11 +332,14 @@ module evolver
     !! distribution functions are created.
 
     ! Local variables
-    logical :: deallocate_systems_ = .true.
-
-
+    logical :: deallocate_systems_
+    
+    
+    deallocate_systems_ = .true.
     if(present(deallocate_systems)) deallocate_systems_ = deallocate_systems
 
+    this%num_evaluated = 0
+    this%num_evaluated_allocated = 0
     if(allocated(this%total%df_2body)) deallocate(this%total%df_2body)
     if(allocated(this%total%df_3body)) deallocate(this%total%df_3body)
     if(allocated(this%total%df_4body)) deallocate(this%total%df_4body)
@@ -337,7 +347,8 @@ module evolver
     allocate(this%system(0))
     call this%add(basis_list)
     call this%set_bond_info()
-    call this%evolve(deallocate_systems_after_evolve=deallocate_systems_)
+    call this%evolve()
+    if(deallocate_systems_) call this%deallocate_systems()
     
   end subroutine create
 !###############################################################################
@@ -357,16 +368,34 @@ module evolver
     !! distribution functions are created.
 
     ! Local variables
-    logical :: deallocate_systems_ = .true.
+    logical :: deallocate_systems_
 
 
+    deallocate_systems_ = .true.
     if(present(deallocate_systems)) deallocate_systems_ = deallocate_systems
 
     call this%add(basis_list)
     call this%update_bond_info()
-    call this%evolve(deallocate_systems_after_evolve=deallocate_systems_)
+    call this%evolve()
+    if(deallocate_systems_) call this%deallocate_systems()
     
   end subroutine update
+!###############################################################################
+
+!###############################################################################
+  subroutine deallocate_systems(this)
+    !! Deallocate the systems in the container.
+    implicit none
+
+    ! Arguments
+    class(gvector_container_type), intent(inout) :: this
+    !! Parent. Instance of distribution functions container.
+
+    deallocate(this%system)
+    this%best_system = 0
+    this%num_evaluated_allocated = 0
+
+  end subroutine deallocate_systems
 !###############################################################################
 
 
@@ -1432,7 +1461,7 @@ module evolver
 
 
 !###############################################################################
-  subroutine evolve(this, system, deallocate_systems_after_evolve)
+  subroutine evolve(this, system)
     !! Evolve the g-vectors for the container.
     implicit none
 
@@ -1441,31 +1470,20 @@ module evolver
     !! Parent of the procedure. Instance of distribution functions container.
     type(gvector_type), dimension(..), intent(in), optional :: system
     !! Optional. System to add to the container.
-    logical, intent(in), optional :: deallocate_systems_after_evolve
-    !! Optional. Boolean whether to deallocate the systems after the evolve.
 
     ! Local variables
     integer :: i, j, is, js
     !! Loop index.
     integer :: idx1, idx2
     !! Index of the element in the element_info array.
-   integer :: num_structures_previous
-   !! Number of structures in the container before the evolve.
+    integer :: num_evaluated
+    !! Number of systems evaluated this iteration.
     real(real12) :: weight, energy, best_energy_old
     !! Energy and weight variables for a system.
-    logical :: deallocate_systems_after_evolve_ = .true.
-    !! Boolean whether to  the systems after the evolve.
     real(real12), dimension(:), allocatable :: height
     !! Height of the g-vectors.
     integer, dimension(:,:), allocatable :: idx_list
     !! Index list for the element pairs in a system.
-    
-
-    !---------------------------------------------------------------------------
-    ! if present, set the deallocate flag
-    !---------------------------------------------------------------------------
-    if(present(deallocate_systems_after_evolve)) &
-       deallocate_systems_after_evolve_ = deallocate_systems_after_evolve
 
 
     !---------------------------------------------------------------------------
@@ -1493,7 +1511,11 @@ module evolver
     if(.not.allocated(this%total%df_2body))then
        call this%initialise_gvectors()
     else
+      this%total%df_2body = this%total%df_2body * exp( this%best_energy ) / &
+                              exp( best_energy_old )
       this%total%df_3body = this%total%df_3body * exp( this%best_energy ) / &
+                              exp( best_energy_old )
+      this%total%df_4body = this%total%df_4body * exp( this%best_energy ) / &
                               exp( best_energy_old )
     end if
 
@@ -1501,7 +1523,9 @@ module evolver
     !---------------------------------------------------------------------------
     ! loop over all systems to calculate the total gvectors
     !---------------------------------------------------------------------------
-    do i = 1, size(this%system)
+    num_evaluated = 0
+    do i = this%num_evaluated_allocated + 1, size(this%system), 1
+       num_evaluated = num_evaluated + 1
        !------------------------------------------------------------------------
        ! get the list of 2-body species pairs the system
        !------------------------------------------------------------------------
@@ -1533,6 +1557,8 @@ module evolver
        end do
        energy = energy / this%system(i)%num_atoms
        weight = exp( this%best_energy - energy )
+       write(*,*) "energy", energy
+       write(*,*) "weight", weight
        j = 0
 
        !------------------------------------------------------------------------
@@ -1565,13 +1591,9 @@ module evolver
           end do
        end do
        deallocate(idx_list)
-    end do
-
-
-    !---------------------------------------------------------------------------
-    ! deallocate the individual gvectors
-    !---------------------------------------------------------------------------
-    if(deallocate_systems_after_evolve_) deallocate(this%system)
+   end do
+   this%num_evaluated_allocated = size(this%system)
+   this%num_evaluated = this%num_evaluated + num_evaluated
 
   end subroutine evolve
 !###############################################################################

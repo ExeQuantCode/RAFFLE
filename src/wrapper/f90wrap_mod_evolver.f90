@@ -261,6 +261,62 @@ subroutine f90wrap_evolver__calculate__binding__gvector_type(this, basis, nbins,
         cutoff_min=cutoff_min, cutoff_max=cutoff_max)
 end subroutine f90wrap_evolver__calculate__binding__gvector_type
 
+subroutine f90wrap_gvector_container_type__get__num_evaluated(this, f90wrap_num_evaluated)
+    use evolver, only: gvector_container_type
+    implicit none
+    type gvector_container_type_ptr_type
+        type(gvector_container_type), pointer :: p => NULL()
+    end type gvector_container_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(gvector_container_type_ptr_type) :: this_ptr
+    integer, intent(out) :: f90wrap_num_evaluated
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_num_evaluated = this_ptr%p%num_evaluated
+end subroutine f90wrap_gvector_container_type__get__num_evaluated
+
+subroutine f90wrap_gvector_container_type__set__num_evaluated(this, f90wrap_num_evaluated)
+    use evolver, only: gvector_container_type
+    implicit none
+    type gvector_container_type_ptr_type
+        type(gvector_container_type), pointer :: p => NULL()
+    end type gvector_container_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(gvector_container_type_ptr_type) :: this_ptr
+    integer, intent(in) :: f90wrap_num_evaluated
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%num_evaluated = f90wrap_num_evaluated
+end subroutine f90wrap_gvector_container_type__set__num_evaluated
+
+subroutine f90wrap_gvector_container_type__get__num_evaluated_allocated(this, f90wrap_num_evaluated_allocated)
+    use evolver, only: gvector_container_type
+    implicit none
+    type gvector_container_type_ptr_type
+        type(gvector_container_type), pointer :: p => NULL()
+    end type gvector_container_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(gvector_container_type_ptr_type) :: this_ptr
+    integer, intent(out) :: f90wrap_num_evaluated_allocated
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_num_evaluated_allocated = this_ptr%p%num_evaluated_allocated
+end subroutine f90wrap_gvector_container_type__get__num_evaluated_allocated
+
+subroutine f90wrap_gvector_container_type__set__num_evaluated_allocated(this, f90wrap_num_evaluated_allocated)
+    use evolver, only: gvector_container_type
+    implicit none
+    type gvector_container_type_ptr_type
+        type(gvector_container_type), pointer :: p => NULL()
+    end type gvector_container_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(gvector_container_type_ptr_type) :: this_ptr
+    integer, intent(in) :: f90wrap_num_evaluated_allocated
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%num_evaluated_allocated = f90wrap_num_evaluated_allocated
+end subroutine f90wrap_gvector_container_type__set__num_evaluated_allocated
+
 subroutine f90wrap_gvector_container_type__get__best_system(this, f90wrap_best_system)
     use evolver, only: gvector_container_type
     implicit none
@@ -687,6 +743,19 @@ subroutine f90wrap_evolver__update__binding__gvector_container_type(this, basis_
     end if
 end subroutine f90wrap_evolver__update__binding__gvector_container_type
 
+subroutine f90wrap_evolver__deallocate_systems__binding__gvector_conta8f02(this)
+    use evolver, only: gvector_container_type
+    implicit none
+    
+    type gvector_container_type_ptr_type
+        type(gvector_container_type), pointer :: p => NULL()
+    end type gvector_container_type_ptr_type
+    type(gvector_container_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    this_ptr = transfer(this, this_ptr)
+    call this_ptr%p%deallocate_systems()
+end subroutine f90wrap_evolver__deallocate_systems__binding__gvector_conta8f02
+
 subroutine f90wrap_evolver__add_basis__binding__gvector_container_type(this, basis)
     use rw_geom, only: basis_type
     use evolver, only: gvector_container_type
@@ -838,7 +907,7 @@ subroutine f90wrap_evolver__initialise_gvectors__binding__gvector_contc1f2(this)
     call this_ptr%p%initialise_gvectors()
 end subroutine f90wrap_evolver__initialise_gvectors__binding__gvector_contc1f2
 
-subroutine f90wrap_evolver__evolve__binding__gvector_container_type(this, system, deallocate_systems_after_evolve)
+subroutine f90wrap_evolver__evolve__binding__gvector_container_type(this, system)
     use evolver, only: gvector_type, gvector_container_type
     implicit none
     
@@ -852,14 +921,13 @@ subroutine f90wrap_evolver__evolve__binding__gvector_container_type(this, system
     integer, intent(in), dimension(2) :: this
     type(gvector_type_ptr_type) :: system_ptr
     integer, optional, intent(in), dimension(2) :: system
-    logical, intent(in), optional :: deallocate_systems_after_evolve
     this_ptr = transfer(this, this_ptr)
     if (present(system)) then
         system_ptr = transfer(system, system_ptr)
     else
         system_ptr%p => null()
     end if
-    call this_ptr%p%evolve(system=system_ptr%p, deallocate_systems_after_evolve=deallocate_systems_after_evolve)
+    call this_ptr%p%evolve(system=system_ptr%p)
 end subroutine f90wrap_evolver__evolve__binding__gvector_container_type
 
 subroutine f90wrap_evolver__write__binding__gvector_container_type(this, file)

@@ -202,7 +202,7 @@ contains
 
 
 
-100 call gvector_container%evolve(deallocate_systems_after_evolve=.false.)
+100 call gvector_container%evolve()
 
 
 #ifdef ENABLE_ATHENA

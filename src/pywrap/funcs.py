@@ -35,7 +35,7 @@ def _populate_database(**kwargs):
     else:
         database = read("example_distribution.traj", index=":")
         
-    database_basis = raffle.rw_geom.bas_type_xnum_array()
+    database_basis = raffle.rw_geom.basis_type_xnum_array()
     database_basis.allocate(len(database))
     for i, atoms in enumerate(database):
         database_basis.items[i].fromase(atoms)

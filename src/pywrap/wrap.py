@@ -107,9 +107,6 @@ except:
 Calculate parallelisation over array job
 """
 
-
-
-
 atoms=funcs.get_stoichiometry(stoichiometry_dict)
 
 
@@ -119,8 +116,6 @@ energies_dict={'Au': -5.0}
 
 RAFFLE(host_structures,atoms,energies_dict,iterations,**kwargs)
 
-
-
 for host in host_structures:
     host.calculate_children(calculator)
     
@@ -128,11 +123,6 @@ for host in host_structures:
         for atom in child.structure: 
             print(atom.position)
     host.dump_children()
-
-
-
-
-
 
 x=[]
 y=[]

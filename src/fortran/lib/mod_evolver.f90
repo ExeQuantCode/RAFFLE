@@ -85,6 +85,9 @@ module evolver
      real(real12), dimension(3) :: &
           cutoff_max = [ 6._real12, pi, pi/2._real12 ]
      !! Maximum cutoff for the 2-, 3-, and 4-body distribution functions.
+     real(real12), dimension(:), allocatable :: &
+          norm_2body, norm_3body, norm_4body
+     !! Normalisation factors for the 2-, 3-, and 4-body distribution functions.
      type(gvector_base_type) :: total !! name it best instead?
      !! Total distribution functions for all systems.
      !! Generated from combining the energy-weighted distribution functions
@@ -1517,6 +1520,19 @@ module evolver
                               exp( best_energy_old )
       this%total%df_4body = this%total%df_4body * exp( this%best_energy ) / &
                               exp( best_energy_old )
+      do j = 1, size(this%total%df_2body,2)
+         this%total%df_2body(:,j) = &
+              this%total%df_2body(:,j) * this%norm_2body(j)
+      end do
+      do is = 1, size(this%element_info)
+         this%total%df_3body(:,is) = &
+              this%total%df_3body(:,is) * this%norm_3body(is)
+         this%total%df_4body(:,is) = &
+              this%total%df_4body(:,is) * this%norm_4body(is)
+      end do
+      deallocate(this%norm_2body)
+      deallocate(this%norm_3body)
+      deallocate(this%norm_4body)
     end if
 
 
@@ -1557,8 +1573,6 @@ module evolver
        end do
        energy = energy / this%system(i)%num_atoms
        weight = exp( this%best_energy - energy )
-       write(*,*) "energy", energy
-       write(*,*) "weight", weight
        j = 0
 
        !------------------------------------------------------------------------
@@ -1592,6 +1606,24 @@ module evolver
        end do
        deallocate(idx_list)
    end do
+   
+   allocate(this%norm_2body(size(this%total%df_2body,2)))
+   do j = 1, size(this%total%df_2body,2)
+      this%norm_2body(j) = maxval(this%total%df_2body(:,j))
+      this%total%df_2body(:,j) = &
+           this%total%df_2body(:,j) / this%norm_2body(j)
+   end do
+   allocate(this%norm_3body(size(this%element_info)))
+   allocate(this%norm_4body(size(this%element_info)))
+   do is = 1, size(this%element_info)
+      this%norm_3body(is) = maxval(this%total%df_3body(:,is))
+      this%norm_4body(is) = maxval(this%total%df_4body(:,is))
+      this%total%df_3body(:,is) = &
+           this%total%df_3body(:,is) / this%norm_3body(is)
+      this%total%df_4body(:,is) = &
+           this%total%df_4body(:,is) / this%norm_4body(is)
+   end do
+
    this%num_evaluated_allocated = size(this%system)
    this%num_evaluated = this%num_evaluated + num_evaluated
 
@@ -1853,6 +1885,13 @@ module evolver
        this%df_2body(b,:) = this%df_2body(b,:) / ( cutoff_min_(1) + &
             width_(1) * real(b-1, real12) ) ** 2
     end do
+    ! renormalise so that the area under the curve is 1
+    do k = 1, num_pairs
+       if(all(abs(this%df_2body(:,k)).lt.1.E-6))then
+          this%df_2body(:,k) = 1._real12 / nbins_(1)
+       end if
+       this%df_2body(:,k) = this%df_2body(:,k) / sum(this%df_2body(:,k))
+    end do
 
 
     !---------------------------------------------------------------------------
@@ -1915,18 +1954,22 @@ module evolver
                 cycle
              end if
  
+             if( abs( &
+                  dot_product(vtmp1, vtmp1) - &
+                  dot_product(vtmp1, vtmp2) &
+             ) .lt. 1.E-3 ) cycle
+
              !------------------------------------------------------------------
              ! calculate the angle between the two bonds
              !------------------------------------------------------------------
              num_angles = num_angles + 1
              angle(num_angles) = get_angle( vtmp1, vtmp2 )
-             distance(num_angles) = ( &
-                  ( modu(vtmp1) + modu(vtmp2) ) / 2._real12 & 
-             ) ** 3
+             distance(num_angles) = &
+                  ( modu(vtmp1) ** 2 * modu(vtmp2) ** 2 )
 
           end do
        end do
-       if(num_angles.ne.size(angle))then
+       if(num_angles.gt.size(angle))then
           write(0,*) "ERROR: Number of 3-body angles exceeds allocated array"
           write(0,'("Expected ",I0," got ",I0)') size(angle), num_angles
           stop 1
@@ -1938,6 +1981,13 @@ module evolver
             )
        deallocate(angle)
        deallocate(distance)
+    end do
+    ! renormalise so that the area under the curve is 1
+    do is = 1, basis%nspec
+       if(all(abs(this%df_3body(:,is)).lt.1.E-6))then
+          this%df_3body(:,is) = 1._real12 / nbins_(2)
+       end if
+       this%df_3body(:,is) = this%df_3body(:,is) / sum(this%df_3body(:,is))
     end do
 
   
@@ -2021,7 +2071,10 @@ module evolver
           !---------------------------------------------------------------------
           do j = 1, size(idx_list)!size(plane_list)!size(idx_list)
  
-             vtmp2 = cross(vtmp1, bond_list(idx_list(j))%vector)
+             if( abs( &
+                  dot_product(vtmp1, vtmp1) - &
+                  dot_product(vtmp1, bond_list(idx_list(j))%vector) &
+             ) .lt. 1.E-3 ) cycle
              !------------------------------------------------------------------
              ! loop over all bonds to find the third bond
              !------------------------------------------------------------------
@@ -2040,7 +2093,7 @@ module evolver
                 angle(num_angles) = &
                      get_improper_dihedral_angle( &
                           vtmp1, &
-                          vtmp2, &
+                          bond_list(idx_list(j))%vector, &
                           bond_list(idx_list(k))%vector &
                      )
 
@@ -2050,10 +2103,10 @@ module evolver
                 !      angle(num_angles) = pi - angle(num_angles)
                 angle(num_angles) = abs( &
                      anint( angle(num_angles)/pi )*pi - angle(num_angles) )
-                distance(num_angles) = ( ( &
-                    modu(vtmp1) + modu(vtmp2) + &
-                    modu( bond_list(idx_list(k))%vector ) ) / 3._real12 &
-                 ) ** 4
+                distance(num_angles) = &
+                    modu(vtmp1) ** 2 * &
+                    modu(bond_list(idx_list(j))%vector) ** 2 * &
+                    modu(bond_list(idx_list(k))%vector) ** 2
                 
                 ! count_list(num_angles) = plane_list(j)%count
 
@@ -2063,7 +2116,7 @@ module evolver
           deallocate(idx_list)
           ! deallocate(plane_list)
        end do
-       if(num_angles.ne.size(angle))then
+       if(num_angles.gt.size(angle))then
           write(0,*) "ERROR: Number of 4-body angles exceeds allocated array"
           write(0,'("Expected ",I0," got ",I0)') size(angle), num_angles
           stop 1
@@ -2078,6 +2131,13 @@ module evolver
        deallocate(distance)
        ! deallocate(count_list)
     end do
+    ! renormalise so that the area under the curve is 1
+    do is = 1, basis%nspec
+      if(all(abs(this%df_4body(:,is)).lt.1.E-6))then
+         this%df_4body(:,is) = 1._real12 / nbins_(3)
+      end if
+      this%df_4body(:,is) = this%df_4body(:,is) / sum(this%df_4body(:,is))
+   end do
 
   end subroutine calculate
 !###############################################################################

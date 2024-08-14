@@ -656,6 +656,37 @@ subroutine f90wrap_evolver__create__binding__gvector_container_type(this, basis_
     end if
 end subroutine f90wrap_evolver__create__binding__gvector_container_type
 
+subroutine f90wrap_evolver__update__binding__gvector_container_type(this, basis_list, deallocate_systems)
+    use rw_geom, only: basis_type
+    use evolver, only: gvector_container_type
+    implicit none
+    
+    type gvector_container_type_ptr_type
+        type(gvector_container_type), pointer :: p => NULL()
+    end type gvector_container_type_ptr_type
+
+    type basis_type_xnum_array
+        type(basis_type), dimension(:), allocatable :: items
+    end type basis_type_xnum_array
+
+    type basis_type_xnum_array_ptr_type
+        type(basis_type_xnum_array), pointer :: p => NULL()
+    end type basis_type_xnum_array_ptr_type
+    type(gvector_container_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    type(basis_type_xnum_array_ptr_type) :: basis_list_ptr
+    integer, intent(in), dimension(2) :: basis_list
+    logical, intent(in), optional :: deallocate_systems
+
+    this_ptr = transfer(this, this_ptr)
+    basis_list_ptr = transfer(basis_list, basis_list_ptr)
+    if(present(deallocate_systems)) then
+        call this_ptr%p%update(basis_list=basis_list_ptr%p%items, deallocate_systems=deallocate_systems)
+    else
+        call this_ptr%p%update(basis_list=basis_list_ptr%p%items)
+    end if
+end subroutine f90wrap_evolver__update__binding__gvector_container_type
+
 subroutine f90wrap_evolver__add_basis__binding__gvector_container_type(this, basis)
     use rw_geom, only: basis_type
     use evolver, only: gvector_container_type

@@ -1145,7 +1145,23 @@ class Evolver(f90wrap.runtime.FortranModule):
             _raffle.f90wrap_evolver__create__binding__gvector_container_type(this=self._handle, \
                 basis_list=basis_list._handle, deallocate_systems=deallocate_systems)
             
+        def update(self, basis_list, deallocate_systems=True):
+            """
+            update__binding__gvector_container_type(self, basis_list)
 
+            Defined at ../src/lib/mod_evolver.f90 lines \
+                152-162
+
+            Parameters
+            ----------
+            this : unknown
+            basis_list : Basis_Type array
+            deallocate_systems : bool
+
+            """
+            _raffle.f90wrap_evolver__update__binding__gvector_container_type(this=self._handle, \
+                basis_list=basis_list._handle, deallocate_systems=deallocate_systems)
+            
         def add_basis(self, lattice, basis):
             """
             add_basis__binding__gvector_container_type(self, lattice, basis)

@@ -4,7 +4,7 @@
 from ase import Atoms
 from ase.io import write, read
 from pymatgen.io.ase import AseAtomsAdaptor
-from pymatgen.ext.matproj import MPRester
+from mp_api.client import MPRester
 
 
 # %%

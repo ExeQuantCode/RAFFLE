@@ -77,13 +77,13 @@ module evolver
      !! Sigma of the gaussians used in the 2-, 3-, and 4-body 
      !! distribution functions.
      real(real12), dimension(3) :: &
-          width = [ 0.025_real12, pi/24._real12, pi/32._real12 ]
+          width = [ 0.025_real12, pi/24._real12, pi/24._real12 ]
      !! Width of the bins used in the 2-, 3-, and 4-body distribution functions.
      real(real12), dimension(3) :: &
           cutoff_min = [ 0.5_real12, 0._real12, 0._real12 ]
      !! Minimum cutoff for the 2-, 3-, and 4-body distribution functions.
      real(real12), dimension(3) :: &
-          cutoff_max = [ 6._real12, pi, pi/2._real12 ]
+          cutoff_max = [ 6._real12, pi, pi ]
      !! Maximum cutoff for the 2-, 3-, and 4-body distribution functions.
      real(real12), dimension(:), allocatable :: &
           norm_2body, norm_3body, norm_4body
@@ -1659,13 +1659,13 @@ module evolver
          sigma_ = [0.1_real12, 0.05_real12, 0.05_real12]
     !! Sigma for the distribution functions.
     real(real12), dimension(3) :: &
-         width_ = [0.25_real12, pi/24._real12, pi/32._real12]
+         width_ = [0.25_real12, pi/24._real12, pi/24._real12]
     !! Width of the bins for the distribution functions.
     real(real12), dimension(3) :: &
          cutoff_min_ = [0._real12, 0._real12, 0._real12]
     !! Cutoff minimum for the distribution functions.
     real(real12), dimension(3) :: &
-         cutoff_max_ = [6._real12, pi, pi/2._real12]
+         cutoff_max_ = [6._real12, pi, pi]
     !! Cutoff maximum for the distribution functions.
 
 
@@ -1930,10 +1930,10 @@ module evolver
        !------------------------------------------------------------------------
        do i = 1, size(bond_list)
           if( is .eq. bond_list(i)%species(1) )then
-             vtmp1 = bond_list(i)%vector
+             vtmp1 = -bond_list(i)%vector
              ia = bond_list(i)%atom(1)
           elseif( is .eq. bond_list(i)%species(2) )then
-             vtmp1 = -bond_list(i)%vector
+             vtmp1 = bond_list(i)%vector
              ia = bond_list(i)%atom(2)
           else
              !write(0,*) "ERROR: Species not found in bond list1", is, i
@@ -1946,10 +1946,10 @@ module evolver
           do j = i + 1, size(bond_list)
              if( is .eq. bond_list(j)%species(1) .and. &
                  ia .eq. bond_list(j)%atom(1) )then
-                vtmp2 = bond_list(j)%vector
+                vtmp2 = -bond_list(j)%vector
              elseif( is .eq. bond_list(j)%species(2) .and. &
                      ia .eq. bond_list(j)%atom(2) )then
-                vtmp2 = -bond_list(j)%vector
+                vtmp2 = bond_list(j)%vector
              else
                 cycle
              end if
@@ -2030,10 +2030,10 @@ module evolver
           if(abs(modu(bond_list(i)%vector)).lt.1.E-3) cycle
  
           if( is .eq. bond_list(i)%species(1) )then
-             vtmp1 = bond_list(i)%vector
+             vtmp1 = -bond_list(i)%vector
              ia = bond_list(i)%atom(1)
           elseif( is .eq. bond_list(i)%species(2) )then
-             vtmp1 = -bond_list(i)%vector
+             vtmp1 = bond_list(i)%vector
              ia = bond_list(i)%atom(2)
           else
              cycle
@@ -2048,9 +2048,11 @@ module evolver
           index_list_loop: do j = i + 1, size(bond_list)
              if(abs(modu(bond_list(j)%vector)).lt.1.E-3) cycle
              if( ( is .eq. bond_list(j)%species(1) .and. &
-                   ia .eq. bond_list(j)%atom(1)  ) .or. &
-                 ( is .eq. bond_list(j)%species(2) .and. &
-                   ia .eq. bond_list(j)%atom(2) ) ) then
+                   ia .eq. bond_list(j)%atom(1)  ) )then
+                k = k + 1
+                idx_list(k) = -j
+             elseif( is .eq. bond_list(j)%species(2) .and. &
+                     ia .eq. bond_list(j)%atom(2) ) then
                 k = k + 1
                 idx_list(k) = j
              end if
@@ -2071,15 +2073,30 @@ module evolver
           !---------------------------------------------------------------------
           do j = 1, size(idx_list)!size(plane_list)!size(idx_list)
  
+             if( idx_list(j) .lt. 0 )then
+                vtmp2 = -bond_list(-idx_list(j))%vector
+             else
+                vtmp2 = bond_list(idx_list(j))%vector
+             end if
+
+             if(modu(vtmp2).gt.2._real12) cycle
              if( abs( &
                   dot_product(vtmp1, vtmp1) - &
-                  dot_product(vtmp1, bond_list(idx_list(j))%vector) &
+                  dot_product(vtmp1, vtmp2) &
              ) .lt. 1.E-3 ) cycle
              !------------------------------------------------------------------
              ! loop over all bonds to find the third bond
              !------------------------------------------------------------------
              !count_list(num_angles+1:num_angles+(size(idx_list)-j)) = plane_list(j)%count
-             do k = j + 1, size(idx_list)
+             do k = abs(j) + 1, size(idx_list)
+
+                if( idx_list(k) .lt. 0 )then
+                   vtmp3 = -bond_list(-idx_list(k))%vector
+                else
+                   vtmp3 = bond_list(idx_list(k))%vector
+                end if
+
+
  
                 !---------------------------------------------------------------
                 ! calculate the angle between the two bonds
@@ -2093,20 +2110,14 @@ module evolver
                 angle(num_angles) = &
                      get_improper_dihedral_angle( &
                           vtmp1, &
-                          bond_list(idx_list(j))%vector, &
-                          bond_list(idx_list(k))%vector &
+                          vtmp2, &
+                          vtmp3 &
                      )
 
-                ! ! angle never greater than 90, as this corresponds to ...
-                ! ! ... perpendicular to plane
-                ! if(angle(num_angles) .gt. pi/2._real12) &
-                !      angle(num_angles) = pi - angle(num_angles)
-                angle(num_angles) = abs( &
-                     anint( angle(num_angles)/pi )*pi - angle(num_angles) )
                 distance(num_angles) = &
                     modu(vtmp1) ** 2 * &
-                    modu(bond_list(idx_list(j))%vector) ** 2 * &
-                    modu(bond_list(idx_list(k))%vector) ** 2
+                    modu(vtmp2) ** 2 * &
+                    modu(vtmp3) ** 2
                 
                 ! count_list(num_angles) = plane_list(j)%count
 

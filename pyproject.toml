@@ -2,8 +2,8 @@
 name = "raffle"
 version = "0.2"
 dependencies = [
-    "f90wrap>=0.2.15",
-    "numpy>=2.0.0",
+    "f90wrap>=0.2.14,<0.2.15",
+    "numpy>=1.26,<2.0.0",
     "ase>=3.23.0",
 ]
 requires-python = ">=3.11"
@@ -29,8 +29,8 @@ Issues = "https://github.com/nedtaylor/raffle/issues"
 
 [build-system]
 requires = [
-    "f90wrap>=0.2.15",
-    "numpy>=2.0.0",
+    "f90wrap>=0.2.14,<0.2.15",
+    "numpy>=1.26,<2.0.0",
     "setuptools ~= 58.0",
     "cython ~= 0.29.0",
     "cmake>=3.17.5",

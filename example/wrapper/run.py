@@ -52,8 +52,15 @@ for i, atoms in enumerate(database):
 print("Database read")
 
 print("Setting database")
-generator.distributions.create(database_basis)
+generator.distributions.create(database_basis, deallocate_systems=False)
 print("Database set")
+
+print("Printing distributions")
+generator.distributions.write("distributions.txt")
+generator.distributions.write_2body("df2.txt")
+generator.distributions.write_3body("df3.txt")
+generator.distributions.write_4body("df4.txt")
+# exit(0)
 
 print("Checking element energies")
 print(generator.distributions.get_element_energies())

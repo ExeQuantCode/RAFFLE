@@ -14,3 +14,7 @@ src/*.egg-info
 iteration*
 doc/html
 settings.json
+example/example_files/database*
+**/POSCAR*
+iteration/
+*.traj

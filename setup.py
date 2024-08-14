@@ -75,8 +75,8 @@ class CMakeExtension(Extension):
         self.sourcedir = os.path.abspath(sourcedir)
 
 minimum_requirements = [
-    "f90wrap>=0.2.15",
-    "numpy>=2.0.0",
+    "f90wrap>=0.2.14,<0.2.15",
+    "numpy>=1.26,<2.0.0",
     "ase>=3.23.0",
 ]
 

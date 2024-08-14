@@ -1,11 +1,5 @@
-!!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor
-!!! Code for RAFFLE
-!!! Code part of the ARTEMIS group
-!!!#############################################################################
-!!! module defines all global variables
-!!!#############################################################################
 module inputs
+  !! Module for reading input files and setting global variables.
   use misc_raffle, only: file_check,flagmaker, icount, to_lower
   use generator, only: stoichiometry_type
   use constants, only: real12, verbose, pi
@@ -55,30 +49,38 @@ module inputs
   character(1024) :: output_dir !output directory
 
 
-!!!updated  2023/06/16
-
 
 contains
-!!!#############################################################################
+
+!###############################################################################
   subroutine set_global_vars()
+    !! Set global variables from input file.
     implicit none
-    integer :: Reason
+
+    ! Local variables
+    integer :: iostat
+    !! I/O status.
     integer :: i,j
+    !! Loop indices.
     integer :: nseed
+    !! Number of random seed values.
     character(1024) :: pattern,buffer,flag,input_file
-    logical :: skip,empty,filefound
+    !! Character variables.
+    logical :: skip, empty, filefound
+    !! Logical variables.
     integer, dimension(:), allocatable :: seed_arr 
+    !! Random seed array.
 
 
-!!!-----------------------------------------------------------------------------
-!!! initialises variables
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! initialises variables
+    !---------------------------------------------------------------------------
     input_file = ""
     seed = 1
 
-!!!-----------------------------------------------------------------------------
-!!! Reads flags and assigns to variables
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Reads flags and assigns to variables
+    !---------------------------------------------------------------------------
     flagloop: do i=0,command_argument_count()-1
        empty=.false.
        if (skip) then
@@ -87,9 +89,9 @@ contains
        end if
        call get_command_argument(i,buffer)
        buffer=trim(buffer)
-!!!------------------------------------------------------------------------
-!!! FILE AND DIRECTORY FLAGS
-!!!------------------------------------------------------------------------
+       !------------------------------------------------------------------------
+       ! FILE AND DIRECTORY FLAGS
+       !------------------------------------------------------------------------
        if(index(buffer,'-f').eq.1)then
           flag="-f"
           call flagmaker(buffer,flag,i,skip,empty)
@@ -112,9 +114,9 @@ contains
                 end if
              end do infilename_do
           end if
-!!!------------------------------------------------------------------------
-!!! VERBOSE PRINTS
-!!!------------------------------------------------------------------------
+       !------------------------------------------------------------------------
+       ! VERBOSE PRINTS
+       !------------------------------------------------------------------------
        elseif(index(buffer,'-v').eq.1)then
           flag="-v"
           call flagmaker(buffer,flag,i,skip,empty)
@@ -130,17 +132,17 @@ contains
     end do flagloop
 
 
-!!!-----------------------------------------------------------------------------
-!!! check if input file was specified and read if true
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! check if input file was specified and read if true
+    !---------------------------------------------------------------------------
     if(trim(input_file).ne."")then
        call read_input_file(input_file)
     end if
 
 
-!!!-----------------------------------------------------------------------------
-!!! initialise random seed
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! initialise random seed
+    !---------------------------------------------------------------------------
     call random_seed(size=nseed)
     allocate(seed_arr(nseed))
     if(lseed)then
@@ -154,32 +156,47 @@ contains
 
     return
   end subroutine set_global_vars
-!!!#############################################################################
+!###############################################################################
 
 
-
-!!!#############################################################################
-!!! read input file to get variables
-!!!#############################################################################
+!###############################################################################
+! read input file to get variables
+!###############################################################################
   subroutine read_input_file(file_name)
+    !! Read input file to get variables.
     implicit none
-    character(*), intent(in) :: file_name
 
-    integer :: i, num_species, num_bonds
-    integer :: Reason,unit, l_pos, r_pos
+    ! Arguments
+    character(*), intent(inout) :: file_name
+    !! Input file name.
+
+    ! Local variables
+    integer :: i
+    !! Loop index.
+    integer :: num_species, num_bonds
+    !! Number of species and bonds.
+    integer :: iostat, unit, l_pos, r_pos
+    !! I/O status, unit, left and right positions.
     character(1) :: fs
+    !! Field separator.
     character(32) :: pair
+    !! Pair of elements.
     character(1024) :: stoichiometry, elements, database, buffer, energies, &
          bond_radii
+    !! Strings buffers to hold input values (usually derived types).
     real(real12), dimension(3) :: width, sigma
+    !! Width and sigma values for distribution functions.
     character(50), dimension(3) :: cutoff_min, cutoff_max
+    !! Cutoff values for distribution functions.
     integer, allocatable, dimension(:) :: stoichiometry_list
+    !! Stoichiometry list.
     character(3), allocatable, dimension(:) :: element_list
+    !! Element list.
 
 
-!!!-----------------------------------------------------------------------------
-!!! set up namelists for input file
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! set up namelists for input file
+    !---------------------------------------------------------------------------
     namelist /setup/        task, filename_host, seed, method_probab, bins, &
                             database_format, database, verbose, output_dir
     namelist /structure/    num_structures,stoichiometry
@@ -188,9 +205,9 @@ contains
     namelist /element_info/ energies, bond_radii
 
 
-!!!-----------------------------------------------------------------------------
-!!! check input file exists and open
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! check input file exists and open
+    !---------------------------------------------------------------------------
     unit=20
     call file_check(unit,file_name)
 
@@ -201,27 +218,27 @@ contains
     width = -1._real12
     sigma = -1._real12
     database_format = "vasprun.xml"
-!!!-----------------------------------------------------------------------------
-!!! read namelists from input file
-!!!-----------------------------------------------------------------------------
-    read(unit,NML=setup,iostat=Reason)
-    if(Reason.ne.0)then
+    !---------------------------------------------------------------------------
+    ! read namelists from input file
+    !---------------------------------------------------------------------------
+    read(unit,NML=setup,iostat=iostat)
+    if(iostat.ne.0)then
        write(0,*) "THERE WAS AN ERROR IN READING SETUP"
     end if
-    read(unit,NML=structure,iostat=Reason)
-    if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
+    read(unit,NML=structure,iostat=iostat)
+    if(.not.is_iostat_end(iostat).and.iostat.ne.0)then
        stop "THERE WAS AN ERROR IN READING STRUCTURE SETTINGS"
     end if
-    read(unit,NML=volume,iostat=Reason)
-    if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
+    read(unit,NML=volume,iostat=iostat)
+    if(.not.is_iostat_end(iostat).and.iostat.ne.0)then
        stop "THERE WAS AN ERROR IN READING VOLUME SETTINGS"
     end if
-    read(unit,NML=distribution,iostat=Reason)
-    if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
+    read(unit,NML=distribution,iostat=iostat)
+    if(.not.is_iostat_end(iostat).and.iostat.ne.0)then
        stop "THERE WAS AN ERROR IN READING DISTRIBUTION SETTINGS"
     end if
-    read(unit,NML=element_info,iostat=Reason)
-    if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
+    read(unit,NML=element_info,iostat=iostat)
+    if(.not.is_iostat_end(iostat).and.iostat.ne.0)then
        stop "THERE WAS AN ERROR IN READING ELEMENT_INFO SETTINGS"
     end if
 
@@ -303,25 +320,37 @@ contains
     width_list = width
     sigma_list = sigma
 
-!!!-----------------------------------------------------------------------------
-!!! close input file
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! close input file
+    !---------------------------------------------------------------------------
     close(unit)
     write(*,*) "Input file read successfully."
 
     return
   end subroutine read_input_file
-!!!#############################################################################
+!###############################################################################
 
+
+!###############################################################################
   function read_value_from_string(string) result(output)
+    !! Read a value from a string.
     implicit none
-    character(*), intent(in) :: string
-    real(real12) :: output
 
+    ! Arguments
+    character(*), intent(in) :: string
+    !! Input string.
+    real(real12) :: output
+    !! Output value.
+
+    ! Local variables
     integer :: k, pos
+    !! Loop index, position.
     real(real12) :: variable, power
+    !! Variable and power values.
     character(:), allocatable :: string_
+    !! Copy of input string.
     character(12) :: numeric_set = "0123456789.-"
+    !! Numeric set.
 
     pos = 1
     output = 1._real12
@@ -366,9 +395,7 @@ contains
 
     end do loop
 
-
-    return
   end function read_value_from_string
-
+!###############################################################################
 
 end module inputs

@@ -17,7 +17,7 @@ LIBS := mod_constants.f90 \
 	mod_elements.f90 \
 	mod_ml.f90 \
 	mod_evolver.f90 \
-	mod_buildmap.f90 \
+	mod_evaluator.f90 \
 	mod_atom_adder.f90 \
 	mod_read_structures.f90
 OBJS := $(addprefix $(LIB_DIR)/,$(LIBS))

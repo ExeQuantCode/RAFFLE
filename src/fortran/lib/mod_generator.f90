@@ -7,19 +7,18 @@ module generator
   !! provided host structure.
   use constants, only: real12
   use misc_raffle, only: strip_null
-  use rw_geom, only: bas_type
+  use rw_geom, only: basis_type
+  use extended_geom, only: extended_basis_type
   use evolver, only: gvector_container_type
 
   use constants, only: verbose_global => verbose
   use misc_raffle, only: shuffle
-  use rw_geom, only: clone_bas
   use edit_geom, only: bas_merge
   use add_atom, only: add_atom_void, add_atom_walk, add_atom_min, &
        get_viable_gridpoints, update_viable_gridpoints
 
 #ifdef ENABLE_ATHENA
-  use read_structures, only: get_graph_from_basis
-  use machine_learning, only: network_predict_graph
+  use machine_learning, only: network_predict_graph, get_graph_from_basis
   use athena, only: graph_type
 #endif
 
@@ -47,7 +46,7 @@ module generator
     !! structures from a host structure, using the RAFFLE method.
     integer :: num_structures = 0
     !! Number of structures generated. Initialised to zero.
-    type(bas_type) :: host
+    type(basis_type) :: host
     !! Host structure.
     integer, dimension(3) :: bins
     !! Number of bins to divide the host structure into along each axis.
@@ -55,7 +54,7 @@ module generator
     !! Distribution function container for the 2-, 3-, and 4-body interactions.
     real(real12), dimension(3) :: method_probab
     !! Probability of each placement method.
-    type(bas_type), dimension(:), allocatable :: structures
+    type(basis_type), dimension(:), allocatable :: structures
     !! Generated structures.
    contains
     procedure, pass(this) :: set_host
@@ -75,7 +74,7 @@ module generator
     module function init_raffle_generator( &
          host, &
          width, sigma, cutoff_min, cutoff_max) result(generator)
-      type(bas_type), intent(in), optional :: host
+      type(basis_type), intent(in), optional :: host
       real(real12), dimension(3), intent(in), optional :: width
       real(real12), dimension(3), intent(in), optional :: sigma
       real(real12), dimension(3), intent(in), optional :: cutoff_min
@@ -96,7 +95,7 @@ contains
     implicit none
 
     ! Arguments
-    type(bas_type), intent(in), optional :: host
+    type(basis_type), intent(in), optional :: host
     !! Basis of the host structure.
     real(real12), dimension(3), intent(in), optional :: width
     !! Width of the gaussians used in the 2-, 3-, and 4-body 
@@ -138,7 +137,7 @@ contains
     ! Arguments
     class(raffle_generator_type), intent(inout) :: this
     !! Instance of the raffle generator.
-    type(bas_type), intent(in) :: host
+    type(basis_type), intent(in) :: host
     !! Basis of the host structure.
 
     ! Local variables
@@ -186,7 +185,7 @@ contains
     !! Boolean comparison of element symbols.
     integer :: verbose_ = 0
     !! Verbosity level.
-    type(bas_type) :: basis_template
+    type(basis_type) :: basis_template
     !! Basis of the structure to generate (i.e. allocated species and atoms).
     real(real12), dimension(3) :: &
          method_probab_ = [1.0_real12, 1.0_real12, 1.0_real12]
@@ -194,7 +193,7 @@ contains
 
     integer, dimension(:), allocatable :: seed_arr
     !! Array of seeds for the random number generator.
-    type(bas_type), dimension(:), allocatable :: tmp_structures
+    type(basis_type), dimension(:), allocatable :: tmp_structures
     !! Temporary array of structures (for memory reallocation).
 
     integer, dimension(:,:), allocatable :: placement_list
@@ -255,7 +254,6 @@ contains
     allocate(basis_template%spec(num_insert_species))
     do i = 1, size(stoichiometry)
        basis_template%spec(i)%name = strip_null(stoichiometry(i)%element)
-       write(*,*) "Element", basis_template%spec(i)%name, len_trim(basis_template%spec(i)%name)
     end do
     basis_template%spec(:)%num = stoichiometry(:)%num
     basis_template%natom = num_insert_atoms
@@ -271,10 +269,6 @@ contains
     if(.not.allocated(this%host%spec)) stop "Host structure not set"
     basis_template = bas_merge(this%host,basis_template)
     basis_template%lat = this%host%lat
-    write(*,*) "Host basis", this%host%natom, this%host%nspec
-    do i = 1, size(basis_template%spec)
-       write(*,*) "Element", basis_template%spec(i)%name, len_trim(basis_template%spec(i)%name)
-    end do
 
 
     !---------------------------------------------------------------------------
@@ -322,8 +316,12 @@ contains
     structure_loop: do istructure = num_structures_old + 1, num_structures_new
     
        if(verbose_.gt.0) write(*,*) "Generating structure", istructure
-       this%structures(istructure) = this%generate_structure( basis_template, &
-            placement_list, method_probab_, verbose_ )
+      !  this%structures(istructure) = this%generate_structure( basis_template, &
+      !       placement_list, method_probab_, verbose_ )
+       call this%structures(istructure)%copy( basis = &
+            this%generate_structure( basis_template, &
+            placement_list, method_probab_, verbose_ ) &
+       )
        this%num_structures = istructure
        
 #ifdef ENABLE_ATHENA
@@ -352,13 +350,13 @@ contains
     ! Arguments
     class(raffle_generator_type), intent(in) :: this
     !! Instance of the raffle generator.
-    type(bas_type), intent(in) :: basis_initial
+    type(basis_type), intent(in) :: basis_initial
     !! Initial basis to build upon.
     integer, dimension(:,:), intent(in) :: placement_list
     !! List of possible placements.
     real(real12), dimension(3) :: method_probab
     !! Probability of each placement method.
-    type(bas_type) :: basis
+    type(extended_basis_type) :: basis
     !! Generated basis.
     integer, intent(in) :: verbose
     !! Verbosity level.
@@ -388,7 +386,11 @@ contains
     !---------------------------------------------------------------------------
     ! initialise the basis
     !---------------------------------------------------------------------------
-    call clone_bas(basis_initial, basis)
+    call basis%copy(basis_initial)
+    call basis%create_images( &
+         max_bondlength = this%distributions%cutoff_max(1), &
+         atom_ignore_list = placement_list &
+    )
     num_insert_atoms = basis%natom - this%host%natom
 
 
@@ -396,31 +398,61 @@ contains
     ! shuffle the placement list
     !---------------------------------------------------------------------------
     placement_list_shuffled = placement_list
-    call shuffle(placement_list_shuffled,1) !!! NEED TO SORT OUT RANDOM SEED
+    call shuffle(placement_list_shuffled,1)
+    !! @note
+    !! NEED TO SORT OUT RANDOM SEED
+    !! @endnote
 
 
     !---------------------------------------------------------------------------
     ! check for viable gridpoints
     !---------------------------------------------------------------------------
-    viable_gridpoints = get_viable_gridpoints( this%bins, &
-         basis, &
-         [ this%distributions%bond_info(:)%radius_covalent ], &
-         placement_list_shuffled )
+    method_probab_ = method_probab
+    if(abs( method_probab_(3) - method_probab_(2) ) .gt. 1.E-3)then
+       viable_gridpoints = get_viable_gridpoints( this%bins, &
+            basis, &
+            [ this%distributions%bond_info(:)%radius_covalent ], &
+            placement_list_shuffled )
+    end if
 
 
     !---------------------------------------------------------------------------
     ! place the atoms
     !---------------------------------------------------------------------------
-    method_probab_ = method_probab
     iplaced = 0
     void_ticker = 0
+    viable = .false.
     placement_loop: do while (iplaced.lt.num_insert_atoms)
+       if(viable)then
+          if(allocated(viable_gridpoints)) &
+               call update_viable_gridpoints( viable_gridpoints, &
+                     basis, &
+                     [ placement_list_shuffled(iplaced,:) ], &
+                     this%distributions%bond_info( &
+                        nint( ( basis%nspec - &
+                          placement_list_shuffled(iplaced,1)/2._real12 ) * &
+                        ( placement_list_shuffled(iplaced,1) - 1 ) + &
+                        placement_list_shuffled(iplaced,1) ) &                       
+                     )%radius_covalent )
+          if(.not.allocated(viable_gridpoints))then
+             if(abs(method_probab_(2)).lt.1.E-6)then
+                write(0,*) "ERROR: No viable gridpoints"
+                write(0,*) "No placement methods available"
+                stop 0
+             else if(abs( method_probab_(3) - method_probab_(2) ) .gt. 1.E-6) then
+                write(*,*) "WARNING: No more viable gridpoints"
+                write(*,*) "Suppressing global minimum method"
+                method_probab_ = method_probab_ / method_probab_(2)
+                method_probab_(3) = method_probab_(2)
+             end if
+          end if
+       end if
        call random_number(rtmp1)
        if(rtmp1.le.method_probab_(1)) then 
           if(verbose.gt.0) write(*,*) "Add Atom Void"
           point = add_atom_void( this%bins, &
                 basis, &
-                placement_list_shuffled(iplaced+1:,:), viable)
+                placement_list_shuffled(iplaced+1:,:), viable )
        else if(rtmp1.le.method_probab_(2)) then 
           if(verbose.gt.0) write(*,*) "Add Atom Walk"
           point = add_atom_walk( &
@@ -437,7 +469,19 @@ contains
                 basis, &
                 placement_list_shuffled(iplaced+1:,:), &
                 [ this%distributions%bond_info(:)%radius_covalent ], &
-                viable)
+                viable )
+          if(.not. viable .and. abs(method_probab_(2)).lt.1.E-6)then
+             write(0,*) "ERROR: No viable gridpoints"
+             write(0,*) "  Min method is the only method, but cannot place another atom"
+             write(0,*) "  Species to place now: ", basis%spec(placement_list_shuffled(iplaced+1,1))%name
+             stop 0
+          elseif(.not. viable)then
+             deallocate(viable_gridpoints)
+             write(*,*) "WARNING: No more viable gridpoints"
+             write(*,*) "Suppressing global minimum method"
+             method_probab_ = method_probab_ / method_probab_(2)
+             method_probab_(3) = method_probab_(2)
+          end if
        end if
        if(.not. viable) then
           if(void_ticker.gt.10) &
@@ -446,29 +490,17 @@ contains
           void_ticker = 0
           if(.not.viable) cycle placement_loop
        end if
-       basis%spec(placement_list_shuffled(iplaced+1,1))%atom( &
-            placement_list_shuffled(iplaced+1,2),:3) = point(:3)
+       iplaced = iplaced + 1
+       basis%spec(placement_list_shuffled(iplaced,1))%atom( &
+            placement_list_shuffled(iplaced,2),:3) = point(:3)
+       call basis%update_images( &
+            max_bondlength = this%distributions%cutoff_max(1), &
+            is = placement_list_shuffled(iplaced,1), &
+            ia = placement_list_shuffled(iplaced,2) &
+       )
        if(verbose.gt.0)then
           write(*,'(A)',ADVANCE='NO') achar(13)
           write(*,*) "placed", viable
-       end if
-       iplaced = iplaced + 1
-       if(allocated(viable_gridpoints)) &
-            call update_viable_gridpoints( viable_gridpoints, &
-                  basis, &
-                  [ placement_list_shuffled(iplaced,:) ], &
-                  this%distributions%bond_info( &
-                     nint( ( basis%nspec - &
-                       placement_list_shuffled(iplaced,1)/2._real12 ) * &
-                     ( placement_list_shuffled(iplaced,1) - 1 ) + &
-                     placement_list_shuffled(iplaced,1) ) &                       
-                  )%radius_covalent )
-       if(.not.allocated(viable_gridpoints).and. &
-            abs( method_probab_(3) - method_probab_(2) ) .gt. 1.E-3) then
-          write(*,*) "WARNING: No more viable gridpoints"
-          write(*,*) "Suppressing global minimum method"
-          method_probab_ = method_probab_ / method_probab_(2)
-          method_probab_(3) = method_probab_(2)
        end if
 
     end do placement_loop
@@ -485,7 +517,7 @@ contains
     ! Arguments
     class(raffle_generator_type), intent(in) :: this
     !! Instance of the raffle generator.
-    type(bas_type), dimension(:), allocatable :: structures
+    type(basis_type), dimension(:), allocatable :: structures
     !! Generated structures.
 
     structures = this%structures
@@ -500,7 +532,7 @@ contains
     ! Arguments
     class(raffle_generator_type), intent(in) :: this
     !! Instance of the raffle generator.
-    type(bas_type), intent(in) :: basis
+    type(basis_type), intent(in) :: basis
     !! Basis of the structure to evaluate.
     real(real12) :: viability
     !! Viability of the generated structures.

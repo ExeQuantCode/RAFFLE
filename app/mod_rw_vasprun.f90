@@ -1,6 +1,6 @@
 module rw_vasprun
   use constants, only: real12
-  use rw_geom, only: bas_type
+  use rw_geom, only: basis_type
   implicit none
 
   private
@@ -156,7 +156,7 @@ contains
   subroutine get_structure_from_vasprun(unit, basis, found)
     implicit none
     integer, intent(in) :: unit
-    type(bas_type) :: basis
+    type(basis_type) :: basis
 
     integer :: ierror, i, is, ia
     logical, intent(out), optional :: found

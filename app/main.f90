@@ -18,26 +18,26 @@ program raffle_program
 
 
 
-!!!-----------------------------------------------------------------------------
-!!! read input file
-!!!-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! read input file
+  !-----------------------------------------------------------------------------
   call set_global_vars()
 
 
-!!!-----------------------------------------------------------------------------
-!!! check the task and run the appropriate case
-!!!-----------------------------------------------------------------------------
-!!! OLD TASKS !!!
-!!! 0) Run RSS
-!!! 1) Regenerate DIst Files (WIP)
-!!! 2) Run HOST_RSS
-!!! 3) Test
-!!! 4) Sphere_Overlap
-!!! 5) Bondangle_test !!! THIS LITERALLY JUST TESTS THAT THE BONDANGLE METHOD WORKS! DO NOT USE! !!!
-!!! 6) Run evo (Should be run after any set created)
-!!! 7) Add new poscar  
-!!! 8) Run evo, but don't regen energies or evolve distributions (only reformat gaussians) 
-!!! 9) Run evo, don't get energies but do evolve distributions
+  !-----------------------------------------------------------------------------
+  ! check the task and run the appropriate case
+  !-----------------------------------------------------------------------------
+  ! OLD TASKS !
+  ! 0) Run RSS
+  ! 1) Regenerate DIst Files (WIP)
+  ! 2) Run HOST_RSS
+  ! 3) Test
+  ! 4) Sphere_Overlap
+  ! 5) Bondangle_test ! THIS LITERALLY JUST TESTS THAT THE BONDANGLE METHOD WORKS! DO NOT USE! !
+  ! 6) Run evo (Should be run after any set created)
+  ! 7) Add new poscar  
+  ! 8) Run evo, but don't regen energies or evolve distributions (only reformat gaussians) 
+  ! 9) Run evo, don't get energies but do evolve distributions
   select case(task)
   case(0)
      write(*,*) "NOTHING WAS EVER SET UP FOR CASE 0"
@@ -54,9 +54,9 @@ program raffle_program
 
 
 
-!!!-----------------------------------------------------------------------------
-!!! set the element energies and bond radii, if they are provided
-!!!-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! set the element energies and bond radii, if they are provided
+  !-----------------------------------------------------------------------------
   if(allocated(element_symbols).and.allocated(element_energies)) then
      call generator%distributions%set_element_energies( &
           element_symbols, &
@@ -72,9 +72,9 @@ program raffle_program
   end if
 
 
-!!!-----------------------------------------------------------------------------
-!!! read structures from the database and generate gvectors
-!!!-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! read structures from the database and generate gvectors
+  !-----------------------------------------------------------------------------
   generator%distributions = get_evolved_gvectors_from_data( &
        input_dir    = database_list, &
        file_format  = database_format, &
@@ -97,18 +97,18 @@ program raffle_program
   end do
 
 
-!!!-----------------------------------------------------------------------------
-!!! set the host structure
-!!!-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! set the host structure
+  !-----------------------------------------------------------------------------
   open(newunit=unit, file=filename_host, status='old')
   call geom_read(unit, generator%host)
   close(unit)
   generator%bins = bins
 
 
-!!!-----------------------------------------------------------------------------
-!!! generate random structures
-!!!-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! generate random structures
+  !-----------------------------------------------------------------------------
   write(*,*) "Generating structures"
   call generator%generate( num_structures, &
        stoich, &
@@ -116,9 +116,9 @@ program raffle_program
   write(*,*) "Structures have been successfully generated"
 
 
-!!!-----------------------------------------------------------------------------
-!!! save generated structures
-!!!-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! save generated structures
+  !-----------------------------------------------------------------------------
   do i = 1, generator%num_structures
      write(buffer,'(A,"/struc",I0.3)') trim(output_dir),i
      call touch(buffer)

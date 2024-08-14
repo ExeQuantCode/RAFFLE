@@ -165,6 +165,7 @@ contains
                (trim(element_bond_database(i)%element(2)) .eq. &
                     trim(element_1) ) ) &
           )then
+             this%element = element_bond_database(i)%element
              this%radius_covalent = element_bond_database(i)%radius_covalent
              if(present(in_database)) in_database = .true.
              return

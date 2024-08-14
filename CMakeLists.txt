@@ -39,25 +39,6 @@ enable_language(Fortran)
 # get the user's home directory
 set(HOME_DIR $ENV{HOME})
 
-# # set coverage compiler flags
-# if (CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*")
-#   list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
-#   set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
-#   if(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
-#       include(CodeCoverage)
-#       setup_target_for_coverage_gcovr_html(
-#         NAME coverage
-#         EXECUTABLE ctest
-#         EXCLUDE "${PROJECT_SOURCE_DIR}/test/*")
-#   endif()
-# endif()
-
-# set the output directories
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-
-# enable testing
-enable_testing()
-
 # set options for building tests and examples
 option(BUILD_TESTS "Build the unit tests" ON)
 option(BUILD_EXAMPLES "Build the examples" ON)
@@ -66,22 +47,40 @@ option(BUILD_PYTHON "Build the python library" On)
 option(BUILD_EXECUTABLE "Build the Fortran executable" On)
 option(REMAKE_F90WRAP "Remake the f90wrap signature file" OFF)
 
+# set coverage compiler flags
+if (CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*")
+  list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+  set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+  if(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
+      include(CodeCoverage)
+      setup_target_for_coverage_gcovr_html(
+        NAME coverage
+        EXECUTABLE ctest
+        EXCLUDE "${PROJECT_SOURCE_DIR}/test/*")
+  endif()
+endif()
+
+# enable testing
+enable_testing()
+
+# set the output directories
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+
 # Define the sources
 set(SRC_DIR src)
 set(FORTRAN_SRC_DIR ${SRC_DIR}/fortran)
 set(LIB_DIR ${FORTRAN_SRC_DIR}/lib)
 
 set(LIB_FILES
-  mod_constants.f90
-  mod_misc.f90
+    mod_constants.f90
+    mod_misc.f90
 	mod_misc_maths.f90
 	mod_misc_linalg.f90
-	mod_rw_vasprun.f90
 	mod_edit_geom.f90
+    mod_extended_geom.f90
 	mod_elements.f90
-	mod_buildmap.f90
+	mod_evaluator.f90
 	mod_atom_adder.f90
-	mod_read_structures.f90
 )
 
 set(SPECIAL_LIB_FILES
@@ -94,22 +93,38 @@ set(SPECIAL_LIB_FILES
 
 # Add Athena library
 if(ENABLE_ATHENA)
-    # Specify the paths to the include and library directories
-    set(ATHENA_ROOT ${HOME_DIR}/.local/athena)
-    set(ATHENA_INCLUDE_DIR ${HOME_DIR}/.local/athena/include)
-    set(ATHENA_LIBRARY ${HOME_DIR}/.local/athena/lib/libathena.a)  # or libfoo.a for static libraries
 
-    find_library(ATHENA_LIBRARY NAMES athena)
+    include(FetchContent)
+    FetchContent_Declare(
+        athena
+        GIT_REPOSITORY https://github.com/nedtaylor/athena.git
+        GIT_TAG        74e988b8538e57d57cd5c9cfaebd3181782e03dd # branch-message_passing_neural_network
+        FIND_PACKAGE_ARGS NAMES athena
+    )
+    FetchContent_MakeAvailable(athena)
+
+
+    # Specify the paths to the include and library directories
+    # set(ATHENA_ROOT ${HOME_DIR}/.local/athena)
+    # set(ATHENA_INCLUDE_DIR ${HOME_DIR}/.local/athena/include)
+    # set(ATHENA_LIBRARY ${HOME_DIR}/.local/athena/lib/libathena.a)  # or libfoo.a for static libraries
+
+    # find_library(ATHENA_LIBRARY NAMES athena)
+    find_package(athena REQUIRED)
 
     # Add the include directory
     include_directories(${ATHENA_INCLUDE_DIR})
     list(APPEND LIB_FILES mod_ml.f90)
 
-    set(F2PY_ATHENA_LIBRARY_FLAGS
-        -L${ATHENA_ROOT}/lib
-        -I${ATHENA_ROOT}/include
-        -lathena
-    )
+    # set(F2PY_ATHENA_LIBRARY_FLAGS
+    #     -L${ATHENA_ROOT}/lib
+    #     -I${ATHENA_ROOT}/include
+    #     -lathena
+    # )
+
+    message(STATUS "Athena library: ${ATHENA_LIBRARY}")
+    message(STATUS "Athena home directory: ${athena_DIR}")
+    message(STATUS "Athena install directory: ${athena_INSTALL_DIR}")
 endif()
 
 foreach(lib ${LIB_FILES})
@@ -135,6 +150,8 @@ endforeach()
 
 
 set(EXECUTABLE_FILES
+    mod_rw_vasprun.f90
+    mod_read_structures.f90
     inputs.f90
     main.f90
 )
@@ -221,10 +238,6 @@ target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug>:${DEBUGFLAGS}>"
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Release>:${PYTHONFLAGS}>")
 
 
-# # add coverage compiler flags
-# if (CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*")
-#   append_coverage_compiler_flags()
-# endif()
 
 if (BUILD_EXECUTABLE)
     add_executable(${PROJECT_NAME}_executable ${PREPENDED_EXECUTABLE_FILES})
@@ -284,7 +297,7 @@ if (BUILD_PYTHON)
             -m ${PROJECT_NAME}
             -k ${KIND_MAP}
             ${F90WRAP_FORTRAN_SRC_FILES}
-            --only raffle_generator_type stoichiometry_type bas_type gvector_container_type:
+            --only raffle_generator_type stoichiometry_type basis_type gvector_container_type:
             DEPENDS ${F90WRAP_FORTRAN_SRC_FILES}
             WORKING_DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
             COMMENT "Generating f90wrap signature file"
@@ -299,7 +312,7 @@ if (BUILD_PYTHON)
         COMMENT "Copying raffle class file"
     )
 
-    set(F2PY_OUTPUT_FLAG --quiet > /dev/null 2>&1)
+    # set(F2PY_OUTPUT_FLAG --quiet > /dev/null 2>&1)
 
     # Create a Python module using f2py
     add_custom_command(
@@ -336,7 +349,36 @@ if (BUILD_PYTHON)
 endif()
 
 
-
+# link the Athena library
 if(ENABLE_ATHENA)
-    target_link_libraries(raffle ${ATHENA_LIBRARY})
+    add_dependencies(${PROJECT_NAME} athena)
+    target_link_libraries(${PROJECT_NAME} athena)
+endif()
+
+
+# include the build test directory
+if(BUILD_TESTS)
+  add_subdirectory(test)
+endif()
+
+# add coverage compiler flags
+if ( ( CMAKE_Fortran_COMPILER MATCHES ".*gfortran.*" OR CMAKE_Fortran_COMPILER MATCHES ".*gcc.*" ) AND 
+     ( CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*" ) )
+
+    append_coverage_compiler_flags()
+
+    # Copy test data files
+    add_custom_command(
+        OUTPUT ${CMAKE_BINARY_DIR}/test/test
+        COMMAND mkdir -p ${CMAKE_BINARY_DIR}/test/test
+    )
+    add_custom_command(
+        OUTPUT ${CMAKE_BINARY_DIR}/test/test/data
+        COMMAND cp -r ${CMAKE_CURRENT_LIST_DIR}/test/data ${CMAKE_BINARY_DIR}/test/test/.
+        COMMENT "Copying test data files"
+    )
+    add_custom_target(copy_test_data ALL
+        DEPENDS ${CMAKE_BINARY_DIR}/test/test ${CMAKE_BINARY_DIR}/test/test/data
+    )
+
 endif()

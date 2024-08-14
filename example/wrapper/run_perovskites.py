@@ -7,7 +7,6 @@ import ase
 from ase import Atoms
 from ase.io import read, write
 
-print(ase.__version__)
 
 # atoms = Atoms('CC', positions=[[0, 0, 0], [1.2, 0, 0]], pbc=True, cell=[2.4, 2.4, 2.4])
 
@@ -17,7 +16,7 @@ generator = raffle.generator.raffle_generator_type()
 
 print("Reading host")
 host = read("../example_files/POSCAR_host_perovskites")
-host_basis = raffle.rw_geom.bas_type(host)
+host_basis = raffle.rw_geom.basis_type(host)
 generator.set_host(host_basis)
 print("Host read")
 
@@ -31,23 +30,11 @@ generator.distributions.set_element_energies(
     }
 )
 
-# ## BOND SETTER
-# generator.distributions.set_bond_radii(
-#     {
-#         ('C', 'C'): 1.5,
-#         ('C', 'Mg'): 2.0,
-#         ('C', 'O'): 1.5,
-#         ('Mg', 'Mg'): 2.0,
-#         ('Mg', 'O'): 2.0,
-#         ('O', 'O'): 1.5
-#     }
-# )
-
 
 print("Reading database")
 database = read("../example_files/database_perovskites/database.xyz", index=":")
 num_database = len(database)
-database_basis = raffle.rw_geom.bas_type_xnum_array()
+database_basis = raffle.rw_geom.basis_type_xnum_array()
 database_basis.allocate(num_database)
 for i, atoms in enumerate(database):
     database_basis.items[i].fromase(atoms)
@@ -61,6 +48,9 @@ print("Database set")
 
 print("Printing distributions")
 generator.distributions.write("distributions.txt")
+generator.distributions.write_2body("df2.txt")
+generator.distributions.write_3body("df3.txt")
+generator.distributions.write_4body("df4.txt")
 
 print("Checking element energies")
 print(generator.distributions.get_element_energies())
@@ -84,7 +74,7 @@ stoich_list.items[3].element = 'O'
 stoich_list.items[3].num = 24
 
 print("Generating...")
-generator.generate(num_structures=10, stoichiometry=stoich_list)
+generator.generate(num_structures=10, stoichiometry=stoich_list, seed=0, verbose=0, method_probab={"void":1.0, "walk":1.0, "min":1.0})
 print("Generated")
 
 print("Getting structures")

@@ -4,6 +4,7 @@ bin/
 obj/
 *.mod
 *.smod
+*.so
 *.txt
 DTESTING/
 DTEST/
@@ -12,3 +13,4 @@ src/*.egg-info
 *.egg-info
 iteration*
 doc/html
+settings.json

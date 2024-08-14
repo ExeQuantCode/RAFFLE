@@ -2214,7 +2214,7 @@ module evolver
        loop_limits(:,1) = &
             [ min(nbins, bin), min(nbins, bin + max_num_steps), 1 ]
        loop_limits(:,2) = &
-            [ min(1, bin - 1), max(1, bin - max_num_steps), -1 ]
+            [ max(1, bin - 1), max(1, bin - max_num_steps), -1 ]
 
 
        !------------------------------------------------------------------------

@@ -2,12 +2,14 @@ import matplotlib.pyplot as plt
 
 from ase import Atoms
 from ase.io import read, write
-from ase.build import surface
+from ase.build import surface, bulk 
+
 from host import Host
 from ase.calculators.emt import EMT
 from argparse import ArgumentParser
 import numpy as np
 import funcs 
+from funcs import RAFFLE
 from raffle import raffle
 
 parser = ArgumentParser()
@@ -49,10 +51,19 @@ Here, we can either read in or call ARTEMIS directly. I create a simple surface 
 """
 created_by_artemis=[]
 host_structures=[]
+
+
+
+stoichiometry_dict={"Au":[1]}
 for i in range(1):
     structure=surface('Au', (2,2,1), 5)
     structure.center(vacuum = 10 ,axis = 2)
+    #structure=structure.repeat((2,2,2))
     created_by_artemis.append(structure)
+
+for i in range(len(stoichiometry_dict)): 
+    del(structure[np.random.randint(0,len(stoichiometry_dict))])
+
 
 for i,structures in enumerate(created_by_artemis): 
     host=Host(structures,struct_id=i,**kwargs)
@@ -64,7 +75,7 @@ for i,structures in enumerate(created_by_artemis):
 """
 Stoichoimetry dict can be populated by a function, but here it is initialised simply
 """
-stoichiometry_dict={"Au":[15]}
+
 iterations=1
 
 #############################################################################
@@ -81,10 +92,13 @@ except:
     from ase.build import bulk 
     from ase.build import fcc111
 
-
-    database=[bulk("Au"),bulk("Au")]
+    structure=surface('Au', (2,2,1), 5)
+    structure.center(vacuum = 10 ,axis = 2)
+    
+    database=[structure,structure]
+    
+    
     for structure in database:
-
         structure.calc = EMT()
         structure.get_potential_energy()
     write("example_distribution.traj",database)
@@ -103,7 +117,9 @@ energies_dict={'Au': -5.0}
 #raffle.Generator.generate(host_structures,atoms,iterations)
 #funcs.rss(host_structures,atoms,iterations)
 
-funcs.RAFFLE(host_structures,atoms,energies_dict,iterations,**kwargs)
+RAFFLE(host_structures,atoms,energies_dict,iterations,**kwargs)
+
+
 
 for host in host_structures:
     host.calculate_children(calculator)

@@ -11,7 +11,7 @@ module add_atom
   use rw_geom, only: basis_type
   use extended_geom, only: extended_basis_type
   use edit_geom, only: get_min_dist, get_min_dist_between_point_and_atom
-  use evaluator, only: evaluate_point
+  use evaluator, only: evaluate_point => evaluate_point_multiplier
   use evolver, only: gvector_container_type
   implicit none
   real(real12) :: lowtol = 1.5_real12
@@ -68,7 +68,8 @@ contains
     !---------------------------------------------------------------------------
     viable = .false.
     allocate(suitability_grid(size(gridpoints,dim=2)))
-    do concurrent( i = 1:size(gridpoints,dim=2) )
+   !  do concurrent( i = 1:size(gridpoints,dim=2) )
+    do i = 1, size(gridpoints,dim=2)
        suitability_grid(i) = evaluate_point( gvector_container, &
             gridpoints(:,i), basis, &
             atom_ignore_list, radius_list, &

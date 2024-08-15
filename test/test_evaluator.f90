@@ -36,14 +36,14 @@ program test_evaluator
   database(1)%spec(1)%num = 8
   database(1)%spec(1)%name = 'C'
   allocate(database(1)%spec(1)%atom(database(1)%spec(1)%num, 3))
-  database(1)%spec(1)%atom(1, :) = [0.0, 0.0, 0.0]
-  database(1)%spec(1)%atom(2, :) = [0.5, 0.5, 0.0]
-  database(1)%spec(1)%atom(3, :) = [0.5, 0.0, 0.5]
-  database(1)%spec(1)%atom(4, :) = [0.0, 0.5, 0.5]
-  database(1)%spec(1)%atom(5, :) = [0.25, 0.25, 0.25]
-  database(1)%spec(1)%atom(6, :) = [0.75, 0.75, 0.25]
-  database(1)%spec(1)%atom(7, :) = [0.75, 0.25, 0.75]
-  database(1)%spec(1)%atom(8, :) = [0.25, 0.75, 0.75]
+  database(1)%spec(1)%atom(1, :3) = [0.0, 0.0, 0.0]
+  database(1)%spec(1)%atom(2, :3) = [0.5, 0.5, 0.0]
+  database(1)%spec(1)%atom(3, :3) = [0.5, 0.0, 0.5]
+  database(1)%spec(1)%atom(4, :3) = [0.0, 0.5, 0.5]
+  database(1)%spec(1)%atom(5, :3) = [0.25, 0.25, 0.25]
+  database(1)%spec(1)%atom(6, :3) = [0.75, 0.75, 0.25]
+  database(1)%spec(1)%atom(7, :3) = [0.75, 0.25, 0.75]
+  database(1)%spec(1)%atom(8, :3) = [0.25, 0.75, 0.75]
 
   database(1)%lat(1,:) = [3.5668, 0.0, 0.0]
   database(1)%lat(2,:) = [0.0, 3.5668, 0.0]
@@ -71,15 +71,15 @@ program test_evaluator
   basis_host%spec(1)%num = 9
   basis_host%spec(1)%name = 'C'
   allocate(basis_host%spec(1)%atom(basis_host%spec(1)%num, 3))
-  basis_host%spec(1)%atom(1, :) = [0.0, 0.0, 0.0]
-  basis_host%spec(1)%atom(2, :) = [0.5, 0.5, 0.0]
-  basis_host%spec(1)%atom(3, :) = [0.5, 0.0, 0.25]
-  basis_host%spec(1)%atom(4, :) = [0.0, 0.5, 0.25]
-  basis_host%spec(1)%atom(5, :) = [0.25, 0.25, 0.125]
-  basis_host%spec(1)%atom(6, :) = [0.75, 0.75, 0.125]
-  basis_host%spec(1)%atom(7, :) = [0.75, 0.25, 0.375]
-  basis_host%spec(1)%atom(8, :) = [0.25, 0.75, 0.375]
-  basis_host%spec(1)%atom(9, :) = [0.0, 0.0, 0.0]
+  basis_host%spec(1)%atom(1, :3) = [0.0, 0.0, 0.0]
+  basis_host%spec(1)%atom(2, :3) = [0.5, 0.5, 0.0]
+  basis_host%spec(1)%atom(3, :3) = [0.5, 0.0, 0.25]
+  basis_host%spec(1)%atom(4, :3) = [0.0, 0.5, 0.25]
+  basis_host%spec(1)%atom(5, :3) = [0.25, 0.25, 0.125]
+  basis_host%spec(1)%atom(6, :3) = [0.75, 0.75, 0.125]
+  basis_host%spec(1)%atom(7, :3) = [0.75, 0.25, 0.375]
+  basis_host%spec(1)%atom(8, :3) = [0.25, 0.75, 0.375]
+  basis_host%spec(1)%atom(9, :3) = [0.0, 0.0, 0.0]
   atom_ignore_list(1,1) = 1
   atom_ignore_list(1,2) = 9
 
@@ -102,7 +102,7 @@ program test_evaluator
      do j = 0, grid(2) - 1, 1
         do k = 0, grid(3) - 1, 1
            num_points = num_points + 1
-           gridpoints(:, num_points) = [i, j, k] / real(grid, real12)
+           gridpoints(:, num_points) = real([i, j, k],real12) / real(grid, real12)
         end do
      end do
   end do

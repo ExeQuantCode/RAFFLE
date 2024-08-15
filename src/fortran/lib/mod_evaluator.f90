@@ -103,41 +103,45 @@ contains
           do i = 1, size(atom_ignore_list,dim=1), 1
              if(all(atom_ignore_list(i,:).eq.[is,ia])) cycle atom_loop
           end do
-          contribution = get_2body_contribution( gvector_container, &
-               position, [basis%spec(is)%atom(ia,:3)], basis%lat, &
-               radius_list(pair_index(ls,is))*lowtol, &
-               gvector_container%cutoff_max(1), &
-               pair_index(ls,is) &
-          )
-          if(contribution .lt. -100._real12)then
-             return
-          elseif(contribution.lt.-50._real12)then
-             cycle atom_loop
-          end if
-          viability_2body = viability_2body + contribution
+          associate(position_store => [ basis%spec(is)%atom(ia,1:3) ])
+             contribution = get_2body_contribution( gvector_container, &
+                  position, position_store, basis%lat, &
+                  radius_list(pair_index(ls,is))*lowtol, &
+                  gvector_container%cutoff_max(1), &
+                  pair_index(ls,is) &
+             )
+             if(contribution .lt. -100._real12)then
+                return
+             elseif(contribution.lt.-50._real12)then
+                cycle atom_loop
+             end if
+             viability_2body = viability_2body + contribution
 
-          num_2body = num_2body + 1
-          neighbour_basis%spec(is)%atom(num_2body,:) = basis%spec(is)%atom(ia,:3)
-          neighbour_basis%spec(is)%num = neighbour_basis%spec(is)%num + 1
+             num_2body = num_2body + 1
+             neighbour_basis%spec(is)%atom(num_2body,:) = position_store
+             neighbour_basis%spec(is)%num = neighbour_basis%spec(is)%num + 1
+          end associate
        end do atom_loop
 
        image_loop: do ia = 1, basis%image_spec(is)%num, 1
-          contribution = get_2body_contribution( gvector_container, &
-               position, [basis%image_spec(is)%atom(ia,:3)], basis%lat, &
-               radius_list(pair_index(ls,is))*lowtol, &
-               gvector_container%cutoff_max(1), &
-               pair_index(ls,is) &
-          )
-          if(contribution .lt. -100._real12)then
-             return
-          elseif(contribution.lt.-50._real12)then
-             cycle image_loop
-          end if
-          viability_2body = viability_2body + contribution
+          associate(position_store => [ basis%image_spec(is)%atom(ia,1:3) ])
+             contribution = get_2body_contribution( gvector_container, &
+                  position, position_store, basis%lat, &
+                  radius_list(pair_index(ls,is))*lowtol, &
+                  gvector_container%cutoff_max(1), &
+                  pair_index(ls,is) &
+             )
+             if(contribution .lt. -100._real12)then
+                return
+             elseif(contribution.lt.-50._real12)then
+                cycle image_loop
+             end if
+             viability_2body = viability_2body + contribution
 
-          num_2body = num_2body + 1
-          neighbour_basis%spec(is)%atom(num_2body,:) = basis%image_spec(is)%atom(ia,:3)
-          neighbour_basis%spec(is)%num = neighbour_basis%spec(is)%num + 1
+             num_2body = num_2body + 1
+             neighbour_basis%spec(is)%atom(num_2body,:) = position_store
+             neighbour_basis%spec(is)%num = neighbour_basis%spec(is)%num + 1
+          end associate
        end do image_loop
     end do species_loop
     neighbour_basis%natom = sum(neighbour_basis%spec(:)%num)

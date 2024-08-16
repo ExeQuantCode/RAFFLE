@@ -108,7 +108,7 @@ contains
           do i = 1, size(atom_ignore_list,dim=1), 1
              if(all(atom_ignore_list(i,:).eq.[is,ia])) cycle atom_loop
           end do
-          associate(position_store => [ basis%spec(is)%atom(ia,1:3) ])
+          associate( position_store => [ basis%spec(is)%atom(ia,1:3) ] )
              bondlength = modu( matmul(position - position_store, basis%lat) )
              if( bondlength .lt. ( &
                   radius_list(pair_index(ls,is)) * &
@@ -154,7 +154,7 @@ contains
        end do atom_loop
 
        image_loop: do ia = 1, basis%image_spec(is)%num, 1
-          associate(position_store => [ basis%image_spec(is)%atom(ia,1:3) ])
+          associate( position_store => [ basis%image_spec(is)%atom(ia,1:3) ] )
              bondlength = modu( matmul(position - position_store, basis%lat) )
              if( bondlength .lt. ( &
                   radius_list(pair_index(ls,is)) * &
@@ -221,7 +221,7 @@ contains
           ! 3-body map
           ! check bondangle between test point and all other atoms
           !---------------------------------------------------------------------
-          associate(position_2 => [neighbour_basis%spec(is)%atom(ia,:3)])
+          associate( position_2 => [neighbour_basis%spec(is)%atom(ia,1:3)] )
              viability_3body = viability_3body + &
                    evaluate_3body_contributions( gvector_container, &
                       position, &
@@ -240,7 +240,7 @@ contains
                         evaluate_4body_contributions( gvector_container, &
                            position, &
                            position_2, &
-                           [neighbour_basis%spec(js)%atom(ja,:3)], &
+                           [neighbour_basis%spec(js)%atom(ja,1:3)], &
                            neighbour_basis, ls &
                         )
                 end do
@@ -260,6 +260,7 @@ contains
     end if
     
     output = viability_2body * viability_3body * viability_4body
+   !  output = viability_2body
     
   end function evaluate_point
 !###############################################################################
@@ -293,12 +294,13 @@ contains
     output = 0._real12
     species_loop: do js = 1, basis%nspec, 1
        atom_loop: do ja = 1, basis%spec(js)%num
-          associate(position_store => basis%spec(js)%atom(ja,:))
+          associate( position_store => [ basis%spec(js)%atom(ja,1:3) ] )
              bin = gvector_container%get_bin( &
                   get_angle( position_2, &
                              position_1, &
                              position_store ), &
-                  dim = 2 )
+                  dim = 2 &
+             )
              if(bin.eq.0)then
                 write(0,*) "Error: bin = 0, IF NOT TRIGGERED, WE CAN REMOVE THIS IF"
                 stop 1
@@ -342,7 +344,7 @@ contains
     output = 0._real12
     species_loop: do ks = 1, basis%nspec, 1
        atom_loop: do ka = 1, basis%image_spec(ks)%num
-          associate(position_store => basis%image_spec(ks)%atom(ka,:))
+          associate( position_store => [ basis%image_spec(ks)%atom(ka,1:3) ] )
              bin = gvector_container%get_bin( &
                   get_improper_dihedral_angle( &
                                  position_1, &

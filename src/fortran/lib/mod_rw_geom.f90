@@ -233,7 +233,7 @@ contains
     ! Arguments
     integer, intent(in) :: UNIT
     !! The unit number of the file to write to.
-    type(basis_type), intent(in) :: basis
+    class(basis_type), intent(in) :: basis
     !! The basis to write the geometry from.
 
 ! MAKE IT CHANGE HERE IF USER SPECIFIES LCART OR NOT
@@ -406,7 +406,7 @@ contains
     ! Arguments
     integer, intent(in) :: UNIT
     !! The unit number of the file to write to.
-    type(basis_type), intent(in) :: basis
+    class(basis_type), intent(in) :: basis
     !! The basis to write the geometry from.
     logical, intent(in), optional :: cartesian
     !! Optional. Whether to write the basis in cartesian coordinates.
@@ -605,7 +605,7 @@ contains
     ! Arguments
     integer, intent(in) :: UNIT
     !! The unit number of the file to write to.
-    type(basis_type), intent(in) :: basis
+    class(basis_type), intent(in) :: basis
     !! The basis to write the geometry from.
     logical, intent(in), optional :: cartesian
     !! Optional. Whether to write the basis in cartesian coordinates.
@@ -823,7 +823,7 @@ contains
     ! Arguments
     integer :: UNIT
     !! The unit number of the file to write to.
-    type(basis_type), intent(in) :: basis
+    class(basis_type), intent(in) :: basis
     !! The basis to write the geometry from.
     logical, intent(in), optional :: labc
     !! Optional. Boolean whether to write the lattice in abc format.
@@ -990,7 +990,7 @@ contains
     ! Arguments
     integer, intent(in) :: UNIT
     !! The unit number of the file to write to.
-    type(basis_type), intent(in) :: basis
+    class(basis_type), intent(in) :: basis
     !! The basis to write the geometry from.
 
     ! Local variables
@@ -1141,7 +1141,7 @@ contains
     ! Arguments
     integer, intent(in) :: UNIT
     !! The unit number of the file to write to.
-    type(basis_type), intent(in) :: basis
+    class(basis_type), intent(in) :: basis
     !! The basis to write the geometry from.
 
     ! Local variables

@@ -77,7 +77,7 @@ module evolver
      !! Sigma of the gaussians used in the 2-, 3-, and 4-body 
      !! distribution functions.
      real(real12), dimension(3) :: &
-          width = [ 0.025_real12, pi/24._real12, pi/24._real12 ]
+          width = [ 0.025_real12, pi/48._real12, pi/48._real12 ]
      !! Width of the bins used in the 2-, 3-, and 4-body distribution functions.
      real(real12), dimension(3) :: &
           cutoff_min = [ 0.5_real12, 0._real12, 0._real12 ]
@@ -86,7 +86,7 @@ module evolver
           cutoff_max = [ 6._real12, pi, pi ]
      !! Maximum cutoff for the 2-, 3-, and 4-body distribution functions.
      real(real12), dimension(4) :: &
-          radius_distance_tol = [ 1.5_real12, 3._real12, 3._real12, 5._real12 ]
+          radius_distance_tol = [ 1.5_real12, 3._real12, 3._real12, 6._real12 ]
      !! Tolerance for the distance between atoms for 3- and 4-body.
      !! index 1 = lower bound for 3-body
      !! index 2 = upper bound for 3-body
@@ -1055,28 +1055,10 @@ module evolver
                success &
           )
           if(success) cycle pair_loop2
-          write(0,*) 'WARNING: No bond data for element pair ', &
-                     this%element_info(i)%name, ' and ', &
-                     this%element_info(j)%name
-          write(0,*) 'WARNING: Setting bond to average of covalent radii'
-          idx1 = findloc([ element_database(:)%name ], &
-                           this%element_info(i)%name, dim=1)
-          idx2 = findloc([ element_database(:)%name ], &
-                           this%element_info(j)%name, dim=1)
-          radius = ( element_database(idx1)%radius + &
-                element_database(idx2)%radius ) / 2._real12
-          if(.not.allocated(element_bond_database)) &
-               allocate(element_bond_database(0))
-          element_bond_database = [ element_bond_database, &
-               element_bond_type(elements=[ &
-                    this%element_info(i)%name, &
-                    this%element_info(j)%name ], radius=radius) ]
-          call sort_str( &
-               element_bond_database(size(element_bond_database))%element )
-          if(idx1.lt.1.or.idx2.lt.1)then
-             write(0,*) "ERROR", idx1, idx2
-             stop 1
-          end if
+          call set_bond_radius_to_default( [ &
+               this%element_info(i)%name, &
+               this%element_info(j)%name ] &
+          )
           call this%bond_info(num_pairs)%set( &
                this%element_info(i)%name, &
                this%element_info(j)%name, &
@@ -1086,6 +1068,54 @@ module evolver
     end do pair_loop1
 
   end subroutine set_bond_info
+!###############################################################################
+
+
+!###############################################################################
+  subroutine set_bond_radius_to_default(elements)
+    !! Set the bond radius to the default value.
+    !!
+    !! The default value is the average of the covalent radii of the elements.
+    implicit none
+
+    ! Arguments
+    character(len=3), dimension(2), intent(in) :: elements
+    !! Element symbols.
+
+    ! Local variables
+    integer :: idx1, idx2
+    !! Index of the elements in the element database.
+    real(real12) :: radius
+    !! Average of covalent radii.
+
+
+    write(0,*) 'WARNING: No bond data for element pair ', &
+               elements(1), ' and ', &
+               elements(2)
+    write(0,*) 'WARNING: Setting bond to average of covalent radii'
+    idx1 = findloc([ element_database(:)%name ], &
+         elements(1), dim=1)
+    idx2 = findloc([ element_database(:)%name ], &
+         elements(2), dim=1)
+   if(idx1.lt.1.or.idx2.lt.1)then
+      write(0,*) "ERROR", idx1, idx2
+      stop 1
+   end if
+    radius = ( element_database(idx1)%radius + &
+         element_database(idx2)%radius ) / 2._real12
+    if(.not.allocated(element_bond_database)) &
+         allocate(element_bond_database(0))
+    element_bond_database = [ element_bond_database, &
+         element_bond_type(elements=[ &
+              elements(1), &
+              elements(2) &
+         ], radius=radius) &
+    ]
+    call sort_str( &
+         element_bond_database(size(element_bond_database))%element &
+    )
+
+  end subroutine set_bond_radius_to_default
 !###############################################################################
 
 
@@ -1717,6 +1747,8 @@ module evolver
     !! Temporary real variables.
     real(real12) :: fc, weight, scale
     !! Cutoff, weight and scale for the distribution functions.
+    logical :: success
+    !! Boolean for success.
     real(real12), dimension(3) :: eta, limit
     !! Parameters for the distribution functions.
     real(real12), dimension(3) :: vtmp1, vtmp2, vtmp3, diff
@@ -1809,7 +1841,16 @@ module evolver
           pair_index(js,is) = i
           pair_index(is,js) = i
           call bond_info(i)%set( this%element_symbols(is), &
-                                 this%element_symbols(js) )
+                                 this%element_symbols(js), success &
+          )
+          if(success) cycle
+          call set_bond_radius_to_default( [ &
+               this%element_symbols(is), &
+               this%element_symbols(js) ] &
+          )
+          call bond_info(i)%set( this%element_symbols(is), &
+                                 this%element_symbols(js), success &
+          )
        end do
     end do
 
@@ -1991,7 +2032,6 @@ module evolver
              ia = bond_list(i)%atom(2)
              js = bond_list(i)%species(1)
             else
-             !write(0,*) "ERROR: Species not found in bond list1", is, i
              cycle
           end if
           if( &
@@ -2046,12 +2086,13 @@ module evolver
           write(0,*) "ERROR: Number of 3-body angles exceeds allocated array"
           write(0,'("Expected ",I0," got ",I0)') size(angle), num_angles
           stop 1
+       elseif(num_angles.gt.0)then
+          this%df_3body(:,is) = this%df_3body(:,is) + &
+               get_gvector( angle(:num_angles), nbins_(2), eta(2), width_(2), &
+                                  cutoff_min_(2), &
+                                  limit(2), scale = distance(:num_angles) &
+               )
        end if
-       this%df_3body(:,is) = this%df_3body(:,is) + &
-            get_gvector( angle(:num_angles), nbins_(2), eta(2), width_(2), &
-                               cutoff_min_(2), &
-                               limit(2), scale = distance(:num_angles) &
-            )
        deallocate(angle)
        deallocate(distance)
     end do
@@ -2231,13 +2272,14 @@ module evolver
           write(0,*) "ERROR: Number of 4-body angles exceeds allocated array"
           write(0,'("Expected ",I0," got ",I0)') size(angle), num_angles
           stop 1
+       elseif(num_angles.gt.0)then
+          this%df_4body(:,is) = this%df_4body(:,is) + &
+               get_gvector( angle(:num_angles), nbins_(3), eta(3), width_(3), &
+                                  cutoff_min_(3), &
+                                  limit(3), &
+                                  scale = distance(:num_angles) &
+               )!, count_list(:num_angles) )
        end if
-       this%df_4body(:,is) = this%df_4body(:,is) + &
-            get_gvector( angle(:num_angles), nbins_(3), eta(3), width_(3), &
-                               cutoff_min_(3), &
-                               limit(3), &
-                               scale = distance(:num_angles) &
-            )!, count_list(:num_angles) )
        deallocate(angle)
        deallocate(distance)
        ! deallocate(count_list)

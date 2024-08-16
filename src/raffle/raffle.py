@@ -888,7 +888,7 @@ class Evolver(f90wrap.runtime.FortranModule):
                 _raffle.f90wrap_evolver__gvector_type_finalise(this=self._handle)
         
         def calculate(self, lattice, basis, nbins=None, width=None, sigma=None, \
-            cutoff_min=None, cutoff_max=None):
+            cutoff_min=None, cutoff_max=None, radius_distance_tol=None):
             """
             calculate__binding__gvector_type(self, lattice, basis[, nbins, width, sigma, \
                 cutoff_min, cutoff_max])
@@ -907,6 +907,7 @@ class Evolver(f90wrap.runtime.FortranModule):
             sigma : float array
             cutoff_min : float array
             cutoff_max : float array
+            radius_distance_tol : float array
             
             --------------------------------------------------------------------------
              initialise optional variables
@@ -914,7 +915,7 @@ class Evolver(f90wrap.runtime.FortranModule):
             """
             _raffle.f90wrap_evolver__calculate__binding__gvector_type(this=self._handle, \
                 lattice=lattice, basis=basis._handle, nbins=nbins, width=width, sigma=sigma, \
-                cutoff_min=cutoff_min, cutoff_max=cutoff_max)
+                cutoff_min=cutoff_min, cutoff_max=cutoff_max, radius_distance_tol=radius_distance_tol)
         
         @property
         def num_atoms(self):
@@ -1127,6 +1128,23 @@ class Evolver(f90wrap.runtime.FortranModule):
             """
             _raffle.f90wrap_evolver__set_cutoff_max__binding__gvector_container047c(this=self._handle, \
                 cutoff_max=cutoff_max)
+        
+        def set_radius_distance_tol(self, radius_distance_tol):
+            """
+            set_radius_distance_tol__binding__gvector_container_type(self, radius_distance_tol)
+            
+            
+            Defined at ../src/lib/mod_evolver.f90 lines \
+                142-150
+            
+            Parameters
+            ----------
+            this : unknown
+            cutoff_max : float array
+            
+            """
+            _raffle.f90wrap_evolver__set_radius_distance_tol__binding__gvector_1dda(this=self._handle, \
+                radius_distance_tol=radius_distance_tol)
         
         def create(self, basis_list, deallocate_systems=True):
             """
@@ -1756,6 +1774,32 @@ class Evolver(f90wrap.runtime.FortranModule):
         def cutoff_max(self, cutoff_max):
             self.cutoff_max[...] = cutoff_max
         
+        @property
+        def radius_distance_tol(self):
+            """
+            Element radius_distance_tol ftype=real(real12) pytype=float
+            
+            
+            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_evolver.f90 \
+                line 81
+            
+            """
+            array_ndim, array_type, array_shape, array_handle = \
+                _raffle.f90wrap_gvector_container_type__array__radius_distance_tol(self._handle)
+            if array_handle in self._arrays:
+                radius_distance_tol = self._arrays[array_handle]
+            else:
+                radius_distance_tol = \
+                    f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                        self._handle,
+                                        _raffle.f90wrap_gvector_container_type__array__radius_distance_tol)
+                self._arrays[array_handle] = radius_distance_tol
+            return radius_distance_tol
+        
+        @radius_distance_tol.setter
+        def radius_distance_tol(self, radius_distance_tol):
+            self.radius_distance_tol[...] = radius_distance_tol
+
         @property
         def total(self):
             """

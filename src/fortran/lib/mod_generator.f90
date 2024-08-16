@@ -412,7 +412,9 @@ contains
        viable_gridpoints = get_viable_gridpoints( this%bins, &
             basis, &
             [ this%distributions%bond_info(:)%radius_covalent ], &
-            placement_list_shuffled )
+            placement_list_shuffled, &
+            lowtol = this%distributions%radius_distance_tol(1) &
+       )
     end if
 
 
@@ -433,7 +435,9 @@ contains
                           placement_list_shuffled(iplaced,1)/2._real12 ) * &
                         ( placement_list_shuffled(iplaced,1) - 1 ) + &
                         placement_list_shuffled(iplaced,1) ) &                       
-                     )%radius_covalent )
+                     )%radius_covalent, &
+                     lowtol = this%distributions%radius_distance_tol(1) &                     
+               )
           if(.not.allocated(viable_gridpoints))then
              if(abs(method_probab_(2)).lt.1.E-6)then
                 write(0,*) "ERROR: No viable gridpoints"

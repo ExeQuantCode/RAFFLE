@@ -22,9 +22,9 @@ module evaluator
 contains
 
 !###############################################################################
-  function evaluate_point(gvector_container, &
+  function evaluate_point( gvector_container, &
        position, basis, atom_ignore_list, &
-       radius_list, uptol, lowtol) &
+       radius_list ) &
        result(output)
     !! Build a map of basis and returns the value of the map at a given point
     implicit none
@@ -32,8 +32,6 @@ contains
     ! Arguments
     type(gvector_container_type), intent(in) :: gvector_container
     !! Distribution function (gvector) container.
-    real(real12), intent(in) :: uptol, lowtol
-    !! Upper and lower tolerance for bond lengths and angles.
     type(extended_basis_type), intent(in) :: basis
     !! Basis of the system.
     real(real12), dimension(3), intent(in) :: position
@@ -112,17 +110,29 @@ contains
           end do
           associate(position_store => [ basis%spec(is)%atom(ia,1:3) ])
              bondlength = modu( matmul(position - position_store, basis%lat) )
-             if(bondlength .lt. radius_list(pair_index(ls,is))*lowtol)then
+             if( bondlength .lt. ( &
+                  radius_list(pair_index(ls,is)) * &
+                  gvector_container%radius_distance_tol(1) ) &
+             )then
                 return
-             elseif(bondlength .le. radius_list(pair_index(ls,is))*uptol)then
+             elseif( bondlength .le. ( &
+                    radius_list(pair_index(ls,is)) * &
+                    gvector_container%radius_distance_tol(2) ) &
+             )then
                 neighbour_basis%spec(is)%num = neighbour_basis%spec(is)%num + 1
                 neighbour_basis%spec(is)%atom( &
                      neighbour_basis%spec(is)%num,:3 &
                 ) = position_store
-             elseif(bondlength .ge. radius_list(pair_index(ls,is))*uptol .and. &
+             elseif( bondlength .ge. ( &
+                         radius_list(pair_index(ls,is)) * &
+                         gvector_container%radius_distance_tol(3) &
+                    ) .and. &
                     bondlength .le. min( &
                          gvector_container%cutoff_max(1), &
-                         radius_list(pair_index(ls,is))*5._real12 &
+                         ( &
+                              radius_list(pair_index(ls,is)) * &
+                              gvector_container%radius_distance_tol(4) &
+                         ) &
                     ) &
              )then
                 neighbour_basis%image_spec(is)%num = &
@@ -146,17 +156,29 @@ contains
        image_loop: do ia = 1, basis%image_spec(is)%num, 1
           associate(position_store => [ basis%image_spec(is)%atom(ia,1:3) ])
              bondlength = modu( matmul(position - position_store, basis%lat) )
-             if(bondlength .lt. radius_list(pair_index(ls,is))*lowtol)then
+             if( bondlength .lt. ( &
+                  radius_list(pair_index(ls,is)) * &
+                  gvector_container%radius_distance_tol(1) ) &
+             )then
                 return
-             elseif(bondlength .le. radius_list(pair_index(ls,is))*uptol)then
+             elseif( bondlength .le. ( &
+                    radius_list(pair_index(ls,is)) * &
+                    gvector_container%radius_distance_tol(2) ) &
+             )then
                 neighbour_basis%spec(is)%num = neighbour_basis%spec(is)%num + 1
                 neighbour_basis%spec(is)%atom( &
                      neighbour_basis%spec(is)%num,:3 &
                 ) = position_store
-             elseif(bondlength .ge. radius_list(pair_index(ls,is))*uptol .and. &
+             elseif( bondlength .ge. ( &
+                         radius_list(pair_index(ls,is)) * &
+                         gvector_container%radius_distance_tol(3) &
+                    ) .and. &
                     bondlength .le. min( &
                          gvector_container%cutoff_max(1), &
-                         radius_list(pair_index(ls,is))*5._real12 &
+                         ( &
+                              radius_list(pair_index(ls,is)) * &
+                              gvector_container%radius_distance_tol(4) &
+                         ) &
                     ) &
              )then
                 neighbour_basis%image_spec(is)%num = &

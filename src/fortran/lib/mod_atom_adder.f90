@@ -14,10 +14,6 @@ module add_atom
   use evaluator, only: evaluate_point
   use evolver, only: gvector_container_type
   implicit none
-  real(real12) :: lowtol = 1.5_real12
-  !! Lower tolerance for evaluate_point.
-  real(real12) :: uptol = 3._real12
-  !! Upper tolerance for evaluate_point.
 
 
   private
@@ -72,8 +68,8 @@ contains
     do i = 1, size(gridpoints,dim=2)
        suitability_grid(i) = evaluate_point( gvector_container, &
             gridpoints(:,i), basis, &
-            atom_ignore_list, radius_list, &
-            uptol=uptol, lowtol=lowtol)
+            atom_ignore_list, radius_list &
+       )
     end do
     if(abs(maxval(suitability_grid)).lt.1.E-6) then
       deallocate(suitability_grid)
@@ -210,9 +206,8 @@ contains
 
        calculated_value = evaluate_point( gvector_container, &
             tmpvector, basis, &
-            atom_ignore_list, radius_list, &
-            uptol=uptol, lowtol=lowtol)
-
+            atom_ignore_list, radius_list &
+       )
        call random_number(rtmp1)
        if (rtmp1.lt.calculated_value) exit random_loop
  
@@ -243,9 +238,8 @@ contains
 
        calculated_test = evaluate_point( gvector_container, &
             testvector, basis, &
-            atom_ignore_list, radius_list, &
-            uptol=uptol, lowtol=lowtol)
-     
+            atom_ignore_list, radius_list &
+       )     
        if(calculated_test.lt.calculated_value) then 
           l = l + 1
           if(l.ge.10) then
@@ -287,7 +281,7 @@ contains
 
 !###############################################################################
   function get_viable_gridpoints(bin_size, basis, &
-       radius_list, atom_ignore_list) result(points)
+       radius_list, atom_ignore_list, lowtol) result(points)
     !! Get the viable gridpoints for adding an atom.
     !!
     !! This function returns a list of gridpoints that are not too close to an
@@ -303,6 +297,8 @@ contains
     !! List of atoms to ignore (i.e. indices of atoms not yet placed).
     real(real12), dimension(:), intent(in) :: radius_list
     !! List of radii for each pair of elements.
+    real(real12), intent(in) :: lowtol
+    !! Lower tolerance for distance between atoms.
 
     ! Local variables
     integer, dimension(:), allocatable :: pair_index
@@ -362,7 +358,7 @@ contains
 
 
 !###############################################################################
-  subroutine update_viable_gridpoints(points, basis, atom, radius)
+  subroutine update_viable_gridpoints(points, basis, atom, radius, lowtol)
     !! Update the viable gridpoints after a new atom has been added.
     implicit none
 
@@ -375,6 +371,8 @@ contains
     !! List of gridpoints.
     real(real12), intent(in) :: radius
     !! Radius of added atom.
+    real(real12), intent(in) :: lowtol
+    !! Lower tolerance for distance between atoms.
 
     ! Local variables
     integer :: i

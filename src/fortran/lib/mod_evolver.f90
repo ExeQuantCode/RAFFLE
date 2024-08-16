@@ -85,6 +85,13 @@ module evolver
      real(real12), dimension(3) :: &
           cutoff_max = [ 6._real12, pi, pi ]
      !! Maximum cutoff for the 2-, 3-, and 4-body distribution functions.
+     real(real12), dimension(4) :: &
+          radius_distance_tol = [ 1.5_real12, 3._real12, 3._real12, 5._real12 ]
+     !! Tolerance for the distance between atoms for 3- and 4-body.
+     !! index 1 = lower bound for 3-body
+     !! index 2 = upper bound for 3-body
+     !! index 3 = lower bound for 4-body
+     !! index 4 = upper bound for 4-body
      real(real12), dimension(:), allocatable :: &
           norm_2body, norm_3body, norm_4body
      !! Normalisation factors for the 2-, 3-, and 4-body distribution functions.
@@ -111,6 +118,8 @@ module evolver
      !! Set the minimum cutoff for the 2-, 3-, and 4-body.
      procedure, pass(this) :: set_cutoff_max
      !! Set the maximum cutoff for the 2-, 3-, and 4-body.
+     procedure, pass(this) :: set_radius_distance_tol
+     !! Set the tolerance for the distance between atoms for 3- and 4-body.
 
      procedure, pass(this) :: create
      !! Create the distribution functions for all systems, and the learned one.
@@ -318,6 +327,23 @@ module evolver
     this%cutoff_max = cutoff_max
    
   end subroutine set_cutoff_max
+!###############################################################################
+
+
+!###############################################################################
+  subroutine set_radius_distance_tol(this, radius_distance_tol)
+    !! Set the tolerance for the distance between atoms for 3- and 4-body.
+    implicit none
+
+    ! Arguments
+    class(gvector_container_type), intent(inout) :: this
+    !! Parent. Instance of distribution functions container.
+    real(real12), dimension(4), intent(in) :: radius_distance_tol
+    !! Tolerance for the distance between atoms for 3- and 4-body.
+
+    this%radius_distance_tol = radius_distance_tol
+
+  end subroutine set_radius_distance_tol
 !###############################################################################
 
 
@@ -722,7 +748,9 @@ module evolver
     call system%calculate(basis, width = this%width, &
                      sigma = this%sigma, &
                      cutoff_min = this%cutoff_min, &
-                     cutoff_max = this%cutoff_max)
+                     cutoff_max = this%cutoff_max, &
+                     radius_distance_tol = this%radius_distance_tol &
+    )
 
     if(.not.allocated(this%system))then
        this%system = [ system ]
@@ -1633,7 +1661,7 @@ module evolver
 
 !###############################################################################
   subroutine calculate(this, basis, &
-       nbins, width, sigma, cutoff_min, cutoff_max)
+       nbins, width, sigma, cutoff_min, cutoff_max, radius_distance_tol)
     !! Calculate the distribution functions for the container.
     !!
     !! This procedure calculates the 2-, 3-, and 4-body distribution function 
@@ -1651,22 +1679,24 @@ module evolver
     !! Optional. Width and sigma for the distribution functions.
     real(real12), dimension(3), intent(in), optional :: cutoff_min, cutoff_max
     !! Optional. Cutoff minimum and maximum for the distribution functions.
+    real(real12), dimension(4), intent(in), optional :: radius_distance_tol
+    !! Tolerance for the distance between atoms for 3- and 4-body.
 
     ! Local variables
     integer, dimension(3) :: nbins_
     !! Number of bins for the distribution functions.
-    real(real12), dimension(3) :: &
-         sigma_ = [0.1_real12, 0.05_real12, 0.05_real12]
+    real(real12), dimension(3) :: sigma_
     !! Sigma for the distribution functions.
-    real(real12), dimension(3) :: &
-         width_ = [0.25_real12, pi/24._real12, pi/24._real12]
+    real(real12), dimension(3) :: width_
     !! Width of the bins for the distribution functions.
-    real(real12), dimension(3) :: &
-         cutoff_min_ = [0._real12, 0._real12, 0._real12]
+    real(real12), dimension(3) :: cutoff_min_
     !! Cutoff minimum for the distribution functions.
-    real(real12), dimension(3) :: &
-         cutoff_max_ = [6._real12, pi, pi]
+    real(real12), dimension(3) :: cutoff_max_
     !! Cutoff maximum for the distribution functions.
+    type(element_bond_type), dimension(:), allocatable :: bond_info
+    !! Bond information for radii.
+    real(real12), dimension(4) :: radius_distance_tol_
+    !! Tolerance for the distance between atoms for 3- and 4-body.
 
 
     !! @note
@@ -1700,6 +1730,8 @@ module evolver
     !! Loop limits for the 3-body distribution function.
     integer, allocatable, dimension(:,:) :: idx
     !! Index list for the element pairs in a system.
+    integer, allocatable, dimension(:,:) :: pair_index
+    !! Index of element pairs.
 
     type :: bond_type
        !! Derived type for a bond.
@@ -1723,10 +1755,26 @@ module evolver
     !---------------------------------------------------------------------------
     ! initialise optional variables
     !---------------------------------------------------------------------------
-    if(present(cutoff_min)) cutoff_min_ = cutoff_min
-    if(present(cutoff_max)) cutoff_max_ = cutoff_max
-    if(present(width)) width_ = width
-    if(present(sigma)) sigma_ = sigma
+    if(present(cutoff_min))then
+       cutoff_min_ = cutoff_min
+    else
+       cutoff_min_ = [0.5_real12, 0._real12, 0._real12]
+    end if
+    if(present(cutoff_max))then
+       cutoff_max_ = cutoff_max
+    else
+       cutoff_max_ = [6._real12, pi, pi]
+    end if
+    if(present(width))then
+       width_ = width
+    else
+       width_ = [0.25_real12, pi/24._real12, pi/24._real12]
+    end if
+    if(present(sigma))then
+       sigma_ = sigma
+    else
+       sigma_ = [0.1_real12, 0.05_real12, 0.05_real12]
+    end if
     if(present(nbins))then
        nbins_ = nbins
        width_ = ( cutoff_max_ - cutoff_min_ )/real( nbins_ - 1, real12 )
@@ -1734,24 +1782,33 @@ module evolver
        nbins_ = 1 + nint( (cutoff_max_ - cutoff_min_)/width_ )
     end if
     limit = cutoff_max_ - cutoff_min_
+    if(present(radius_distance_tol))then
+       radius_distance_tol_ = radius_distance_tol
+    else
+       radius_distance_tol_ = [1.5_real12, 3._real12, 3._real12, 5._real12]
+    end if
+       
 
 
     !---------------------------------------------------------------------------
     ! get the number of pairs of species
     ! (this uses a combination calculator with repetition)
     !---------------------------------------------------------------------------
-    i = 0
     num_pairs = gamma(real(basis%nspec + 2, real12)) / &
                 ( gamma(real(basis%nspec, real12)) * gamma( 3._real12 ) )
-    allocate(idx(2,num_pairs))
     allocate(this%element_symbols(basis%nspec))
     do is = 1, basis%nspec
        this%element_symbols(is) = strip_null(basis%spec(is)%name)
     end do
+    i = 0
+    allocate(bond_info(num_pairs))
     do is = 1, basis%nspec
        do js = is, basis%nspec, 1
           i = i + 1
-          idx(:,i) = [is, js]
+          pair_index(js,is) = i
+          pair_index(is,js) = i
+          call bond_info(i)%set( this%element_symbols(is), &
+                                  this%element_symbols(js) )
        end do
     end do
 
@@ -1867,18 +1924,13 @@ module evolver
                                      cutoff_min_(1) ) ) ** 2._real12 )
           end do
        end do
-       get_pair_index_loop: do j = 1, num_pairs
-          if( is .eq. idx(1,j) .and. js .eq. idx(2,j) )then
-             k = j
-             exit get_pair_index_loop
-          end if
-       end do get_pair_index_loop
        itmp1 = count( [ ( ( bond_list(j)%species(1) .eq. is .and. &
                             bond_list(j)%species(2) .eq. js ) .or. &
                           ( bond_list(j)%species(2) .eq. is .and. &
                             bond_list(j)%species(1) .eq. js ), &
                               j = 1, size(bond_list), 1 ) ] )
-       this%df_2body(:,k) = this%df_2body(:,k) + &
+       this%df_2body(:,pair_index(is, js)) = &
+            this%df_2body(:,pair_index(is, js)) + &
             gvector_tmp * scale * sqrt( eta(1) / pi ) / real(itmp1,real12) ! / width_(1)
     end do
     do b = 1, nbins_(1)
@@ -1932,13 +1984,23 @@ module evolver
           if( is .eq. bond_list(i)%species(1) )then
              vtmp1 = -bond_list(i)%vector
              ia = bond_list(i)%atom(1)
+             js = bond_list(i)%species(2)
           elseif( is .eq. bond_list(i)%species(2) )then
              vtmp1 = bond_list(i)%vector
              ia = bond_list(i)%atom(2)
-          else
+             js = bond_list(i)%species(1)
+            else
              !write(0,*) "ERROR: Species not found in bond list1", is, i
              cycle
           end if
+          if( &
+               modu(vtmp1) .lt. &
+                    bond_info(pair_index(is, js))%radius_covalent * &
+                    radius_distance_tol_(1) .or. &
+               modu(vtmp1) .gt. &
+                    bond_info(pair_index(is, js))%radius_covalent * &
+                    radius_distance_tol_(2) &
+          ) cycle
         
           !---------------------------------------------------------------------
           ! loop over all bonds to find the second bond
@@ -1947,12 +2009,22 @@ module evolver
              if( is .eq. bond_list(j)%species(1) .and. &
                  ia .eq. bond_list(j)%atom(1) )then
                 vtmp2 = -bond_list(j)%vector
+                js = bond_list(j)%species(2)
              elseif( is .eq. bond_list(j)%species(2) .and. &
                      ia .eq. bond_list(j)%atom(2) )then
                 vtmp2 = bond_list(j)%vector
-             else
+                js = bond_list(j)%species(1)
+               else
                 cycle
              end if
+             if( &
+                  modu(vtmp2) .lt. &
+                       bond_info(pair_index(is, js))%radius_covalent * &
+                       radius_distance_tol_(1) .or. &
+                  modu(vtmp2) .gt. &
+                       bond_info(pair_index(is, js))%radius_covalent * &
+                       radius_distance_tol_(2) &
+             ) cycle
  
              if( abs( &
                   dot_product(vtmp1, vtmp1) - &
@@ -2032,12 +2104,23 @@ module evolver
           if( is .eq. bond_list(i)%species(1) )then
              vtmp1 = -bond_list(i)%vector
              ia = bond_list(i)%atom(1)
+             js = bond_list(i)%species(2)
           elseif( is .eq. bond_list(i)%species(2) )then
              vtmp1 = bond_list(i)%vector
              ia = bond_list(i)%atom(2)
+             js = bond_list(i)%species(1)
           else
              cycle
           end if
+          if( &
+               modu(vtmp1) .lt. &
+                    bond_info(pair_index(is, js))%radius_covalent * &
+                    radius_distance_tol(1) .or. &
+               modu(vtmp1) .gt. &
+                    bond_info(pair_index(is, js))%radius_covalent * &
+                    radius_distance_tol(2) &
+          ) cycle
+
           ! ! make list of indices where species is in bond_list(i)%species and atom is in bond_list(i)%atom
           allocate(idx_list(count( [ ( ( bond_list(j)%species(1) .eq. is .and. &
                                          bond_list(j)%atom(1) .eq. ia ) .or. &
@@ -2075,11 +2158,19 @@ module evolver
  
              if( idx_list(j) .lt. 0 )then
                 vtmp2 = -bond_list(-idx_list(j))%vector
+                js = bond_list(-idx_list(j))%species(2)
              else
                 vtmp2 = bond_list(idx_list(j))%vector
+                js = bond_list(idx_list(j))%species(1)
              end if
-
-             if(modu(vtmp2).gt.2._real12) cycle
+             if( &
+                  modu(vtmp2) .lt. &
+                       bond_info(pair_index(is, js))%radius_covalent * &
+                       radius_distance_tol(1) .or. &
+                  modu(vtmp2) .gt. &
+                       bond_info(pair_index(is, js))%radius_covalent * &
+                       radius_distance_tol(2) &
+             ) cycle
              if( abs( &
                   dot_product(vtmp1, vtmp1) - &
                   dot_product(vtmp1, vtmp2) &
@@ -2092,11 +2183,19 @@ module evolver
 
                 if( idx_list(k) .lt. 0 )then
                    vtmp3 = -bond_list(-idx_list(k))%vector
+                   js = bond_list(-idx_list(k))%species(2)
                 else
                    vtmp3 = bond_list(idx_list(k))%vector
+                   js = bond_list(idx_list(k))%species(1)
                 end if
-
-
+                if( &
+                     modu(vtmp3) .lt. &
+                          bond_info(pair_index(is, js))%radius_covalent * &
+                          radius_distance_tol(3) .or. &
+                     modu(vtmp3) .gt. &
+                          bond_info(pair_index(is, js))%radius_covalent * &
+                          radius_distance_tol(4) &
+                ) cycle
  
                 !---------------------------------------------------------------
                 ! calculate the angle between the two bonds

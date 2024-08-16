@@ -240,7 +240,7 @@ module evolver
     end if
 
     if(present(cutoff_min))then
-       if(all(cutoff_min.ge.0._real12)) &
+       if(any(cutoff_min.ge.0._real12)) &
             gvector_container%cutoff_min = cutoff_min
     end if
     if(present(cutoff_max))then
@@ -1800,7 +1800,7 @@ module evolver
     if(present(width))then
        width_ = width
     else
-       width_ = [0.25_real12, pi/24._real12, pi/24._real12]
+       width_ = [0.25_real12, pi/48._real12, pi/48._real12]
     end if
     if(present(sigma))then
        sigma_ = sigma
@@ -1817,7 +1817,7 @@ module evolver
     if(present(radius_distance_tol))then
        radius_distance_tol_ = radius_distance_tol
     else
-       radius_distance_tol_ = [1.5_real12, 3._real12, 3._real12, 5._real12]
+       radius_distance_tol_ = [1.5_real12, 3._real12, 3._real12, 6._real12]
     end if
        
 

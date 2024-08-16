@@ -25,10 +25,25 @@ host_basis = raffle.rw_geom.basis_type(host)
 generator.set_host(host_basis)
 print("Host read")
 
+
+# Generate bulk diamond and get its energy
+reference_bulk = Atoms("C8", positions=[[0.0, 0.0, 1.7803725545451616], 
+                                        [0.8901862772725809, 0.8901862772725808, 2.6705588318177425],
+                                        [2.863057429826727e-16, 1.7803725545451616, 1.0901637751067644e-16],
+                                        [0.8901862772725813, 2.6705588318177425, 0.890186277272581],
+                                        [1.7803725545451616, 0.0, 1.0901637751067644e-16],
+                                        [2.6705588318177425, 0.8901862772725808, 0.890186277272581],
+                                        [1.7803725545451619, 1.7803725545451616, 1.7803725545451619],
+                                        [2.670558831817743, 2.6705588318177425, 2.670558831817743]
+                                    ], cell=[3.5607451090903233, 3.5607451090903233, 3.5607451090903233], pbc=True)
+reference_bulk.calc = calculator
+C_reference_energy = reference_bulk.get_potential_energy() / 8
+
+
 print("Setting element energies")
 generator.distributions.set_element_energies(
     {
-        'C': -9.0266865
+        'C': C_reference_energy#-9.0266865
     }
 )
 
@@ -39,7 +54,15 @@ num_database = len(database)
 database_basis = raffle.rw_geom.basis_type_xnum_array()
 database_basis.allocate(num_database)
 for i, atoms in enumerate(database):
+    # reset energy to use CHGNet
+    atoms.calc = calculator
     database_basis.items[i].fromase(atoms)
+
+# num_database = 1
+# database_basis = raffle.rw_geom.basis_type_xnum_array()
+# database_basis.allocate(num_database)
+# database_basis.items[0].fromase(reference_bulk)
+# generator.distributions.sigma = [0.05, 0.01, 0.005]
 
 
 print("Database read")
@@ -67,13 +90,13 @@ print("Setting stoichiometry to insert")
 stoich_list = raffle.generator.stoichiometry_type_xnum_array()
 stoich_list.allocate(1)
 stoich_list.items[0].element = 'C'
-stoich_list.items[0].num = 10
+stoich_list.items[0].num = 6
 
 num_structures_old = 0
 for iter in range(10):
     print(f"Iteration {iter}")
     print("Generating...")
-    generator.generate(num_structures=1, stoichiometry=stoich_list, seed=0, verbose=0, method_probab={"void":1.0, "walk":1.0, "min":1.0})
+    generator.generate(num_structures=1, stoichiometry=stoich_list, seed=0, verbose=0, method_probab={"void":0.01, "walk":0.0, "min":1.0})
     print("Generated")
 
     print("Getting structures")

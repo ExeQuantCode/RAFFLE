@@ -16,13 +16,19 @@ with open('evaluator.txt', 'r') as file:
         if len(values) == 4:
             data.append([float(values[0]), float(values[1]), float(values[2]), float(values[3])])
 
+# Drop all rows with row[3] less than 0.2
+# data = [row for row in data if row[3] > 0.2]
+
 # Extract the coordinates and values
 x = [row[0] for row in data]
 y = [row[1] for row in data]
 z = [row[2] for row in data]
-alpha = [row[3] for row in data]
+# alpha = [row[3] for row in data]
+alpha = [(row[3]*100)*2 for row in data]
 alpha = [val/max(alpha) for val in alpha]
-size = [row[3]*80 for row in data]
+# size = [(row[3]*10)**3 for row in data] # for 2-body only
+# size = [(row[3]*100)*2 for row in data] # for 3-body
+size = [(row[3]*10) for row in data] # for 4-body
 
 # Extract the atom coordinates
 atoms_x = [row[0] for row in atoms]
@@ -48,10 +54,10 @@ ax.get_proj=short_proj
 ax.mouse_init()
 
 
-ax.scatter(atoms_x, atoms_y, atoms_z, c='red', s=100)
+ax.scatter(atoms_x, atoms_y, atoms_z, c='red', alpha=1.0, s=200)
 
 # ax.scatter(x, y, z, alpha=alpha, c='black', s=size)
-ax.scatter(x, y, z, c=alpha, cmap='viridis', s=20)
+ax.scatter(x, y, z, c=alpha, cmap='viridis', s=size)
 ax.set_xlabel('X')
 ax.set_ylabel('Y')
 ax.set_zlabel('Z')

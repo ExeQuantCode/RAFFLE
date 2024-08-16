@@ -1,10 +1,10 @@
 program test_evaluator
   use constants, only: real12
-  use rw_geom, only: basis_type
+  use rw_geom, only: basis_type, geom_write
   use extended_geom, only: extended_basis_type
   use evaluator, only: evaluate_point
   use generator, only: raffle_generator_type
-  ! use add_atom, only: get_viable_gridpoints
+  use add_atom, only: get_viable_gridpoints
   implicit none
 
 
@@ -52,22 +52,22 @@ program test_evaluator
 
 
 
-  ! graphite cell
-  database(1)%nspec = 1
-  database(1)%natom = 4
-  database(1)%spec(1)%num = 4
-  database(1)%spec(1)%name = 'C'
-  deallocate(database(1)%spec(1)%atom)
-  allocate(database(1)%spec(1)%atom(database(1)%spec(1)%num, 3))
-  database(1)%spec(1)%atom(1, :3) = [0.0, 0.0, 0.25]
-  database(1)%spec(1)%atom(2, :3) = [0.0, 0.0, 0.75]
-  database(1)%spec(1)%atom(3, :3) = [1.0/3.0, 2.0/3.0, 0.25]
-  database(1)%spec(1)%atom(4, :3) = [2.0/3.0, 1.0/3.0, 0.75]
+!   ! graphite cell
+!   database(1)%nspec = 1
+!   database(1)%natom = 4
+!   database(1)%spec(1)%num = 4
+!   database(1)%spec(1)%name = 'C'
+!   deallocate(database(1)%spec(1)%atom)
+!   allocate(database(1)%spec(1)%atom(database(1)%spec(1)%num, 3))
+!   database(1)%spec(1)%atom(1, :3) = [0.0, 0.0, 0.25]
+!   database(1)%spec(1)%atom(2, :3) = [0.0, 0.0, 0.75]
+!   database(1)%spec(1)%atom(3, :3) = [1.0/3.0, 2.0/3.0, 0.25]
+!   database(1)%spec(1)%atom(4, :3) = [2.0/3.0, 1.0/3.0, 0.75]
 
-  database(1)%lat(1,:) = [1.2336456308015413, -2.1367369110836267, 0.0]
-  database(1)%lat(2,:) = [1.2336456308015413,  2.1367369110836267, 0.0]
-  database(1)%lat(3,:) = [0.0, 0.0, 7.8030730000000004]
-  database(1)%energy = -36.86795585
+!   database(1)%lat(1,:) = [1.2336456308015413, -2.1367369110836267, 0.0]
+!   database(1)%lat(2,:) = [1.2336456308015413,  2.1367369110836267, 0.0]
+!   database(1)%lat(3,:) = [0.0, 0.0, 7.8030730000000004]
+!   database(1)%energy = -36.86795585
 
   !-----------------------------------------------------------------------------
   ! set up element energies
@@ -108,9 +108,12 @@ program test_evaluator
        max_bondlength = 6._real12, &
        atom_ignore_list = atom_ignore_list &
   )
+  open(newunit=unit, file="POSCAR_host_diamond", status="replace")
+  call geom_write(unit, basis_host)
+ close(unit)
 
 
-  grid = [10, 10, 20]
+  grid = [20, 20, 40]
   call generator%host%copy(basis_host)
   generator%bins = grid
 
@@ -124,11 +127,12 @@ program test_evaluator
         end do
      end do
   end do
-  ! gridpoints = get_viable_gridpoints( grid, &
-  !      basis_host, &
-  !      [ this%distributions%bond_info(:)%radius_covalent ], &
-  !      atom_ignore_list &
-  ! )
+!   gridpoints = get_viable_gridpoints( grid, &
+!        basis_host, &
+!        [ generator%distributions%bond_info(:)%radius_covalent ], &
+!        atom_ignore_list, &
+!        lowtol = generator%distributions%radius_distance_tol(1) &
+!   )
 
 
   !-----------------------------------------------------------------------------
@@ -174,9 +178,9 @@ program test_evaluator
   do i = 1, basis_host%spec(1)%num - 1
      write(unit, *) matmul(basis_host%spec(1)%atom(i, :), basis_host%lat)
   end do
-  ! do i = 1, basis_host%image_spec(1)%num
-  !    write(unit, *) matmul(basis_host%image_spec(1)%atom(i, :), basis_host%lat)
-  ! end do
+!   do i = 1, basis_host%image_spec(1)%num
+!      write(unit, *) matmul(basis_host%image_spec(1)%atom(i, :), basis_host%lat)
+!   end do
   write(unit, *)
 
   allocate(suitability_grid(product(grid)))

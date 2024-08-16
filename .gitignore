@@ -18,3 +18,5 @@ example/example_files/database*
 **/POSCAR*
 iteration/
 *.traj
+*.png
+*.param

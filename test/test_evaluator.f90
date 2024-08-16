@@ -2,7 +2,7 @@ program test_evaluator
   use constants, only: real12
   use rw_geom, only: basis_type
   use extended_geom, only: extended_basis_type
-  use evaluator, only: evaluate_point_multiplier
+  use evaluator, only: evaluate_point
   use generator, only: raffle_generator_type
   ! use add_atom, only: get_viable_gridpoints
   implicit none
@@ -50,6 +50,24 @@ program test_evaluator
   database(1)%lat(3,:) = [0.0, 0.0, 3.5668]
   database(1)%energy = -72.213492
 
+
+
+  ! graphite cell
+  database(1)%nspec = 1
+  database(1)%natom = 4
+  database(1)%spec(1)%num = 4
+  database(1)%spec(1)%name = 'C'
+  deallocate(database(1)%spec(1)%atom)
+  allocate(database(1)%spec(1)%atom(database(1)%spec(1)%num, 3))
+  database(1)%spec(1)%atom(1, :3) = [0.0, 0.0, 0.25]
+  database(1)%spec(1)%atom(2, :3) = [0.0, 0.0, 0.75]
+  database(1)%spec(1)%atom(3, :3) = [1.0/3.0, 2.0/3.0, 0.25]
+  database(1)%spec(1)%atom(4, :3) = [2.0/3.0, 1.0/3.0, 0.75]
+
+  database(1)%lat(1,:) = [1.2336456308015413, -2.1367369110836267, 0.0]
+  database(1)%lat(2,:) = [1.2336456308015413,  2.1367369110836267, 0.0]
+  database(1)%lat(3,:) = [0.0, 0.0, 7.8030730000000004]
+  database(1)%energy = -36.86795585
 
   !-----------------------------------------------------------------------------
   ! set up element energies
@@ -163,11 +181,11 @@ program test_evaluator
 
   allocate(suitability_grid(product(grid)))
   do i = 1, size(gridpoints,dim=2)
-     suitability_grid(i) = evaluate_point_multiplier( generator%distributions, &
+     suitability_grid(i) = evaluate_point( generator%distributions, &
           gridpoints(:,i), basis_host, &
           atom_ignore_list, &
-          [ generator%distributions%bond_info(:)%radius_covalent ], &
-          uptol=3._real12, lowtol=1.5_real12)
+          [ generator%distributions%bond_info(:)%radius_covalent ] &
+     )
      write(unit, *) matmul(gridpoints(:,i),basis_host%lat), suitability_grid(i)
   end do
   close(unit)

@@ -11,7 +11,7 @@ module add_atom
   use rw_geom, only: basis_type
   use extended_geom, only: extended_basis_type
   use edit_geom, only: get_min_dist, get_min_dist_between_point_and_atom
-  use evaluator, only: evaluate_point => evaluate_point_multiplier
+  use evaluator, only: evaluate_point
   use evolver, only: gvector_container_type
   implicit none
   real(real12) :: lowtol = 1.5_real12

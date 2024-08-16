@@ -1802,13 +1802,14 @@ module evolver
     end do
     i = 0
     allocate(bond_info(num_pairs))
+    allocate(pair_index(basis%nspec,basis%nspec))
     do is = 1, basis%nspec
        do js = is, basis%nspec, 1
           i = i + 1
           pair_index(js,is) = i
           pair_index(is,js) = i
           call bond_info(i)%set( this%element_symbols(is), &
-                                  this%element_symbols(js) )
+                                 this%element_symbols(js) )
        end do
     end do
 

@@ -150,6 +150,14 @@ contains
           istart = iend + 1
        end do
     end if natom_check
+    
+    do i = 1, this%nspec
+       call get_element_properties( &
+            this%spec(i)%name, &
+            mass = this%spec(i)%mass, &
+            charge = this%spec(i)%charge, &
+            radius = this%spec(i)%radius )
+    end do
        
   end subroutine allocate_species
 !###############################################################################

@@ -229,6 +229,10 @@ contains
        allocate(seed_arr(num_seed))
        seed_arr = seed 
        call random_seed(put=seed_arr)
+    else
+       call random_seed(size=num_seed)
+       allocate(seed_arr(num_seed))
+       call random_seed(get=seed_arr)
     end if
 
 

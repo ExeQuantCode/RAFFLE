@@ -123,7 +123,7 @@ program test_evaluator
      do j = 0, grid(2) - 1, 1
         do k = 0, grid(3) - 1, 1
            num_points = num_points + 1
-           gridpoints(:, num_points) = real([i, j, k],real12) / real(grid, real12)
+           gridpoints(:, num_points) = real([i + 0.5, j + 0.5, k + 0.5],real12) / real(grid, real12)
         end do
      end do
   end do

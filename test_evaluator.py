@@ -17,7 +17,11 @@ with open('evaluator.txt', 'r') as file:
             data.append([float(values[0]), float(values[1]), float(values[2]), float(values[3])])
 
 # Drop all rows with row[3] less than 0.2
-# data = [row for row in data if row[3] > 0.2]
+# data = [row for row in data if row[3] > 0.4] # for 4-body only
+max_val = max([row[3] for row in data])
+avg_val = sum([row[3] for row in data])/len(data)
+print(f"Max value: {max_val}")
+print(f"Avg value: {avg_val}")
 
 # Extract the coordinates and values
 x = [row[0] for row in data]
@@ -27,8 +31,9 @@ z = [row[2] for row in data]
 alpha = [(row[3]*100)*2 for row in data]
 alpha = [val/max(alpha) for val in alpha]
 # size = [(row[3]*10)**3 for row in data] # for 2-body only
-# size = [(row[3]*100)*2 for row in data] # for 3-body
-size = [(row[3]*10) for row in data] # for 4-body
+# size = [(row[3]*100)*2 for row in data] # for 2-body and 3-body
+# size = [row[3] for row in data] # for 4-body only
+size = [(row[3]*2000) for row in data] # for all
 
 # Extract the atom coordinates
 atoms_x = [row[0] for row in atoms]

@@ -338,8 +338,11 @@ contains
                       if(all(atom_ignore_list(l,:).eq.[is,ia])) cycle
                    end do
                    if( get_min_dist_between_point_and_atom( &
-                        basis, &
-                        [i, j, k] / real(bin_size,real12), [is,ia] ) .lt. &
+                             basis, &
+                             [i + 0.5, j + 0.5, k + 0.5] / &
+                                  real(bin_size,real12), &
+                             [is,ia] &
+                        ) .lt. &
                         radius_list(pair_index(is)) * lowtol ) &
                         cycle grid_loop3
                 end do

@@ -64,8 +64,6 @@ contains
     ! Initialisation
     output = 0._real12
     viability_2body = 0._real12
-    viability_3body = 0._real12
-    viability_4body = 0._real12
 
     
 
@@ -215,9 +213,10 @@ contains
     ! and neighbour_basis%image_spec for the third atom
     num_3body = 0
     num_4body = 0
+    viability_3body = 0._real12
+    viability_4body = 0._real12
     do is = 1, neighbour_basis%nspec
        do ia = 1, neighbour_basis%spec(is)%num
-          num_3body = num_3body + 1
           ! 3-body map
           ! check bondangle between test point and all other atoms
           !---------------------------------------------------------------------
@@ -226,12 +225,13 @@ contains
                    evaluate_3body_contributions( gvector_container, &
                       position, &
                       position_2, &
-                      neighbour_basis, ls &
+                      neighbour_basis, ls, [is, ia], num_3body &
                    )
              do js = is, neighbour_basis%nspec
                 do ja = 1, neighbour_basis%spec(js)%num
                    if(js.eq.is .and. ja.le.ia) cycle
-                   num_4body = num_4body + 1
+                   num_4body = num_4body + &
+                        sum(neighbour_basis%image_spec(:)%num)
                    ! 4-body map
                    ! check improperdihedral angle between test point and all
                    ! other atoms
@@ -249,18 +249,17 @@ contains
        end do
     end do
     if(num_3body.eq.0)then
-       viability_3body = 0.5_real12
+       viability_3body = 0.1_real12 !0.66666666_real12
     else
        viability_3body = viability_3body / num_3body
     end if
     if(num_4body.eq.0)then
-       viability_4body = 0.5_real12
+       viability_4body = 0.1_real12 !0.66666666_real12
     else
        viability_4body = viability_4body / num_4body
     end if
     
     output = viability_2body * viability_3body * viability_4body
-   !  output = viability_2body
     
   end function evaluate_point
 !###############################################################################
@@ -268,7 +267,8 @@ contains
 
 !###############################################################################
   function evaluate_3body_contributions( gvector_container, &
-       position_1, position_2, basis, ls ) result(output)
+       position_1, position_2, basis, ls, current_idx, num_3body &
+  ) result(output)
     !! Return the contribution to the viability map from 3-body interactions
     implicit none
 
@@ -281,6 +281,10 @@ contains
     !! Basis of the system.
     integer, intent(in) :: ls
     !! Index of the query element.
+    integer, dimension(2), intent(in) :: current_idx
+    !! Index of the 1st-atom query element.
+    integer, intent(inout) :: num_3body
+    !! Number of 3-body interactions.
     real(real12) :: output
     !! Contribution to the viability map.
 
@@ -292,8 +296,11 @@ contains
 
 
     output = 0._real12
-    species_loop: do js = 1, basis%nspec, 1
+   !  species_loop: do js = 1, basis%nspec, 1
+    species_loop: do js = current_idx(1), basis%nspec, 1
        atom_loop: do ja = 1, basis%spec(js)%num
+          if(all([js,ja].eq.current_idx))cycle
+          num_3body = num_3body + 1
           associate( position_store => [ basis%spec(js)%atom(ja,1:3) ] )
              bin = gvector_container%get_bin( &
                   get_angle( position_2, &

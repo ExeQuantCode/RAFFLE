@@ -46,7 +46,7 @@ contains
 
     spec_loop: do is=1,this%nspec
        allocate( image_species(is)%atom( &
-            this%spec(is)%num*(2*amax+1)*(2*bmax+1)*(2*cmax+1), &
+            this%spec(is)%num*(2*amax+2)*(2*bmax+2)*(2*cmax+2), &
             size(this%spec(is)%atom,2) ) &
        )
        image_species(is)%num = 0
@@ -63,6 +63,7 @@ contains
              do j=-bmax,bmax+1,1
                 vtmp1(2) = this%spec(is)%atom(ia,2) + real(j, real12)
                 do k=-cmax,cmax+1,1
+                   if( i .eq. 0 .and. j .eq. 0 .and. k .eq. 0 ) cycle
                    vtmp1(3) = this%spec(is)%atom(ia,3) + real(k, real12)
                    if( get_distance_from_unit_cell(vtmp1, this%lat) .le. max_bondlength ) then
                       ! add the image to the list

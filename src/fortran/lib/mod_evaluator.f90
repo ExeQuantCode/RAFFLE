@@ -120,7 +120,7 @@ contains
                 neighbour_basis%spec(is)%num = neighbour_basis%spec(is)%num + 1
                 neighbour_basis%spec(is)%atom( &
                      neighbour_basis%spec(is)%num,:3 &
-                ) = position_store
+                ) = matmul(position_store, basis%lat)
              elseif( bondlength .ge. ( &
                          radius_list(pair_index(ls,is)) * &
                          gvector_container%radius_distance_tol(3) &
@@ -137,7 +137,7 @@ contains
                      neighbour_basis%image_spec(is)%num + 1
                 neighbour_basis%image_spec(is)%atom( &
                      neighbour_basis%image_spec(is)%num,:3 &
-                ) = position_store
+                ) = matmul(position_store, basis%lat)
              else
                 cycle atom_loop
              end if
@@ -166,7 +166,7 @@ contains
                 neighbour_basis%spec(is)%num = neighbour_basis%spec(is)%num + 1
                 neighbour_basis%spec(is)%atom( &
                      neighbour_basis%spec(is)%num,:3 &
-                ) = position_store
+                ) = matmul(position_store, basis%lat)
              elseif( bondlength .ge. ( &
                          radius_list(pair_index(ls,is)) * &
                          gvector_container%radius_distance_tol(3) &
@@ -183,7 +183,7 @@ contains
                      neighbour_basis%image_spec(is)%num + 1
                 neighbour_basis%image_spec(is)%atom( &
                      neighbour_basis%image_spec(is)%num,:3 &
-                ) = position_store
+                ) = matmul(position_store, basis%lat)
              else
                 cycle image_loop
              end if
@@ -220,10 +220,13 @@ contains
           ! 3-body map
           ! check bondangle between test point and all other atoms
           !---------------------------------------------------------------------
-          associate( position_2 => [neighbour_basis%spec(is)%atom(ia,1:3)] )
+          associate( &
+               position_1 => matmul(position, basis%lat), &
+               position_2 => [neighbour_basis%spec(is)%atom(ia,1:3)] &
+          )
              viability_3body = viability_3body + &
                    evaluate_3body_contributions( gvector_container, &
-                      position, &
+                      position_1, &
                       position_2, &
                       neighbour_basis, ls, [is, ia], num_3body &
                    )
@@ -238,7 +241,7 @@ contains
                    !------------------------------------------------------------
                    viability_4body = viability_4body + &
                         evaluate_4body_contributions( gvector_container, &
-                           position, &
+                           position_1, &
                            position_2, &
                            [neighbour_basis%spec(js)%atom(ja,1:3)], &
                            neighbour_basis, ls &

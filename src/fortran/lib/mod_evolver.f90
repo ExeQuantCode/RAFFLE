@@ -73,11 +73,11 @@ module evolver
      integer, dimension(3) :: nbins = -1
      !! Number of bins for the 2-, 3-, and 4-body distribution functions.
      real(real12), dimension(3) :: &
-          sigma = [ 0.1_real12, 0.05_real12, 0.05_real12 ]
+          sigma = [ 0.1_real12, 0.1_real12, 0.1_real12 ]
      !! Sigma of the gaussians used in the 2-, 3-, and 4-body 
      !! distribution functions.
      real(real12), dimension(3) :: &
-          width = [ 0.025_real12, pi/48._real12, pi/48._real12 ]
+          width = [ 0.025_real12, pi/64._real12, pi/64._real12 ]
      !! Width of the bins used in the 2-, 3-, and 4-body distribution functions.
      real(real12), dimension(3) :: &
           cutoff_min = [ 0.5_real12, 0._real12, 0._real12 ]
@@ -1800,12 +1800,12 @@ module evolver
     if(present(width))then
        width_ = width
     else
-       width_ = [0.25_real12, pi/48._real12, pi/48._real12]
+       width_ = [0.25_real12, pi/64._real12, pi/64._real12]
     end if
     if(present(sigma))then
        sigma_ = sigma
     else
-       sigma_ = [0.1_real12, 0.05_real12, 0.05_real12]
+       sigma_ = [0.1_real12, 0.1_real12, 0.1_real12]
     end if
     if(present(nbins))then
        nbins_ = nbins

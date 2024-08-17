@@ -221,7 +221,10 @@ contains
        index_list = cshift(index_list, 1)
        plane_point = 0._real12
        do j = 1, 2
-          normal = (-1._real12)**j * cross(lattice(index_list(2),:), lattice(index_list(3),:))
+          normal = (-1._real12)**j * cross( &
+               [ lattice(index_list(2),:3) ], &
+               [ lattice(index_list(3),:3) ] &
+          )
           normal = normal / norm2(normal)
           projection = project_point_onto_plane(point_, plane_point, normal)
 

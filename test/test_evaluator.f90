@@ -117,23 +117,6 @@ program test_evaluator
   call generator%host%copy(basis_host)
   generator%bins = grid
 
-  num_points = 0
-  allocate(gridpoints(3, product(grid)))
-  do i = 0, grid(1) - 1, 1
-     do j = 0, grid(2) - 1, 1
-        do k = 0, grid(3) - 1, 1
-           num_points = num_points + 1
-           gridpoints(:, num_points) = real([i + 0.5, j + 0.5, k + 0.5],real12) / real(grid, real12)
-        end do
-     end do
-  end do
-!   gridpoints = get_viable_gridpoints( grid, &
-!        basis_host, &
-!        [ generator%distributions%bond_info(:)%radius_covalent ], &
-!        atom_ignore_list, &
-!        lowtol = generator%distributions%radius_distance_tol(1) &
-!   )
-
 
   !-----------------------------------------------------------------------------
   ! set up distribution functions
@@ -142,6 +125,28 @@ program test_evaluator
        basis_list = database, &
        deallocate_systems = .false. &
   )
+
+
+  !-----------------------------------------------------------------------------
+  ! set up gridpoints
+  !-----------------------------------------------------------------------------
+  num_points = 0
+!   allocate(gridpoints(3, product(grid)))
+!   do i = 0, grid(1) - 1, 1
+!      do j = 0, grid(2) - 1, 1
+!         do k = 0, grid(3) - 1, 1
+!            num_points = num_points + 1
+!            gridpoints(:, num_points) = real([i + 0.5, j + 0.5, k + 0.5],real12) / real(grid, real12)
+!         end do
+!      end do
+!   end do
+  gridpoints = get_viable_gridpoints( grid, &
+       basis_host, &
+       [ generator%distributions%bond_info(:)%radius_covalent ], &
+       atom_ignore_list, &
+       lowtol = generator%distributions%radius_distance_tol(1) &
+  )
+
 
   !-----------------------------------------------------------------------------
   ! write distribution functions to file

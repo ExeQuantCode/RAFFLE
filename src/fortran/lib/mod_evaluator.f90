@@ -299,7 +299,6 @@ contains
 
 
     output = 0._real12
-   !  species_loop: do js = 1, basis%nspec, 1
     species_loop: do js = current_idx(1), basis%nspec, 1
        atom_loop: do ja = 1, basis%spec(js)%num
           if(all([js,ja].eq.current_idx))cycle

@@ -33,7 +33,8 @@ alpha = [val/max(alpha) for val in alpha]
 # size = [(row[3]*10)**3 for row in data] # for 2-body only
 # size = [(row[3]*100)*2 for row in data] # for 2-body and 3-body
 # size = [row[3] for row in data] # for 4-body only
-size = [(row[3]*2000) for row in data] # for all
+# size = [(row[3]*2000) for row in data] # for all
+size = [(row[3]*10) for row in data] # for all
 
 # Extract the atom coordinates
 atoms_x = [row[0] for row in atoms]

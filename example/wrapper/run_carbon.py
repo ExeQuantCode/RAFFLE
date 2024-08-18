@@ -4,6 +4,7 @@ import sys
 import os
 
 import raffle
+import numpy as np
 from ase import Atoms
 from ase.io import read, write
 
@@ -38,6 +39,7 @@ reference_bulk = Atoms("C8", positions=[[0.0, 0.0, 1.7803725545451616],
                                     ], cell=[3.5607451090903233, 3.5607451090903233, 3.5607451090903233], pbc=True)
 reference_bulk.calc = calculator
 C_reference_energy = reference_bulk.get_potential_energy() / 8
+write("POSCAR_ref_bulk", reference_bulk)
 
 
 print("Setting element energies")
@@ -46,23 +48,27 @@ generator.distributions.set_element_energies(
         'C': C_reference_energy#-9.0266865
     }
 )
+generator.distributions.set_width([0.025, np.pi/200.0, np.pi/200.0])
+# generator.distributions.set_sigma([0.1, 0.025, 0.1])
+generator.distributions.set_radius_distance_tol([1.5, 2.5, 3.0, 6.0])
+# 3-body WORKS WITH RADIUS DISTANCE TOL 4.0 FOR UPPER !!!
+# general issue either with get_bin (MUST CHECK THOROUGHLY!), or smearing closeness of angles
 
 
 print("Reading database")
 database = read("../example_files/database_carbon/database.xyz", index=":")
-num_database = len(database)
 database_basis = raffle.rw_geom.basis_type_xnum_array()
-database_basis.allocate(num_database)
-for i, atoms in enumerate(database):
-    # reset energy to use CHGNet
-    atoms.calc = calculator
-    database_basis.items[i].fromase(atoms)
 
-# num_database = 1
-# database_basis = raffle.rw_geom.basis_type_xnum_array()
+# num_database = len(database)
 # database_basis.allocate(num_database)
-# database_basis.items[0].fromase(reference_bulk)
-# generator.distributions.sigma = [0.05, 0.01, 0.005]
+# for i, atoms in enumerate(database):
+#     # reset energy to use CHGNet
+#     atoms.calc = calculator
+#     database_basis.items[i].fromase(atoms)
+
+num_database = 1
+database_basis.allocate(num_database)
+database_basis.items[0].fromase(reference_bulk)
 
 
 print("Database read")
@@ -84,7 +90,7 @@ print("Checking bond radii")
 print(generator.distributions.get_bond_radii())
 
 print("Setting bins (discretisation of host cell)")
-generator.bins = [12,12,30]
+generator.bins = [20,20,40]
 
 print("Setting stoichiometry to insert")
 stoich_list = raffle.generator.stoichiometry_type_xnum_array()
@@ -93,7 +99,7 @@ stoich_list.items[0].element = 'C'
 stoich_list.items[0].num = 6
 
 num_structures_old = 0
-for iter in range(10):
+for iter in range(1):
     print(f"Iteration {iter}")
     print("Generating...")
     generator.generate(num_structures=1, stoichiometry=stoich_list, seed=0, verbose=0, method_probab={"void":0.01, "walk":0.0, "min":1.0})
@@ -124,9 +130,9 @@ for iter in range(10):
         atoms.calc = calculator
         # optimizer = BFGS(atoms, trajectory = "traje.traj")
         # optimizer.run(fmax=0.05)
+        # print(f"Structure {inew} optimised")
         atoms.get_potential_energy()
         print(f"Structure {inew} energy: {atoms.get_potential_energy()}")
-        print(f"Structure {inew} optimised")
         structures_rlxd.items[inew].fromase(atoms)
         write(iterdir+f"POSCAR_{inew}", atoms)
 

@@ -86,7 +86,7 @@ module evolver
           cutoff_max = [ 6._real12, pi, pi ]
      !! Maximum cutoff for the 2-, 3-, and 4-body distribution functions.
      real(real12), dimension(4) :: &
-          radius_distance_tol = [ 1.5_real12, 3._real12, 3._real12, 6._real12 ]
+          radius_distance_tol = [ 1.5_real12, 2.5_real12, 3._real12, 6._real12 ]
      !! Tolerance for the distance between atoms for 3- and 4-body.
      !! index 1 = lower bound for 3-body
      !! index 2 = upper bound for 3-body
@@ -1817,7 +1817,7 @@ module evolver
     if(present(radius_distance_tol))then
        radius_distance_tol_ = radius_distance_tol
     else
-       radius_distance_tol_ = [1.5_real12, 3._real12, 3._real12, 6._real12]
+       radius_distance_tol_ = [1.5_real12, 2.5_real12, 3._real12, 6._real12]
     end if
        
 

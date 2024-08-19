@@ -309,7 +309,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             self.energy = atoms.get_potential_energy()
             
             # # Set the lattice vectors
-            self.lat = numpy.reshape(atoms.get_cell().flatten(), [3,3], order='F')
+            self.lat = numpy.reshape(atoms.get_cell().flatten(), [3,3], order='A')
             self.pbc = atoms.pbc
             
             # Set the system name

@@ -75,7 +75,7 @@ generator.distributions.set_element_energies(
         'O': O_reference_energy
     }
 )
-generator.distributions.set_width([0.025, np.pi/200.0, np.pi/200.0])
+# generator.distributions.set_width([0.025, np.pi/200.0, np.pi/200.0])
 # generator.distributions.set_sigma([0.1, 0.025, 0.1])
 generator.distributions.set_radius_distance_tol([1.5, 2.5, 3.0, 6.0])
 # 3-body WORKS WITH RADIUS DISTANCE TOL 4.0 FOR UPPER !!!

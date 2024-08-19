@@ -21,25 +21,45 @@ generator = raffle.generator.raffle_generator_type()
 
 
 print("Reading host")
-host = read("../example_files/POSCAR_host_carbon")
+host = read("../example_files/POSCAR_host_graphite_vacancy")
 host_basis = raffle.rw_geom.basis_type(host)
+write("POSCAR_host", host_basis.toase())
 generator.set_host(host_basis)
 print("Host read")
 
 
 # Generate bulk diamond and get its energy
-reference_bulk = Atoms("C8", positions=[[0.0, 0.0, 1.7803725545451616], 
-                                        [0.8901862772725809, 0.8901862772725808, 2.6705588318177425],
-                                        [2.863057429826727e-16, 1.7803725545451616, 1.0901637751067644e-16],
-                                        [0.8901862772725813, 2.6705588318177425, 0.890186277272581],
-                                        [1.7803725545451616, 0.0, 1.0901637751067644e-16],
-                                        [2.6705588318177425, 0.8901862772725808, 0.890186277272581],
-                                        [1.7803725545451619, 1.7803725545451616, 1.7803725545451619],
-                                        [2.670558831817743, 2.6705588318177425, 2.670558831817743]
-                                    ], cell=[3.5607451090903233, 3.5607451090903233, 3.5607451090903233], pbc=True)
-reference_bulk.calc = calculator
-C_reference_energy = reference_bulk.get_potential_energy() / 8
-write("POSCAR_ref_bulk", reference_bulk)
+diamond_bulk = Atoms("C8",
+                     positions=[
+                         [0.0, 0.0, 1.7803725545451616], 
+                         [0.8901862772725809, 0.8901862772725808, 2.6705588318177425],
+                         [2.863057429826727e-16, 1.7803725545451616, 1.0901637751067644e-16],
+                         [0.8901862772725813, 2.6705588318177425, 0.890186277272581],
+                         [1.7803725545451616, 0.0, 1.0901637751067644e-16],
+                         [2.6705588318177425, 0.8901862772725808, 0.890186277272581],
+                         [1.7803725545451619, 1.7803725545451616, 1.7803725545451619],
+                         [2.670558831817743, 2.6705588318177425, 2.670558831817743]
+                     ], cell=[
+                         3.5607451090903233, 3.5607451090903233, 3.5607451090903233
+                     ], pbc=True
+)
+diamond_bulk.calc = calculator
+graphite_bulk = Atoms("C4", 
+                     positions=[
+                         [0.0, 0.0, 1.95076825],
+                         [0.0, 0.0, 5.85230475],
+                         [1.2336456308015413, 0.7122456370278755, 1.95076825],
+                         [1.2336456308015415, -0.7122456370278757, 5.85230475]
+                     ], cell=[
+                         [1.2336456308015413, -2.1367369110836267, 0.0], 
+                         [1.2336456308015413,  2.1367369110836267, 0.0],
+                         [0.0, 0.0, 7.803073]
+                     ], pbc=True
+)
+graphite_bulk.calc = calculator
+C_reference_energy = diamond_bulk.get_potential_energy() / 8
+# C_reference_energy = graphite_bulk.get_potential_energy() / 4
+write("POSCAR_ref_bulk", diamond_bulk)
 
 
 print("Setting element energies")
@@ -50,7 +70,7 @@ generator.distributions.set_element_energies(
 )
 generator.distributions.set_width([0.025, np.pi/200.0, np.pi/200.0])
 # generator.distributions.set_sigma([0.1, 0.025, 0.1])
-generator.distributions.set_radius_distance_tol([1.5, 2.5, 3.0, 6.0])
+# generator.distributions.set_radius_distance_tol([1.5, 2.5, 3.0, 6.0])
 # 3-body WORKS WITH RADIUS DISTANCE TOL 4.0 FOR UPPER !!!
 # general issue either with get_bin (MUST CHECK THOROUGHLY!), or smearing closeness of angles
 
@@ -66,9 +86,10 @@ database_basis = raffle.rw_geom.basis_type_xnum_array()
 #     atoms.calc = calculator
 #     database_basis.items[i].fromase(atoms)
 
-num_database = 1
+num_database = 2
 database_basis.allocate(num_database)
-database_basis.items[0].fromase(reference_bulk)
+database_basis.items[0].fromase(diamond_bulk)
+database_basis.items[1].fromase(graphite_bulk)
 
 
 print("Database read")
@@ -96,7 +117,7 @@ print("Setting stoichiometry to insert")
 stoich_list = raffle.generator.stoichiometry_type_xnum_array()
 stoich_list.allocate(1)
 stoich_list.items[0].element = 'C'
-stoich_list.items[0].num = 6
+stoich_list.items[0].num = 1
 
 num_structures_old = 0
 for iter in range(1):

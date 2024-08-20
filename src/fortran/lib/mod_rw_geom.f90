@@ -59,7 +59,7 @@ module rw_geom
      !! Boolean whether the basis is in cartesian coordinates.
      logical, dimension(3) :: pbc = .true.
      !! Boolean whether the basis has periodic boundary conditions.
-     character(len=128) :: sysname
+     character(len=128) :: sysname = "default"
      !! The name of the system.
    contains
      procedure, pass(this) :: allocate_species

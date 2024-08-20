@@ -83,6 +83,7 @@ program test_evaluator
   !-----------------------------------------------------------------------------
   ! set up host structure
   !-----------------------------------------------------------------------------
+  basis_host%sysname = 'diamond'
   basis_host%nspec = 1
   basis_host%natom = 9
   allocate(basis_host%spec(basis_host%nspec))

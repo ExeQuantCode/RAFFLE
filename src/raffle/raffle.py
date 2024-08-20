@@ -2128,24 +2128,26 @@ class Generator(f90wrap.runtime.FortranModule):
             _raffle.f90wrap_generator__set_host__binding__rgt(this=self._handle, \
                 host=host._handle)
         
-        def set_grid(self, grid=None, grid_spacing=None):
+        def set_grid(self, grid=None, grid_spacing=None, grid_offset=None):
             """
-            set_grid__binding__raffle_generator_type(self[, grid, grid_spacing])
+            set_grid__binding__raffle_generator_type(self[, grid, grid_spacing, \
+                grid_offset])
             
             
             Defined at \
                 /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_generator.f90 lines \
-                139-166
+                142-173
             
             Parameters
             ----------
             this : unknown
             grid : int array
             grid_spacing : float
+            grid_offset : float array
             
             """
             _raffle.f90wrap_generator__set_grid__binding__raffle_generator_type(this=self._handle, \
-                grid=grid, grid_spacing=grid_spacing)
+                grid=grid, grid_spacing=grid_spacing, grid_offset=grid_offset)
         
         def reset_grid(self):
             """

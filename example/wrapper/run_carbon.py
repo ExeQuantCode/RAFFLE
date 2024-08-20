@@ -111,6 +111,7 @@ print("Checking bond radii")
 print(generator.distributions.get_bond_radii())
 
 print("Getting bins (discretisation of host cell)")
+generator.set_grid(grid_spacing=0.2)
 print(generator.grid)
 
 print("Setting stoichiometry to insert")

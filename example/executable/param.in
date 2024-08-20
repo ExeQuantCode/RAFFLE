@@ -5,7 +5,7 @@
   database = "../example_files/database/",
   seed = 1,
   method_probab = 1.0 1.0 1.0,
-  bins = 12 12 30,
+  grid_spacing = 0.05,
   verbose = 0,
   output_dir = "iteration1"
 /

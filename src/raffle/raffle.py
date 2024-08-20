@@ -2128,6 +2128,41 @@ class Generator(f90wrap.runtime.FortranModule):
             _raffle.f90wrap_generator__set_host__binding__rgt(this=self._handle, \
                 host=host._handle)
         
+        def set_grid(self, grid=None, grid_spacing=None):
+            """
+            set_grid__binding__raffle_generator_type(self[, grid, grid_spacing])
+            
+            
+            Defined at \
+                /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_generator.f90 lines \
+                139-166
+            
+            Parameters
+            ----------
+            this : unknown
+            grid : int array
+            grid_spacing : float
+            
+            """
+            _raffle.f90wrap_generator__set_grid__binding__raffle_generator_type(this=self._handle, \
+                grid=grid, grid_spacing=grid_spacing)
+        
+        def reset_grid(self):
+            """
+            reset_grid__binding__raffle_generator_type(self)
+            
+            
+            Defined at \
+                /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_generator.f90 lines \
+                170-176
+            
+            Parameters
+            ----------
+            this : unknown
+            
+            """
+            _raffle.f90wrap_generator__reset_grid__binding__raffle_generator_type(this=self._handle)
+        
         def generate(self, num_structures, stoichiometry, method_probab={"void": 1.0, "walk": 1.0, "min": 1.0}, seed=None, verbose=0):
             """
             generate__binding__raffle_generator_type(self, num_structures, stoichiometry, method_probab)
@@ -2243,9 +2278,9 @@ class Generator(f90wrap.runtime.FortranModule):
             _raffle.f90wrap_raffle_generator_type__set__host(self._handle, host)
         
         @property
-        def bins(self):
+        def grid(self):
             """
-            Element bins ftype=integer pytype=int
+            Element grid ftype=integer pytype=int
             
             
             Defined at ../src/lib/mod_generator.f90 line \
@@ -2253,19 +2288,19 @@ class Generator(f90wrap.runtime.FortranModule):
             
             """
             array_ndim, array_type, array_shape, array_handle = \
-                _raffle.f90wrap_raffle_generator_type__array__bins(self._handle)
+                _raffle.f90wrap_raffle_generator_type__array__grid(self._handle)
             if array_handle in self._arrays:
-                bins = self._arrays[array_handle]
+                grid = self._arrays[array_handle]
             else:
-                bins = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                grid = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
                                         self._handle,
-                                        _raffle.f90wrap_raffle_generator_type__array__bins)
-                self._arrays[array_handle] = bins
-            return bins
+                                        _raffle.f90wrap_raffle_generator_type__array__grid)
+                self._arrays[array_handle] = grid
+            return grid
         
-        @bins.setter
-        def bins(self, bins):
-            self.bins[...] = bins
+        @grid.setter
+        def grid(self, grid):
+            self.grid[...] = grid
         
         @property
         def distributions(self):
@@ -2339,8 +2374,10 @@ class Generator(f90wrap.runtime.FortranModule):
             ret.append(repr(self.num_structures))
             ret.append(',\n    host : ')
             ret.append(repr(self.host))
-            ret.append(',\n    bins : ')
-            ret.append(repr(self.bins))
+            ret.append(',\n    grid : ')
+            ret.append(repr(self.grid))
+            ret.append(',\n    grid_spacing : ')
+            ret.append(repr(self.grid_spacing))
             ret.append(',\n    distributions : ')
             ret.append(repr(self.distributions))
             ret.append(',\n    method_probab : ')

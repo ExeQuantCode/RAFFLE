@@ -103,7 +103,14 @@ program raffle_program
   open(newunit=unit, file=filename_host, status='old')
   call geom_read(unit, generator%host)
   close(unit)
-  generator%bins = bins
+  if(grid_spacing.gt.1.E-6.and.all(grid.ne.0))then
+     write(0,*) "ERROR: Cannot specify grid spacing and grid at the same time"
+     stop 1
+  elseif(grid_spacing.gt.1.E-6)then
+     call generator%set_grid(grid_spacing = grid_spacing)
+  elseif(all(grid.ne.0))then
+     call generator%set_grid(grid = grid)
+  end if
 
 
   !-----------------------------------------------------------------------------

@@ -9,7 +9,7 @@ module inputs
   private
 
   public :: vdW, volvar
-  public :: bins, method_probab
+  public :: grid, grid_spacing, method_probab
   public :: seed
   public :: num_structures, task
   public :: stoich
@@ -40,7 +40,8 @@ module inputs
   character(3), dimension(:), allocatable :: element_symbols
   character(3), dimension(:,:), allocatable :: bond_pairs
 
-  integer, dimension(3) :: bins
+  integer, dimension(3) :: grid = [0, 0, 0]
+  real(real12) :: grid_spacing = 0._real12
   real(real12), dimension(3) :: method_probab = [1._real12, 1._real12, 1._real12]
 
   character(1024), dimension(:), allocatable :: database_list ! list of directories containing input database
@@ -197,7 +198,8 @@ contains
     !---------------------------------------------------------------------------
     ! set up namelists for input file
     !---------------------------------------------------------------------------
-    namelist /setup/        task, filename_host, seed, method_probab, bins, &
+    namelist /setup/        task, filename_host, seed, method_probab, grid, &
+                            grid_spacing, &
                             database_format, database, verbose, output_dir
     namelist /structure/    num_structures,stoichiometry
     namelist /volume/       vdW, volvar

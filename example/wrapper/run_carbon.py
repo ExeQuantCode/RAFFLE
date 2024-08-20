@@ -110,8 +110,8 @@ print(generator.distributions.get_element_energies())
 print("Checking bond radii")
 print(generator.distributions.get_bond_radii())
 
-print("Setting bins (discretisation of host cell)")
-generator.bins = [20,20,40]
+print("Getting bins (discretisation of host cell)")
+print(generator.grid)
 
 print("Setting stoichiometry to insert")
 stoich_list = raffle.generator.stoichiometry_type_xnum_array()

@@ -87,7 +87,7 @@ contains
 
 
 !###############################################################################
-  function add_atom_void(bin_size, basis, atom_ignore_list, viable) &
+  function add_atom_void(grid, basis, atom_ignore_list, viable) &
        result(point)
     !! VOID placement method.
     !!
@@ -98,7 +98,7 @@ contains
     ! Arguments
     type(extended_basis_type), intent(inout) :: basis
     !! Structure to add atom to.
-    integer, dimension(3), intent(in) :: bin_size
+    integer, dimension(3), intent(in) :: grid
     !! Number of gridpoints in each direction.
     integer, dimension(:,:), intent(in) :: atom_ignore_list
     !! List of atoms to ignore (i.e. indices of atoms not yet placed).
@@ -124,10 +124,10 @@ contains
     !---------------------------------------------------------------------------
     viable = .false.
     best_location_bond = -huge(1._real12)
-    do i = 0, bin_size(1) - 1, 1
-       do j = 0, bin_size(2) - 1, 1
-          do k = 0, bin_size(3) - 1, 1
-             tmpvector = [i, j, k] / real(bin_size,real12)
+    do i = 0, grid(1) - 1, 1
+       do j = 0, grid(2) - 1, 1
+          do k = 0, grid(3) - 1, 1
+             tmpvector = [i, j, k] / real(grid,real12)
              smallest_bond = modu(get_min_dist(&
                   basis, tmpvector, .false., &
                   ignore_list = atom_ignore_list))
@@ -280,7 +280,7 @@ contains
 
 
 !###############################################################################
-  function get_viable_gridpoints(bin_size, basis, &
+  function get_viable_gridpoints(grid, basis, &
        radius_list, atom_ignore_list, lowtol) result(points)
     !! Get the viable gridpoints for adding an atom.
     !!
@@ -291,7 +291,7 @@ contains
     ! Arguments
     type(extended_basis_type), intent(in) :: basis
     !! Structure to add atom to.
-    integer, dimension(3), intent(in) :: bin_size
+    integer, dimension(3), intent(in) :: grid
     !! Number of gridpoints in each direction.
     integer, dimension(:,:), intent(in) :: atom_ignore_list
     !! List of atoms to ignore (i.e. indices of atoms not yet placed).
@@ -327,11 +327,11 @@ contains
     ! ... close to an existing atom. If they are, remove them from the list ...
     ! ... of viable gridpoints
     !---------------------------------------------------------------------------
-    allocate(points_tmp(3,product(bin_size)))
+    allocate(points_tmp(3,product(grid)))
     num_points = 0
-    grid_loop1: do i = 0, bin_size(1) - 1, 1
-       grid_loop2: do j = 0, bin_size(2) - 1, 1
-          grid_loop3: do k = 0, bin_size(3) - 1, 1
+    grid_loop1: do i = 0, grid(1) - 1, 1
+       grid_loop2: do j = 0, grid(2) - 1, 1
+          grid_loop3: do k = 0, grid(3) - 1, 1
              do is = 1, basis%nspec
                 do ia = 1, basis%spec(is)%num
                    do l = 1, size(atom_ignore_list,dim=1), 1
@@ -340,7 +340,7 @@ contains
                    if( get_min_dist_between_point_and_atom( &
                              basis, &
                              [i + 0.5, j + 0.5, k + 0.5] / &
-                                  real(bin_size,real12), &
+                                  real(grid,real12), &
                              [is,ia] &
                         ) .lt. &
                         radius_list(pair_index(is)) * lowtol ) &
@@ -348,7 +348,7 @@ contains
                 end do
              end do
              num_points = num_points + 1
-             points_tmp(:,num_points) = [i, j, k] / real(bin_size,real12)
+             points_tmp(:,num_points) = [i, j, k] / real(grid,real12)
           end do grid_loop3
        end do grid_loop2
     end do grid_loop1

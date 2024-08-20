@@ -6,6 +6,7 @@ module generator
   !! distribution functions to determine the placement of atoms in the
   !! provided host structure.
   use constants, only: real12
+  use misc_linalg, only: modu
   use misc_raffle, only: strip_null
   use rw_geom, only: basis_type
   use extended_geom, only: extended_basis_type
@@ -48,8 +49,10 @@ module generator
     !! Number of structures generated. Initialised to zero.
     type(basis_type) :: host
     !! Host structure.
-    integer, dimension(3) :: bins
-    !! Number of bins to divide the host structure into along each axis.
+    integer, dimension(3) :: grid = [0, 0, 0]
+    !! Grid to divide the host structure into along each axis.
+    real(real12) :: grid_spacing = 0.1_real12
+    !! Spacing of the gridpoints.
     type(gvector_container_type) :: distributions
     !! Distribution function container for the 2-, 3-, and 4-body interactions.
     real(real12), dimension(3) :: method_probab
@@ -59,6 +62,10 @@ module generator
    contains
     procedure, pass(this) :: set_host
     !! Procedure to set the host structure.
+    procedure, pass(this) :: set_grid
+    !! Procedure to set the grid for the raffle generator.
+    procedure, pass(this) :: reset_grid
+    !! Procedure to reset the grid for the raffle generator.
     procedure, pass(this) :: generate
     !! Procedure to generate random structures.
     procedure, pass(this), private :: generate_structure
@@ -134,6 +141,7 @@ contains
   subroutine set_host(this, host)
     !! Set the host structure.
     implicit none
+
     ! Arguments
     class(raffle_generator_type), intent(inout) :: this
     !! Instance of the raffle generator.
@@ -142,13 +150,70 @@ contains
 
     ! Local variables
     integer :: i
+    !! Loop index.
 
 
     this%host = host
     do i = 1, this%host%nspec
        this%host%spec(i)%name = strip_null(this%host%spec(i)%name)
     end do
+
+    call this%set_grid()
   end subroutine set_host
+!###############################################################################
+
+
+!###############################################################################
+  subroutine set_grid(this, grid, grid_spacing)
+    !! Set the grid for the raffle generator.
+    implicit none
+
+    ! Arguments
+    class(raffle_generator_type), intent(inout) :: this
+    !! Instance of the raffle generator.
+    integer, dimension(3), intent(in), optional :: grid
+    !! Number of bins to divide the host structure into along each axis.
+    real(real12), intent(in), optional :: grid_spacing
+    !! Spacing of the bins.
+
+    ! Local variables
+    integer :: i
+    !! Loop index.
+
+
+    if(present(grid).and.present(grid_spacing)) then
+       write(0,*) "ERROR: Cannot set grid and grid spacing simultaneously"
+       stop 1
+    elseif(present(grid_spacing)) then
+       this%grid_spacing = grid_spacing
+       this%grid = 0
+    elseif(present(grid)) then
+       this%grid = grid
+    end if
+
+    if(all(this%grid.eq.0))then
+       if(allocated(this%host%spec))then
+          do i = 1, 3
+             this%grid(i) = nint( modu(this%host%lat(i,:)) / this%grid_spacing )
+          end do
+       end if
+    end if
+
+  end subroutine set_grid
+!###############################################################################
+
+
+!###############################################################################
+  subroutine reset_grid(this)
+    !! Reset the grid for the raffle generator.
+    implicit none
+
+    ! Arguments
+    class(raffle_generator_type), intent(inout) :: this
+    !! Instance of the raffle generator.
+
+    this%grid = 0
+  end subroutine reset_grid
 !###############################################################################
 
 
@@ -413,7 +478,7 @@ contains
     !---------------------------------------------------------------------------
     method_probab_ = method_probab
     if(abs( method_probab_(3) - method_probab_(2) ) .gt. 1.E-3)then
-       viable_gridpoints = get_viable_gridpoints( this%bins, &
+       viable_gridpoints = get_viable_gridpoints( this%grid, &
             basis, &
             [ this%distributions%bond_info(:)%radius_covalent ], &
             placement_list_shuffled, &
@@ -458,7 +523,7 @@ contains
        call random_number(rtmp1)
        if(rtmp1.le.method_probab_(1)) then 
           if(verbose.gt.0) write(*,*) "Add Atom Void"
-          point = add_atom_void( this%bins, &
+          point = add_atom_void( this%grid, &
                 basis, &
                 placement_list_shuffled(iplaced+1:,:), viable )
        else if(rtmp1.le.method_probab_(2)) then 
@@ -493,7 +558,7 @@ contains
        end if
        if(.not. viable) then
           if(void_ticker.gt.10) &
-               point = add_atom_void( this%bins, basis, &
+               point = add_atom_void( this%grid, basis, &
                                   placement_list_shuffled(iplaced+1:,:), viable)
           void_ticker = 0
           if(.not.viable) cycle placement_loop

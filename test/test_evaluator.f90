@@ -115,7 +115,7 @@ program test_evaluator
 
   grid = [20, 20, 40]
   call generator%host%copy(basis_host)
-  generator%bins = grid
+  call generator%set_grid( grid = grid, grid_offset = [0.0, 0.0, 0.0] )
 
 
   !-----------------------------------------------------------------------------

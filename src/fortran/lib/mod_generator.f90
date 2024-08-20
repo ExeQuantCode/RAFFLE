@@ -51,6 +51,8 @@ module generator
     !! Host structure.
     integer, dimension(3) :: grid = [0, 0, 0]
     !! Grid to divide the host structure into along each axis.
+    real, dimension(3) :: grid_offset = [0.5_real12, 0.5_real12, 0.5_real12]
+    !! Offset of the gridpoints.
     real(real12) :: grid_spacing = 0.1_real12
     !! Spacing of the gridpoints.
     type(gvector_container_type) :: distributions
@@ -164,7 +166,7 @@ contains
 
 
 !###############################################################################
-  subroutine set_grid(this, grid, grid_spacing)
+  subroutine set_grid(this, grid, grid_spacing, grid_offset)
     !! Set the grid for the raffle generator.
     implicit none
 
@@ -175,6 +177,8 @@ contains
     !! Number of bins to divide the host structure into along each axis.
     real(real12), intent(in), optional :: grid_spacing
     !! Spacing of the bins.
+    real(real12), dimension(3), intent(in), optional :: grid_offset
+    !! Offset of the gridpoints.
 
     ! Local variables
     integer :: i
@@ -190,6 +194,8 @@ contains
     elseif(present(grid)) then
        this%grid = grid
     end if
+
+    if(present(grid_offset)) this%grid_offset = grid_offset
 
     if(all(this%grid.eq.0))then
        if(allocated(this%host%spec))then
@@ -482,7 +488,8 @@ contains
             basis, &
             [ this%distributions%bond_info(:)%radius_covalent ], &
             placement_list_shuffled, &
-            lowtol = this%distributions%radius_distance_tol(1) &
+            lowtol = this%distributions%radius_distance_tol(1), &
+            grid_offset = this%grid_offset &
        )
     end if
 

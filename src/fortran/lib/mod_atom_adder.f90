@@ -281,7 +281,7 @@ contains
 
 !###############################################################################
   function get_viable_gridpoints(grid, basis, &
-       radius_list, atom_ignore_list, lowtol) result(points)
+       radius_list, atom_ignore_list, lowtol, grid_offset) result(points)
     !! Get the viable gridpoints for adding an atom.
     !!
     !! This function returns a list of gridpoints that are not too close to an
@@ -299,6 +299,7 @@ contains
     !! List of radii for each pair of elements.
     real(real12), intent(in) :: lowtol
     !! Lower tolerance for distance between atoms.
+    real(real12), dimension(3), intent(in), optional :: grid_offset
 
     ! Local variables
     integer, dimension(:), allocatable :: pair_index
@@ -311,6 +312,17 @@ contains
     !! Loop indices.
     integer :: num_points
     !! Number of gridpoints.
+    real(real12), dimension(3) :: offset_
+
+
+    !---------------------------------------------------------------------------
+    ! set offset
+    !---------------------------------------------------------------------------
+    if(present(grid_offset)) then
+       offset_ = grid_offset
+    else
+       offset_ = 0.5_real12
+    end if
    
 
     !---------------------------------------------------------------------------
@@ -339,7 +351,11 @@ contains
                    end do
                    if( get_min_dist_between_point_and_atom( &
                              basis, &
-                             [i + 0.5, j + 0.5, k + 0.5] / &
+                             [ &
+                                  i + offset_(1), &
+                                  j + offset_(2), &
+                                  k + offset_(3) &
+                             ] / &
                                   real(grid,real12), &
                              [is,ia] &
                         ) .lt. &

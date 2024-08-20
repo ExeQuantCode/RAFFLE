@@ -2303,6 +2303,50 @@ class Generator(f90wrap.runtime.FortranModule):
             self.grid[...] = grid
         
         @property
+        def grid_offset(self):
+            """
+            Element grid_offset ftype=real pytype=float
+            
+            
+            Defined at \
+                /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_generator.f90 line \
+                45
+            
+            """
+            array_ndim, array_type, array_shape, array_handle = \
+                _raffle.f90wrap_raffle_generator_type__array__grid_offset(self._handle)
+            if array_handle in self._arrays:
+                grid_offset = self._arrays[array_handle]
+            else:
+                grid_offset = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                        self._handle,
+                                        _raffle.f90wrap_raffle_generator_type__array__grid_offset)
+                self._arrays[array_handle] = grid_offset
+            return grid_offset
+        
+        @grid_offset.setter
+        def grid_offset(self, grid_offset):
+            self.grid_offset[...] = grid_offset
+
+        @property
+        def grid_spacing(self):
+            """
+            Element grid_spacing ftype=real(real12) pytype=float
+            
+            
+            Defined at \
+                /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_generator.f90 line \
+                47
+            
+            """
+            return _raffle.f90wrap_raffle_generator_type__get__grid_spacing(self._handle)
+        
+        @grid_spacing.setter
+        def grid_spacing(self, grid_spacing):
+            _raffle.f90wrap_raffle_generator_type__set__grid_spacing(self._handle, \
+                grid_spacing)
+        
+        @property
         def distributions(self):
             """
             Element distributions ftype=type(gvector_container_type) \
@@ -2376,6 +2420,8 @@ class Generator(f90wrap.runtime.FortranModule):
             ret.append(repr(self.host))
             ret.append(',\n    grid : ')
             ret.append(repr(self.grid))
+            ret.append(',\n    grid_offset : ')
+            ret.append(repr(self.grid_offset))
             ret.append(',\n    grid_spacing : ')
             ret.append(repr(self.grid_spacing))
             ret.append(',\n    distributions : ')

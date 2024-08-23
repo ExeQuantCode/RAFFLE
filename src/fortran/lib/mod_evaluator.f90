@@ -66,7 +66,6 @@ contains
     viability_2body = 0._real12
 
     
-
     !---------------------------------------------------------------------------
     ! get list of element pair indices
     !---------------------------------------------------------------------------
@@ -103,6 +102,8 @@ contains
        neighbour_basis%spec(is)%num = 0
        neighbour_basis%image_spec(is)%num = 0
        atom_loop: do ia = 1, basis%spec(is)%num
+          ! Check if the atom is in the ignore list
+          ! If it is, skip the atom.
           do i = 1, size(atom_ignore_list,dim=1), 1
              if(all(atom_ignore_list(i,:).eq.[is,ia])) cycle atom_loop
           end do
@@ -112,11 +113,16 @@ contains
                   radius_list(pair_index(ls,is)) * &
                   gvector_container%radius_distance_tol(1) ) &
              )then
+                ! If the bond length is less than the minimum allowed bond,
+                ! return 0 (i.e. the point is not viable).
                 return
              elseif( bondlength .le. ( &
                     radius_list(pair_index(ls,is)) * &
                     gvector_container%radius_distance_tol(2) ) &
              )then
+                ! If the bond length is within the tolerance of the covalent
+                ! radius of the pair, add the atom to the list of
+                ! atoms to consider for 3-body interactions.
                 neighbour_basis%spec(is)%num = neighbour_basis%spec(is)%num + 1
                 neighbour_basis%spec(is)%atom( &
                      neighbour_basis%spec(is)%num,:3 &
@@ -133,6 +139,8 @@ contains
                          ) &
                     ) &
              )then
+                ! If the bond length is within the min and max allowed size,
+                ! add the atom to the list of atoms to consider for 4-body.
                 neighbour_basis%image_spec(is)%num = &
                      neighbour_basis%image_spec(is)%num + 1
                 neighbour_basis%image_spec(is)%atom( &
@@ -142,6 +150,7 @@ contains
                 cycle atom_loop
              end if
         
+             ! Add the contribution of the bond length to the viability map.
              viability_2body = viability_2body + &
                   gvector_container%total%df_2body( &
                        gvector_container%get_bin(bondlength, dim = 1), &
@@ -151,6 +160,9 @@ contains
           end associate
        end do atom_loop
 
+       ! Repeat the process for the image atoms.
+       ! i.e. atoms that are not in the unit cell but are within the cutoff
+       ! distance.
        image_loop: do ia = 1, basis%image_spec(is)%num, 1
           associate( position_store => [ basis%image_spec(is)%atom(ia,1:3) ] )
              bondlength = modu( matmul(position - position_store, basis%lat) )
@@ -198,6 +210,7 @@ contains
        end do image_loop
     end do species_loop
     neighbour_basis%natom = sum(neighbour_basis%spec(:)%num)
+    ! Normalise the viability map
     if(num_2body.eq.0)then
        viability_2body = 0.5_real12
     else
@@ -251,6 +264,7 @@ contains
           end associate
        end do
     end do
+    ! Normalise the viability map
     if(num_3body.eq.0)then
        viability_3body = 0.1_real12 !0.66666666_real12
     else
@@ -262,6 +276,7 @@ contains
        viability_4body = viability_4body / num_4body
     end if
     
+    ! Combine the 2-, 3- and 4-body maps
     output = viability_2body * viability_3body * viability_4body
     
   end function evaluate_point
@@ -310,6 +325,9 @@ contains
                              position_store ), &
                   dim = 2 &
              )
+             !!! THIS IS A TEMPORARY CHECK
+             !!! IF IT IS NEVER ENCOUNTERED, WE CAN REMOVE IT
+             !!! AND WHEN REMOVING, WE CAN MAKE ALL PROCEDURES HERE PURE
              if(bin.eq.0)then
                 write(0,*) "Error: bin = 0, IF NOT TRIGGERED, WE CAN REMOVE THIS IF"
                 stop 1
@@ -363,6 +381,9 @@ contains
                   ), &
                   dim = 3 &
              )
+             !!! THIS IS A TEMPORARY CHECK
+             !!! IF IT IS NEVER ENCOUNTERED, WE CAN REMOVE IT
+             !!! AND WHEN REMOVING, WE CAN MAKE ALL PROCEDURES HERE PURE
              if(bin.eq.0)then
                 write(0,*) "Error: bin = 0, IF NOT TRIGGERED, WE CAN REMOVE THIS IF"
                 stop 1

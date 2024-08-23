@@ -76,9 +76,13 @@ contains
       return
     end if
 
+    ! find the gridpoint with the highest suitability
     best_gridpoint = maxloc(suitability_grid, dim=1)
+
+    ! deallocate the suitability grid
     deallocate(suitability_grid)
 
+    ! return the gridpoint with the highest suitability
     point = gridpoints(:,best_gridpoint)
     viable = .true.
    
@@ -139,6 +143,7 @@ contains
        end do
     end do
 
+    ! return the gridpoint with the largest void space
     point = best_location
     viable = .true.
 
@@ -252,8 +257,8 @@ contains
                 if (rtmp1.lt.calculated_value) exit walk_loop
              end if
    
-             !! if we have tried 10 times, and still no luck, then we need to ...
-             !! ... reduce the tolerance
+             !! if we have tried 10 times, and still no luck, then we need to
+             !! reduce the tolerance
              k = k + 1
           end if   
           cycle walk_loop

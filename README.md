@@ -50,29 +50,67 @@ Then, the path to the install directory (`${HOME}/.local/raffle`) needs to be ad
 
 ### Fortran
 
-For Fortran, CMake is required (fpm in the future, hopefully). The Python library installation can be turned off.
+For Fortran, either fpm or cmake are required.
+
+#### fpm
+
+fpm installation is as follows:
+
+```
+fpm build --profile release
+```
+
+This will install both the Fortran library and the Fortran application for RAFFLE.
+The library can then be called from other fpm-built Fortran programs through normal means (usually referencing the location of RAFFLE in the program's own `fpm.toml` file).
+The application can be run using **(NOTE: The application is not a priority for development, so is less likely to work)**:
+```
+fpm run
+```
+
+The library can be tested to ensure compilation was successful **(NOTE: Unit tests currently only provide minimal code coverage)**:
+```
+fpm test --profile release
+```
+
+#### cmake
+
+cmake installation is as follows:
 ```
 mkdir build
 cd build
-cmake -DBUILD_PYTHON=Off ..
+cmake [-DBUILD_PYTHON=Off] ..
 make install
 ```
-
-This is a quick how-to guide for using RAFFLE.
-
-First, compile using
-``` 
-make
+The optional filed (dentoted with `[...]`) can be used to turn off installation of the Python library.
+This will build the library in the build/ directory. All library files will then be found in:
+```
+${HOME}/.local/raffle
+```
+Inside this directory, the following files will be generated:
+```
+include/raffle.mod
+lib/libraffle.a
 ```
 
-## Using
-
-First, you need to ensure that the following file exists in the directory in which you run RAFFLE:
+To check whether RAFFLE has installed correctly and that the compilation works as expected, the following command can be run:
 ```
-chem.in
+ctest
 ```
+This runs the unit tests (found in the `test` directory) to ensure procedures output as expected.
 
-Each of these files should follow the format found in the current repository. They should each have a header line that starts with "#" and contains the word "element". The example headers should then be followed for filling in data. For the elements.dat, the energy provided can be whatever you want to use as a reference energy. This energy is used for calculating formation energy. The example uses energy/atom of the bulk phase of the element.
+
+## Examples
+
+After the library has been installed, a set of example programs can be found in the `example` directory (note, the `test` directory is for unit tests to ensure each procedure in the library produces expected outputs after compilation, they are not really needed to be looked at by potential users).
+
+The `example/executable` example uses a shell script to run the Fortran installed application.
+It uses a user-editable input file `param.in` in the same directory to change values of the RAFFLE generator and provided database.
+
+The `example/wrapper` directory contains a set of `run_*.py` files that show how RAFFLE can be called using Python to implement it into existing random structure search workflows.
+These examples are the recommended ones to run.
+To successfully run them, follow the above installation instructions for Python, then go to the `example/wrapper` directory and run one of the scripts.
+
+
 <!-- 
 Next, after the code is compiled, the way to run it is as follows:
 ```

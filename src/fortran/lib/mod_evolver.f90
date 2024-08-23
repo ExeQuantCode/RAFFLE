@@ -1878,12 +1878,15 @@ module evolver
     !---------------------------------------------------------------------------
     do is = 1, basis%nspec
        do ia = 1, basis%spec(is)%num
-          
-          allocate(distance(basis_extd%natom+basis_extd%num_images)) !!! ALLOCATE THIS ONCE AND JUST WRITE OVER
+          allocate(distance(basis_extd%natom+basis_extd%num_images)) !!! ALLOCATE THIS ONCE AND JUST WRITE OVER ?
           neighbour_basis%spec(1)%num = 0
           neighbour_basis%image_spec(1)%num = 0
           do js = 1, basis%nspec
              itmp1 = 0
+
+             !------------------------------------------------------------------
+             ! loop over all atoms inside the unit cell
+             !------------------------------------------------------------------
              atom_loop: do ja = 1, basis%spec(js)%num
 
                 associate( vector =>  matmul( [ &
@@ -1935,6 +1938,10 @@ module evolver
                 end associate
              end do atom_loop
 
+
+             !------------------------------------------------------------------
+             ! loop over all image atoms outside of the unit cell
+             !------------------------------------------------------------------
              image_loop: do ja = 1, basis_extd%image_spec(js)%num
                 associate( vector =>  matmul( [ &
                           basis_extd%image_spec(js)%atom(ja,1:3) - &

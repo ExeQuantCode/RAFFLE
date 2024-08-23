@@ -11,6 +11,7 @@ module evolver
   use misc_linalg, only: get_angle, get_vol, get_improper_dihedral_angle, &
        cross, modu
   use rw_geom, only: basis_type, get_element_properties
+  use extended_geom, only: extended_basis_type
   use elements, only: &
        element_type, element_bond_type, &
        element_database, element_bond_database
@@ -1736,55 +1737,31 @@ module evolver
     !! Defaults for distribution function parametsr are randomly chosen for now.
     !! @endnote
 
-    integer :: bin, max_num_steps
+    integer :: bin
     !! Bin index and maximum number of steps.
-    integer :: i, j, k, b, itmp1
+    integer :: i, j, b, itmp1, idx
     !! Loop index.
-    integer :: is, js, ia, ja
+    integer :: is, js, ia, ja, ka, la
     !! Loop index.
-    integer :: num_pairs, num_angles
+    integer :: num_pairs!, num_angles
     !! Number of pairs and angles.
-    integer :: amax, bmax, cmax
-    !! Maximum number of lattice vectors to consider.
-    real(real12) :: rtmp1, rtmp2
+    real(real12) :: bondlength
     !! Temporary real variables.
-    real(real12) :: fc, weight, scale
-    !! Cutoff, weight and scale for the distribution functions.
     logical :: success
     !! Boolean for success.
+    type(extended_basis_type) :: basis_extd
+    !! Extended basis of the system.
+    type(extended_basis_type) :: neighbour_basis
+    !! Basis for storing neighbour data.
     real(real12), dimension(3) :: eta, limit
     !! Parameters for the distribution functions.
     real(real12), dimension(3) :: vtmp1, vtmp2, vtmp3, diff
     !! Temporary real arrays.
-    real(real12), allocatable, dimension(:) :: gvector_tmp, angle, distance
+    real(real12), allocatable, dimension(:) :: angle_list, bondlength_list, &
+         distance
     !! Temporary real arrays.
-    integer, dimension(:), allocatable :: idx_list!, count_list
-    !! Index list for the element pairs in a system.
-
-    integer, dimension(3,2) :: loop_limits
-    !! Loop limits for the 3-body distribution function.
-    integer, allocatable, dimension(:,:) :: idx
-    !! Index list for the element pairs in a system.
     integer, allocatable, dimension(:,:) :: pair_index
     !! Index of element pairs.
-
-    type :: bond_type
-       !! Derived type for a bond.
-       integer, dimension(2) :: species, atom
-       !! Species and atom indices.
-       logical :: skip = .false.
-       !! Boolean whether to skip the bond.
-       real(real12), dimension(3) :: vector
-       !! Vector of the bond.
-    end type bond_type
-    type(bond_type), dimension(:), allocatable :: bond_list
-    !! List of bonds in the system.
-
-    !type :: plane_type
-    !   real(real12), dimension(3) :: vector
-    !   integer :: count
-    !end type plane_type
-    !type(plane_type), dimension(:), allocatable :: plane_list
 
 
     !---------------------------------------------------------------------------
@@ -1867,433 +1844,268 @@ module evolver
 
 
     !---------------------------------------------------------------------------
-    ! get the maximum number of lattice vectors to consider
-    ! NOTE: this is not perfect
-    !       won't work for extremely acute/obtuse angle cells
-    !       (due to diagonal path being shorter than individual lattice vectors)
-    !---------------------------------------------------------------------------
-    amax = ceiling(cutoff_max_(1)/modu(basis%lat(1,:)))
-    bmax = ceiling(cutoff_max_(1)/modu(basis%lat(2,:)))
-    cmax = ceiling(cutoff_max_(1)/modu(basis%lat(3,:)))
-
-
-    !---------------------------------------------------------------------------
-    ! build the bond list
-    !---------------------------------------------------------------------------
-    allocate(bond_list(0)) !if doesn't work, allocate a dummy bond first
-    spec_loop1: do is=1,basis%nspec
-       atom_loop1: do ia=1,basis%spec(is)%num
-          spec_loop2: do js=is,basis%nspec
-             atom_loop2: do ja=1,basis%spec(js)%num
-                if(is.eq.js.and.ja.lt.ia) cycle atom_loop2
-                diff = basis%spec(is)%atom(ia,:3) -  basis%spec(js)%atom(ja,:3)
-                diff = diff - ceiling(diff - 0.5_real12)
-                do i=-amax,amax+1,1
-                   vtmp1(1) = diff(1) + real(i, real12)
-                   do j=-bmax,bmax+1,1
-                      vtmp1(2) = diff(2) + real(j, real12)
-                      do k=-cmax,cmax+1,1
-                         vtmp1(3) = diff(3) + real(k, real12)
-                         rtmp1 = modu(matmul(vtmp1,basis%lat))
-                         if( rtmp1 .gt. cutoff_min_(1) - &
-                                        width_(1)/2._real12 .and. &
-                             rtmp1 .lt. cutoff_max_(1) + &
-                                        width_(1)/2._real12 )then
-                            bond_list = [ bond_list, bond_type( &
-                                 species=[is,js], &
-                                 atom=[ia,ja], skip=.false., &
-                                 vector=matmul(vtmp1,basis%lat)) ]
-                         end if
-                      end do
-                   end do
-                end do
-             end do atom_loop2
-          end do spec_loop2
-       end do atom_loop1
-    end do spec_loop1
-
-
-    !---------------------------------------------------------------------------
-    ! calculate the gaussian width
+    ! calculate the gaussian width and allocate the distribution functions
     !---------------------------------------------------------------------------
     eta = 1._real12 / ( 2._real12 * sigma_**2._real12 )
-    max_num_steps = ceiling( sqrt(16._real12/eta(1)) / width_(1) )
+    allocate(this%df_2body(nbins_(1), num_pairs), source = 0._real12)
+    allocate(this%df_3body(nbins_(2), basis%nspec), source = 0._real12)
+    allocate(this%df_4body(nbins_(3), basis%nspec), source = 0._real12)
 
 
     !---------------------------------------------------------------------------
-    ! build the 2-body gvectors (radial distribution functions)
+    ! create the extended basis and neighbour basis
     !---------------------------------------------------------------------------
-    allocate(this%df_2body(nbins_(1),num_pairs), source = 0._real12)
-    allocate(gvector_tmp(nbins_(1)),             source = 0._real12)
-    do i = 1, size(bond_list)
-       if(bond_list(i)%skip) cycle
-       if(abs(modu(bond_list(i)%vector)).lt.1.E-3) cycle
-       is = bond_list(i)%species(1)
-       js = bond_list(i)%species(2)
-       rtmp1 = modu(bond_list(i)%vector)
-       !------------------------------------------------------------------------
-       ! get number of equivalent bonds
-       !------------------------------------------------------------------------
-       scale = 1._real12
-       do j = i+1, size(bond_list)
-          !! don't need to look at reverse of species, as the ordering will ...
-          !! always be enforced by the loop above, i.e. is <= js
-          if( is .ne. bond_list(j)%species(1) .or. &
-              js .ne. bond_list(j)%species(2) ) cycle
-          if(abs(modu(bond_list(j)%vector)-rtmp1).lt.1.E-3)then !!MAKE THIS LINKED TO WIDTH?
-             bond_list(j)%skip = .true.
-             scale = scale + 1._real12
-          end if          
-       end do
-       !------------------------------------------------------------------------
-       bin = nint( ( rtmp1 - cutoff_min_(1) ) / width_(1) ) + 1
-       if(bin.gt.nbins_(1).or.bin.lt.1) cycle
+    call basis_extd%copy(basis)
+    call basis_extd%create_images( max_bondlength = radius_distance_tol_(1) )
+    allocate(bondlength_list(basis_extd%natom+basis_extd%num_images))
 
-       fc = 0.5_real12 * cos( pi * ( rtmp1 - cutoff_min_(1) ) / limit(1) ) + &
-            0.5_real12
+    allocate(neighbour_basis%spec(1))
+    allocate(neighbour_basis%image_spec(1))
+    allocate(neighbour_basis%spec(1)%atom( &
+         sum(basis_extd%spec(:)%num)+sum(basis_extd%image_spec(:)%num), 3 &
+    ) )
+    allocate(neighbour_basis%image_spec(1)%atom( &
+         sum(basis_extd%spec(:)%num)+sum(basis_extd%image_spec(:)%num), 3 &
+    ) )
+    neighbour_basis%nspec = basis%nspec
+    neighbour_basis%natom = 0
+    neighbour_basis%num_images = 0
+    neighbour_basis%lat = basis%lat
 
-       !------------------------------------------------------------------------
-       ! calculate the gaussian for this bond
-       !------------------------------------------------------------------------
-       gvector_tmp = 0._real12
-       loop_limits(:,1) = [ bin, min(nbins_(1), (bin + max_num_steps) ), 1 ]
-       loop_limits(:,2) = [ bin - 1, max(1, bin - max_num_steps), -1 ]
-       
-       ! do forward and backward loops to add gaussian for larger distances
-       do concurrent ( j = 1:2 )
-          do concurrent ( b = &
-                            loop_limits(1,j):loop_limits(2,j):loop_limits(3,j) )
-             gvector_tmp(b) = gvector_tmp(b) + &
-                  exp( -eta(1) * ( rtmp1 - &
-                                   ( width_(1) * real(b-1, real12) + &
-                                     cutoff_min_(1) ) ) ** 2._real12 )
+
+    !---------------------------------------------------------------------------
+    ! calculate the distribution functions
+    !---------------------------------------------------------------------------
+    do is = 1, basis%nspec
+       do ia = 1, basis%spec(is)%num
+          
+          allocate(distance(basis_extd%natom+basis_extd%num_images)) !!! ALLOCATE THIS ONCE AND JUST WRITE OVER
+          neighbour_basis%spec(1)%num = 0
+          neighbour_basis%image_spec(1)%num = 0
+          do js = 1, basis%nspec
+             itmp1 = 0
+             atom_loop: do ja = 1, basis%spec(js)%num
+
+                associate( vector =>  matmul( [ &
+                          basis_extd%spec(js)%atom(ja,1:3) - &
+                          basis_extd%spec(is)%atom(ia,1:3) &
+                     ], basis%lat ) &
+                )
+                   bondlength = modu( vector )
+                   
+                   if( bondlength .lt. cutoff_min_(1) .or. &
+                       bondlength .gt. cutoff_max_(1) ) cycle atom_loop
+                  
+                   ! add 2-body bond to store if within tolerances for 3-body
+                   ! distance
+                   if( &
+                        bondlength .ge. &
+                             bond_info(pair_index(is, js))%radius_covalent * &
+                             radius_distance_tol(1) .and. &
+                        bondlength .le. &
+                             bond_info(pair_index(is, js))%radius_covalent * &
+                             radius_distance_tol(2) &
+                   ) then
+                      neighbour_basis%spec(1)%num = &
+                           neighbour_basis%spec(1)%num + 1
+                      neighbour_basis%spec(1)%atom( &
+                           neighbour_basis%spec(1)%num,1:3) = vector
+                   end if
+
+                   ! add 2-body bond to store if within tolerances for 4-body
+                   ! distance
+                   if( bondlength .ge. ( & 
+                        bond_info(pair_index(is, js))%radius_covalent * &
+                        radius_distance_tol(3) ) .and. &
+                       bondlength .le. ( &
+                        bond_info(pair_index(is, js))%radius_covalent * &
+                        radius_distance_tol(4) ) &
+                   ) then
+                      neighbour_basis%image_spec(1)%num = &
+                           neighbour_basis%image_spec(1)%num + 1
+                      neighbour_basis%image_spec(1)%atom( &
+                           neighbour_basis%image_spec(1)%num,1:3) = vector
+                   end if
+
+                   !if(js.lt.js.or.(is.eq.js.and.ja.le.ia)) cycle
+                   itmp1 = itmp1 + 1
+                   bondlength_list(itmp1) = bondlength
+                   distance(itmp1) = 1._real12
+                
+                end associate
+             end do atom_loop
+
+             image_loop: do ja = 1, basis_extd%image_spec(js)%num
+                associate( vector =>  matmul( [ &
+                          basis_extd%image_spec(js)%atom(ja,1:3) - &
+                          basis_extd%spec(is)%atom(ia,1:3) &
+                     ], basis_extd%lat ) &
+                )
+
+                   bondlength = modu( vector )
+                   
+                   if( bondlength .lt. cutoff_min_(1) .or. &
+                       bondlength .gt. cutoff_max_(1) ) cycle image_loop
+                  
+                   ! add 2-body bond to store if within tolerances for 3-body
+                   ! distance
+                   if( &
+                        bondlength .ge. &
+                             bond_info(pair_index(is, js))%radius_covalent * &
+                             radius_distance_tol(1) .and. &
+                        bondlength .le. &
+                             bond_info(pair_index(is, js))%radius_covalent * &
+                             radius_distance_tol(2) &
+                   ) then
+                      neighbour_basis%spec(1)%num = &
+                           neighbour_basis%spec(1)%num + 1
+                      neighbour_basis%spec(1)%atom( &
+                           neighbour_basis%spec(1)%num,1:3 &
+                      ) = vector
+                   end if
+
+                   ! add 2-body bond to store if within tolerances for 4-body
+                   ! distance
+                   if( bondlength .ge. ( & 
+                        bond_info(pair_index(is, js))%radius_covalent * &
+                        radius_distance_tol(3) ) .and. &
+                       bondlength .le. ( &
+                        bond_info(pair_index(is, js))%radius_covalent * &
+                        radius_distance_tol(4) ) &
+                   ) then
+                      neighbour_basis%image_spec(1)%num = &
+                           neighbour_basis%image_spec(1)%num + 1
+                      neighbour_basis%image_spec(1)%atom( &
+                           neighbour_basis%image_spec(1)%num,1:3 &
+                      ) = vector
+                   end if
+
+                   itmp1 = itmp1 + 1
+                   bondlength_list(itmp1) = bondlength
+                   distance(itmp1) = 1._real12
+                
+                end associate
+             end do image_loop
+
+             !------------------------------------------------------------------
+             ! calculate the 2-body distribution function contributions from
+             ! atom (is,ia) for species pair (is,js)
+             !------------------------------------------------------------------
+             if(itmp1.gt.0)then
+                this%df_2body(:,pair_index(is, js)) = &
+                     this%df_2body(:,pair_index(is, js)) + &
+                     get_gvector( &
+                          bondlength_list(:itmp1), &
+                          nbins_(1), eta(1), width_(1), &
+                          cutoff_min_(1), &
+                          limit(1), scale = distance(:itmp1) &
+                     )
+             end if
+
           end do
+          deallocate(distance)
+
+
+          !---------------------------------------------------------------------
+          ! calculate the 3-body distribution function for atom (is,ia)
+          !---------------------------------------------------------------------
+          if(neighbour_basis%spec(1)%num.le.1) cycle
+         !  num_angles = 0
+          allocate(angle_list(triangular_number(neighbour_basis%spec(1)%num - 1)))
+          allocate(distance(triangular_number(neighbour_basis%spec(1)%num - 1)))
+          do concurrent ( ja = 1:neighbour_basis%spec(1)%num:1 )
+             do concurrent ( ka = ja + 1:neighbour_basis%spec(1)%num:1 )
+                idx = nint( (ja - 1) * (neighbour_basis%spec(1)%num - ja / 2.0) + (ka - ja) )
+               !  num_angles = num_angles + 1
+               !  angle_list(num_angles) = get_angle( &
+                angle_list(idx) = get_angle( &
+                     neighbour_basis%spec(1)%atom(ja,:3), &
+                     neighbour_basis%spec(1)%atom(ka,:3) &
+                )
+               !  distance(num_angles) = &
+                distance(idx) = &
+                     ( &
+                          modu(neighbour_basis%spec(1)%atom(ja,:3)) ** 2 * &
+                          modu(neighbour_basis%spec(1)%atom(ka,:3)) ** 2 &
+                     )
+             end do
+          end do
+          this%df_3body(:,is) = this%df_3body(:,is) + &
+               get_gvector( angle_list, &
+                            nbins_(2), eta(2), width_(2), &
+                            cutoff_min_(2), limit(2), &
+                            scale = distance &
+               )
+          deallocate(angle_list)
+          deallocate(distance)
+
+
+          !---------------------------------------------------------------------
+          ! calculate the 4-body distribution function for atom (is,ia)
+          !---------------------------------------------------------------------
+          if(neighbour_basis%image_spec(1)%num.eq.0) cycle
+          ! num_angles = 0
+          allocate(angle_list(triangular_number(neighbour_basis%spec(1)%num) * neighbour_basis%image_spec(1)%num))
+          allocate(distance(triangular_number(neighbour_basis%spec(1)%num) * neighbour_basis%image_spec(1)%num))
+          do concurrent ( ja = 1:neighbour_basis%spec(1)%num:1, la = 1:neighbour_basis%image_spec(1)%num:1 )
+             do concurrent ( ka = ja + 1:neighbour_basis%spec(1)%num:1 )
+                idx = nint( (ja - 1) * (neighbour_basis%spec(1)%num - ja / 2.0) + (ka - ja) ) * (la - 1) + la
+                ! num_angles = num_angles + 1
+                ! angle_list(num_angles) = &
+                angle_list(idx) = &
+                     get_improper_dihedral_angle( &
+                          neighbour_basis%spec(1)%atom(ja,:3), &
+                          neighbour_basis%spec(1)%atom(ka,:3), &
+                          neighbour_basis%image_spec(1)%atom(la,:3) &
+                     )
+                !  distance(num_angles) = &
+                distance(idx) = &
+                    modu(neighbour_basis%spec(1)%atom(ja,:3)) ** 2 * &
+                    modu(neighbour_basis%spec(1)%atom(ka,:3)) ** 2 * &
+                    modu(neighbour_basis%image_spec(1)%atom(la,:3)) ** 2
+             end do
+          end do
+          this%df_4body(:,is) = this%df_4body(:,is) + &
+               get_gvector( angle_list, &
+                            nbins_(3), eta(3), width_(3), &
+                            cutoff_min_(3), limit(3), &
+                            scale = distance &
+               )
+          deallocate(angle_list)
+          deallocate(distance)
+
        end do
-       itmp1 = count( [ ( ( bond_list(j)%species(1) .eq. is .and. &
-                            bond_list(j)%species(2) .eq. js ) .or. &
-                          ( bond_list(j)%species(2) .eq. is .and. &
-                            bond_list(j)%species(1) .eq. js ), &
-                              j = 1, size(bond_list), 1 ) ] )
-       this%df_2body(:,pair_index(is, js)) = &
-            this%df_2body(:,pair_index(is, js)) + &
-            gvector_tmp * scale * sqrt( eta(1) / pi ) / real(itmp1,real12) ! / width_(1)
     end do
+
+
+    !---------------------------------------------------------------------------
+    ! apply the cutoff function to the 2-body distribution function
+    !---------------------------------------------------------------------------
     do b = 1, nbins_(1)
        this%df_2body(b,:) = this%df_2body(b,:) / ( cutoff_min_(1) + &
             width_(1) * real(b-1, real12) ) ** 2
     end do
-    ! renormalise so that the area under the curve is 1
-    do k = 1, num_pairs
-       if(all(abs(this%df_2body(:,k)).lt.1.E-6))then
-          this%df_2body(:,k) = 1._real12 / nbins_(1)
-       end if
-       this%df_2body(:,k) = this%df_2body(:,k) / sum(this%df_2body(:,k))
-    end do
 
 
     !---------------------------------------------------------------------------
-    ! build the 3-body gvectors (angular distribution functions)
+    ! renormalise the distribution functions so that area under the curve is 1
     !---------------------------------------------------------------------------
-    deallocate(gvector_tmp)
-    allocate(this%df_3body(nbins_(2), basis%nspec), source = 0._real12)
-    allocate(gvector_tmp(nbins_(2)),                source = 0._real12)
-    do is = 1, basis%nspec
-       num_angles = 0
-       ! number of comibnations without repetitions:
-       !    = n! / (n - r)! r!
-       !    as r = 1, this simplifies to n
-       do i = 1, size(bond_list), 1
-          if( is .eq. bond_list(i)%species(1) )then
-             ia = bond_list(i)%atom(1)
-          elseif( is .eq. bond_list(i)%species(2) )then
-             ia = bond_list(i)%atom(2)
-          else
-             cycle
-          end if
-          num_angles = num_angles + count( &
-             [ ( ( bond_list(j)%species(1) .eq. is .and. &
-                   bond_list(j)%atom(1) .eq. ia ) .or. &
-                 ( bond_list(j)%species(2) .eq. is .and. &
-                   bond_list(j)%atom(2) .eq. ia ), &
-                     j = i + 1, size(bond_list), 1 ) ] )
-       end do
-       allocate(angle(num_angles))
-       allocate(distance(num_angles))
-       num_angles = 0
-
-
-       !------------------------------------------------------------------------
-       ! loop over all bonds to find the first bond
-       !------------------------------------------------------------------------
-       do i = 1, size(bond_list)
-          if( is .eq. bond_list(i)%species(1) )then
-             vtmp1 = -bond_list(i)%vector
-             ia = bond_list(i)%atom(1)
-             js = bond_list(i)%species(2)
-          elseif( is .eq. bond_list(i)%species(2) )then
-             vtmp1 = bond_list(i)%vector
-             ia = bond_list(i)%atom(2)
-             js = bond_list(i)%species(1)
-            else
-             cycle
-          end if
-          if( &
-               modu(vtmp1) .lt. &
-                    bond_info(pair_index(is, js))%radius_covalent * &
-                    radius_distance_tol_(1) .or. &
-               modu(vtmp1) .gt. &
-                    bond_info(pair_index(is, js))%radius_covalent * &
-                    radius_distance_tol_(2) &
-          ) cycle
-        
-          !---------------------------------------------------------------------
-          ! loop over all bonds to find the second bond
-          !---------------------------------------------------------------------
-          do j = i + 1, size(bond_list)
-             if( is .eq. bond_list(j)%species(1) .and. &
-                 ia .eq. bond_list(j)%atom(1) )then
-                vtmp2 = -bond_list(j)%vector
-                js = bond_list(j)%species(2)
-             elseif( is .eq. bond_list(j)%species(2) .and. &
-                     ia .eq. bond_list(j)%atom(2) )then
-                vtmp2 = bond_list(j)%vector
-                js = bond_list(j)%species(1)
-               else
-                cycle
-             end if
-             if( &
-                  modu(vtmp2) .lt. &
-                       bond_info(pair_index(is, js))%radius_covalent * &
-                       radius_distance_tol_(1) .or. &
-                  modu(vtmp2) .gt. &
-                       bond_info(pair_index(is, js))%radius_covalent * &
-                       radius_distance_tol_(2) &
-             ) cycle
- 
-             if( abs( &
-                  dot_product(vtmp1, vtmp1) - &
-                  dot_product(vtmp1, vtmp2) &
-             ) .lt. 1.E-3 ) cycle
-
-             !------------------------------------------------------------------
-             ! calculate the angle between the two bonds
-             !------------------------------------------------------------------
-             num_angles = num_angles + 1
-             angle(num_angles) = get_angle( vtmp1, vtmp2 )
-             distance(num_angles) = &
-                  ( modu(vtmp1) ** 2 * modu(vtmp2) ** 2 )
-
-          end do
-       end do
-       if(num_angles.gt.size(angle))then
-          write(0,*) "ERROR: Number of 3-body angles exceeds allocated array"
-          write(0,'("Expected ",I0," got ",I0)') size(angle), num_angles
-          stop 1
-       elseif(num_angles.gt.0)then
-          this%df_3body(:,is) = this%df_3body(:,is) + &
-               get_gvector( angle(:num_angles), nbins_(2), eta(2), width_(2), &
-                                  cutoff_min_(2), &
-                                  limit(2), scale = distance(:num_angles) &
-               )
+    do i = 1, num_pairs
+       if(all(abs(this%df_2body(:,i)).lt.1.E-6))then
+          this%df_2body(:,i) = 1._real12 / nbins_(1)
        end if
-       deallocate(angle)
-       deallocate(distance)
+       this%df_2body(:,i) = this%df_2body(:,i) / sum(this%df_2body(:,i))
     end do
-    ! renormalise so that the area under the curve is 1
     do is = 1, basis%nspec
        if(all(abs(this%df_3body(:,is)).lt.1.E-6))then
           this%df_3body(:,is) = 1._real12 / nbins_(2)
        end if
        this%df_3body(:,is) = this%df_3body(:,is) / sum(this%df_3body(:,is))
-    end do
-
-  
-    !---------------------------------------------------------------------------
-    ! build the 4-body gvectors (angular distribution functions)
-    !---------------------------------------------------------------------------
-    deallocate(gvector_tmp)
-    allocate(this%df_4body(nbins_(3),basis%nspec), source = 0._real12)
-    allocate(gvector_tmp(nbins_(3)),               source = 0._real12)
-    do is = 1, basis%nspec
-       num_angles = 0
-       ! number of comibnations without repetitions:
-       ! = n! / (n - r)! r!
-       do i = 1, size(bond_list), 1
-          if( is .eq. bond_list(i)%species(1) )then
-             ia = bond_list(i)%atom(1)
-          elseif( is .eq. bond_list(i)%species(2) )then
-             ia = bond_list(i)%atom(2)
-          else
-             cycle
-          end if
-          itmp1 = count( &
-             [ ( ( bond_list(j)%species(1) .eq. is .and. &
-                   bond_list(j)%atom(1) .eq. ia ) .or. &
-                 ( bond_list(j)%species(2) .eq. is .and. &
-                   bond_list(j)%atom(2) .eq. ia ), &
-                     j = i+1, size(bond_list), 1 ) ] )
-          num_angles = num_angles + &
-               nint(exp(lnsum(itmp1) - lnsum(itmp1 - 2) - lnsum(2)))
-       end do
-       allocate(angle(num_angles))
-       allocate(distance(num_angles))
-       !allocate(count_list(num_angles))
-       num_angles = 0
-
-       !------------------------------------------------------------------------
-       ! loop over all bonds to find the first bond
-       !------------------------------------------------------------------------
-       do i = 1, size(bond_list)
-          if(abs(modu(bond_list(i)%vector)).lt.1.E-3) cycle
- 
-          if( is .eq. bond_list(i)%species(1) )then
-             vtmp1 = -bond_list(i)%vector
-             ia = bond_list(i)%atom(1)
-             js = bond_list(i)%species(2)
-          elseif( is .eq. bond_list(i)%species(2) )then
-             vtmp1 = bond_list(i)%vector
-             ia = bond_list(i)%atom(2)
-             js = bond_list(i)%species(1)
-          else
-             cycle
-          end if
-          if( &
-               modu(vtmp1) .lt. &
-                    bond_info(pair_index(is, js))%radius_covalent * &
-                    radius_distance_tol(1) .or. &
-               modu(vtmp1) .gt. &
-                    bond_info(pair_index(is, js))%radius_covalent * &
-                    radius_distance_tol(2) &
-          ) cycle
-
-          ! ! make list of indices where species is in bond_list(i)%species and atom is in bond_list(i)%atom
-          allocate(idx_list(count( [ ( ( bond_list(j)%species(1) .eq. is .and. &
-                                         bond_list(j)%atom(1) .eq. ia ) .or. &
-                                       ( bond_list(j)%species(2) .eq. is .and. &
-                                         bond_list(j)%atom(2) .eq. ia ), &
-                                           j = i + 1, size(bond_list), 1 ) ] )))
-          k = 0
-          index_list_loop: do j = i + 1, size(bond_list)
-             if(abs(modu(bond_list(j)%vector)).lt.1.E-3) cycle
-             if( ( is .eq. bond_list(j)%species(1) .and. &
-                   ia .eq. bond_list(j)%atom(1)  ) )then
-                k = k + 1
-                idx_list(k) = -j
-             elseif( is .eq. bond_list(j)%species(2) .and. &
-                     ia .eq. bond_list(j)%atom(2) ) then
-                k = k + 1
-                idx_list(k) = j
-             end if
-             ! ! get a list of unique plane normal vectors
-             ! vtmp2 = cross( vtmp1, bond_list(j)%vector )
-             ! vtmp2 = vtmp2 / modu(vtmp2)
-             ! plane_check_loop: do k = 1, size(plane_list)
-             !    if(abs(dot_product(vtmp2, plane_list(k)%vector)) .lt. 1.E-3)then
-             !       plane_list(k)%count = plane_list(k)%count + 1
-             !       cycle index_list_loop
-             !    end if
-             ! end do plane_check_loop
-             ! plane_list = [ plane_list, plane_type(vector = vtmp2, count = 1) ]
-          end do index_list_loop
-
-          !---------------------------------------------------------------------
-          ! loop over all bonds to find the second bond
-          !---------------------------------------------------------------------
-          do j = 1, size(idx_list)!size(plane_list)!size(idx_list)
- 
-             if( idx_list(j) .lt. 0 )then
-                vtmp2 = -bond_list(-idx_list(j))%vector
-                js = bond_list(-idx_list(j))%species(2)
-             else
-                vtmp2 = bond_list(idx_list(j))%vector
-                js = bond_list(idx_list(j))%species(1)
-             end if
-             if( &
-                  modu(vtmp2) .lt. &
-                       bond_info(pair_index(is, js))%radius_covalent * &
-                       radius_distance_tol(1) .or. &
-                  modu(vtmp2) .gt. &
-                       bond_info(pair_index(is, js))%radius_covalent * &
-                       radius_distance_tol(2) &
-             ) cycle
-             if( abs( &
-                  dot_product(vtmp1, vtmp1) - &
-                  dot_product(vtmp1, vtmp2) &
-             ) .lt. 1.E-3 ) cycle
-             !------------------------------------------------------------------
-             ! loop over all bonds to find the third bond
-             !------------------------------------------------------------------
-             !count_list(num_angles+1:num_angles+(size(idx_list)-j)) = plane_list(j)%count
-             do k = abs(j) + 1, size(idx_list)
-
-                if( idx_list(k) .lt. 0 )then
-                   vtmp3 = -bond_list(-idx_list(k))%vector
-                   js = bond_list(-idx_list(k))%species(2)
-                else
-                   vtmp3 = bond_list(idx_list(k))%vector
-                   js = bond_list(idx_list(k))%species(1)
-                end if
-                if( &
-                     modu(vtmp3) .lt. &
-                          bond_info(pair_index(is, js))%radius_covalent * &
-                          radius_distance_tol(3) .or. &
-                     modu(vtmp3) .gt. &
-                          bond_info(pair_index(is, js))%radius_covalent * &
-                          radius_distance_tol(4) &
-                ) cycle
- 
-                !---------------------------------------------------------------
-                ! calculate the angle between the two bonds
-                !---------------------------------------------------------------
-                ! rtmp1 = get_angle( vtmp2, &
-                !      bond_list(idx_list(k))%vector )
-                ! if(rtmp1 .gt. pi/2._real12) rtmp1 = pi - rtmp1
-                ! if(any(abs(rtmp1 - angle(:num_angles)) .lt. 1.E-3)) cycle
-                num_angles = num_angles + 1
-                ! angle(num_angles) = rtmp1
-                angle(num_angles) = &
-                     get_improper_dihedral_angle( &
-                          vtmp1, &
-                          vtmp2, &
-                          vtmp3 &
-                     )
-
-                distance(num_angles) = &
-                    modu(vtmp1) ** 2 * &
-                    modu(vtmp2) ** 2 * &
-                    modu(vtmp3) ** 2
-                
-                ! count_list(num_angles) = plane_list(j)%count
-
-             end do
-             ! num_angles = num_angles + size(idx_list) - j
-          end do
-          deallocate(idx_list)
-          ! deallocate(plane_list)
-       end do
-       if(num_angles.gt.size(angle))then
-          write(0,*) "ERROR: Number of 4-body angles exceeds allocated array"
-          write(0,'("Expected ",I0," got ",I0)') size(angle), num_angles
-          stop 1
-       elseif(num_angles.gt.0)then
-          this%df_4body(:,is) = this%df_4body(:,is) + &
-               get_gvector( angle(:num_angles), nbins_(3), eta(3), width_(3), &
-                                  cutoff_min_(3), &
-                                  limit(3), &
-                                  scale = distance(:num_angles) &
-               )!, count_list(:num_angles) )
+       if(all(abs(this%df_4body(:,is)).lt.1.E-6))then
+          this%df_4body(:,is) = 1._real12 / nbins_(3)
        end if
-       deallocate(angle)
-       deallocate(distance)
-       ! deallocate(count_list)
+       this%df_4body(:,is) = this%df_4body(:,is) / sum(this%df_4body(:,is))
     end do
-    ! renormalise so that the area under the curve is 1
-    do is = 1, basis%nspec
-      if(all(abs(this%df_4body(:,is)).lt.1.E-6))then
-         this%df_4body(:,is) = 1._real12 / nbins_(3)
-      end if
-      this%df_4body(:,is) = this%df_4body(:,is) / sum(this%df_4body(:,is))
-   end do
 
   end subroutine calculate
 !###############################################################################
@@ -2316,51 +2128,28 @@ module evolver
     !! List of scaling for each angle (distance**3 or distance**4)
     real(real12), dimension(nbins) :: gvector
     !! Distribution function for the list of vectors.
-    ! integer, dimension(:), intent(in), optional :: count_list
 
     ! Local variables
     integer :: i, j, b, bin
     !! Loop index.
     integer :: max_num_steps
     !! Maximum number of steps.
-    !integer, dimension(:), allocatable :: scale_list
-    !real(real12), dimension(nbins) :: gvector_tmp
-    !real(real12), dimension(:), allocatable :: vector_copy
     integer, dimension(3,2) :: loop_limits
     !! Loop limits for the 3-body distribution function.
 
 
-    ! max_num_steps = ceiling( abs( vector_copy(i) - sqrt(16._real12/eta) ) / width )
     max_num_steps = ceiling( sqrt(16._real12/eta) / width )
     gvector = 0._real12
 
     !---------------------------------------------------------------------------
     ! calculate the gvector for a list of vectors
     !---------------------------------------------------------------------------
-    ! vector_copy = vector
-    ! itmp1 = 0
-    ! !  order the vector list, and remove duplicates within a tolerance
-    ! call set(vector_copy, 1.E-3, scale_list)
     do i = 1, size(vector)
-        ! if( vector_copy(i) .lt. -1.E-3 ) cycle
-        ! !-----------------------------------------------------------------------
-        ! ! remove duplicates
-        ! !-----------------------------------------------------------------------
-        ! scale = 1._real12
-        ! do j = i + 1, size(vector_copy)
-        !    if(abs(vector_copy(i)-vector_copy(j)) .lt. 1.E-3 )then
-        !       !vector_copy(j) = -1.E3_real12
-        !       !scale = scale + 1._real12
-        !       !itmp1 = itmp1 + 1
-        !    end if
-        ! end do
-
 
        !------------------------------------------------------------------------
        ! get the bin closest to the value
        !------------------------------------------------------------------------
        bin = nint( ( vector(i) - cutoff_min ) / width ) + 1
-       ! if(bin.gt.nbins.or.bin.lt.1) cycle
 
 
        !------------------------------------------------------------------------
@@ -2386,10 +2175,8 @@ module evolver
                   ) / scale(i)
           end do
        end do
-       ! if(present(count_list)) gvector_tmp = gvector_tmp * count_list(i)
-       ! gvector(:) = gvector(:) + gvector_tmp !* scale !real(scale_list(i), real12)
     end do
-    gvector = gvector * sqrt( eta / pi ) / real(size(vector),real12) ! / width
+    gvector = gvector * sqrt( eta / pi ) / real(size(vector),real12)
 
   end function get_gvector
 !###############################################################################

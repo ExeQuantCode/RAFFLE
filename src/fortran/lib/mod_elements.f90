@@ -1,4 +1,11 @@
 module elements
+  !! Module for storing and handling element and bond data.
+  !!
+  !! This module contains the element and bond types, and the element and bond
+  !! databases. The element and bond databases are used to store the properties
+  !! of the elements and bonds in the system, respectively.
+  !! The element and bond types are used by other modules to store the
+  !! properties relevant to an individual system.
   use constants, only: real12
   implicit none
 
@@ -55,6 +62,7 @@ module elements
 
 contains
 
+!###############################################################################
   module function init_element_type(name, mass, charge, energy) result(element)
     !! Initialise an instance of the element_type.
     implicit none
@@ -74,8 +82,10 @@ contains
     if(present(energy)) element%energy = energy
 
   end function init_element_type
+!###############################################################################
 
 
+!###############################################################################
   module function init_element_bond_type(elements, radius) result(bond)
     !! Initialise an instance of the element_bond_type.
     implicit none
@@ -93,6 +103,7 @@ contains
     if(present(radius)) bond%radius_covalent = radius
 
   end function init_element_bond_type
+!###############################################################################
 
 
 !###############################################################################

@@ -65,7 +65,7 @@ contains
     output = 0._real12
     viability_2body = 0._real12
 
-    
+
     !---------------------------------------------------------------------------
     ! get list of element pair indices
     !---------------------------------------------------------------------------
@@ -109,6 +109,8 @@ contains
           end do
           associate( position_store => [ basis%spec(is)%atom(ia,1:3) ] )
              bondlength = modu( matmul(position - position_store, basis%lat) )
+             if( bondlength .gt. gvector_container%cutoff_max(1) ) &
+                 cycle atom_loop
              if( bondlength .lt. ( &
                   radius_list(pair_index(ls,is)) * &
                   gvector_container%radius_distance_tol(1) ) &
@@ -127,7 +129,9 @@ contains
                 neighbour_basis%spec(is)%atom( &
                      neighbour_basis%spec(is)%num,:3 &
                 ) = matmul(position_store, basis%lat)
-             elseif( bondlength .ge. ( &
+             end if
+
+             if( bondlength .ge. ( &
                          radius_list(pair_index(ls,is)) * &
                          gvector_container%radius_distance_tol(3) &
                     ) .and. &
@@ -146,8 +150,6 @@ contains
                 neighbour_basis%image_spec(is)%atom( &
                      neighbour_basis%image_spec(is)%num,:3 &
                 ) = matmul(position_store, basis%lat)
-             else
-                cycle atom_loop
              end if
         
              ! Add the contribution of the bond length to the viability map.
@@ -166,6 +168,8 @@ contains
        image_loop: do ia = 1, basis%image_spec(is)%num, 1
           associate( position_store => [ basis%image_spec(is)%atom(ia,1:3) ] )
              bondlength = modu( matmul(position - position_store, basis%lat) )
+             if( bondlength .gt. gvector_container%cutoff_max(1) ) &
+                  cycle image_loop
              if( bondlength .lt. ( &
                   radius_list(pair_index(ls,is)) * &
                   gvector_container%radius_distance_tol(1) ) &
@@ -179,7 +183,9 @@ contains
                 neighbour_basis%spec(is)%atom( &
                      neighbour_basis%spec(is)%num,:3 &
                 ) = matmul(position_store, basis%lat)
-             elseif( bondlength .ge. ( &
+             end if
+
+             if( bondlength .ge. ( &
                          radius_list(pair_index(ls,is)) * &
                          gvector_container%radius_distance_tol(3) &
                     ) .and. &
@@ -196,8 +202,6 @@ contains
                 neighbour_basis%image_spec(is)%atom( &
                      neighbour_basis%image_spec(is)%num,:3 &
                 ) = matmul(position_store, basis%lat)
-             else
-                cycle image_loop
              end if
         
              viability_2body = viability_2body + &
@@ -237,7 +241,7 @@ contains
                position_1 => matmul(position, basis%lat), &
                position_2 => [neighbour_basis%spec(is)%atom(ia,1:3)] &
           )
-             viability_3body = viability_3body + &
+             viability_3body = viability_3body * &
                    evaluate_3body_contributions( gvector_container, &
                       position_1, &
                       position_2, &
@@ -252,7 +256,7 @@ contains
                    ! check improperdihedral angle between test point and all
                    ! other atoms
                    !------------------------------------------------------------
-                   viability_4body = viability_4body + &
+                   viability_4body = viability_4body * &
                         evaluate_4body_contributions( gvector_container, &
                            position_1, &
                            position_2, &
@@ -268,12 +272,12 @@ contains
     if(num_3body.eq.0)then
        viability_3body = 0.1_real12 !0.66666666_real12
     else
-       viability_3body = viability_3body / num_3body
+       viability_3body = viability_3body ** (1._real12 / num_3body)
     end if
     if(num_4body.eq.0)then
        viability_4body = 0.1_real12 !0.66666666_real12
     else
-       viability_4body = viability_4body / num_4body
+       viability_4body = viability_4body ** (1._real12 / num_4body)
     end if
     
     ! Combine the 2-, 3- and 4-body maps
@@ -332,7 +336,7 @@ contains
                 write(0,*) "Error: bin = 0, IF NOT TRIGGERED, WE CAN REMOVE THIS IF"
                 stop 1
              end if
-          output = output + gvector_container%total%df_3body(bin,ls)
+          output = output * gvector_container%total%df_3body(bin,ls)
           end associate
        end do atom_loop
     end do species_loop
@@ -388,7 +392,7 @@ contains
                 write(0,*) "Error: bin = 0, IF NOT TRIGGERED, WE CAN REMOVE THIS IF"
                 stop 1
              end if
-             output = output + gvector_container%total%df_4body( bin, ls)
+             output = output * gvector_container%total%df_4body( bin, ls)
           end associate
        end do atom_loop
     end do species_loop

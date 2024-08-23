@@ -1,4 +1,4 @@
-# This script demonstrates how to use the raffle generator to generate perovskite structures
+# This script demonstrates how to use the raffle generator to generate BaTiO3 perovskite structures
 
 # The script reads a host structure from a POSCAR file, and sets it as the host structure for the generator.
 

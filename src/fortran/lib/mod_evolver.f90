@@ -1856,7 +1856,7 @@ module evolver
     ! create the extended basis and neighbour basis
     !---------------------------------------------------------------------------
     call basis_extd%copy(basis)
-    call basis_extd%create_images( max_bondlength = radius_distance_tol_(1) )
+    call basis_extd%create_images( max_bondlength = cutoff_max_(1) )
     allocate(bondlength_list(basis_extd%natom+basis_extd%num_images))
 
     allocate(neighbour_basis%spec(1))

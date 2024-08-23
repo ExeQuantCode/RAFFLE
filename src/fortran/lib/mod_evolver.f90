@@ -2010,19 +2010,22 @@ module evolver
           ! calculate the 3-body distribution function for atom (is,ia)
           !---------------------------------------------------------------------
           if(neighbour_basis%spec(1)%num.le.1) cycle
-         !  num_angles = 0
-          allocate(angle_list(triangular_number(neighbour_basis%spec(1)%num - 1)))
-          allocate(distance(triangular_number(neighbour_basis%spec(1)%num - 1)))
+          associate( &
+               num_angles => &
+               triangular_number( neighbour_basis%spec(1)%num - 1 ) &
+          )
+             allocate( angle_list(num_angles), distance(num_angles) )
+          end associate
           do concurrent ( ja = 1:neighbour_basis%spec(1)%num:1 )
              do concurrent ( ka = ja + 1:neighbour_basis%spec(1)%num:1 )
-                idx = nint( (ja - 1) * (neighbour_basis%spec(1)%num - ja / 2.0) + (ka - ja) )
-               !  num_angles = num_angles + 1
-               !  angle_list(num_angles) = get_angle( &
+                idx = nint( &
+                     (ja - 1) * (neighbour_basis%spec(1)%num - ja / 2.0) + &
+                     (ka - ja) &
+                )
                 angle_list(idx) = get_angle( &
                      neighbour_basis%spec(1)%atom(ja,:3), &
                      neighbour_basis%spec(1)%atom(ka,:3) &
                 )
-               !  distance(num_angles) = &
                 distance(idx) = &
                      ( &
                           modu(neighbour_basis%spec(1)%atom(ja,:3)) ** 2 * &
@@ -2036,29 +2039,36 @@ module evolver
                             cutoff_min_(2), limit(2), &
                             scale = distance &
                )
-          deallocate(angle_list)
-          deallocate(distance)
+          deallocate( angle_list, distance )
 
 
           !---------------------------------------------------------------------
           ! calculate the 4-body distribution function for atom (is,ia)
           !---------------------------------------------------------------------
           if(neighbour_basis%image_spec(1)%num.eq.0) cycle
-          ! num_angles = 0
-          allocate(angle_list(triangular_number(neighbour_basis%spec(1)%num) * neighbour_basis%image_spec(1)%num))
-          allocate(distance(triangular_number(neighbour_basis%spec(1)%num) * neighbour_basis%image_spec(1)%num))
-          do concurrent ( ja = 1:neighbour_basis%spec(1)%num:1, la = 1:neighbour_basis%image_spec(1)%num:1 )
+          associate( &
+               num_angles => &
+               triangular_number( neighbour_basis%spec(1)%num - 1 ) * &
+               neighbour_basis%image_spec(1)%num &
+          )
+             allocate( angle_list(num_angles), distance(num_angles) )
+          end associate
+          idx = 0
+          do concurrent ( &
+                 ja = 1:neighbour_basis%spec(1)%num:1, &
+                 la = 1:neighbour_basis%image_spec(1)%num:1 &
+          )
              do concurrent ( ka = ja + 1:neighbour_basis%spec(1)%num:1 )
-                idx = nint( (ja - 1) * (neighbour_basis%spec(1)%num - ja / 2.0) + (ka - ja) ) * (la - 1) + la
-                ! num_angles = num_angles + 1
-                ! angle_list(num_angles) = &
+                idx = nint( &
+                     (ja - 1) * (neighbour_basis%spec(1)%num - ja / 2.0) + &
+                     (ka - ja - 1) &
+                ) * neighbour_basis%image_spec(1)%num + la
                 angle_list(idx) = &
                      get_improper_dihedral_angle( &
                           neighbour_basis%spec(1)%atom(ja,:3), &
                           neighbour_basis%spec(1)%atom(ka,:3), &
                           neighbour_basis%image_spec(1)%atom(la,:3) &
                      )
-                !  distance(num_angles) = &
                 distance(idx) = &
                     modu(neighbour_basis%spec(1)%atom(ja,:3)) ** 2 * &
                     modu(neighbour_basis%spec(1)%atom(ka,:3)) ** 2 * &
@@ -2071,12 +2081,10 @@ module evolver
                             cutoff_min_(3), limit(3), &
                             scale = distance &
                )
-          deallocate(angle_list)
-          deallocate(distance)
+          deallocate( angle_list, distance )
 
        end do
     end do
-
 
     !---------------------------------------------------------------------------
     ! apply the cutoff function to the 2-body distribution function
@@ -2112,9 +2120,9 @@ module evolver
 
 
 !###############################################################################
-  function get_gvector(vector, nbins, eta, width, cutoff_min, limit, &
+  function get_gvector(value_list, nbins, eta, width, cutoff_min, limit, &
        scale ) result(gvector)
-    !! Calculate the angular distribution function for a list of vectors.
+    !! Calculate the angular distribution function for a list of values.
     implicit none
 
     ! Arguments
@@ -2122,12 +2130,12 @@ module evolver
     !! Number of bins for the distribution functions.
     real(real12), intent(in) :: eta, width, cutoff_min, limit
     !! Parameters for the distribution functions.
-    real(real12), dimension(:), intent(in) :: vector
+    real(real12), dimension(:), intent(in) :: value_list
     !! List of angles.
     real(real12), dimension(:), intent(in) :: scale
     !! List of scaling for each angle (distance**3 or distance**4)
     real(real12), dimension(nbins) :: gvector
-    !! Distribution function for the list of vectors.
+    !! Distribution function for the list of values.
 
     ! Local variables
     integer :: i, j, b, bin
@@ -2142,14 +2150,14 @@ module evolver
     gvector = 0._real12
 
     !---------------------------------------------------------------------------
-    ! calculate the gvector for a list of vectors
+    ! calculate the gvector for a list of values
     !---------------------------------------------------------------------------
-    do i = 1, size(vector)
+    do i = 1, size(value_list)
 
        !------------------------------------------------------------------------
        ! get the bin closest to the value
        !------------------------------------------------------------------------
-       bin = nint( ( vector(i) - cutoff_min ) / width ) + 1
+       bin = nint( ( value_list(i) - cutoff_min ) / width ) + 1
 
 
        !------------------------------------------------------------------------
@@ -2169,14 +2177,14 @@ module evolver
           do concurrent ( &
                  b = loop_limits(1,j):loop_limits(2,j):loop_limits(3,j) )
              gvector(b) = gvector(b) + &
-                  exp( -eta * ( vector(i) - &
+                  exp( -eta * ( value_list(i) - &
                                    ( width * real(b-1, real12) + &
                                      cutoff_min ) ) ** 2._real12 &
                   ) / scale(i)
           end do
        end do
     end do
-    gvector = gvector * sqrt( eta / pi ) / real(size(vector),real12)
+    gvector = gvector * sqrt( eta / pi ) / real(size(value_list),real12)
 
   end function get_gvector
 !###############################################################################

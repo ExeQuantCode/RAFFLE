@@ -18,7 +18,6 @@ from ase.optimize import BFGS
 # import CHGNet calculator (for MLP energy evaluation)
 from chgnet.model.dynamics import CHGNetCalculator
 
-
 # load CHGNet calculator
 print("Initialising CHGNet calculator")
 calculator = CHGNetCalculator(model=None)
@@ -36,7 +35,7 @@ generator.set_host(host_basis)
 print("Host read")
 
 
-# Generate bulk diamond and get its energy
+# generate bulk diamond and get its energy
 diamond_bulk = Atoms("C8",
                      positions=[
                          [0.0, 0.0, 1.7803725545451616], 
@@ -52,7 +51,7 @@ diamond_bulk = Atoms("C8",
                      ], pbc=True
 )
 diamond_bulk.calc = calculator
-# Generate bulk graphite (I think with PBE stacking separation) and get its energy
+# generate bulk graphite (I think with PBE stacking separation) and get its energy
 graphite_bulk = Atoms("C4", 
                      positions=[
                          [0.0, 0.0, 1.95076825],
@@ -85,11 +84,12 @@ generator.distributions.set_element_energies(
 # set the distribution function widths (2-body, 3-body, 4-body)
 generator.distributions.set_width([0.025, np.pi/200.0, np.pi/200.0])
 
-# these are the lower and upper bounds for the bond radii
-# the first two values are the lower and upper tolerance on covalent bond radii for 3-body distributions
-# the last two values are the lower and upper tolerance on covalent bond radii for 4-body distributions
-# the max bondlength cutoff is an upper limit, so you can turn off 3-body and 4-body distributions by 
-#    setting all the values above 100.0 (just to be safe)
+# set the radii tolerances for the 3-body and 4-body distributions
+#    these are the lower and upper bounds for the bond radii
+#    the first two values are the lower and upper tolerance on covalent bond radii for 3-body distributions
+#    the last two values are the lower and upper tolerance on covalent bond radii for 4-body distributions
+#    the max bondlength cutoff is an upper limit, so you can turn off 3-body and 4-body distributions by 
+#       setting all the values above 100.0 (just to be safe)
 generator.distributions.set_radius_distance_tol([1.5, 2.5, 3.0, 6.0])
 
 # read in the database of structures to use for generating the distribution functions
@@ -166,7 +166,7 @@ for iter in range(1):
     if not os.path.exists(iterdir):
         os.makedirs(iterdir)
 
-    # optimise the structures
+    # get energies using MLPs and optimise the structures
     print("Converting to ASE")
     num_structures_new = len(generated_structures)
     structures_rlxd = raffle.rw_geom.basis_type_xnum_array()

@@ -336,7 +336,7 @@ contains
                 write(0,*) "Error: bin = 0, IF NOT TRIGGERED, WE CAN REMOVE THIS IF"
                 stop 1
              end if
-          output = output * gvector_container%total%df_3body(bin,ls)
+             output = output * gvector_container%total%df_3body(bin,ls)
           end associate
        end do atom_loop
     end do species_loop

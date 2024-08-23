@@ -1,4 +1,9 @@
 module extended_geom
+  !! Module to extend the basis set to include images of atoms.
+  !!
+  !! This module is designed to extend the basis set to include images of atoms
+  !! within a specified distance of the unit cell. This is useful for
+  !! calculating interactions between atoms that are not within the unit cell.
   use constants, only: real12, pi
   use misc_linalg, only: modu, LUinv, cross
   use rw_geom, only: basis_type, species_type
@@ -11,29 +16,51 @@ module extended_geom
 
 
   type, extends(basis_type) :: extended_basis_type
+     !! Extended basis set type
      real(real12) :: max_extension
+     !! Maximum distance to extend the basis set
      integer :: num_images
+     !! Number of images in the extended basis set
      type(species_type), dimension(:), allocatable :: image_spec
+     !! Species type for the images
    contains
      procedure, pass(this) :: create_images
+     !! Create the images for the basis set
      procedure, pass(this) :: update_images
+     !! Update the images for a specific atom
   end type extended_basis_type
 
 contains
 
+!###############################################################################
   subroutine create_images(this, max_bondlength, atom_ignore_list)
+    !! Create the images for the basis set.
+    implicit none
+
+    ! Arguments
     class(extended_basis_type), intent(inout) :: this
+    !! Parent of the procedure. Instance of the extended basis.
     real(real12), intent(in) :: max_bondlength
+    !! Maximum distance to extend the basis set.
     integer, dimension(:,:), intent(in), optional :: atom_ignore_list
+    !! List of atoms to ignore when creating images.
 
-    type(species_type), dimension(this%nspec) :: image_species
-
+    ! Local variables
     integer :: is, ia, i, j, k
+    !! Loop indices.
     integer :: amax, bmax, cmax
+    !! Maximum number of lattice vectors to consider.
     real(real12), dimension(3) :: vtmp1
+    !! Temporary vector for storing atom positions.
+    type(species_type), dimension(this%nspec) :: image_species
+    !! Temporary store for the images.
     integer, dimension(:,:), allocatable :: atom_ignore_list_
+    !! List of atoms to ignore when creating images.
 
 
+    !---------------------------------------------------------------------------
+    ! initialise the atom_ignore_list
+    !---------------------------------------------------------------------------
     if(present(atom_ignore_list)) then
        atom_ignore_list_ = atom_ignore_list(:,:)
     else
@@ -73,7 +100,8 @@ contains
                 do k=-cmax,cmax+1,1
                    if( i .eq. 0 .and. j .eq. 0 .and. k .eq. 0 ) cycle
                    vtmp1(3) = this%spec(is)%atom(ia,3) + real(k, real12)
-                   if( get_distance_from_unit_cell(vtmp1, this%lat) .le. max_bondlength ) then
+                   if( get_distance_from_unit_cell(vtmp1, this%lat) .le. &
+                        max_bondlength ) then
                       ! add the image to the list
                       image_species(is)%num = image_species(is)%num + 1
                       image_species(is)%atom(image_species(is)%num,:3) = vtmp1
@@ -87,9 +115,7 @@ contains
 
    !  this%nspec_images = count(image_species%num.gt.0)
     allocate(this%image_spec(this%nspec))
-    !  js = 0
     do is = 1, this%nspec
-       ! js = js + 1
        this%image_spec(is)%num = image_species(is)%num
        this%image_spec(is)%mass = image_species(is)%mass
        this%image_spec(is)%charge = image_species(is)%charge
@@ -106,23 +132,32 @@ contains
     this%num_images = sum( this%image_spec(:)%num )
 
   end subroutine create_images
+!###############################################################################
 
 
+!###############################################################################
   subroutine update_images(this, max_bondlength, is, ia)
     !! Update the images for a specific atom
     implicit none
 
     ! Arguments
     class(extended_basis_type), intent(inout) :: this
+    !! Parent of the procedure. Instance of the extended basis.
     real(real12), intent(in) :: max_bondlength
+    !! Maximum distance to extend the basis set.
     integer, intent(in) :: is, ia
+    !! Species and atom index to update.
 
 
-    type(species_type) :: image_species
-
+    ! Local variables
     integer :: i, j, k, num_images, dim
+    !! Loop indices.
     integer :: amax, bmax, cmax
+    !! Maximum number of lattice vectors to consider.
+    type(species_type) :: image_species
+    !! Temporary store for the images.
     real(real12), dimension(3) :: vtmp1
+    !! Temporary vector for storing atom positions.
 
 
     !---------------------------------------------------------------------------
@@ -150,15 +185,14 @@ contains
     end if
 
 
-    !!! WARNING, NEED IGNORE LIST IN HERE TO ONLY APPLY TO ATOMS WE WANT TO EXTEND !!!
-    !!! needs and update_images subroutine !!!
     do i=-amax,amax+1,1
        vtmp1(1) = this%spec(is)%atom(ia,1) + real(i, real12)
        do j=-bmax,bmax+1,1
           vtmp1(2) = this%spec(is)%atom(ia,2) + real(j, real12)
           do k=-cmax,cmax+1,1
              vtmp1(3) = this%spec(is)%atom(ia,3) + real(k, real12)
-             if( get_distance_from_unit_cell(vtmp1, this%lat) .le. max_bondlength ) then
+             if( get_distance_from_unit_cell(vtmp1, this%lat) .le. &
+                  max_bondlength ) then
                 ! add the image to the list
                 num_images = num_images + 1
                 image_species%atom(num_images,:3) = vtmp1
@@ -181,36 +215,57 @@ contains
     this%num_images = sum( this%image_spec(:)%num )
 
   end subroutine update_images
+!###############################################################################
 
 
-
-
-  function get_distance_from_unit_cell(point, lattice, closest_point, is_cartesian) result(distance)
+!###############################################################################
+  function get_distance_from_unit_cell( &
+       point, lattice, closest_point, is_cartesian&
+  ) result(distance)
+    !! Get the distance of a point from the unit cell.
     implicit none
-    ! Input
-    real(real12), intent(in) :: point(3)        ! Point in 3D space
-    real(real12), intent(in) :: lattice(3,3) ! 3x3 array representing lattice vectors as columns
-    ! Output
-    real(real12), intent(out), optional :: closest_point(3)  ! Closest point on the unit cell surface
-    logical, optional, intent(in) :: is_cartesian ! Flag indicating whether the point is in Cartesian coordinates
-    real(real12) :: distance           ! Shortest distance to the unit cell surface
+
+    ! Arguments
+    real(real12), intent(in) :: point(3)
+    !! Query point.
+    real(real12), intent(in) :: lattice(3,3)
+    !! Lattice vectors.
+    real(real12), intent(out), optional :: closest_point(3)
+    !! Closest point on the unit cell surface.
+    logical, optional, intent(in) :: is_cartesian
+    !! Boolean whether the point is in cartesian coordinates.
+    real(real12) :: distance
+    !! Distance of the point from the unit cell.
+
     ! Local variables
-    real(real12), dimension(3) :: point_
-    real(real12), dimension(3,3) :: inverse_lattice
-    real(real12), dimension(3) :: normal
-    real(real12), dimension(3) :: plane_point
-    real(real12), dimension(3) :: projection, closest_point_
-    real(real12), dimension(3) :: inverse_projection
-    real(real12) :: min_distance
-    logical :: is_outside = .false.
     integer :: i, j, k
+    !! Loop indices.
+    real(real12), dimension(3) :: point_
+    !! Point in cartesian coordinates.
+    real(real12), dimension(3,3) :: inverse_lattice
+    !! Inverse of the lattice vectors.
+    real(real12), dimension(3) :: normal
+    !! Normal vector to the plane.
+    real(real12), dimension(3) :: plane_point
+    !! Point on the plane.
+    real(real12), dimension(3) :: projection, closest_point_
+    !! Projection of the point onto the plane.
+    real(real12), dimension(3) :: inverse_projection
+    !! Inverse projection of the point onto the plane.
+    real(real12) :: min_distance
+    !! Minimum distance to the unit cell.
+    logical :: is_outside = .false.
+    !! Boolean whether the point is outside the unit cell.
     integer, dimension(3) :: index_list = [1, 2, 3]
+    !! List of indices for the lattice vectors.
     logical :: is_cartesian_ = .false.
+    !! Boolean whether the point is in cartesian coordinates.
         
 
-
+    !---------------------------------------------------------------------------
+    ! check if the point is in cartesian coordinates
+    !---------------------------------------------------------------------------
     if(present(is_cartesian)) is_cartesian_ = is_cartesian
-      
     inverse_lattice = LUinv( lattice )
     if(is_cartesian_) then
         ! Convert point to fractional coordinates
@@ -222,11 +277,12 @@ contains
 
     min_distance = huge(1._real12)
 
-  ! get projection of point onto each face of the lattice
-  ! get the length of the projection vector
-  ! if negative, then the point is inside the unit cell
-  ! if positive, then the point is outside the unit cell
-  ! if the projection falls outside of the cell edges, use edge or corner distances
+    ! get projection of point onto each face of the lattice
+    ! get the length of the projection vector
+    ! if negative, then the point is inside the unit cell
+    ! if positive, then the point is outside the unit cell
+    ! if the projection falls outside of the cell edges, use edge or corner 
+    ! distances
     do i = 1, 3
        index_list = cshift(index_list, 1)
        plane_point = 0._real12
@@ -287,19 +343,29 @@ contains
     end if
 
   end function get_distance_from_unit_cell
+!###############################################################################
 
 
-
-
+!###############################################################################
   function project_point_onto_plane(point, plane_point, normal) result(output)
+    !! Project a point onto a plane.
     implicit none
-    real(real12), dimension(3), intent(in) :: point
-    real(real12), dimension(3), intent(in) :: plane_point
-    real(real12), dimension(3), intent(in) :: normal
-    real(real12), dimension(3) :: output
 
+    ! Arguments
+    real(real12), dimension(3), intent(in) :: point
+    !! Point to project.
+    real(real12), dimension(3), intent(in) :: plane_point
+    !! Point on the plane.
+    real(real12), dimension(3), intent(in) :: normal
+    !! Normal vector to the plane.
+    real(real12), dimension(3) :: output
+    !! Projected point.
+
+    ! Local variables
     real(real12) :: distance
+    !! Distance of the point from the plane.
     real(real12), dimension(3) :: vector_to_plane
+    !! Vector from the point to the plane.
     
     vector_to_plane = point - plane_point
 
@@ -308,6 +374,6 @@ contains
     output = point - distance * normal
 
   end function project_point_onto_plane
-
+!###############################################################################
 
 end module extended_geom

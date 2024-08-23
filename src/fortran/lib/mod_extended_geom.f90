@@ -24,13 +24,21 @@ contains
   subroutine create_images(this, max_bondlength, atom_ignore_list)
     class(extended_basis_type), intent(inout) :: this
     real(real12), intent(in) :: max_bondlength
-    integer, dimension(:,:), intent(in) :: atom_ignore_list
+    integer, dimension(:,:), intent(in), optional :: atom_ignore_list
 
     type(species_type), dimension(this%nspec) :: image_species
 
     integer :: is, ia, i, j, k
     integer :: amax, bmax, cmax
     real(real12), dimension(3) :: vtmp1
+    integer, dimension(:,:), allocatable :: atom_ignore_list_
+
+
+    if(present(atom_ignore_list)) then
+       atom_ignore_list_ = atom_ignore_list(:,:)
+    else
+       allocate(atom_ignore_list_(0,0))
+    end if
 
 
     !---------------------------------------------------------------------------
@@ -55,8 +63,8 @@ contains
        image_species(is)%radius = this%spec(is)%radius
        image_species(is)%name = this%spec(is)%name
        atom_loop: do ia=1,this%spec(is)%num
-          do i = 1, size(atom_ignore_list,1)
-             if(all(atom_ignore_list(i,:).eq.[is,ia])) cycle atom_loop
+          do i = 1, size(atom_ignore_list_,1)
+             if(all(atom_ignore_list_(i,:).eq.[is,ia])) cycle atom_loop
           end do
           do i=-amax,amax+1,1
              vtmp1(1) = this%spec(is)%atom(ia,1) + real(i, real12)
@@ -95,6 +103,7 @@ contains
        this%image_spec(is)%atom(:,:) = &
             image_species(is)%atom(:image_species(is)%num,:)
     end do
+    this%num_images = sum( this%image_spec(:)%num )
 
   end subroutine create_images
 
@@ -169,6 +178,7 @@ contains
     this%image_spec(is)%atom(:,:) = &
          image_species%atom(:num_images,:)
     deallocate(image_species%atom)
+    this%num_images = sum( this%image_spec(:)%num )
 
   end subroutine update_images
 

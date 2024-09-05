@@ -1684,10 +1684,6 @@ module evolver
       this%total%df_2body(:,j) = &
            this%total%df_2body(:,j) / this%norm_2body(j)
    end do
-      if(abs(this%norm_3body(is)).lt.1.E-6)then
-         write(0,*) "ERROR: Zero norm for 3-body g-vector"
-         stop 1
-      end if
    allocate(this%norm_3body(size(this%element_info)))
    allocate(this%norm_4body(size(this%element_info)))
    do is = 1, size(this%element_info)

@@ -1652,8 +1652,8 @@ module evolver
 
           ! height = 1._real12 / ( 1._real12 + this%total%df_3body(:,idx1) )
           this%total%df_3body(:,idx1) = this%total%df_3body(:,idx1) + &
-               weight * &
-               set_difference( this%system(i)%df_3body(:,is), &
+               ! weight * &
+               set_difference( weight * this%system(i)%df_3body(:,is), &
                                this%total%df_3body(:,idx1) / max( &
                                     1._real12, &
                                     maxval(this%total%df_3body(:,idx1)) &
@@ -1664,8 +1664,8 @@ module evolver
           
           ! height = 1._real12 / ( 1._real12 + this%total%df_4body(:,idx1) )
           this%total%df_4body(:,idx1) = this%total%df_4body(:,idx1) + &
-               weight * &
-               set_difference( this%system(i)%df_4body(:,is), &
+               ! weight * &
+               set_difference( weight * this%system(i)%df_4body(:,is), &
                                this%total%df_4body(:,idx1) / max( &
                                     1._real12, &
                                     maxval(this%total%df_4body(:,idx1)) &
@@ -1683,8 +1683,8 @@ module evolver
              ! height = 1._real12 / &
              !      ( 1._real12 + this%total%df_2body(:,j) ) ** 2._real12
              this%total%df_2body(:,j) = this%total%df_2body(:,j) + &
-                  weight * &
-                  set_difference( this%system(i)%df_2body(:,idx_list(is,js)), &
+                  ! weight * &
+                  set_difference( weight * this%system(i)%df_2body(:,idx_list(is,js)), &
                                   this%total%df_2body(:,j) / max( &
                                        1._real12, &
                                        maxval(this%total%df_2body(:,j)) &

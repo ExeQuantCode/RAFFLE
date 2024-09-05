@@ -1677,14 +1677,30 @@ module evolver
    allocate(this%norm_2body(size(this%total%df_2body,2)))
    do j = 1, size(this%total%df_2body,2)
       this%norm_2body(j) = maxval(this%total%df_2body(:,j))
+      if(abs(this%norm_2body(j)).lt.1.E-6)then
+         write(0,*) "ERROR: Zero norm for 2-body g-vector"
+         stop 1
+      end if
       this%total%df_2body(:,j) = &
            this%total%df_2body(:,j) / this%norm_2body(j)
    end do
+      if(abs(this%norm_3body(is)).lt.1.E-6)then
+         write(0,*) "ERROR: Zero norm for 3-body g-vector"
+         stop 1
+      end if
    allocate(this%norm_3body(size(this%element_info)))
    allocate(this%norm_4body(size(this%element_info)))
    do is = 1, size(this%element_info)
       this%norm_3body(is) = maxval(this%total%df_3body(:,is))
+      if(abs(this%norm_3body(is)).lt.1.E-6)then
+         write(0,*) "ERROR: Zero norm for 3-body g-vector"
+         stop 1
+      end if
       this%norm_4body(is) = maxval(this%total%df_4body(:,is))
+      if(abs(this%norm_4body(is)).lt.1.E-6)then
+         write(0,*) "ERROR: Zero norm for 4-body g-vector"
+         stop 1
+      end if
       this%total%df_3body(:,is) = &
            this%total%df_3body(:,is) / this%norm_3body(is)
       this%total%df_4body(:,is) = &

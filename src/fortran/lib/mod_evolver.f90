@@ -7,7 +7,7 @@ module evolver
   !! structures.
   use constants, only: real12, pi
   use misc_raffle, only: set, icount, strip_null, sort_str
-  use misc_maths, only: lnsum, triangular_number
+  use misc_maths, only: triangular_number, set_difference
   use misc_linalg, only: get_angle, get_vol, get_improper_dihedral_angle, &
        cross, modu
   use rw_geom, only: basis_type, get_element_properties
@@ -1650,13 +1650,29 @@ module evolver
           idx1 = findloc( [ this%element_info(:)%name ], &
                           this%system(i)%element_symbols(is), dim=1)
 
-          height = 1._real12 / ( 1._real12 + this%total%df_3body(:,idx1) )
+          ! height = 1._real12 / ( 1._real12 + this%total%df_3body(:,idx1) )
           this%total%df_3body(:,idx1) = this%total%df_3body(:,idx1) + &
-               height * weight * this%system(i)%df_3body(:,is)
+               weight * &
+               set_difference( this%system(i)%df_3body(:,is), &
+                               this%total%df_3body(:,idx1) / max( &
+                                    1._real12, &
+                                    maxval(this%total%df_3body(:,idx1)) &
+                               ), &
+                               set_min_zero = .true. &
+               )
+               ! height * this%system(i)%df_4body(:,is)
           
-          height = 1._real12 / ( 1._real12 + this%total%df_4body(:,idx1) )
+          ! height = 1._real12 / ( 1._real12 + this%total%df_4body(:,idx1) )
           this%total%df_4body(:,idx1) = this%total%df_4body(:,idx1) + &
-               height * weight * this%system(i)%df_4body(:,is)
+               weight * &
+               set_difference( this%system(i)%df_4body(:,is), &
+                               this%total%df_4body(:,idx1) / max( &
+                                    1._real12, &
+                                    maxval(this%total%df_4body(:,idx1)) &
+                               ), &
+                               set_min_zero = .true. &
+               )
+               ! height * this%system(i)%df_4body(:,is)
           
           do js = is, size(this%system(i)%element_symbols), 1
              idx2 = findloc( [ this%element_info(:)%name ], &
@@ -1664,11 +1680,19 @@ module evolver
              j = nint( ( size(this%element_info) - &
                          min( idx1, idx2 ) / 2._real12 ) * &
                          ( min( idx1, idx2 ) - 1._real12 ) + max( idx1, idx2 ) )
-             height = 1._real12 / &
-                  ( 1._real12 + this%total%df_2body(:,j) ) ** 2._real12
+             ! height = 1._real12 / &
+             !      ( 1._real12 + this%total%df_2body(:,j) ) ** 2._real12
              this%total%df_2body(:,j) = this%total%df_2body(:,j) + &
-                  height * weight * this%system(i)%df_2body(:,idx_list(is,js))
- 
+                  weight * &
+                  set_difference( this%system(i)%df_2body(:,idx_list(is,js)), &
+                                  this%total%df_2body(:,j) / max( &
+                                       1._real12, &
+                                       maxval(this%total%df_2body(:,j)) &
+                                  ), &
+                                  set_min_zero = .true. &
+                  )
+                  ! height * this%system(i)%df_2body(:,idx_list(is,js))
+
           end do
        end do
        deallocate(idx_list)

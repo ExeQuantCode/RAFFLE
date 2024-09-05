@@ -71,6 +71,8 @@ module evolver
      !! Index of the best system.
      real(real12) :: best_energy = 0.0_real12
      !! Energy of the best system.
+     real(real12) :: kbt = 0.0257_real12
+     !! Boltzmann constant times temperature. Default is 300K.
      integer, dimension(3) :: nbins = -1
      !! Number of bins for the 2-, 3-, and 4-body distribution functions.
      real(real12), dimension(3) :: &
@@ -1576,12 +1578,15 @@ module evolver
     if(.not.allocated(this%total%df_2body))then
        call this%initialise_gvectors()
     else
-      this%total%df_2body = this%total%df_2body * exp( this%best_energy ) / &
-                              exp( best_energy_old )
-      this%total%df_3body = this%total%df_3body * exp( this%best_energy ) / &
-                              exp( best_energy_old )
-      this%total%df_4body = this%total%df_4body * exp( this%best_energy ) / &
-                              exp( best_energy_old )
+      this%total%df_2body = this%total%df_2body * &
+                              exp( this%best_energy / this%kbt ) / &
+                              exp( best_energy_old / this%kbt )
+      this%total%df_3body = this%total%df_3body * &
+                              exp( this%best_energy / this%kbt ) / &
+                              exp( best_energy_old / this%kbt )
+      this%total%df_4body = this%total%df_4body * &
+                              exp( this%best_energy / this%kbt ) / &
+                              exp( best_energy_old / this%kbt )
       do j = 1, size(this%total%df_2body,2)
          this%total%df_2body(:,j) = &
               this%total%df_2body(:,j) * this%norm_2body(j)
@@ -1634,7 +1639,7 @@ module evolver
                this%element_info(idx1)%energy
        end do
        energy = energy / this%system(i)%num_atoms
-       weight = exp( this%best_energy - energy )
+       weight = exp( ( this%best_energy - energy ) / this%kbt )
        j = 0
 
        !------------------------------------------------------------------------

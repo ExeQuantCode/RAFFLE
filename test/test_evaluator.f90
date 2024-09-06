@@ -10,6 +10,7 @@ program test_evaluator
 
   integer :: unit
   integer :: i, j, k, num_points
+  integer :: best_loc
   type(extended_basis_type) :: basis_host
   type(basis_type), dimension(1) :: database
   character(3), dimension(1) :: element_symbols
@@ -44,9 +45,9 @@ program test_evaluator
   database(1)%spec(1)%atom(7, :3) = [0.75, 0.25, 0.75]
   database(1)%spec(1)%atom(8, :3) = [0.25, 0.75, 0.75]
 
-  database(1)%lat(1,:) = [3.5668, 0.0, 0.0]
-  database(1)%lat(2,:) = [0.0, 3.5668, 0.0]
-  database(1)%lat(3,:) = [0.0, 0.0, 3.5668]
+  database(1)%lat(1,:) = [3.5607451090903233, 0.0, 0.0]
+  database(1)%lat(2,:) = [0.0, 3.5607451090903233, 0.0]
+  database(1)%lat(3,:) = [0.0, 0.0, 3.5607451090903233]
   database(1)%energy = -72.213492
 
 
@@ -86,7 +87,7 @@ program test_evaluator
   basis_host%sysname = 'diamond'
   basis_host%nspec = 1
   allocate(basis_host%spec(basis_host%nspec))
-  basis_host%spec(1)%num = 10
+  basis_host%spec(1)%num = 11
   basis_host%spec(1)%name = 'C'
   basis_host%natom = sum(basis_host%spec(:)%num)
   allocate(basis_host%spec(1)%atom(basis_host%spec(1)%num, 3))
@@ -98,15 +99,19 @@ program test_evaluator
   basis_host%spec(1)%atom(6, :3) = [0.75, 0.75, 0.125]
   basis_host%spec(1)%atom(7, :3) = [0.75, 0.25, 0.375]
   basis_host%spec(1)%atom(8, :3) = [0.25, 0.75, 0.375]
-  basis_host%spec(1)%atom(9, :3) = [0.5, 0.5, 0.5]
-!   basis_host%spec(1)%atom(10, :3) = [0.0, 0.0, 0.5]
+  basis_host%spec(1)%atom(9, :3) = [0.0, 0.0, 0.5]
+  basis_host%spec(1)%atom(10, :3) = [0.5, 0.5, 0.5]
+!   basis_host%spec(1)%atom(11, :3) = [0.722, 0.722, 0.6388]
+!   basis_host%spec(1)%atom(12, :3) = [0.222, 0.222, 0.6111]
+!   basis_host%spec(1)%atom(13, :3) = [-0.056, 0.5, 0.75]
+!   basis_host%spec(1)%atom(14, :3) = [0.5, -0.056, 0.75]
   basis_host%spec(1)%atom(basis_host%spec(1)%num, :3) = [0.0, 0.0, 0.0]
   atom_ignore_list(1,1) = 1
   atom_ignore_list(1,2) = basis_host%spec(1)%num
 
-  basis_host%lat(1,:) = [3.5668, 0.0, 0.0]
-  basis_host%lat(2,:) = [0.0, 3.5668, 0.0]
-  basis_host%lat(3,:) = [0.0, 0.0, 7.1336]
+  basis_host%lat(1,:) = [3.560745109, 0.0, 0.0]
+  basis_host%lat(2,:) = [0.0, 3.560745109, 0.0]
+  basis_host%lat(3,:) = [0.0, 0.0, 7.121490218]
 
 
 !   basis_host%sysname = 'graphite'
@@ -139,6 +144,7 @@ program test_evaluator
   close(unit)
 
 
+  generator%distributions%kbt = 0.2
   call generator%host%copy(basis_host)
   call generator%set_grid( grid_spacing = 0.2, grid_offset = [0.0, 0.0, 0.0] )
   generator%distributions%radius_distance_tol = [1.5, 2.5, 3.0, 6.0]
@@ -216,7 +222,9 @@ program test_evaluator
 !   end do
   write(unit, *)
 
-  allocate(suitability_grid(product(generator%grid)))
+  write(*,*) "LOOK", basis_host%num_images
+  write(*,*) "Number of images: ", basis_host%image_spec(1)%num
+  allocate(suitability_grid(size(gridpoints,2)))
   do i = 1, size(gridpoints,dim=2)
      suitability_grid(i) = evaluate_point( generator%distributions, &
           gridpoints(:,i), basis_host, &
@@ -226,6 +234,20 @@ program test_evaluator
      write(unit, *) matmul(gridpoints(:,i),basis_host%lat), suitability_grid(i)
   end do
   close(unit)
+  write(*,*) "Size of suitability grid: ", size(suitability_grid)
+  write(*,*) "Size of gridpoints: ", size(gridpoints,2)
+  write(*,*) "Max suitability: ", maxval(suitability_grid)
+  write(*,*) "Max location: ", maxloc(suitability_grid)
+  best_loc = maxloc(suitability_grid,dim=1)
+  write(*,*) gridpoints(:,best_loc)
+  basis_host%spec(1)%atom(basis_host%spec(1)%num, 1:3) = &
+       gridpoints(1:3,best_loc)
+  call basis_host%update_images( &
+       max_bondlength = generator%distributions%cutoff_max(1), &
+       is = atom_ignore_list(1,1), &
+       ia = atom_ignore_list(1,2) &
+  )
+  write(*,*) "Number of images after update: ", basis_host%image_spec(1)%num
 
   ! !-----------------------------------------------------------------------------
   ! ! generate random structures

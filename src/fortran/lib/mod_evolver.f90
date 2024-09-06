@@ -1703,10 +1703,6 @@ module evolver
       this%norm_2body(j) = maxval(this%total%df_2body(:,j))
       if(abs(this%norm_2body(j)).lt.1.E-6)then
          write(0,*) "ERROR: Zero norm for 2-body g-vector"
-         write(0,*) "Element pair: ", this%bond_info(j)%element
-         write(0,*) "Energy: ", this%best_energy
-         write(0,*) "Energy old: ", best_energy_old
-         write(0,*) this%total%df_2body(:,j)
          stop 1
       end if
       this%total%df_2body(:,j) = &

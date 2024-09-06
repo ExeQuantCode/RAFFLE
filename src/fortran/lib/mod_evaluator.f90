@@ -216,6 +216,9 @@ contains
     neighbour_basis%natom = sum(neighbour_basis%spec(:)%num)
     ! Normalise the viability map
     if(num_2body.eq.0)then
+       ! This does not matter as, if there are no 2-body bonds, the point is
+       ! not meant to be included in the viability set.
+       ! The evaluator cannot comment on the viability of the point.
        viability_2body = 0.5_real12
     else
        viability_2body = viability_2body / num_2body
@@ -230,8 +233,8 @@ contains
     ! and neighbour_basis%image_spec for the third atom
     num_3body = 0
     num_4body = 0
-    viability_3body = 0._real12
-    viability_4body = 0._real12
+    viability_3body = 1._real12
+    viability_4body = 1._real12
     do is = 1, neighbour_basis%nspec
        do ia = 1, neighbour_basis%spec(is)%num
           ! 3-body map
@@ -241,6 +244,7 @@ contains
                position_1 => matmul(position, basis%lat), &
                position_2 => [neighbour_basis%spec(is)%atom(ia,1:3)] &
           )
+             num_3body = num_3body + 1
              viability_3body = viability_3body * &
                    evaluate_3body_contributions( gvector_container, &
                       position_1, &
@@ -250,8 +254,8 @@ contains
              do js = is, neighbour_basis%nspec
                 do ja = 1, neighbour_basis%spec(js)%num
                    if(js.eq.is .and. ja.le.ia) cycle
-                   num_4body = num_4body + &
-                        sum(neighbour_basis%image_spec(:)%num)
+                   if(all(neighbour_basis%image_spec(:)%num.eq.0))cycle
+                   num_4body = num_4body + 1
                    ! 4-body map
                    ! check improperdihedral angle between test point and all
                    ! other atoms
@@ -315,13 +319,16 @@ contains
     !! Loop indices.
     integer :: bin
     !! Bin for the distribution function.
+    integer :: num_3body_local
+    !! Number of 3-body interactions local to the current atom pair.
 
 
-    output = 0._real12
+    num_3body_local = 0
+    output = 1._real12
     species_loop: do js = current_idx(1), basis%nspec, 1
        atom_loop: do ja = 1, basis%spec(js)%num
           if(all([js,ja].eq.current_idx))cycle
-          num_3body = num_3body + 1
+          num_3body_local = num_3body_local + 1
           associate( position_store => [ basis%spec(js)%atom(ja,1:3) ] )
              bin = gvector_container%get_bin( &
                   get_angle( position_2, &
@@ -340,6 +347,12 @@ contains
           end associate
        end do atom_loop
     end do species_loop
+    if(num_3body_local.eq.0)then
+       output = 1._real12
+       num_3body = num_3body - 1
+    else
+       output = output ** (1._real12 / num_3body_local)
+    end if
 
   end function evaluate_3body_contributions
 !###############################################################################
@@ -370,9 +383,16 @@ contains
     !! Bin for the distribution function.
     real(real12) :: contribution
     !! Contribution to the viability map.
+    integer :: num_4body_local
+    !! Number of 4-body interactions local to the current atom triplet.
 
 
-    output = 0._real12
+    output = 1._real12
+    num_4body_local = sum(basis%image_spec(:)%num)
+    if(num_4body_local.eq.0)then
+       output = 1._real12
+       return
+    end if
     species_loop: do ks = 1, basis%nspec, 1
        atom_loop: do ka = 1, basis%image_spec(ks)%num
           associate( position_store => [ basis%image_spec(ks)%atom(ka,1:3) ] )
@@ -392,7 +412,10 @@ contains
                 write(0,*) "Error: bin = 0, IF NOT TRIGGERED, WE CAN REMOVE THIS IF"
                 stop 1
              end if
-             output = output * gvector_container%total%df_4body( bin, ls)
+             output = output * &
+                  gvector_container%total%df_4body(bin,ls) ** ( &
+                       1._real12 / num_4body_local &
+                  )
           end associate
        end do atom_loop
     end do species_loop

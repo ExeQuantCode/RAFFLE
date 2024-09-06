@@ -1655,6 +1655,22 @@ class Evolver(f90wrap.runtime.FortranModule):
                 best_energy)
         
         @property
+        def kbt(self):
+            """
+            Element kbt ftype=real(real12) pytype=float
+            
+            
+            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_evolver.f90 \
+                line 66
+            
+            """
+            return _raffle.f90wrap_gvector_container_type__get__kbt(self._handle)
+        
+        @kbt.setter
+        def kbt(self, kbt):
+            _raffle.f90wrap_gvector_container_type__set__kbt(self._handle, kbt)
+                
+        @property
         def nbins(self):
             """
             Element nbins ftype=integer pytype=int
@@ -1842,6 +1858,8 @@ class Evolver(f90wrap.runtime.FortranModule):
             ret.append(repr(self.best_system))
             ret.append(',\n    best_energy : ')
             ret.append(repr(self.best_energy))
+            ret.append(',\n    kbt : ')
+            ret.append(repr(self.kbt))
             ret.append(',\n    nbins : ')
             ret.append(repr(self.nbins))
             ret.append(',\n    sigma : ')
@@ -1852,6 +1870,8 @@ class Evolver(f90wrap.runtime.FortranModule):
             ret.append(repr(self.cutoff_min))
             ret.append(',\n    cutoff_max : ')
             ret.append(repr(self.cutoff_max))
+            ret.append(',\n    radius_distance_tol : ')
+            ret.append(repr(self.radius_distance_tol))
             ret.append(',\n    total : ')
             ret.append(repr(self.total))
             ret.append('}')

@@ -374,6 +374,34 @@ subroutine f90wrap_gvector_container_type__set__best_energy(this, f90wrap_best_e
     this_ptr%p%best_energy = f90wrap_best_energy
 end subroutine f90wrap_gvector_container_type__set__best_energy
 
+subroutine f90wrap_gvector_container_type__get__kbt(this, f90wrap_kbt)
+    use evolver, only: gvector_container_type
+    implicit none
+    type gvector_container_type_ptr_type
+        type(gvector_container_type), pointer :: p => NULL()
+    end type gvector_container_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(gvector_container_type_ptr_type) :: this_ptr
+    real(4), intent(out) :: f90wrap_kbt
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_kbt = this_ptr%p%kbt
+end subroutine f90wrap_gvector_container_type__get__kbt
+
+subroutine f90wrap_gvector_container_type__set__kbt(this, f90wrap_kbt)
+    use evolver, only: gvector_container_type
+    implicit none
+    type gvector_container_type_ptr_type
+        type(gvector_container_type), pointer :: p => NULL()
+    end type gvector_container_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(gvector_container_type_ptr_type) :: this_ptr
+    real(4), intent(in) :: f90wrap_kbt
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%kbt = f90wrap_kbt
+end subroutine f90wrap_gvector_container_type__set__kbt
+
 subroutine f90wrap_gvector_container_type__array__nbins(this, nd, dtype, dshape, dloc)
     use evolver, only: gvector_container_type
     use, intrinsic :: iso_c_binding, only : c_int

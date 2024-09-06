@@ -14,6 +14,7 @@ import raffle
 from ase import Atoms
 from ase.io import read, write
 from ase.optimize import BFGS
+from ase.calculators.singlepoint import SinglePointCalculator
 
 # import CHGNet calculator (for MLP energy evaluation)
 from chgnet.model.dynamics import CHGNetCalculator
@@ -28,12 +29,16 @@ generator = raffle.generator.raffle_generator_type()
 
 # read the host structure from a POSCAR file
 print("Reading host")
-host = read("../example_files/POSCAR_host_graphite_trilayer")
+host = read("../example_files/POSCAR_host_diamond")
+# host = read("../example_files/POSCAR_host_graphite_trilayer")
+# host = read("../example_files/POSCAR_graphite_missing_layer")
 host_basis = raffle.rw_geom.basis_type(host)
 write("POSCAR_host", host_basis.toase())
 generator.set_host(host_basis)
 print("Host read")
 
+host.calc = calculator
+print("host energy: ", host.get_potential_energy())
 
 # generate bulk diamond and get its energy
 diamond_bulk = Atoms("C8",
@@ -65,22 +70,36 @@ graphite_bulk = Atoms("C4",
                      ], pbc=True
 )
 graphite_bulk.calc = calculator
+defected_graphite_bulk = Atoms("C3", 
+                     positions=[
+                         [0.0, 0.0, 1.95076825],
+                         [0.0, 0.0, 5.85230475],
+                         [1.2336456308015413, 0.7122456370278755, 1.95076825]
+                     ], cell=[
+                         [1.2336456308015413, -2.1367369110836267, 0.0], 
+                         [1.2336456308015413,  2.1367369110836267, 0.0],
+                         [0.0, 0.0, 7.803073]
+                     ], pbc=True
+)
+# defected_graphite_bulk.calc = SinglePointCalculator(defected_graphite_bulk, energy=graphite_bulk.get_potential_energy())#calculator
+defected_graphite_bulk.energy = calculator #graphite_bulk.get_potential_energy()
 
 # set the carbon reference energy
 is_graphite_reference = False
 if is_graphite_reference:
-    C_reference_energy = graphite_bulk.get_potential_energy() / 4
+    C_reference_energy = graphite_bulk.get_potential_energy() / len(graphite_bulk)
     write("POSCAR_ref_bulk", graphite_bulk)
 else:
-    C_reference_energy = diamond_bulk.get_potential_energy() / 8
+    C_reference_energy = diamond_bulk.get_potential_energy() / len(diamond_bulk)
     write("POSCAR_ref_bulk", diamond_bulk)
 print("Setting element energies")
 generator.distributions.set_element_energies(
     {
-        'C': C_reference_energy#-9.0266865
+        'C': C_reference_energy
     }
 )
 
+generator.distributions.kbT = 0.1
 # set the distribution function widths (2-body, 3-body, 4-body)
 generator.distributions.set_width([0.025, np.pi/200.0, np.pi/200.0])
 
@@ -110,8 +129,11 @@ if use_database:
 else:
     num_database = 1
     database_basis.allocate(num_database)
-    # database_basis.items[0].fromase(diamond_bulk)
-    database_basis.items[0].fromase(graphite_bulk)
+    database_basis.items[0].fromase(diamond_bulk)
+    # database_basis.items[0].fromase(graphite_bulk)
+    # for i in range(1, num_database):
+    # database_basis.items[i].fromase(graphite_bulk)
+    # database_basis.items[2].fromase(defected_graphite_bulk)
 print("Database read")
 
 # create the distribution functions
@@ -134,8 +156,8 @@ print(generator.distributions.get_bond_radii())
 
 # set the grid for the host cell
 print("Getting bins (discretisation of host cell)")
-generator.set_grid(grid=[20,20,60], grid_offset=[0.0, 0.0, 0.0])
-# generator.set_grid(grid_spacing=0.1, grid_offset=[0.0, 0.0, 0.0])
+# generator.set_grid(grid=[20,20,60], grid_offset=[0.0, 0.0, 0.0])
+generator.set_grid(grid_spacing=0.1, grid_offset=[0.0, 0.0, 0.0])
 print(generator.grid)
 
 # set the stoichiometry for the structures to be generated
@@ -143,7 +165,7 @@ print("Setting stoichiometry to insert")
 stoich_list = raffle.generator.stoichiometry_type_xnum_array()
 stoich_list.allocate(1)
 stoich_list.items[0].element = 'C'
-stoich_list.items[0].num = 35
+stoich_list.items[0].num = 6
 
 # generate structures
 num_structures_old = 0
@@ -152,7 +174,7 @@ for iter in range(1):
     print(f"Iteration {iter}")
     print("Generating...")
     # this is the main function to generate structures
-    generator.generate(num_structures=1, stoichiometry=stoich_list, seed=0, verbose=0, method_probab={"void":0.01, "walk":0.0, "min":1.0})
+    generator.generate(num_structures=1, stoichiometry=stoich_list, seed=0+iter, verbose=1, method_probab={"void":0.01, "walk":0.0, "min":1.0})
     print("Generated")
 
     print("Getting structures")

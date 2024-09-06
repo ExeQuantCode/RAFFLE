@@ -1655,9 +1655,9 @@ class Evolver(f90wrap.runtime.FortranModule):
                 best_energy)
         
         @property
-        def kbt(self):
+        def kbT(self):
             """
-            Element kbt ftype=real(real12) pytype=float
+            Element kbT ftype=real(real12) pytype=float
             
             
             Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_evolver.f90 \
@@ -1666,9 +1666,9 @@ class Evolver(f90wrap.runtime.FortranModule):
             """
             return _raffle.f90wrap_gvector_container_type__get__kbt(self._handle)
         
-        @kbt.setter
-        def kbt(self, kbt):
-            _raffle.f90wrap_gvector_container_type__set__kbt(self._handle, kbt)
+        @kbT.setter
+        def kbT(self, kbT):
+            _raffle.f90wrap_gvector_container_type__set__kbt(self._handle, kbT)
                 
         @property
         def nbins(self):
@@ -1858,8 +1858,8 @@ class Evolver(f90wrap.runtime.FortranModule):
             ret.append(repr(self.best_system))
             ret.append(',\n    best_energy : ')
             ret.append(repr(self.best_energy))
-            ret.append(',\n    kbt : ')
-            ret.append(repr(self.kbt))
+            ret.append(',\n    kbT : ')
+            ret.append(repr(self.kbT))
             ret.append(',\n    nbins : ')
             ret.append(repr(self.nbins))
             ret.append(',\n    sigma : ')

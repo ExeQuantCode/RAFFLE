@@ -1654,10 +1654,10 @@ module evolver
           this%total%df_3body(:,idx1) = this%total%df_3body(:,idx1) + &
                ! weight * &
                set_difference( weight * this%system(i)%df_3body(:,is), &
-                               this%total%df_3body(:,idx1) / max( &
-                                    1._real12, &
-                                    maxval(this%total%df_3body(:,idx1)) &
-                               ), &
+                               this%total%df_3body(:,idx1), & !/ max( &
+                              !       1._real12, &
+                              !       maxval(this%total%df_3body(:,idx1)) &
+                              !  ), &
                                set_min_zero = .true. &
                )
                ! height * this%system(i)%df_4body(:,is)
@@ -1666,10 +1666,10 @@ module evolver
           this%total%df_4body(:,idx1) = this%total%df_4body(:,idx1) + &
                ! weight * &
                set_difference( weight * this%system(i)%df_4body(:,is), &
-                               this%total%df_4body(:,idx1) / max( &
-                                    1._real12, &
-                                    maxval(this%total%df_4body(:,idx1)) &
-                               ), &
+                               this%total%df_4body(:,idx1), &! !/ max( &
+                              !       1._real12, &
+                              !       maxval(this%total%df_4body(:,idx1)) &
+                              !  ), &
                                set_min_zero = .true. &
                )
                ! height * this%system(i)%df_4body(:,is)
@@ -1685,10 +1685,10 @@ module evolver
              this%total%df_2body(:,j) = this%total%df_2body(:,j) + &
                   ! weight * &
                   set_difference( weight * this%system(i)%df_2body(:,idx_list(is,js)), &
-                                  this%total%df_2body(:,j) / max( &
-                                       1._real12, &
-                                       maxval(this%total%df_2body(:,j)) &
-                                  ), &
+                                  this%total%df_2body(:,j), & !/ max( &
+                                 !       1._real12, &
+                                 !       maxval(this%total%df_2body(:,j)) &
+                                 !  ), &
                                   set_min_zero = .true. &
                   )
                   ! height * this%system(i)%df_2body(:,idx_list(is,js))
@@ -1703,6 +1703,10 @@ module evolver
       this%norm_2body(j) = maxval(this%total%df_2body(:,j))
       if(abs(this%norm_2body(j)).lt.1.E-6)then
          write(0,*) "ERROR: Zero norm for 2-body g-vector"
+         write(0,*) "Element pair: ", this%bond_info(j)%element
+         write(0,*) "Energy: ", this%best_energy
+         write(0,*) "Energy old: ", best_energy_old
+         write(0,*) this%total%df_2body(:,j)
          stop 1
       end if
       this%total%df_2body(:,j) = &

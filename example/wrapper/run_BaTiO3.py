@@ -132,7 +132,7 @@ print(generator.distributions.get_bond_radii())
 
 # set the grid for the host cell
 print("Setting bins (discretisation of host cell)")
-generator.set_grid(grid=[20,20,40], grid_offset=[0.0, 0.0, 0.0])
+generator.set_grid(grid_spacing=0.1, grid_offset=[0.0, 0.0, 0.0])
 print(generator.grid)
 
 # set the stoichiometry for the structures to be generated

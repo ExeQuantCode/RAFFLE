@@ -71,8 +71,12 @@ module evolver
      !! Index of the best system.
      real(real12) :: best_energy = 0.0_real12
      !! Energy of the best system.
-     real(real12) :: kbt = 0.0257_real12
-     !! Boltzmann constant times temperature. Default is 300K.
+     real(real12) :: kbt = 0.2_real12
+     !! Boltzmann constant times temperature.
+     real(real12) :: &
+          viability_3body_default = 0.1_real12, &
+          viability_4body_default = 0.1_real12
+     !! Default viability for the 3- and 4-body distribution functions.
      integer, dimension(3) :: nbins = -1
      !! Number of bins for the 2-, 3-, and 4-body distribution functions.
      real(real12), dimension(3) :: &
@@ -1701,6 +1705,7 @@ module evolver
    allocate(this%norm_2body(size(this%total%df_2body,2)))
    do j = 1, size(this%total%df_2body,2)
       this%norm_2body(j) = maxval(this%total%df_2body(:,j))
+      ! this%norm_2body(j) = sum(this%total%df_2body(:,j))/size(this%total%df_2body,1)
       if(abs(this%norm_2body(j)).lt.1.E-6)then
          write(0,*) "ERROR: Zero norm for 2-body g-vector"
          stop 1
@@ -1712,11 +1717,13 @@ module evolver
    allocate(this%norm_4body(size(this%element_info)))
    do is = 1, size(this%element_info)
       this%norm_3body(is) = maxval(this%total%df_3body(:,is))
+      ! this%norm_3body(is) = sum(this%total%df_3body(:,is))/size(this%total%df_3body,1)
       if(abs(this%norm_3body(is)).lt.1.E-6)then
          write(0,*) "ERROR: Zero norm for 3-body g-vector"
          stop 1
       end if
       this%norm_4body(is) = maxval(this%total%df_4body(:,is))
+      ! this%norm_4body(is) = sum(this%total%df_4body(:,is))/size(this%total%df_4body,1)
       if(abs(this%norm_4body(is)).lt.1.E-6)then
          write(0,*) "ERROR: Zero norm for 4-body g-vector"
          stop 1
@@ -1729,6 +1736,9 @@ module evolver
 
    this%num_evaluated_allocated = size(this%system)
    this%num_evaluated = this%num_evaluated + num_evaluated
+
+   this%viability_3body_default = sum(this%total%df_3body)/size(this%total%df_3body)
+   this%viability_4body_default = sum(this%total%df_4body)/size(this%total%df_4body)
 
   end subroutine evolve
 !###############################################################################

@@ -222,6 +222,7 @@ contains
        viability_2body = 0.5_real12
     else
        viability_2body = viability_2body / num_2body
+      !  viability_2body = viability_2body ** (1._real12 / num_2body)
     end if
 
 
@@ -274,12 +275,14 @@ contains
     end do
     ! Normalise the viability map
     if(num_3body.eq.0)then
-       viability_3body = 0.1_real12 !0.66666666_real12
+       viability_3body = gvector_container%viability_3body_default
+      !  viability_3body = 1.5_real12
     else
        viability_3body = viability_3body ** (1._real12 / num_3body)
     end if
     if(num_4body.eq.0)then
-       viability_4body = 0.1_real12 !0.66666666_real12
+       viability_4body = gvector_container%viability_4body_default
+      !  viability_4body = 1.5_real12
     else
        viability_4body = viability_4body ** (1._real12 / num_4body)
     end if

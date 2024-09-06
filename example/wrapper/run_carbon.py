@@ -29,9 +29,9 @@ generator = raffle.generator.raffle_generator_type()
 
 # read the host structure from a POSCAR file
 print("Reading host")
-host = read("../example_files/POSCAR_host_diamond")
+# host = read("../example_files/POSCAR_host_diamond")
 # host = read("../example_files/POSCAR_host_graphite_trilayer")
-# host = read("../example_files/POSCAR_graphite_missing_layer")
+host = read("../example_files/POSCAR_graphite_missing_layer")
 host_basis = raffle.rw_geom.basis_type(host)
 write("POSCAR_host", host_basis.toase())
 generator.set_host(host_basis)
@@ -99,7 +99,7 @@ generator.distributions.set_element_energies(
     }
 )
 
-generator.distributions.kbT = 0.1
+generator.distributions.kbT = 0.2
 # set the distribution function widths (2-body, 3-body, 4-body)
 generator.distributions.set_width([0.025, np.pi/200.0, np.pi/200.0])
 
@@ -129,8 +129,8 @@ if use_database:
 else:
     num_database = 1
     database_basis.allocate(num_database)
-    database_basis.items[0].fromase(diamond_bulk)
-    # database_basis.items[0].fromase(graphite_bulk)
+    # database_basis.items[0].fromase(diamond_bulk)
+    database_basis.items[0].fromase(graphite_bulk)
     # for i in range(1, num_database):
     # database_basis.items[i].fromase(graphite_bulk)
     # database_basis.items[2].fromase(defected_graphite_bulk)
@@ -174,7 +174,7 @@ for iter in range(1):
     print(f"Iteration {iter}")
     print("Generating...")
     # this is the main function to generate structures
-    generator.generate(num_structures=1, stoichiometry=stoich_list, seed=0+iter, verbose=1, method_probab={"void":0.01, "walk":0.0, "min":1.0})
+    generator.generate(num_structures=1, stoichiometry=stoich_list, seed=0+iter, verbose=1, method_probab={"void":0.0001, "walk":0.0, "min":1.0})
     print("Generated")
 
     print("Getting structures")

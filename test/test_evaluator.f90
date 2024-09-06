@@ -85,10 +85,10 @@ program test_evaluator
   !-----------------------------------------------------------------------------
   basis_host%sysname = 'diamond'
   basis_host%nspec = 1
-  basis_host%natom = 9
   allocate(basis_host%spec(basis_host%nspec))
-  basis_host%spec(1)%num = 9
+  basis_host%spec(1)%num = 10
   basis_host%spec(1)%name = 'C'
+  basis_host%natom = sum(basis_host%spec(:)%num)
   allocate(basis_host%spec(1)%atom(basis_host%spec(1)%num, 3))
   basis_host%spec(1)%atom(1, :3) = [0.0, 0.0, 0.0]
   basis_host%spec(1)%atom(2, :3) = [0.5, 0.5, 0.0]
@@ -98,9 +98,11 @@ program test_evaluator
   basis_host%spec(1)%atom(6, :3) = [0.75, 0.75, 0.125]
   basis_host%spec(1)%atom(7, :3) = [0.75, 0.25, 0.375]
   basis_host%spec(1)%atom(8, :3) = [0.25, 0.75, 0.375]
-  basis_host%spec(1)%atom(9, :3) = [0.0, 0.0, 0.0]
+  basis_host%spec(1)%atom(9, :3) = [0.5, 0.5, 0.5]
+!   basis_host%spec(1)%atom(10, :3) = [0.0, 0.0, 0.5]
+  basis_host%spec(1)%atom(basis_host%spec(1)%num, :3) = [0.0, 0.0, 0.0]
   atom_ignore_list(1,1) = 1
-  atom_ignore_list(1,2) = 9
+  atom_ignore_list(1,2) = basis_host%spec(1)%num
 
   basis_host%lat(1,:) = [3.5668, 0.0, 0.0]
   basis_host%lat(2,:) = [0.0, 3.5668, 0.0]

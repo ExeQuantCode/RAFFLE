@@ -90,7 +90,7 @@ contains
        image_species(is)%radius = this%spec(is)%radius
        image_species(is)%name = this%spec(is)%name
        atom_loop: do ia=1,this%spec(is)%num
-          do i = 1, size(atom_ignore_list_,1)
+          do i = 1, size(atom_ignore_list_,1), 1
              if(all(atom_ignore_list_(i,:).eq.[is,ia])) cycle atom_loop
           end do
           do i=-amax,amax+1,1
@@ -176,12 +176,12 @@ contains
     end do
     allocate( image_species%atom( &
          num_images + &
-         (2*amax+1)*(2*bmax+1)*(2*cmax+1), &
+         (2*amax+2)*(2*bmax+2)*(2*cmax+2), &
          dim ) &
     )
     if( num_images .ne. 0 ) then
-       image_species%atom(:num_images,:) = &
-            this%image_spec(is)%atom(:num_images,:)
+       image_species%atom(:num_images,:3) = &
+            this%image_spec(is)%atom(:num_images,:3)
     end if
 
 
@@ -190,6 +190,7 @@ contains
        do j=-bmax,bmax+1,1
           vtmp1(2) = this%spec(is)%atom(ia,2) + real(j, real12)
           do k=-cmax,cmax+1,1
+             if( i .eq. 0 .and. j .eq. 0 .and. k .eq. 0 ) cycle
              vtmp1(3) = this%spec(is)%atom(ia,3) + real(k, real12)
              if( get_distance_from_unit_cell(vtmp1, this%lat) .le. &
                   max_bondlength ) then

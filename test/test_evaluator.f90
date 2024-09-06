@@ -12,7 +12,6 @@ program test_evaluator
   integer :: i, j, k, num_points
   type(extended_basis_type) :: basis_host
   type(basis_type), dimension(1) :: database
-  integer, dimension(3) :: grid
   character(3), dimension(1) :: element_symbols
   real(real12), dimension(1) :: element_energies
   integer, dimension(1,2) :: atom_ignore_list
@@ -55,6 +54,7 @@ program test_evaluator
 !   ! graphite cell
 !   database(1)%nspec = 1
 !   database(1)%natom = 4
+! !   allocate(database(1)%spec(database(1)%nspec))
 !   database(1)%spec(1)%num = 4
 !   database(1)%spec(1)%name = 'C'
 !   deallocate(database(1)%spec(1)%atom)
@@ -105,18 +105,41 @@ program test_evaluator
   basis_host%lat(1,:) = [3.5668, 0.0, 0.0]
   basis_host%lat(2,:) = [0.0, 3.5668, 0.0]
   basis_host%lat(3,:) = [0.0, 0.0, 7.1336]
+
+
+!   basis_host%sysname = 'graphite'
+!   basis_host%nspec = 1
+!   basis_host%natom = 7
+!   allocate(basis_host%spec(database(1)%nspec))
+!   basis_host%spec(1)%num = 7
+!   basis_host%spec(1)%name = 'C'
+!   allocate(basis_host%spec(1)%atom(basis_host%spec(1)%num, 3))
+!   basis_host%spec(1)%atom(1, :3) = [0.000000000, 0.000000000, 0.125000000]
+!   basis_host%spec(1)%atom(2, :3) = [0.000000000, 0.000000000, 0.375000000]
+!   basis_host%spec(1)%atom(3, :3) = [0.000000000, 0.000000000, 0.875000000]
+!   basis_host%spec(1)%atom(4, :3) = [0.333333333, 0.666666667, 0.125000000]
+!   basis_host%spec(1)%atom(5, :3) = [0.666666667, 0.333333333, 0.375000000]
+!   basis_host%spec(1)%atom(6, :3) = [0.666666667, 0.333333333, 0.875000000]
+! !   basis_host%spec(1)%atom(7, :3) = [0.333333333, 0.666666667, 0.625000000]
+!   basis_host%spec(1)%atom(7, :3) = [0.0, 0.0, 0.0]
+
+!   basis_host%lat(1,:) = [1.233645631, -2.136736911,  0.000000000]
+!   basis_host%lat(2,:) = [1.233645631,  2.136736911,  0.000000000]
+!   basis_host%lat(3,:) = [0.000000000,  0.000000000, 15.606146000]
+!     atom_ignore_list(1,1) = 1
+!     atom_ignore_list(1,2) = 8
   call basis_host%create_images( &
        max_bondlength = 6._real12, &
        atom_ignore_list = atom_ignore_list &
   )
-  open(newunit=unit, file="POSCAR_host_diamond", status="replace")
+  open(newunit=unit, file="POSCAR_host_graphite", status="replace")
   call geom_write(unit, basis_host)
- close(unit)
+  close(unit)
 
 
-  grid = [20, 20, 40]
   call generator%host%copy(basis_host)
-  call generator%set_grid( grid = grid, grid_offset = [0.0, 0.0, 0.0] )
+  call generator%set_grid( grid_spacing = 0.2, grid_offset = [0.0, 0.0, 0.0] )
+  generator%distributions%radius_distance_tol = [1.5, 2.5, 3.0, 6.0]
 
 
   !-----------------------------------------------------------------------------
@@ -141,12 +164,14 @@ program test_evaluator
 !         end do
 !      end do
 !   end do
-  gridpoints = get_viable_gridpoints( grid, &
+  gridpoints = get_viable_gridpoints( generator%grid, &
        basis_host, &
        [ generator%distributions%bond_info(:)%radius_covalent ], &
        atom_ignore_list, &
-       lowtol = generator%distributions%radius_distance_tol(1) &
+       lowtol = generator%distributions%radius_distance_tol(1), &
+       grid_offset = generator%grid_offset &
   )
+  write(*,*) "Number of gridpoints: ", size(gridpoints, dim=2)
 
 
   !-----------------------------------------------------------------------------
@@ -189,7 +214,7 @@ program test_evaluator
 !   end do
   write(unit, *)
 
-  allocate(suitability_grid(product(grid)))
+  allocate(suitability_grid(product(generator%grid)))
   do i = 1, size(gridpoints,dim=2)
      suitability_grid(i) = evaluate_point( generator%distributions, &
           gridpoints(:,i), basis_host, &

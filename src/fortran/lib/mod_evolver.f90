@@ -2075,8 +2075,8 @@ module evolver
                      (ka - ja) &
                 )
                 angle_list(idx) = get_angle( &
-                     neighbour_basis%spec(1)%atom(ja,:3), &
-                     neighbour_basis%spec(1)%atom(ka,:3) &
+                     [ neighbour_basis%spec(1)%atom(ja,:3) ], &
+                     [ neighbour_basis%spec(1)%atom(ka,:3) ] &
                 )
                 distance(idx) = &
                      ( &
@@ -2117,9 +2117,9 @@ module evolver
                 ) * neighbour_basis%image_spec(1)%num + la
                 angle_list(idx) = &
                      get_improper_dihedral_angle( &
-                          neighbour_basis%spec(1)%atom(ja,:3), &
-                          neighbour_basis%spec(1)%atom(ka,:3), &
-                          neighbour_basis%image_spec(1)%atom(la,:3) &
+                          [ neighbour_basis%spec(1)%atom(ja,:3) ], &
+                          [ neighbour_basis%spec(1)%atom(ka,:3) ], &
+                          [ neighbour_basis%image_spec(1)%atom(la,:3) ] &
                      )
                 distance(idx) = &
                     modu(neighbour_basis%spec(1)%atom(ja,:3)) ** 2 * &

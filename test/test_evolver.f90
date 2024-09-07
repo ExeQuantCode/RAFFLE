@@ -614,6 +614,7 @@ contains
 !###############################################################################
 
   subroutine assert(condition, message, success)
+    implicit none
     logical, intent(in) :: condition
     character(len=*), intent(in) :: message
     logical, intent(inout) :: success

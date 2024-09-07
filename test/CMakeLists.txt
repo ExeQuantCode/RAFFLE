@@ -2,6 +2,7 @@ message(STATUS "Building tests")
 foreach(execid
     edit_geom
     rw_geom
+    evolver
   )
   add_executable(test_${execid} test_${execid}.f90)
   # # Specify the include directories

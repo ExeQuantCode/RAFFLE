@@ -1,4 +1,5 @@
 program test_evolver
+  use error_handling, only: test_error_handling
   use evolver, only: &
        gvector_container_type
   use constants, only: real12, pi
@@ -7,6 +8,8 @@ program test_evolver
 
   logical :: success = .true.
   type(basis_type) :: basis_diamond, basis_graphite
+
+  test_error_handling = .true.
 
   ! diamond cell
   basis_diamond%nspec = 1
@@ -143,6 +146,15 @@ contains
        )
        test_name = "Custom"
     end do
+
+    write(*,*) "Testing gvector_container_type initialisation error handling"
+    cutoff_min = [6.0_real12, 6.0_real12, 6.0_real12]
+    cutoff_max = [1.0_real12, 1.0_real12, 1.0_real12]
+    gvector_container = gvector_container_type( &
+         cutoff_min=cutoff_min,  &
+         cutoff_max=cutoff_max &
+    )
+    write(*,*) "Handled error: cutoff_min > cutoff_max"
   
   end subroutine test_init_gvector_container
 
@@ -280,6 +292,11 @@ contains
     do i = 1, size(basis,1)
        call basis_list(i)%copy(basis(i))
     end do
+
+    ! Test element_database uninitiaised error handling
+    write(*,*) "Testing gvector_container_type create error handling"
+    call gvector_container%create(basis_list, deallocate_systems=.false.)
+    write(*,*) "Handled error: element_database not initialised"
 
     call gvector_container%set_element_energies(['C  '], [-9.027_real12])
 
@@ -489,6 +506,7 @@ contains
     type(basis_type), intent(in) :: basis
 
     type(gvector_container_type) :: gvector_container
+    integer, dimension(1,1,1,1) :: test_array = 1
 
     ! Call the add subroutine
     call gvector_container%add(basis)
@@ -541,6 +559,16 @@ contains
          "Number of systems is incorrect",  &
          success &
     )
+
+    ! Test unknown type and rank error handling
+    write(*,*) "Testing gvector_container_type add error handling"
+    call gvector_container%add(1)
+    call gvector_container%add([1])
+    write(*,*) "Handled error: system default type"
+    call gvector_container%add(test_array)
+    write(*,*) "Handled error: system default rank"
+
+
 
   end subroutine test_add
 

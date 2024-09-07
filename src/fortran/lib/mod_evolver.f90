@@ -6,6 +6,7 @@ module evolver
   !! atomic structures to identify similarities and differences between
   !! structures.
   use constants, only: real12, pi
+  use error_handling, only: stop_program
   use misc_raffle, only: set, icount, strip_null, sort_str
   use misc_maths, only: triangular_number, set_difference
   use misc_linalg, only: get_angle, get_vol, get_improper_dihedral_angle, &
@@ -233,6 +234,10 @@ module evolver
     type(gvector_container_type) :: gvector_container
     !! Instance of the distribution functions container.
 
+    ! Local variables
+    character(256) :: stop_msg
+    !! Error message.
+
 
     if(present(nbins))then
        if(all(nbins .gt. 0)) gvector_container%nbins = nbins
@@ -255,10 +260,14 @@ module evolver
             gvector_container%cutoff_max = cutoff_max
     end if
     if(any(gvector_container%cutoff_max .le. gvector_container%cutoff_min))then
-       write(0,*) "ERROR: cutoff_max <= cutoff_min"
-       write(0,*) "cutoff min: ", gvector_container%cutoff_min
-       write(0,*) "cutoff max: ", gvector_container%cutoff_max
-       stop 1
+       write(stop_msg,*) &
+            "cutoff_max <= cutoff_min" // &
+            achar(13) // achar(10) // &
+            "cutoff min: ", gvector_container%cutoff_min, &
+            achar(13) // achar(10) // &
+            "cutoff max: ", gvector_container%cutoff_max
+       call stop_program( stop_msg )
+       return
     end if
 
   end function init_gvector_container
@@ -369,13 +378,17 @@ module evolver
 
     ! Local variables
     logical :: deallocate_systems_
-    
+    !! Boolean whether to deallocate the systems after the distribution
+    character(256) :: stop_msg
+    !! Error message.
     
     if(.not.allocated(element_database))then
-       write(0,*) "ERROR: element_database not allocated"
-       write(0,*) "Run the set_element_energies() procedure of &
-            &gvector_container_type before calling create()"
-       stop 1
+       write(stop_msg,*) "element_database not allocated" // &
+            achar(13) // achar(10) // &
+            "Run the set_element_energies() procedure of " // &
+            "gvector_container_type before calling create()"
+       call stop_program( stop_msg )
+       return
     end if
 
     deallocate_systems_ = .true.
@@ -461,17 +474,20 @@ module evolver
     !! File unit.
     integer :: i, j
     !! Loop indices.
-
+    character(256) :: stop_msg
+    !! Error message.
 
     if(.not.allocated(this%system))then
-       write(0,*) "ERROR: No systems to write"
-       write(0,*) "Systems either not created or deallocated after evolve"
-       write(0,*) "To stop automatic deallocation, &
-            &use the following flag in create()"
-       write(0,*)
-       write(0,*) "   deallocate_systems = .false."
-       write(0,*)
-       stop 1
+       write(stop_msg,*) "No systems to write" // &
+            achar(13) // achar(10) // &
+            "Systems either not created or deallocated after evolve" // &
+            achar(13) // achar(10) // &
+            "To stop automatic deallocation, " // &
+            "use the following flag in create()" // &
+            achar(13) // achar(10) // &
+            "   deallocate_systems = .false."
+       call stop_program( stop_msg )
+       return
     end if
     open(newunit=unit, file=file)
     write(unit, *) "nbins", this%nbins
@@ -705,7 +721,8 @@ module evolver
     !! Number of structures in the container before adding the system.
     character(128) :: buffer
     !! Buffer for writing messages.
-
+    character(256) :: stop_msg
+    !! Error message.
 
     select rank(system)
     rank(0)
@@ -715,9 +732,11 @@ module evolver
        type is (basis_type)
           call this%add_basis(system)
        class default
-          write(0,*) "ERROR: Invalid type for system"
-          write(0,*) "Expected type gvector_type or basis_type"
-          stop 1
+          write(stop_msg,*) "Invalid type for system" // &
+               achar(13) // achar(10) // &
+               "Expected type gvector_type or basis_type"
+          call stop_program( stop_msg )
+          return
        end select
     rank(1)
        num_structures_previous = size(this%system)
@@ -729,15 +748,18 @@ module evolver
              call this%add_basis(system(i))
           end do
        class default
-          write(0,*) "ERROR: Invalid type for system"
-          write(0,*) "Expected type gvector_type or basis_type"
-          stop 1
-       end select
+          write(stop_msg,*) "Invalid type for system" // &
+               achar(13) // achar(10) // &
+               "Expected type gvector_type or basis_type"
+          call stop_program( stop_msg )
+          return
+         end select
     rank default
-       write(0,*) "ERROR: Invalid rank for system"
-       write(buffer,*) rank(system)
-       write(0,*) "Expected rank 0 or 1, got ", trim(buffer)
-       stop 1
+       write(stop_msg,*) "Invalid rank for system" // &
+            achar(13) // achar(10) // &
+            "Expected rank 0 or 1, got ", rank(system)
+       call stop_program( stop_msg )
+       return
     end select
     call this%update_element_info()
     call this%update_bond_info()
@@ -1107,6 +1129,8 @@ module evolver
     !! Index of the elements in the element database.
     real(real12) :: radius
     !! Average of covalent radii.
+    character(256) :: stop_msg
+    !! Error message.
 
 
     write(0,*) 'WARNING: No bond data for element pair ', &
@@ -1114,19 +1138,25 @@ module evolver
                elements(2)
     write(0,*) 'WARNING: Setting bond to average of covalent radii'
     if(.not.allocated(element_database))then
-       write(0,*) "ERROR: Element database not initialised"
-       stop 1
+       call stop_program( "Element database not initialised" )
+       return
     end if
     idx1 = findloc([ element_database(:)%name ], &
          elements(1), dim=1)
     idx2 = findloc([ element_database(:)%name ], &
          elements(2), dim=1)
     if(idx1.lt.1.or.idx2.lt.1)then
-       write(0,*) "ERROR: Element not found in database"
-       if(idx1.lt.1) write(0,*) "Element: ", elements(1)
-       if(idx2.lt.1) write(0,*) "Element: ", elements(2)
-       write(0,*) "Indices: ", idx1, idx2
-       stop 1
+       write(stop_msg,*) "Element not found in database"
+       if(idx1.lt.1) write(stop_msg,*) &
+            trim(stop_msg) // achar(13) // achar(10) // &
+            "Element: ", elements(1)
+       if(idx2.lt.1) write(stop_msg,*) &
+            trim(stop_msg) // achar(13) // achar(10) // &
+            "Element: ", elements(2)
+       write(stop_msg,*) trim(stop_msg) // achar(13) // achar(10) // &
+            "Indices: ", idx1, idx2
+       call stop_program( stop_msg )
+       return
     end if
     radius = ( element_database(idx1)%radius + &
          element_database(idx2)%radius ) / 2._real12
@@ -1420,8 +1450,8 @@ module evolver
           idx = findloc( [ this%element_info(:)%name ], &
                            this%system(i)%element_symbols(is), dim=1 )
           if(idx.lt.1)then
-             write(0,*) "ERROR: Species not found in element_info"
-             stop 1
+             call stop_program( "Species not found in element_info" )
+             return
           end if
           energy = energy - this%system(i)%stoichiometry(is) * &
                             this%element_info(idx)%energy
@@ -1656,8 +1686,8 @@ module evolver
           idx1 = findloc( [ this%element_info(:)%name ], &
                           this%system(i)%element_symbols(is), dim=1)
           if(idx1.lt.1)then
-             write(0,*) "ERROR: Species not found in species list"
-             stop 1
+             call stop_program( "Species not found in species list" )
+             return
           end if
           energy = energy - this%system(i)%stoichiometry(is) * &
                this%element_info(idx1)%energy

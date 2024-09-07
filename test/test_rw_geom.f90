@@ -181,6 +181,27 @@ program test_rw_geom
      end if
   end do
 
+  call get_element_properties('X  ', &
+       mass = mass, &
+       charge = charge, &
+       radius = radius &
+  )
+   if(mass.gt.1.E-6) then
+       write(0,*) 'Element properties failed, mass check failed'
+       write(*,*) 'X', mass
+       success = .false.
+   end if
+   if(charge.gt.1.E-6) then
+       write(0,*) 'Element properties failed, charge check failed'
+       write(*,*) 'X', charge
+       success = .false.
+   end if
+   if(radius.gt.1.E-6) then
+       write(0,*) 'Element properties failed, radius check failed'
+       write(*,*) 'X', radius
+       success = .false.
+   end if
+
 
   !-----------------------------------------------------------------------------
   ! check for any failed tests

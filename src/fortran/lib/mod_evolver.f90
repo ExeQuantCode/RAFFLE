@@ -1115,13 +1115,13 @@ module evolver
          elements(1), dim=1)
     idx2 = findloc([ element_database(:)%name ], &
          elements(2), dim=1)
-   if(idx1.lt.1.or.idx2.lt.1)then
-      write(0,*) "ERROR: Element not found in database"
-      if(idx1.lt.1) write(0,*) "Element: ", elements(1)
-      if(idx2.lt.1) write(0,*) "Element: ", elements(2)
-      write(0,*) "Indices: ", idx1, idx2
-      stop 1
-   end if
+    if(idx1.lt.1.or.idx2.lt.1)then
+       write(0,*) "ERROR: Element not found in database"
+       if(idx1.lt.1) write(0,*) "Element: ", elements(1)
+       if(idx2.lt.1) write(0,*) "Element: ", elements(2)
+       write(0,*) "Indices: ", idx1, idx2
+       stop 1
+    end if
     radius = ( element_database(idx1)%radius + &
          element_database(idx2)%radius ) / 2._real12
     if(.not.allocated(element_bond_database)) &

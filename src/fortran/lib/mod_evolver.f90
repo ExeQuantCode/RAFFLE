@@ -78,6 +78,10 @@ module evolver
           viability_3body_default = 0.1_real12, &
           viability_4body_default = 0.1_real12
      !! Default viability for the 3- and 4-body distribution functions.
+     logical, dimension(:), allocatable :: &
+          in_dataset_2body, in_dataset_3body, in_dataset_4body
+     !! Whether the 2-, 3-, and 4-body distribution functions are in 
+     !! the dataset.
      integer, dimension(3) :: nbins = -1
      !! Number of bins for the 2-, 3-, and 4-body distribution functions.
      real(real12), dimension(3) :: &
@@ -173,6 +177,8 @@ module evolver
      !! Set the best energy and system in the container.
      procedure, pass(this) :: initialise_gvectors
      !! Initialise the distribution functions in the container.
+     procedure, pass(this) :: set_gvector_to_default
+     !! Set the total distribution function to the default value.
      procedure, pass(this) :: evolve
      !! Evolve the learned distribution function.
      procedure, pass(this) :: write
@@ -403,6 +409,9 @@ module evolver
     if(allocated(this%norm_3body)) deallocate(this%norm_3body)
     if(allocated(this%norm_4body)) deallocate(this%norm_4body)
     if(allocated(this%system)) deallocate(this%system)
+    if(allocated(this%in_dataset_2body)) deallocate(this%in_dataset_2body)
+    if(allocated(this%in_dataset_3body)) deallocate(this%in_dataset_3body)
+    if(allocated(this%in_dataset_4body)) deallocate(this%in_dataset_4body)
     allocate(this%system(0))
     call this%add(basis_list)
     call this%set_bond_info()
@@ -1537,13 +1546,9 @@ module evolver
     !! Parent of the procedure. Instance of distribution functions container.
 
     ! Local variables
-    integer :: i
-    !! Loop index.
     integer :: num_pairs
     !! Number of pairs.
-    real(real12) :: eta, weight, height
-    !! Parameters for the g-vectors.
-    !real(real12), dimension(42) :: bonds_cubic
+
 
     num_pairs = nint( gamma(real(size(this%element_info) + 2, real12)) / &
          ( gamma(real(size(this%element_info), real12)) * gamma( 3._real12 ) ) )
@@ -1553,31 +1558,52 @@ module evolver
          source = 0._real12 )
     allocate(this%total%df_4body(this%nbins(3),size(this%element_info)), &
          source = 0._real12 )
-   !  allocate(this%total%df_3body(this%nbins(2),size(this%element_info)), &
-   !       source = 1._real12/this%nbins(2))
-   !  allocate(this%total%df_4body(this%nbins(3),size(this%element_info)), &
-   !       source = 1._real12/this%nbins(3))
-
-    !  this%total%df_2body(:,:) = 1._real12 / this%nbins(1)
-    !! make it extra broad
-    !bonds_cubic(:6) = 1._real12
-    !bonds_cubic(7:14) = sqrt(2._real12)
-    !bonds_cubic(15:22) = sqrt(3._real12)
-    !bonds_cubic(23:30) = 2._real12
-    !bonds_cubic(31:42) = sqrt(5._real12)
-    !weight = exp( this%best_energy )
-    !height = 1._real12 / this%nbins(1)
-    !eta = 1._real12 / ( 2._real12 * ( this%sigma(1) )**2._real12 )
-    !do i = 1, num_pairs
-    !   this%total%df_2body(:,i) = weight * height * get_gvector( &
-    !                      bonds_cubic * this%bond_info(i)%radius_covalent , &
-    !                      this%nbins(1), eta, this%width(1), &
-    !                      this%cutoff_min(1), &
-    !                      ( this%cutoff_max(1) - this%cutoff_min(1) ) &
-    !   )
-    !end do
+    allocate(this%in_dataset_2body(num_pairs), source = .false. )
+    allocate(this%in_dataset_3body(size(this%element_info)), source = .false. )
+    allocate(this%in_dataset_4body(size(this%element_info)), source = .false. )
 
   end subroutine initialise_gvectors
+!###############################################################################
+
+
+!###############################################################################
+  subroutine set_gvector_to_default(this, body, index)
+    !! Initialise the g-vectors for index of body distribution function.
+    implicit none
+
+    ! Arguments
+    class(gvector_container_type), intent(inout) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
+    integer, intent(in) :: body
+    !! Body distribution function to initialise.
+    integer, intent(in) :: index
+    !! Index of the pair in the bond_info array.
+
+    ! Local variables
+    real(real12) :: eta, weight, height
+    !! Parameters for the g-vectors.
+    real(real12), dimension(1) :: bonds
+
+
+    if( body .eq. 2 )then
+       weight = exp( -4._real12 )
+       height = 1._real12 / this%nbins(1)
+       eta = 1._real12 / ( 2._real12 * ( this%sigma(1) )**2._real12 )
+       bonds = [ this%bond_info(index)%radius_covalent ]
+       this%total%df_2body(:,index) = weight * height * get_gvector( &
+                          bonds , &
+                          this%nbins(1), eta, this%width(1), &
+                          this%cutoff_min(1), &
+                          ( this%cutoff_max(1) - this%cutoff_min(1) ), &
+                          scale = [ 1._real12 ] &
+       )
+    elseif( body .eq. 3 )then
+       this%total%df_3body(:,index) = 1._real12/this%nbins(2)
+    elseif( body .eq. 4 )then
+       this%total%df_4body(:,index) = 1._real12/this%nbins(3)
+    end if
+
+  end subroutine set_gvector_to_default
 !###############################################################################
 
 
@@ -1605,6 +1631,9 @@ module evolver
     !! Height of the g-vectors.
     integer, dimension(:,:), allocatable :: idx_list
     !! Index list for the element pairs in a system.
+    real(real12), dimension(:,:), allocatable :: tmp_df
+    !! Temporary array for the g-vectors.
+    logical, dimension(:), allocatable :: tmp_in_dataset
 
 
     !---------------------------------------------------------------------------
@@ -1641,15 +1670,60 @@ module evolver
       this%total%df_4body = this%total%df_4body * &
                               exp( this%best_energy / this%kbt ) / &
                               exp( best_energy_old / this%kbt )
+      if(size(this%total%df_2body,2).ne.size(this%bond_info))then
+         allocate(tmp_df(this%nbins(1),size(this%bond_info)), &
+              source = 0._real12 )
+         tmp_df(:,1:size(this%total%df_2body,2)) = this%total%df_2body
+         deallocate(this%total%df_2body)
+         call move_alloc( tmp_df, this%total%df_2body )
+         allocate(tmp_in_dataset(size(this%bond_info)), source = .false. )
+         tmp_in_dataset(1:size(this%in_dataset_2body)) = this%in_dataset_2body
+         deallocate(this%in_dataset_2body)
+         call move_alloc( tmp_in_dataset, this%in_dataset_2body )
+      end if
+      if(size(this%total%df_3body,2).ne.size(this%element_info))then
+         allocate(tmp_df(this%nbins(2),size(this%element_info)), &
+              source = 0._real12 )
+         tmp_df(:,1:size(this%total%df_3body,2)) = this%total%df_3body
+         deallocate(this%total%df_3body)
+         call move_alloc( tmp_df, this%total%df_3body )
+         allocate(tmp_in_dataset(size(this%element_info)), source = .false. )
+         tmp_in_dataset(1:size(this%in_dataset_3body)) = this%in_dataset_3body
+         deallocate(this%in_dataset_3body)
+         call move_alloc( tmp_in_dataset, this%in_dataset_3body )
+      end if
+      if(size(this%total%df_4body,2).ne.size(this%element_info))then
+         allocate(tmp_df(this%nbins(3),size(this%element_info)), &
+              source = 0._real12 )
+         tmp_df(:,1:size(this%total%df_4body,2)) = this%total%df_4body
+         deallocate(this%total%df_4body)
+         call move_alloc( tmp_df, this%total%df_4body )
+         allocate(tmp_in_dataset(size(this%element_info)), source = .false. )
+         tmp_in_dataset(1:size(this%in_dataset_4body)) = this%in_dataset_4body
+         deallocate(this%in_dataset_4body)
+         call move_alloc( tmp_in_dataset, this%in_dataset_4body )
+      end if
       do j = 1, size(this%total%df_2body,2)
-         this%total%df_2body(:,j) = &
-              this%total%df_2body(:,j) * this%norm_2body(j)
+         if(.not.this%in_dataset_2body(j))then
+            this%total%df_2body(:,j) = 0._real12
+         else
+            this%total%df_2body(:,j) = &
+                 this%total%df_2body(:,j) * this%norm_2body(j)
+         end if
       end do
       do is = 1, size(this%element_info)
-         this%total%df_3body(:,is) = &
-              this%total%df_3body(:,is) * this%norm_3body(is)
-         this%total%df_4body(:,is) = &
-              this%total%df_4body(:,is) * this%norm_4body(is)
+         if(.not.this%in_dataset_3body(is))then
+            this%total%df_3body(:,is) = 0._real12
+         else
+            this%total%df_3body(:,is) = &
+                 this%total%df_3body(:,is) * this%norm_3body(is)
+         end if
+         if(.not.this%in_dataset_4body(is))then
+            this%total%df_4body(:,is) = 0._real12
+         else
+            this%total%df_4body(:,is) = &
+                 this%total%df_4body(:,is) * this%norm_4body(is)
+         end if
       end do
       deallocate(this%norm_2body)
       deallocate(this%norm_3body)
@@ -1752,13 +1826,36 @@ module evolver
        deallocate(idx_list)
    end do
    
+   !----------------------------------------------------------------------------
+   ! if not in the dataset, set g-vectors to default
+   !----------------------------------------------------------------------------
+   do j = 1, size(this%total%df_2body,2)
+      if(all(abs(this%total%df_2body(:,j)).lt.1.E-6))then
+         call this%set_gvector_to_default(2, j)
+      else
+         this%in_dataset_2body(j) = .true.
+      end if
+   end do
+   do is = 1, size(this%element_info)
+      if(all(abs(this%total%df_3body(:,is)).lt.1.E-6))then
+         call this%set_gvector_to_default(3, is)
+      else
+         this%in_dataset_3body(is) = .true.
+      end if
+      if(all(abs(this%total%df_4body(:,is)).lt.1.E-6))then
+         call this%set_gvector_to_default(4, is)
+      else
+         this%in_dataset_4body(is) = .true.
+      end if
+   end do
+
    allocate(this%norm_2body(size(this%total%df_2body,2)))
    do j = 1, size(this%total%df_2body,2)
       this%norm_2body(j) = maxval(this%total%df_2body(:,j))
       ! this%norm_2body(j) = sum(this%total%df_2body(:,j))/size(this%total%df_2body,1)
       if(abs(this%norm_2body(j)).lt.1.E-6)then
-         write(0,*) "ERROR: Zero norm for 2-body g-vector"
-         stop 1
+         call stop_program( "Zero norm for 2-body g-vector" )
+         return
       end if
       this%total%df_2body(:,j) = &
            this%total%df_2body(:,j) / this%norm_2body(j)
@@ -1769,14 +1866,14 @@ module evolver
       this%norm_3body(is) = maxval(this%total%df_3body(:,is))
       ! this%norm_3body(is) = sum(this%total%df_3body(:,is))/size(this%total%df_3body,1)
       if(abs(this%norm_3body(is)).lt.1.E-6)then
-         write(0,*) "ERROR: Zero norm for 3-body g-vector"
-         stop 1
+         call stop_program( "Zero norm for 3-body g-vector" )
+         return
       end if
       this%norm_4body(is) = maxval(this%total%df_4body(:,is))
       ! this%norm_4body(is) = sum(this%total%df_4body(:,is))/size(this%total%df_4body,1)
       if(abs(this%norm_4body(is)).lt.1.E-6)then
-         write(0,*) "ERROR: Zero norm for 4-body g-vector"
-         stop 1
+         call stop_program( "Zero norm for 4-body g-vector" )
+         return
       end if
       this%total%df_3body(:,is) = &
            this%total%df_3body(:,is) / this%norm_3body(is)

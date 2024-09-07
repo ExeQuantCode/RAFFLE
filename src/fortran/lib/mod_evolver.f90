@@ -371,6 +371,13 @@ module evolver
     logical :: deallocate_systems_
     
     
+    if(.not.allocated(element_database))then
+       write(0,*) "ERROR: element_database not allocated"
+       write(0,*) "Run the set_element_energies() procedure of &
+            &gvector_container_type before calling create()"
+       stop 1
+    end if
+
     deallocate_systems_ = .true.
     if(present(deallocate_systems)) deallocate_systems_ = deallocate_systems
 
@@ -1100,6 +1107,10 @@ module evolver
                elements(1), ' and ', &
                elements(2)
     write(0,*) 'WARNING: Setting bond to average of covalent radii'
+    if(.not.allocated(element_database))then
+       write(0,*) "ERROR: Element database not initialised"
+       stop 1
+    end if
     idx1 = findloc([ element_database(:)%name ], &
          elements(1), dim=1)
     idx2 = findloc([ element_database(:)%name ], &

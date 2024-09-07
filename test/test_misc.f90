@@ -15,6 +15,12 @@ program test_misc
   call test_iset(success)
   call test_rset(success)
   call test_cset(success)
+  call test_ishuffle(success)
+  call test_rshuffle(success)
+  call test_icount(success)
+  call test_to_upper(success)
+  call test_to_lower(success)
+  call test_strip_null(success)
 
 
   !-----------------------------------------------------------------------------
@@ -204,6 +210,71 @@ contains
          'test_cset failed with keep_size', success &
     )
   end subroutine test_cset
+
+  subroutine test_ishuffle(success)
+    implicit none
+    logical, intent(inout) :: success
+    integer :: arr(1,5)
+    integer :: original_arr(1,5)
+
+    arr(1,:) = [1, 2, 3, 4, 5]
+    original_arr(1,:) = arr(1,:)
+    call shuffle(arr, dim=2, seed=0)
+    call assert(any(arr .ne. original_arr), "ishuffle failed", success)
+  end subroutine test_ishuffle
+
+  subroutine test_rshuffle(success)
+    implicit none
+    logical, intent(inout) :: success
+    real(real12) :: arr(1,5)
+    real(real12) :: original_arr(1,5)
+
+    arr(1,:) = [1._real12, 2._real12, 3._real12, 4._real12, 5._real12]
+    original_arr(1,:) = arr(1,:)
+    call shuffle(arr, dim=2, seed=0)
+    call assert(any(abs(arr - original_arr).gt.1.E-6), "rshuffle failed", success)
+  end subroutine test_rshuffle
+
+  subroutine test_icount(success)
+    implicit none
+    logical, intent(inout) :: success
+    character(len=20) :: line = "apple,banana,cherry"
+    integer :: count
+
+    count = icount(line, ",")
+    call assert(count .eq. 3, "icount failed", success)
+  end subroutine test_icount
+
+  subroutine test_to_upper(success)
+    implicit none
+    logical, intent(inout) :: success
+    character(len=10) :: str = "hello"
+    character(len=10) :: expected_str = "HELLO"
+
+    str = to_upper(str)
+    call assert(trim(str) .eq. trim(expected_str), "to_upper failed", success)
+  end subroutine test_to_upper
+
+  subroutine test_to_lower(success)
+    implicit none
+    logical, intent(inout) :: success
+    character(len=10) :: str = "HELLO"
+    character(len=10) :: expected_str = "hello"
+
+    str = to_lower(str)
+    call assert(trim(str) .eq. trim(expected_str), "to_lower failed", success)
+ end subroutine test_to_lower
+
+ subroutine test_strip_null(success)
+    implicit none
+    logical, intent(inout) :: success
+    character(len=10) :: str = "hello"//char(0)//"world"
+    character(len=10) :: expected_str = "hello"
+
+    str = strip_null(str)
+    call assert(trim(str) .eq. trim(expected_str), "strip_null failed", success)
+  end subroutine test_strip_null
+
 
 !###############################################################################
 

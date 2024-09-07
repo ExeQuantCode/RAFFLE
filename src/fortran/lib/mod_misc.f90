@@ -62,16 +62,16 @@ subroutine sort_str(list, lcase)
 
     charlen = len(list(1))
     if(present(lcase))then
-       if(lcase)then
-          lcase_ = lcase
-          allocate(character(len=charlen) :: tlist(size(list)))
-          tlist = list
-          do i=1,size(tlist)
-             list(i) = to_upper(list(i))
-          end do
-       end if
+       lcase_ = lcase
     else
        lcase_ = .false.
+    end if
+    if(lcase_)then
+       allocate(character(len=charlen) :: tlist(size(list)))
+       tlist = list
+       do i=1,size(tlist)
+          list(i) = to_upper(list(i))
+       end do
     end if
     do i=1,size(list)
        loc = minloc(list(i:),dim=1)
@@ -455,19 +455,23 @@ subroutine sort_str(list, lcase)
    !! Boolean whether to keep the original size of the array.
     character(len=:), allocatable, dimension(:) :: tmp_arr
     !! Temporary array for storing unique elements.
+    logical :: lcase_
+    !! Boolean whether to perform case insensitive comparison.
 
 
     if(present(lcase))then
-       call sort_str(arr,lcase)
+      lcase_ = lcase
     else
-       call sort_str(arr)
+       lcase_ = .false.
     end if
+    call sort_str(arr,lcase_)
     
     allocate(character(len=len(arr(1))) :: tmp_arr(size(arr)))
     tmp_arr(1) = arr(1)
     n=1
     
     do i=2,size(arr)
+       if(lcase_) arr(i) = to_lower(arr(i))
        if(trim(arr(i)).eq.trim(tmp_arr(n))) cycle
        n = n + 1
        tmp_arr(n) = arr(i)

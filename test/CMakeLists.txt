@@ -1,5 +1,6 @@
 message(STATUS "Building tests")
 foreach(execid
+    misc
     misc_maths
     misc_linalg
     elements

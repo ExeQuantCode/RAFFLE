@@ -847,6 +847,9 @@ module evolver
     if(.not.allocated(this%element_info))then
        call this%set_element_info()
        return
+    elseif(size(this%element_info).eq.0)then
+       call this%set_element_info()
+       return
     end if
 
 
@@ -1166,7 +1169,10 @@ module evolver
    !----------------------------------------------------------------------------
    ! check if bond_info is allocated, if not, set it and return
    !----------------------------------------------------------------------------
-   if(.not.allocated(this%bond_info).or.size(this%bond_info).eq.0)then
+   if(.not.allocated(this%bond_info))then
+      call this%set_bond_info()
+      return
+   elseif(size(this%bond_info).eq.0)then
       call this%set_bond_info()
       return
    end if

@@ -27,9 +27,9 @@ program test_misc_linalg
   !-----------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
-     write(*,*) 'test_misc_maths passed all tests'
+     write(*,*) 'test_misc_linalg passed all tests'
   else
-     write(0,*) 'test_misc_maths failed one or more tests'
+     write(0,*) 'test_misc_linalg failed one or more tests'
      stop 1
   end if
 

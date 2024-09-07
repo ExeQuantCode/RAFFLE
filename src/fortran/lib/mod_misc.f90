@@ -274,10 +274,10 @@ subroutine sort_str(list, lcase)
         i = low
         j = high
         do
-            do while (arr(i) .lt. pivot)
+            do while (arr(i) .lt. pivot .and. i .lt. high)
                 i = i + 1
             end do
-            do while (arr(j) .gt. pivot)
+            do while (arr(j) .gt. pivot .and. j .gt. low)
                 j = j - 1
             end do
             if (i .le. j) then
@@ -287,9 +287,13 @@ subroutine sort_str(list, lcase)
                 i = i + 1
                 j = j - 1
             end if
+
+            ! Exit the loop when indices cross
+            if (i .gt. j) exit
         end do
-        call quicksort(arr, low, j)
-        call quicksort(arr, i, high)
+        ! Recursively apply quicksort to both partitions
+        if (low .lt. j) call quicksort(arr, low, j)
+        if (i .lt. high) call quicksort(arr, i, high)
     end if
   end subroutine quicksort
 !###############################################################################

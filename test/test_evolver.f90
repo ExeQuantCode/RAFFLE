@@ -105,7 +105,6 @@ program test_evolver
      stop 1
   end if
 
-
 contains
 
   subroutine test_init_gvector_container(success)

@@ -1,5 +1,6 @@
 module misc_maths
   !! Module for miscellaneous mathematical functions.
+  use error_handling, only: stop_program
   use constants, only: real12
   implicit none
 
@@ -81,8 +82,8 @@ contains
     end if
 
     if(size(a) .ne. size(b)) then
-       write(*,*) 'Error: Arrays must be the same size.'
-       stop
+       call stop_program('Arrays must be the same size.')
+       return
     end if
 
     do i = 1, size(a)

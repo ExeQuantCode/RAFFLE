@@ -1,5 +1,6 @@
 message(STATUS "Building tests")
 foreach(execid
+    misc_maths
     elements
     edit_geom
     rw_geom

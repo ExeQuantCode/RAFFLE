@@ -19,9 +19,9 @@ program test_misc_maths
   !-----------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
-     write(*,*) 'test_rw_geom passed all tests'
+     write(*,*) 'test_misc_maths passed all tests'
   else
-     write(0,*) 'test_rw_geom failed one or more tests'
+     write(0,*) 'test_misc_maths failed one or more tests'
      stop 1
   end if
 

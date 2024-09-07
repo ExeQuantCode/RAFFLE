@@ -7,7 +7,7 @@ program test_evolver
   implicit none
 
   logical :: success = .true.
-  type(basis_type) :: basis_diamond, basis_graphite
+  type(basis_type) :: basis_diamond, basis_graphite, basis_mgo
 
   test_error_handling = .true.
 
@@ -49,6 +49,29 @@ program test_evolver
   basis_graphite%lat(3,:) = [0.0, 0.0, 7.8030730000000004]
   basis_graphite%energy = -36.86795585
 
+  ! diamond cell
+  basis_mgo%nspec = 2
+  basis_mgo%natom = 8
+  allocate(basis_mgo%spec(basis_mgo%nspec))
+  basis_mgo%spec(1)%num = 4
+  basis_mgo%spec(1)%name = 'Mg'
+  allocate(basis_mgo%spec(1)%atom(basis_mgo%spec(1)%num, 3))
+  basis_mgo%spec(1)%atom(1, :3) = [0.0, 0.0, 0.0]
+  basis_mgo%spec(1)%atom(2, :3) = [0.5, 0.5, 0.0]
+  basis_mgo%spec(1)%atom(3, :3) = [0.5, 0.0, 0.5]
+  basis_mgo%spec(1)%atom(4, :3) = [0.0, 0.5, 0.5]
+  basis_mgo%spec(2)%num = 4
+  basis_mgo%spec(2)%name = 'O'
+  allocate(basis_mgo%spec(2)%atom(basis_mgo%spec(2)%num, 3))
+  basis_mgo%spec(2)%atom(1, :3) = [0.5, 0.0, 0.0]
+  basis_mgo%spec(2)%atom(2, :3) = [0.0, 0.5, 0.0]
+  basis_mgo%spec(2)%atom(3, :3) = [0.0, 0.0, 0.5]
+  basis_mgo%spec(2)%atom(4, :3) = [0.5, 0.5, 0.5]
+
+  basis_diamond%lat(1,:) = [4.19, 0.0, 0.0]
+  basis_diamond%lat(2,:) = [0.0, 4.19, 0.0]
+  basis_diamond%lat(3,:) = [0.0, 0.0, 4.19]
+  basis_diamond%energy = -20.0
 
   call test_init_gvector_container(success)
   call test_set_width(success)
@@ -58,12 +81,18 @@ program test_evolver
   call test_set_radius_distance_tol(success)
   call test_create([basis_graphite], success)
   call test_update([basis_graphite, basis_diamond], success)
+
+  call test_create([basis_diamond, basis_mgo], success)
+  call test_update([basis_diamond, basis_mgo], success)
   !  call test_write_read(success)
   !  call test_write_2body(success)
   !  call test_write_3body(success)
   !  call test_write_4body(success)
   call test_add(basis_diamond, success)
   call test_get_element_energies(basis_diamond, success)
+  call test_get_element_energies_staticmem(basis_diamond, success)
+  call test_set_bond_radii(basis_diamond, success)
+  call test_get_bin(success)
 
   !-----------------------------------------------------------------------------
   ! check for any failed tests
@@ -284,9 +313,11 @@ contains
     logical, intent(inout) :: success
     type(basis_type), dimension(:), intent(in) :: basis
 
-    integer :: i
+    integer :: i, j, k
+    integer :: num_pairs
     type(gvector_container_type) :: gvector_container
     type(basis_type), dimension(size(basis,1)) :: basis_list
+    character(len=3), dimension(:), allocatable :: elements
 
     ! Initialise basis_list
     do i = 1, size(basis,1)
@@ -298,7 +329,22 @@ contains
     call gvector_container%create(basis_list, deallocate_systems=.false.)
     write(*,*) "Handled error: element_database not initialised"
 
-    call gvector_container%set_element_energies(['C  '], [-9.027_real12])
+    ! Set element energies
+    allocate(elements(0))
+    do i = 1, size(basis_list)
+       species_loop: do j = 1, basis_list(i)%nspec
+          call gvector_container%set_element_energies( &
+               [ basis_list(i)%spec(1)%name ], [ -9.027_real12 ] &
+          )
+          do k = 1, size(elements), 1
+             if ( trim(elements(k)) .eq. trim(basis_list(i)%spec(j)%name) ) &
+                  cycle species_loop
+          end do
+          elements = [ elements, basis_list(i)%spec(j)%name ]
+       end do species_loop
+    end do
+    num_pairs = gamma(real(size(elements) + 2, real12)) / &
+                ( gamma(real(size(elements), real12)) * gamma( 3._real12 ) )
 
     ! Call the create subroutine
     call gvector_container%create(basis_list, deallocate_systems=.false.)
@@ -312,14 +358,14 @@ contains
 
     ! Check number of elements in element_info is correct
     call assert( &
-         size(gvector_container%element_info, dim=1) .eq. 1,  &
+         size(gvector_container%element_info, dim=1) .eq. size(elements),  &
          "Number of elements in element_info is incorrect",  &
          success &
     )
 
     ! Check symbol of the element is correct
     call assert( &
-         trim(gvector_container%element_info(1)%name) .eq. 'C',  &
+         any( elements .eq. gvector_container%element_info(1)%name ),  &
          "Symbol of the element is incorrect",  &
          success &
     )
@@ -345,19 +391,19 @@ contains
 
     ! Check number of species and species pairs are correct
     call assert( &
-         size(gvector_container%total%df_2body, dim=2) .eq. 1,  &
+         size(gvector_container%total%df_2body, dim=2) .eq. num_pairs,  &
          "Number of species pairs in 2-body distribution function &
          &is incorrect",  &
          success &
     )
     call assert( &
-         size(gvector_container%total%df_3body, dim=2) .eq. 1,  &
+         size(gvector_container%total%df_3body, dim=2) .eq. size(elements),  &
          "Number of species in 3-body distribution function &
          &is incorrect",  &
          success &
     )
     call assert( &
-         size(gvector_container%total%df_4body, dim=2) .eq. 1,  &
+         size(gvector_container%total%df_4body, dim=2) .eq. size(elements),  &
          "Number of species in 4-body distribution function &
          &is incorrect",  &
          success &
@@ -464,16 +510,33 @@ contains
     logical, intent(inout) :: success
     type(basis_type), dimension(:), intent(in) :: basis
 
-    integer :: i
+    integer :: i, j, k
+    integer :: num_pairs
     type(gvector_container_type) :: gvector_container
     type(basis_type), dimension(size(basis,1)) :: basis_list
+    character(len=3), dimension(:), allocatable :: elements
 
     ! Initialise basis_list
     do i = 1, size(basis,1)
        call basis_list(i)%copy(basis(i))
     end do
 
-    call gvector_container%set_element_energies(['C  '], [-9.027_real12])
+    ! Set element energies
+    allocate(elements(0))
+    do i = 1, size(basis_list)
+       species_loop: do j = 1, basis_list(i)%nspec
+          call gvector_container%set_element_energies( &
+               [ basis_list(i)%spec(1)%name ], [ -9.027_real12 ] &
+          )
+          do k = 1, size(elements), 1
+             if ( trim(elements(k)) .eq. trim(basis_list(i)%spec(j)%name) ) &
+                  cycle species_loop
+          end do
+          elements = [ elements, basis_list(i)%spec(j)%name ]
+       end do species_loop
+    end do
+    num_pairs = gamma(real(size(elements) + 2, real12)) / &
+                ( gamma(real(size(elements), real12)) * gamma( 3._real12 ) )
 
     ! Call the create subroutine
     call gvector_container%create([basis_list(1)], deallocate_systems=.false.)
@@ -610,6 +673,147 @@ contains
     )
     
   end subroutine test_get_element_energies
+
+  subroutine test_get_element_energies_staticmem(basis, success)
+    implicit none
+    logical, intent(inout) :: success
+    type(basis_type), intent(in) :: basis
+
+    type(gvector_container_type) :: gvector_container
+    character(len=3), dimension(1) :: elements
+    real(real12), dimension(1) :: energies
+
+    call gvector_container%set_element_energies(['C  '], [-9.027_real12])
+    call gvector_container%add(basis)
+
+    ! Call the get_element_energies_staticmem subroutine
+    call gvector_container%get_element_energies_staticmem(elements, energies)
+
+    ! Check if the element energies are retrieved correctly
+    call assert( &
+         size(elements, dim=1) .eq. 1,  &
+         "Number of elements is incorrect",  &
+         success &
+    )
+    call assert( &
+         size(energies, dim=1) .eq. 1,  &
+         "Number of energies is incorrect",  &
+         success &
+    )
+    call assert( &
+         trim(elements(1)) .eq. 'C',  &
+         "Element symbol is incorrect",  &
+         success &
+    )
+    call assert( &
+         abs(energies(1) + 9.027_real12) .lt. 1.E-6_real12,  &
+         "Element energy is incorrect",  &
+         success &
+    )
+    
+  end subroutine test_get_element_energies_staticmem
+
+  subroutine test_set_bond_radii(basis, success)
+    implicit none
+    logical, intent(inout) :: success
+    type(basis_type), intent(in) :: basis
+
+    integer :: i
+    type(gvector_container_type) :: gvector_container
+    real(real12), dimension(1) :: radii
+    character(len=3), dimension(1,2) :: elements
+    real(real12), dimension(:), allocatable :: radii_get
+    character(len=3), dimension(:,:), allocatable :: elements_get
+
+    ! Initialise test data
+    radii(1) = 12.5_real12
+    elements(1,:) = ['C  ', 'C  ']
+
+    ! Call the subroutine to set the bond radii
+    call gvector_container%set_bond_radii(elements, radii)
+    call gvector_container%add(basis)
+
+    ! Get the bond radii
+    call gvector_container%get_bond_radii(elements_get, radii_get)
+
+    ! Check if the number of bond elements is correct
+    call assert( &
+         size(elements_get, dim=1) .eq. 1,  &
+         "Number of bond elements is incorrect",  &
+         success &
+    )
+
+    do i = 1, 2
+       ! Check if the bond elements were set correctly
+       call assert( &
+            all( elements_get .eq. elements ), &
+            "Bond elements were not set correctly", &
+            success &
+       )
+       ! Check if the bond radius was set correctly
+       call assert( &
+            all( abs( radii_get - radii ) .lt. 1.E-6 ), &
+            "Bond radius was not set correctly", &
+            success &
+       )
+
+       elements_get = '   '
+       radii_get = 0.0_real12
+       ! Get the bond radii from staticmem
+       call gvector_container%get_bond_radii_staticmem(elements_get, radii_get)
+    end do
+
+    radii(1) = 14.2_real12
+    call gvector_container%set_bond_radii(elements, radii)
+    call gvector_container%get_bond_radii(elements_get, radii_get)
+
+    ! Check if the bond radius was set correctly
+    call assert( &
+         all( abs( radii_get - radii ) .lt. 1.E-6 ), &
+         "Bond radius was not set correctly", &
+         success &
+    )
+    
+    
+
+  end subroutine test_set_bond_radii
+
+
+  subroutine test_get_bin(success)
+    implicit none
+    logical, intent(inout) :: success
+
+    integer :: bin
+    type(gvector_container_type) :: gvector_container
+
+    gvector_container%nbins(1) = 10
+
+    ! Check lower bound correct handling
+    bin = gvector_container%get_bin(0._real12, 1)
+    call assert( &
+         bin .eq. 0,  &
+         "Bin is incorrect",  &
+         success &
+    )
+
+    ! Check upper bound correct handling
+    bin = gvector_container%get_bin(100._real12, 1)
+    call assert( &
+         bin .eq. 0,  &
+         "Bin is incorrect",  &
+         success &
+    )
+
+    ! Check middle value correct handling
+    bin = gvector_container%get_bin(3._real12, 1)
+    call assert( &
+         bin .eq. 1 + nint( (gvector_container%nbins(1) - 1) * 2.5 / 5.5 ),  &
+         "Bin is incorrect",  &
+         success &
+    )
+
+
+  end subroutine test_get_bin
 
 !###############################################################################
 

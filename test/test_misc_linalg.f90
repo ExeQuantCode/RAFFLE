@@ -118,7 +118,6 @@ contains
     vector2 = [0.0_real12, 1.0_real12, 0.0_real12]
     vector3 = [1.0_real12, 0.0_real12, 0.0_real12]
     result = get_dihedral_angle(vector1, vector2, vector3)
-    write(*,*) "dihedral from vectors", result
     call assert_almost_equal_scalar( &
          result, pi/2.0_real12, 1.E-6_real12, &
          "get_dihedral_angle_from_vectors", success &

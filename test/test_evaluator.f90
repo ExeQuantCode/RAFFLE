@@ -12,7 +12,6 @@ program test_evaluator
   integer :: i, ia, num_points
   integer :: best_loc
   real(real12) :: max_bondlength
-  logical :: success = .true.
   type(extended_basis_type) :: basis_host
   type(basis_type), dimension(1) :: database
   character(3), dimension(1) :: element_symbols
@@ -23,8 +22,9 @@ program test_evaluator
   real(real12), dimension(:), allocatable :: suitability_grid
   real(real12), dimension(:,:), allocatable :: gridpoints
 
-
   type(raffle_generator_type) :: generator
+
+  logical :: success = .true.
 
   test_error_handling = .true.
 

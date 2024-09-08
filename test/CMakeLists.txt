@@ -6,6 +6,7 @@ foreach(execid
     elements
     edit_geom
     rw_geom
+    extended_geom
     evolver
   )
   add_executable(test_${execid} test_${execid}.f90)

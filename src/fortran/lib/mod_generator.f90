@@ -531,6 +531,7 @@ contains
        if(rtmp1.le.method_probab_(1)) then 
           if(verbose.gt.0) write(*,*) "Add Atom Void"
           point = add_atom_void( this%grid, &
+                this%grid_offset, &
                 basis, &
                 placement_list_shuffled(iplaced+1:,:), viable )
        else if(rtmp1.le.method_probab_(2)) then 
@@ -565,7 +566,7 @@ contains
        end if
        if(.not. viable) then
           if(void_ticker.gt.10) &
-               point = add_atom_void( this%grid, basis, &
+               point = add_atom_void( this%grid, this%grid_offset, basis, &
                                   placement_list_shuffled(iplaced+1:,:), viable)
           void_ticker = 0
           if(.not.viable) cycle placement_loop

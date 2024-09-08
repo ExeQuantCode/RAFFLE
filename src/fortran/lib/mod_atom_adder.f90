@@ -91,7 +91,7 @@ contains
 
 
 !###############################################################################
-  function add_atom_void(grid, basis, atom_ignore_list, viable) &
+  function add_atom_void(grid, grid_offset, basis, atom_ignore_list, viable) &
        result(point)
     !! VOID placement method.
     !!
@@ -104,6 +104,8 @@ contains
     !! Structure to add atom to.
     integer, dimension(3), intent(in) :: grid
     !! Number of gridpoints in each direction.
+    real(real12), dimension(3), intent(in) :: grid_offset
+    !! Offset for gridpoints.
     integer, dimension(:,:), intent(in) :: atom_ignore_list
     !! List of atoms to ignore (i.e. indices of atoms not yet placed).
     logical, intent(out) :: viable
@@ -131,7 +133,11 @@ contains
     do i = 0, grid(1) - 1, 1
        do j = 0, grid(2) - 1, 1
           do k = 0, grid(3) - 1, 1
-             tmpvector = [i, j, k] / real(grid,real12)
+             tmpvector = [ &
+                  i + grid_offset(1), &
+                  j + grid_offset(2), &
+                  k + grid_offset(3) &
+             ] / real(grid,real12)
              smallest_bond = modu(get_min_dist(&
                   basis, tmpvector, .false., &
                   ignore_list = atom_ignore_list))
@@ -350,9 +356,9 @@ contains
        grid_loop2: do j = 0, grid(2) - 1, 1
           grid_loop3: do k = 0, grid(3) - 1, 1
              do is = 1, basis%nspec
-                do ia = 1, basis%spec(is)%num
+                atom_loop: do ia = 1, basis%spec(is)%num
                    do l = 1, size(atom_ignore_list,dim=1), 1
-                      if(all(atom_ignore_list(l,:).eq.[is,ia])) cycle
+                      if(all(atom_ignore_list(l,:).eq.[is,ia])) cycle atom_loop
                    end do
                    if( get_min_dist_between_point_and_atom( &
                              basis, &
@@ -364,12 +370,16 @@ contains
                                   real(grid,real12), &
                              [is,ia] &
                         ) .lt. &
-                        radius_list(pair_index(is)) * lowtol ) &
-                        cycle grid_loop3
-                end do
+                        radius_list(pair_index(is)) * lowtol &
+                   ) cycle grid_loop3
+                end do atom_loop
              end do
              num_points = num_points + 1
-             points_tmp(:,num_points) = [i, j, k] / real(grid,real12)
+             points_tmp(:,num_points) = [ &
+                       i + offset_(1), &
+                       j + offset_(2), &
+                       k + offset_(3) &
+                ] / real(grid,real12)
           end do grid_loop3
        end do grid_loop2
     end do grid_loop1
@@ -416,7 +426,7 @@ contains
     num_points = size(points,dim=2)
     i = 0
     points_tmp = points
-    do while (i .le. num_points)
+    do while (i .lt. num_points)
        i = i + 1
        if( get_min_dist_between_point_and_atom( &
              basis, points_tmp(:,i), atom ) .lt. &

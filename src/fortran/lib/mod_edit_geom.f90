@@ -149,10 +149,9 @@ contains
 !###############################################################################
   pure function get_dist_between_point_and_atom(bas,loc,atom) &
   result(dist)
-!! Return the minimum distance between a point and an atom in a cell.
+!! Return the distance between a point and an atom in a cell.
 !!
-!! This function returns the minimum distance between a point and an atom
-!! in a periodic cell.
+!! This function returns the distance between a point and an atom in a cell.
 implicit none
 
 ! Arguments

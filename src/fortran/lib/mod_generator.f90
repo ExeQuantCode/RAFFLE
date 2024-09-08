@@ -5,7 +5,8 @@ module generator
   !! random structures from a host structure. The raffle generator uses
   !! distribution functions to determine the placement of atoms in the
   !! provided host structure.
-  use constants, only: real12
+   use error_handling, only: stop_program
+   use constants, only: real12
   use misc_linalg, only: modu
   use misc_raffle, only: strip_null
   use rw_geom, only: basis_type
@@ -186,8 +187,9 @@ contains
 
 
     if(present(grid).and.present(grid_spacing)) then
-       write(0,*) "ERROR: Cannot set grid and grid spacing simultaneously"
-       stop 1
+       call this%reset_grid()
+       call stop_program("Cannot set grid and grid spacing simultaneously")
+       return
     elseif(present(grid_spacing)) then
        this%grid_spacing = grid_spacing
        this%grid = 0
@@ -341,7 +343,10 @@ contains
             source = 0._real12 &
        )
     end do
-    if(.not.allocated(this%host%spec)) stop "Host structure not set"
+    if(.not.allocated(this%host%spec))then
+       call stop_program("Host structure not set")
+       return
+    end if
     basis_template = bas_merge(this%host,basis_template)
     basis_template%lat = this%host%lat
 
@@ -456,6 +461,8 @@ contains
     !! no viable gridpoints are found.
     real(real12), dimension(:,:), allocatable :: viable_gridpoints
     !! Viable gridpoints for placing atoms.
+    character(len=256) :: stop_msg
+    !! Error message.
 
 
     !---------------------------------------------------------------------------
@@ -516,9 +523,12 @@ contains
                )
           if(.not.allocated(viable_gridpoints))then
              if(abs(method_probab_(2)).lt.1.E-6)then
-                write(0,*) "ERROR: No viable gridpoints"
-                write(0,*) "No placement methods available"
-                stop 0
+                call stop_program( &
+                     "No viable gridpoints" // &
+                     achar(13) // achar(10) // &
+                     "No placement methods available" &
+                )
+                return
              else if(abs( method_probab_(3) - method_probab_(2) ) .gt. 1.E-6) then
                 write(*,*) "WARNING: No more viable gridpoints"
                 write(*,*) "Suppressing global minimum method"
@@ -552,10 +562,16 @@ contains
                 [ this%distributions%bond_info(:)%radius_covalent ], &
                 viable )
           if(.not. viable .and. abs(method_probab_(2)).lt.1.E-6)then
-             write(0,*) "ERROR: No viable gridpoints"
-             write(0,*) "  Min method is the only method, but cannot place another atom"
-             write(0,*) "  Species to place now: ", basis%spec(placement_list_shuffled(iplaced+1,1))%name
-             stop 0
+             write(stop_msg,*) &
+                  "No viable gridpoints" // &
+                  achar(13) // achar(10) // &
+                  "Min method is the only method, but cannot place another &
+                  &atom" // &
+                  achar(13) // achar(10) // &
+                  "Species to place now: ", &
+                  basis%spec(placement_list_shuffled(iplaced+1,1))%name
+             call stop_program(stop_msg)
+             return
           elseif(.not. viable)then
              deallocate(viable_gridpoints)
              write(*,*) "WARNING: No more viable gridpoints"

@@ -20,12 +20,9 @@ program test_evaluator
   real(real12), dimension(3) :: tolerance
   integer, dimension(:,:), allocatable :: atom_ignore_list
 
-  real(real12), dimension(:), allocatable :: tmp_vals
   real(real12), dimension(:), allocatable :: suitability_grid
   real(real12), dimension(:,:), allocatable :: gridpoints
 
-  character(len=3), dimension(:), allocatable :: tmp_symbols
-  character(len=3), dimension(:,:), allocatable :: tmp_pairs
 
   type(raffle_generator_type) :: generator
 

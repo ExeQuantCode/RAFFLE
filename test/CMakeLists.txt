@@ -7,7 +7,9 @@ foreach(execid
     edit_geom
     rw_geom
     extended_geom
+    atom_adder
     evolver
+    evaluator
   )
   add_executable(test_${execid} test_${execid}.f90)
   # # Specify the include directories

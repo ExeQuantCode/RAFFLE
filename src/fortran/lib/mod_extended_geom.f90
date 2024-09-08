@@ -284,10 +284,10 @@ contains
     ! if positive, then the point is outside the unit cell
     ! if the projection falls outside of the cell edges, use edge or corner 
     ! distances
-    do i = 1, 3
+    face_loop: do i = 1, 3
        index_list = cshift(index_list, 1)
        plane_point = 0._real12
-       do j = 1, 2
+       direction_loop: do j = 1, 2
           normal = (-1._real12)**j * cross( &
                [ lattice(index_list(2),:3) ], &
                [ lattice(index_list(3),:3) ] &
@@ -297,7 +297,10 @@ contains
 
           ! check if point minus projection is negative
           ! if so, it is on the wrong side of the plane and should be ignored
-          if( dot_product(point_ - projection, normal) .lt. 0._real12 ) cycle
+          if( dot_product(point_ - projection, normal) .lt. 0._real12 )then
+             plane_point = plane_point + lattice(index_list(1),:)
+            cycle direction_loop
+          end if
           is_outside = .true.
 
           ! check if projection is outside the surface
@@ -326,8 +329,8 @@ contains
 
           !! makes it apply to the next iteration
           plane_point = plane_point + lattice(index_list(1),:)
-       end do
-    end do
+       end do direction_loop
+    end do face_loop
 
     if( is_outside ) then
        distance = min_distance

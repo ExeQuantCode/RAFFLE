@@ -9,9 +9,9 @@ program test_evaluator
   implicit none
 
 
-  integer :: unit
   integer :: i, ia, num_points
   integer :: best_loc
+  real(real12) :: max_bondlength
   logical :: success = .true.
   type(extended_basis_type) :: basis_host
   type(basis_type), dimension(1) :: database
@@ -31,6 +31,8 @@ program test_evaluator
 
   test_error_handling = .true.
 
+
+  max_bondlength = 6._real12
   !-----------------------------------------------------------------------------
   ! set up database
   !-----------------------------------------------------------------------------
@@ -54,25 +56,6 @@ program test_evaluator
   database(1)%lat(3,:) = [0.0, 0.0, 3.5607451090903233]
   database(1)%energy = -72.213492
 
-
-
-!   ! graphite cell
-!   database(1)%nspec = 1
-!   database(1)%natom = 4
-! !   allocate(database(1)%spec(database(1)%nspec))
-!   database(1)%spec(1)%num = 4
-!   database(1)%spec(1)%name = 'C'
-!   deallocate(database(1)%spec(1)%atom)
-!   allocate(database(1)%spec(1)%atom(database(1)%spec(1)%num, 3))
-!   database(1)%spec(1)%atom(1, :3) = [0.0, 0.0, 0.25]
-!   database(1)%spec(1)%atom(2, :3) = [0.0, 0.0, 0.75]
-!   database(1)%spec(1)%atom(3, :3) = [1.0/3.0, 2.0/3.0, 0.25]
-!   database(1)%spec(1)%atom(4, :3) = [2.0/3.0, 1.0/3.0, 0.75]
-
-!   database(1)%lat(1,:) = [1.2336456308015413, -2.1367369110836267, 0.0]
-!   database(1)%lat(2,:) = [1.2336456308015413,  2.1367369110836267, 0.0]
-!   database(1)%lat(3,:) = [0.0, 0.0, 7.8030730000000004]
-!   database(1)%energy = -36.86795585
 
   !-----------------------------------------------------------------------------
   ! set up element energies
@@ -123,31 +106,8 @@ program test_evaluator
           basis_host%spec(1)%num - size(atom_ignore_list,1) + i
   end do
 
-
-
-!   basis_host%sysname = 'graphite'
-!   basis_host%nspec = 1
-!   basis_host%natom = 7
-!   allocate(basis_host%spec(database(1)%nspec))
-!   basis_host%spec(1)%num = 7
-!   basis_host%spec(1)%name = 'C'
-!   allocate(basis_host%spec(1)%atom(basis_host%spec(1)%num, 3))
-!   basis_host%spec(1)%atom(1, :3) = [0.000000000, 0.000000000, 0.125000000]
-!   basis_host%spec(1)%atom(2, :3) = [0.000000000, 0.000000000, 0.375000000]
-!   basis_host%spec(1)%atom(3, :3) = [0.000000000, 0.000000000, 0.875000000]
-!   basis_host%spec(1)%atom(4, :3) = [0.333333333, 0.666666667, 0.125000000]
-!   basis_host%spec(1)%atom(5, :3) = [0.666666667, 0.333333333, 0.375000000]
-!   basis_host%spec(1)%atom(6, :3) = [0.666666667, 0.333333333, 0.875000000]
-! !   basis_host%spec(1)%atom(7, :3) = [0.333333333, 0.666666667, 0.625000000]
-!   basis_host%spec(1)%atom(7, :3) = [0.0, 0.0, 0.0]
-
-!   basis_host%lat(1,:) = [1.233645631, -2.136736911,  0.000000000]
-!   basis_host%lat(2,:) = [1.233645631,  2.136736911,  0.000000000]
-!   basis_host%lat(3,:) = [0.000000000,  0.000000000, 15.606146000]
-!     atom_ignore_list(1,1) = 1
-!     atom_ignore_list(1,2) = 8
   call basis_host%create_images( &
-       max_bondlength = 6._real12, &
+       max_bondlength = max_bondlength, &
        atom_ignore_list = atom_ignore_list &
   )
 
@@ -178,25 +138,14 @@ program test_evaluator
        lowtol = generator%distributions%radius_distance_tol(1), &
        grid_offset = generator%grid_offset &
   )
+  do i = 1, 3
+     tolerance(i) = 1._real12 / real(generator%grid(i),real12) / 2._real12
+  end do
 
 
   !-----------------------------------------------------------------------------
   ! call evaluator
   !-----------------------------------------------------------------------------
-!   open(newunit=unit, file="evaluator.txt", status="replace")
-!   do i = 1, basis_host%spec(1)%num
-!      if( any( atom_ignore_list(:,1) .eq. i ) )cycle
-!      write(unit, *) matmul(basis_host%spec(1)%atom(i, :), basis_host%lat)
-!   end do
-!   do i = 1, basis_host%image_spec(1)%num
-!      write(unit, *) matmul(basis_host%image_spec(1)%atom(i, :), basis_host%lat)
-!   end do
-  write(unit, *)
-
-
-  do i = 1, 3
-     tolerance(i) = 1._real12 / real(generator%grid(i),real12) / 2._real12
-  end do
   allocate(suitability_grid(size(gridpoints,2)))
   do ia = 1, size(atom_ignore_list,1)
      do i = 1, size(gridpoints,dim=2)
@@ -206,7 +155,6 @@ program test_evaluator
              [ generator%distributions%bond_info(:)%radius_covalent ] &
         )
      end do
-     ! close(unit)
      best_loc = maxloc(suitability_grid,dim=1)
      ! Check point is correct
      call assert( &
@@ -220,7 +168,7 @@ program test_evaluator
           success &
      )
      call basis_host%update_images( &
-          max_bondlength = 6._real12, &
+          max_bondlength = max_bondlength, &
           is = 1, ia = atom_ignore_list(ia,2) &
      )
   end do

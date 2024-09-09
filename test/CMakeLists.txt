@@ -1,7 +1,16 @@
 message(STATUS "Building tests")
 foreach(execid
+    misc
+    misc_maths
+    misc_linalg
+    elements
     edit_geom
     rw_geom
+    extended_geom
+    atom_adder
+    evolver
+    evaluator
+    generator
   )
   add_executable(test_${execid} test_${execid}.f90)
   # # Specify the include directories

@@ -72,6 +72,7 @@ set(FORTRAN_SRC_DIR ${SRC_DIR}/fortran)
 set(LIB_DIR ${FORTRAN_SRC_DIR}/lib)
 
 set(LIB_FILES
+    mod_error_handling.f90
     mod_constants.f90
     mod_misc.f90
 	mod_misc_maths.f90

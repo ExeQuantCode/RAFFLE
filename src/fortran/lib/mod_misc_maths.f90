@@ -1,24 +1,28 @@
 module misc_maths
   !! Module for miscellaneous mathematical functions.
+  use error_handling, only: stop_program
+  use constants, only: real12
   implicit none
 
 
   private
 
-  public :: lnsum, triangular_number
+  public :: lnsum, triangular_number, set_difference
 
 
 
 contains
 
 !###############################################################################
-double precision function lnsum(n) 
+  function lnsum(n)
     !! Return the sum of the logs of the integers from 1 to n.
     implicit none
 
     ! Arguments
     integer :: n
     !! The upper limit of the range.
+    real(real12) :: lnsum
+    !! The sum of the logs of the integers from 1 to n.
 
     ! Local variables
     integer :: i
@@ -44,6 +48,49 @@ double precision function lnsum(n)
     !! The index of the triangular number to return.
     triangular_number = n * ( n + 1 ) / 2
   end function triangular_number
+!###############################################################################
+
+
+!###############################################################################
+  function set_difference(a, b, set_min_zero)
+    !! Return the set difference of two arrays.
+    implicit none
+
+    ! Arguments
+    real(real12), dimension(:), intent(in) :: a
+    !! The first array.
+    real(real12), dimension(:), intent(in) :: b
+    !! The second array.
+    logical, optional :: set_min_zero
+    !! Boolean to set the maximum value of the output array to zero.
+    real(real12), dimension(size(a)) :: set_difference
+    !! The set difference of the two arrays.
+
+    ! Local variables
+    integer :: i, j
+    !! Loop indices.
+    logical :: in_b
+    !! Whether the current element of a is in b.
+    logical :: set_min_zero_
+    !! Boolean to set the maximum value of the output array to zero.
+
+
+    if(present(set_min_zero)) then
+       set_min_zero_ = set_min_zero
+    else
+       set_min_zero_ = .false.
+    end if
+
+    if(size(a) .ne. size(b)) then
+       call stop_program('Arrays must be the same size.')
+       return
+    end if
+
+    do i = 1, size(a)
+       set_difference(i) = max(0.0_real12, a(i) - b(i))
+    end do
+
+  end function set_difference
 !###############################################################################
 
 end module misc_maths

@@ -59,7 +59,7 @@ module rw_geom
      !! Boolean whether the basis is in cartesian coordinates.
      logical, dimension(3) :: pbc = .true.
      !! Boolean whether the basis has periodic boundary conditions.
-     character(len=128) :: sysname
+     character(len=128) :: sysname = "default"
      !! The name of the system.
    contains
      procedure, pass(this) :: allocate_species
@@ -150,6 +150,14 @@ contains
           istart = iend + 1
        end do
     end if natom_check
+    
+    do i = 1, this%nspec
+       call get_element_properties( &
+            this%spec(i)%name, &
+            mass = this%spec(i)%mass, &
+            charge = this%spec(i)%charge, &
+            radius = this%spec(i)%radius )
+    end do
        
   end subroutine allocate_species
 !###############################################################################
@@ -225,7 +233,7 @@ contains
     ! Arguments
     integer, intent(in) :: UNIT
     !! The unit number of the file to write to.
-    type(basis_type), intent(in) :: basis
+    class(basis_type), intent(in) :: basis
     !! The basis to write the geometry from.
 
 ! MAKE IT CHANGE HERE IF USER SPECIFIES LCART OR NOT
@@ -398,7 +406,7 @@ contains
     ! Arguments
     integer, intent(in) :: UNIT
     !! The unit number of the file to write to.
-    type(basis_type), intent(in) :: basis
+    class(basis_type), intent(in) :: basis
     !! The basis to write the geometry from.
     logical, intent(in), optional :: cartesian
     !! Optional. Whether to write the basis in cartesian coordinates.
@@ -597,7 +605,7 @@ contains
     ! Arguments
     integer, intent(in) :: UNIT
     !! The unit number of the file to write to.
-    type(basis_type), intent(in) :: basis
+    class(basis_type), intent(in) :: basis
     !! The basis to write the geometry from.
     logical, intent(in), optional :: cartesian
     !! Optional. Whether to write the basis in cartesian coordinates.
@@ -815,7 +823,7 @@ contains
     ! Arguments
     integer :: UNIT
     !! The unit number of the file to write to.
-    type(basis_type), intent(in) :: basis
+    class(basis_type), intent(in) :: basis
     !! The basis to write the geometry from.
     logical, intent(in), optional :: labc
     !! Optional. Boolean whether to write the lattice in abc format.
@@ -982,7 +990,7 @@ contains
     ! Arguments
     integer, intent(in) :: UNIT
     !! The unit number of the file to write to.
-    type(basis_type), intent(in) :: basis
+    class(basis_type), intent(in) :: basis
     !! The basis to write the geometry from.
 
     ! Local variables
@@ -1133,7 +1141,7 @@ contains
     ! Arguments
     integer, intent(in) :: UNIT
     !! The unit number of the file to write to.
-    type(basis_type), intent(in) :: basis
+    class(basis_type), intent(in) :: basis
     !! The basis to write the geometry from.
 
     ! Local variables

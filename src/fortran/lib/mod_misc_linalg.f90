@@ -129,8 +129,8 @@ pure function uvec(vector)
     real(real12) :: angle
     !! Output angle.
 
-    angle = acos( ( dot_product( point2 - point1, point3 - point2 ) ) / &
-         ( modu( point2 - point1 ) * modu( point3 - point2 ) ) )
+    angle = acos( ( dot_product( point1 - point2, point3 - point2 ) ) / &
+         ( modu( point1 - point2 ) * modu( point3 - point2 ) ) )
     if(isnan(angle)) angle = 0._real12
   end function get_angle_from_points
 !###############################################################################

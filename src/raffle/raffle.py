@@ -309,7 +309,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             self.energy = atoms.get_potential_energy()
             
             # # Set the lattice vectors
-            self.lat = numpy.reshape(atoms.get_cell().flatten(), [3,3], order='F')
+            self.lat = numpy.reshape(atoms.get_cell().flatten(), [3,3], order='A')
             self.pbc = atoms.pbc
             
             # Set the system name
@@ -888,7 +888,7 @@ class Evolver(f90wrap.runtime.FortranModule):
                 _raffle.f90wrap_evolver__gvector_type_finalise(this=self._handle)
         
         def calculate(self, lattice, basis, nbins=None, width=None, sigma=None, \
-            cutoff_min=None, cutoff_max=None):
+            cutoff_min=None, cutoff_max=None, radius_distance_tol=None):
             """
             calculate__binding__gvector_type(self, lattice, basis[, nbins, width, sigma, \
                 cutoff_min, cutoff_max])
@@ -907,6 +907,7 @@ class Evolver(f90wrap.runtime.FortranModule):
             sigma : float array
             cutoff_min : float array
             cutoff_max : float array
+            radius_distance_tol : float array
             
             --------------------------------------------------------------------------
              initialise optional variables
@@ -914,7 +915,7 @@ class Evolver(f90wrap.runtime.FortranModule):
             """
             _raffle.f90wrap_evolver__calculate__binding__gvector_type(this=self._handle, \
                 lattice=lattice, basis=basis._handle, nbins=nbins, width=width, sigma=sigma, \
-                cutoff_min=cutoff_min, cutoff_max=cutoff_max)
+                cutoff_min=cutoff_min, cutoff_max=cutoff_max, radius_distance_tol=radius_distance_tol)
         
         @property
         def num_atoms(self):
@@ -1127,6 +1128,23 @@ class Evolver(f90wrap.runtime.FortranModule):
             """
             _raffle.f90wrap_evolver__set_cutoff_max__binding__gvector_container047c(this=self._handle, \
                 cutoff_max=cutoff_max)
+        
+        def set_radius_distance_tol(self, radius_distance_tol):
+            """
+            set_radius_distance_tol__binding__gvector_container_type(self, radius_distance_tol)
+            
+            
+            Defined at ../src/lib/mod_evolver.f90 lines \
+                142-150
+            
+            Parameters
+            ----------
+            this : unknown
+            cutoff_max : float array
+            
+            """
+            _raffle.f90wrap_evolver__set_radius_distance_tol__binding__gvector_1dda(this=self._handle, \
+                radius_distance_tol=radius_distance_tol)
         
         def create(self, basis_list, deallocate_systems=True):
             """
@@ -1637,6 +1655,22 @@ class Evolver(f90wrap.runtime.FortranModule):
                 best_energy)
         
         @property
+        def kbT(self):
+            """
+            Element kbT ftype=real(real12) pytype=float
+            
+            
+            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_evolver.f90 \
+                line 66
+            
+            """
+            return _raffle.f90wrap_gvector_container_type__get__kbt(self._handle)
+        
+        @kbT.setter
+        def kbT(self, kbT):
+            _raffle.f90wrap_gvector_container_type__set__kbt(self._handle, kbT)
+                
+        @property
         def nbins(self):
             """
             Element nbins ftype=integer pytype=int
@@ -1757,6 +1791,32 @@ class Evolver(f90wrap.runtime.FortranModule):
             self.cutoff_max[...] = cutoff_max
         
         @property
+        def radius_distance_tol(self):
+            """
+            Element radius_distance_tol ftype=real(real12) pytype=float
+            
+            
+            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_evolver.f90 \
+                line 81
+            
+            """
+            array_ndim, array_type, array_shape, array_handle = \
+                _raffle.f90wrap_gvector_container_type__array__radius_distance_tol(self._handle)
+            if array_handle in self._arrays:
+                radius_distance_tol = self._arrays[array_handle]
+            else:
+                radius_distance_tol = \
+                    f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                        self._handle,
+                                        _raffle.f90wrap_gvector_container_type__array__radius_distance_tol)
+                self._arrays[array_handle] = radius_distance_tol
+            return radius_distance_tol
+        
+        @radius_distance_tol.setter
+        def radius_distance_tol(self, radius_distance_tol):
+            self.radius_distance_tol[...] = radius_distance_tol
+
+        @property
         def total(self):
             """
             Element total ftype=type(gvector_base_type) pytype=Gvector_Base_Type
@@ -1798,6 +1858,8 @@ class Evolver(f90wrap.runtime.FortranModule):
             ret.append(repr(self.best_system))
             ret.append(',\n    best_energy : ')
             ret.append(repr(self.best_energy))
+            ret.append(',\n    kbT : ')
+            ret.append(repr(self.kbT))
             ret.append(',\n    nbins : ')
             ret.append(repr(self.nbins))
             ret.append(',\n    sigma : ')
@@ -1808,6 +1870,8 @@ class Evolver(f90wrap.runtime.FortranModule):
             ret.append(repr(self.cutoff_min))
             ret.append(',\n    cutoff_max : ')
             ret.append(repr(self.cutoff_max))
+            ret.append(',\n    radius_distance_tol : ')
+            ret.append(repr(self.radius_distance_tol))
             ret.append(',\n    total : ')
             ret.append(repr(self.total))
             ret.append('}')
@@ -2084,6 +2148,43 @@ class Generator(f90wrap.runtime.FortranModule):
             _raffle.f90wrap_generator__set_host__binding__rgt(this=self._handle, \
                 host=host._handle)
         
+        def set_grid(self, grid=None, grid_spacing=None, grid_offset=None):
+            """
+            set_grid__binding__raffle_generator_type(self[, grid, grid_spacing, \
+                grid_offset])
+            
+            
+            Defined at \
+                /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_generator.f90 lines \
+                142-173
+            
+            Parameters
+            ----------
+            this : unknown
+            grid : int array
+            grid_spacing : float
+            grid_offset : float array
+            
+            """
+            _raffle.f90wrap_generator__set_grid__binding__raffle_generator_type(this=self._handle, \
+                grid=grid, grid_spacing=grid_spacing, grid_offset=grid_offset)
+        
+        def reset_grid(self):
+            """
+            reset_grid__binding__raffle_generator_type(self)
+            
+            
+            Defined at \
+                /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_generator.f90 lines \
+                170-176
+            
+            Parameters
+            ----------
+            this : unknown
+            
+            """
+            _raffle.f90wrap_generator__reset_grid__binding__raffle_generator_type(this=self._handle)
+        
         def generate(self, num_structures, stoichiometry, method_probab={"void": 1.0, "walk": 1.0, "min": 1.0}, seed=None, verbose=0):
             """
             generate__binding__raffle_generator_type(self, num_structures, stoichiometry, method_probab)
@@ -2199,9 +2300,9 @@ class Generator(f90wrap.runtime.FortranModule):
             _raffle.f90wrap_raffle_generator_type__set__host(self._handle, host)
         
         @property
-        def bins(self):
+        def grid(self):
             """
-            Element bins ftype=integer pytype=int
+            Element grid ftype=integer pytype=int
             
             
             Defined at ../src/lib/mod_generator.f90 line \
@@ -2209,19 +2310,63 @@ class Generator(f90wrap.runtime.FortranModule):
             
             """
             array_ndim, array_type, array_shape, array_handle = \
-                _raffle.f90wrap_raffle_generator_type__array__bins(self._handle)
+                _raffle.f90wrap_raffle_generator_type__array__grid(self._handle)
             if array_handle in self._arrays:
-                bins = self._arrays[array_handle]
+                grid = self._arrays[array_handle]
             else:
-                bins = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                grid = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
                                         self._handle,
-                                        _raffle.f90wrap_raffle_generator_type__array__bins)
-                self._arrays[array_handle] = bins
-            return bins
+                                        _raffle.f90wrap_raffle_generator_type__array__grid)
+                self._arrays[array_handle] = grid
+            return grid
         
-        @bins.setter
-        def bins(self, bins):
-            self.bins[...] = bins
+        @grid.setter
+        def grid(self, grid):
+            self.grid[...] = grid
+        
+        @property
+        def grid_offset(self):
+            """
+            Element grid_offset ftype=real pytype=float
+            
+            
+            Defined at \
+                /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_generator.f90 line \
+                45
+            
+            """
+            array_ndim, array_type, array_shape, array_handle = \
+                _raffle.f90wrap_raffle_generator_type__array__grid_offset(self._handle)
+            if array_handle in self._arrays:
+                grid_offset = self._arrays[array_handle]
+            else:
+                grid_offset = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                        self._handle,
+                                        _raffle.f90wrap_raffle_generator_type__array__grid_offset)
+                self._arrays[array_handle] = grid_offset
+            return grid_offset
+        
+        @grid_offset.setter
+        def grid_offset(self, grid_offset):
+            self.grid_offset[...] = grid_offset
+
+        @property
+        def grid_spacing(self):
+            """
+            Element grid_spacing ftype=real(real12) pytype=float
+            
+            
+            Defined at \
+                /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_generator.f90 line \
+                47
+            
+            """
+            return _raffle.f90wrap_raffle_generator_type__get__grid_spacing(self._handle)
+        
+        @grid_spacing.setter
+        def grid_spacing(self, grid_spacing):
+            _raffle.f90wrap_raffle_generator_type__set__grid_spacing(self._handle, \
+                grid_spacing)
         
         @property
         def distributions(self):
@@ -2295,8 +2440,12 @@ class Generator(f90wrap.runtime.FortranModule):
             ret.append(repr(self.num_structures))
             ret.append(',\n    host : ')
             ret.append(repr(self.host))
-            ret.append(',\n    bins : ')
-            ret.append(repr(self.bins))
+            ret.append(',\n    grid : ')
+            ret.append(repr(self.grid))
+            ret.append(',\n    grid_offset : ')
+            ret.append(repr(self.grid_offset))
+            ret.append(',\n    grid_spacing : ')
+            ret.append(repr(self.grid_spacing))
             ret.append(',\n    distributions : ')
             ret.append(repr(self.distributions))
             ret.append(',\n    method_probab : ')

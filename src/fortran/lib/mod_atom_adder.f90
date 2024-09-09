@@ -14,10 +14,6 @@ module add_atom
   use evaluator, only: evaluate_point
   use evolver, only: gvector_container_type
   implicit none
-  real(real12) :: lowtol = 1.5_real12
-  !! Lower tolerance for evaluate_point.
-  real(real12) :: uptol = 3._real12
-  !! Upper tolerance for evaluate_point.
 
 
   private
@@ -68,20 +64,25 @@ contains
     !---------------------------------------------------------------------------
     viable = .false.
     allocate(suitability_grid(size(gridpoints,dim=2)))
-    do concurrent( i = 1:size(gridpoints,dim=2) )
+   !  do concurrent( i = 1:size(gridpoints,dim=2) )
+    do i = 1, size(gridpoints,dim=2)
        suitability_grid(i) = evaluate_point( gvector_container, &
             gridpoints(:,i), basis, &
-            atom_ignore_list, radius_list, &
-            uptol=uptol, lowtol=lowtol)
+            atom_ignore_list, radius_list &
+       )
     end do
     if(abs(maxval(suitability_grid)).lt.1.E-6) then
       deallocate(suitability_grid)
       return
     end if
 
+    ! find the gridpoint with the highest suitability
     best_gridpoint = maxloc(suitability_grid, dim=1)
+
+    ! deallocate the suitability grid
     deallocate(suitability_grid)
 
+    ! return the gridpoint with the highest suitability
     point = gridpoints(:,best_gridpoint)
     viable = .true.
    
@@ -90,7 +91,7 @@ contains
 
 
 !###############################################################################
-  function add_atom_void(bin_size, basis, atom_ignore_list, viable) &
+  function add_atom_void(grid, grid_offset, basis, atom_ignore_list, viable) &
        result(point)
     !! VOID placement method.
     !!
@@ -101,8 +102,10 @@ contains
     ! Arguments
     type(extended_basis_type), intent(inout) :: basis
     !! Structure to add atom to.
-    integer, dimension(3), intent(in) :: bin_size
+    integer, dimension(3), intent(in) :: grid
     !! Number of gridpoints in each direction.
+    real(real12), dimension(3), intent(in) :: grid_offset
+    !! Offset for gridpoints.
     integer, dimension(:,:), intent(in) :: atom_ignore_list
     !! List of atoms to ignore (i.e. indices of atoms not yet placed).
     logical, intent(out) :: viable
@@ -127,10 +130,14 @@ contains
     !---------------------------------------------------------------------------
     viable = .false.
     best_location_bond = -huge(1._real12)
-    do i = 0, bin_size(1) - 1, 1
-       do j = 0, bin_size(2) - 1, 1
-          do k = 0, bin_size(3) - 1, 1
-             tmpvector = [i, j, k] / real(bin_size,real12)
+    do i = 0, grid(1) - 1, 1
+       do j = 0, grid(2) - 1, 1
+          do k = 0, grid(3) - 1, 1
+             tmpvector = [ &
+                  i + grid_offset(1), &
+                  j + grid_offset(2), &
+                  k + grid_offset(3) &
+             ] / real(grid,real12)
              smallest_bond = modu(get_min_dist(&
                   basis, tmpvector, .false., &
                   ignore_list = atom_ignore_list))
@@ -142,6 +149,7 @@ contains
        end do
     end do
 
+    ! return the gridpoint with the largest void space
     point = best_location
     viable = .true.
 
@@ -209,9 +217,8 @@ contains
 
        calculated_value = evaluate_point( gvector_container, &
             tmpvector, basis, &
-            atom_ignore_list, radius_list, &
-            uptol=uptol, lowtol=lowtol)
-
+            atom_ignore_list, radius_list &
+       )
        call random_number(rtmp1)
        if (rtmp1.lt.calculated_value) exit random_loop
  
@@ -242,9 +249,8 @@ contains
 
        calculated_test = evaluate_point( gvector_container, &
             testvector, basis, &
-            atom_ignore_list, radius_list, &
-            uptol=uptol, lowtol=lowtol)
-     
+            atom_ignore_list, radius_list &
+       )     
        if(calculated_test.lt.calculated_value) then 
           l = l + 1
           if(l.ge.10) then
@@ -257,8 +263,8 @@ contains
                 if (rtmp1.lt.calculated_value) exit walk_loop
              end if
    
-             !! if we have tried 10 times, and still no luck, then we need to ...
-             !! ... reduce the tolerance
+             !! if we have tried 10 times, and still no luck, then we need to
+             !! reduce the tolerance
              k = k + 1
           end if   
           cycle walk_loop
@@ -285,8 +291,8 @@ contains
 
 
 !###############################################################################
-  function get_viable_gridpoints(bin_size, basis, &
-       radius_list, atom_ignore_list) result(points)
+  function get_viable_gridpoints(grid, basis, &
+       radius_list, atom_ignore_list, lowtol, grid_offset) result(points)
     !! Get the viable gridpoints for adding an atom.
     !!
     !! This function returns a list of gridpoints that are not too close to an
@@ -296,12 +302,15 @@ contains
     ! Arguments
     type(extended_basis_type), intent(in) :: basis
     !! Structure to add atom to.
-    integer, dimension(3), intent(in) :: bin_size
+    integer, dimension(3), intent(in) :: grid
     !! Number of gridpoints in each direction.
     integer, dimension(:,:), intent(in) :: atom_ignore_list
     !! List of atoms to ignore (i.e. indices of atoms not yet placed).
     real(real12), dimension(:), intent(in) :: radius_list
     !! List of radii for each pair of elements.
+    real(real12), intent(in) :: lowtol
+    !! Lower tolerance for distance between atoms.
+    real(real12), dimension(3), intent(in), optional :: grid_offset
 
     ! Local variables
     integer, dimension(:), allocatable :: pair_index
@@ -314,6 +323,17 @@ contains
     !! Loop indices.
     integer :: num_points
     !! Number of gridpoints.
+    real(real12), dimension(3) :: offset_
+
+
+    !---------------------------------------------------------------------------
+    ! set offset
+    !---------------------------------------------------------------------------
+    if(present(grid_offset)) then
+       offset_ = grid_offset
+    else
+       offset_ = 0.5_real12
+    end if
    
 
     !---------------------------------------------------------------------------
@@ -330,25 +350,36 @@ contains
     ! ... close to an existing atom. If they are, remove them from the list ...
     ! ... of viable gridpoints
     !---------------------------------------------------------------------------
-    allocate(points_tmp(3,product(bin_size)))
+    allocate(points_tmp(3,product(grid)))
     num_points = 0
-    grid_loop1: do i = 0, bin_size(1) - 1, 1
-       grid_loop2: do j = 0, bin_size(2) - 1, 1
-          grid_loop3: do k = 0, bin_size(3) - 1, 1
+    grid_loop1: do i = 0, grid(1) - 1, 1
+       grid_loop2: do j = 0, grid(2) - 1, 1
+          grid_loop3: do k = 0, grid(3) - 1, 1
              do is = 1, basis%nspec
-                do ia = 1, basis%spec(is)%num
+                atom_loop: do ia = 1, basis%spec(is)%num
                    do l = 1, size(atom_ignore_list,dim=1), 1
-                      if(all(atom_ignore_list(l,:).eq.[is,ia])) cycle
+                      if(all(atom_ignore_list(l,:).eq.[is,ia])) cycle atom_loop
                    end do
                    if( get_min_dist_between_point_and_atom( &
-                        basis, &
-                        [i, j, k] / real(bin_size,real12), [is,ia] ) .lt. &
-                        radius_list(pair_index(is)) * lowtol ) &
-                        cycle grid_loop3
-                end do
+                             basis, &
+                             [ &
+                                  i + offset_(1), &
+                                  j + offset_(2), &
+                                  k + offset_(3) &
+                             ] / &
+                                  real(grid,real12), &
+                             [is,ia] &
+                        ) .lt. &
+                        radius_list(pair_index(is)) * lowtol &
+                   ) cycle grid_loop3
+                end do atom_loop
              end do
              num_points = num_points + 1
-             points_tmp(:,num_points) = [i, j, k] / real(bin_size,real12)
+             points_tmp(:,num_points) = [ &
+                       i + offset_(1), &
+                       j + offset_(2), &
+                       k + offset_(3) &
+                ] / real(grid,real12)
           end do grid_loop3
        end do grid_loop2
     end do grid_loop1
@@ -361,7 +392,7 @@ contains
 
 
 !###############################################################################
-  subroutine update_viable_gridpoints(points, basis, atom, radius)
+  subroutine update_viable_gridpoints(points, basis, atom, radius, lowtol)
     !! Update the viable gridpoints after a new atom has been added.
     implicit none
 
@@ -374,6 +405,8 @@ contains
     !! List of gridpoints.
     real(real12), intent(in) :: radius
     !! Radius of added atom.
+    real(real12), intent(in) :: lowtol
+    !! Lower tolerance for distance between atoms.
 
     ! Local variables
     integer :: i
@@ -393,7 +426,7 @@ contains
     num_points = size(points,dim=2)
     i = 0
     points_tmp = points
-    do while (i .le. num_points)
+    do while (i .lt. num_points)
        i = i + 1
        if( get_min_dist_between_point_and_atom( &
              basis, points_tmp(:,i), atom ) .lt. &

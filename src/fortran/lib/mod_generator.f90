@@ -5,7 +5,9 @@ module generator
   !! random structures from a host structure. The raffle generator uses
   !! distribution functions to determine the placement of atoms in the
   !! provided host structure.
-  use constants, only: real12
+   use error_handling, only: stop_program
+   use constants, only: real12
+  use misc_linalg, only: modu
   use misc_raffle, only: strip_null
   use rw_geom, only: basis_type
   use extended_geom, only: extended_basis_type
@@ -48,8 +50,12 @@ module generator
     !! Number of structures generated. Initialised to zero.
     type(basis_type) :: host
     !! Host structure.
-    integer, dimension(3) :: bins
-    !! Number of bins to divide the host structure into along each axis.
+    integer, dimension(3) :: grid = [0, 0, 0]
+    !! Grid to divide the host structure into along each axis.
+    real, dimension(3) :: grid_offset = [0.5_real12, 0.5_real12, 0.5_real12]
+    !! Offset of the gridpoints.
+    real(real12) :: grid_spacing = 0.1_real12
+    !! Spacing of the gridpoints.
     type(gvector_container_type) :: distributions
     !! Distribution function container for the 2-, 3-, and 4-body interactions.
     real(real12), dimension(3) :: method_probab
@@ -59,6 +65,10 @@ module generator
    contains
     procedure, pass(this) :: set_host
     !! Procedure to set the host structure.
+    procedure, pass(this) :: set_grid
+    !! Procedure to set the grid for the raffle generator.
+    procedure, pass(this) :: reset_grid
+    !! Procedure to reset the grid for the raffle generator.
     procedure, pass(this) :: generate
     !! Procedure to generate random structures.
     procedure, pass(this), private :: generate_structure
@@ -134,6 +144,7 @@ contains
   subroutine set_host(this, host)
     !! Set the host structure.
     implicit none
+
     ! Arguments
     class(raffle_generator_type), intent(inout) :: this
     !! Instance of the raffle generator.
@@ -142,13 +153,75 @@ contains
 
     ! Local variables
     integer :: i
+    !! Loop index.
 
 
     this%host = host
     do i = 1, this%host%nspec
        this%host%spec(i)%name = strip_null(this%host%spec(i)%name)
     end do
+
+    call this%set_grid()
   end subroutine set_host
+!###############################################################################
+
+
+!###############################################################################
+  subroutine set_grid(this, grid, grid_spacing, grid_offset)
+    !! Set the grid for the raffle generator.
+    implicit none
+
+    ! Arguments
+    class(raffle_generator_type), intent(inout) :: this
+    !! Instance of the raffle generator.
+    integer, dimension(3), intent(in), optional :: grid
+    !! Number of bins to divide the host structure into along each axis.
+    real(real12), intent(in), optional :: grid_spacing
+    !! Spacing of the bins.
+    real(real12), dimension(3), intent(in), optional :: grid_offset
+    !! Offset of the gridpoints.
+
+    ! Local variables
+    integer :: i
+    !! Loop index.
+
+
+    if(present(grid).and.present(grid_spacing)) then
+       call this%reset_grid()
+       call stop_program("Cannot set grid and grid spacing simultaneously")
+       return
+    elseif(present(grid_spacing)) then
+       this%grid_spacing = grid_spacing
+       this%grid = 0
+    elseif(present(grid)) then
+       this%grid = grid
+    end if
+
+    if(present(grid_offset)) this%grid_offset = grid_offset
+
+    if(all(this%grid.eq.0))then
+       if(allocated(this%host%spec))then
+          do i = 1, 3
+             this%grid(i) = nint( modu(this%host%lat(i,:)) / this%grid_spacing )
+          end do
+       end if
+    end if
+
+  end subroutine set_grid
+!###############################################################################
+
+
+!###############################################################################
+  subroutine reset_grid(this)
+    !! Reset the grid for the raffle generator.
+    implicit none
+
+    ! Arguments
+    class(raffle_generator_type), intent(inout) :: this
+    !! Instance of the raffle generator.
+
+    this%grid = 0
+  end subroutine reset_grid
 !###############################################################################
 
 
@@ -229,6 +302,10 @@ contains
        allocate(seed_arr(num_seed))
        seed_arr = seed 
        call random_seed(put=seed_arr)
+    else
+       call random_seed(size=num_seed)
+       allocate(seed_arr(num_seed))
+       call random_seed(get=seed_arr)
     end if
 
 
@@ -266,7 +343,10 @@ contains
             source = 0._real12 &
        )
     end do
-    if(.not.allocated(this%host%spec)) stop "Host structure not set"
+    if(.not.allocated(this%host%spec))then
+       call stop_program("Host structure not set")
+       return
+    end if
     basis_template = bas_merge(this%host,basis_template)
     basis_template%lat = this%host%lat
 
@@ -381,6 +461,8 @@ contains
     !! no viable gridpoints are found.
     real(real12), dimension(:,:), allocatable :: viable_gridpoints
     !! Viable gridpoints for placing atoms.
+    character(len=256) :: stop_msg
+    !! Error message.
 
 
     !---------------------------------------------------------------------------
@@ -409,10 +491,13 @@ contains
     !---------------------------------------------------------------------------
     method_probab_ = method_probab
     if(abs( method_probab_(3) - method_probab_(2) ) .gt. 1.E-3)then
-       viable_gridpoints = get_viable_gridpoints( this%bins, &
+       viable_gridpoints = get_viable_gridpoints( this%grid, &
             basis, &
             [ this%distributions%bond_info(:)%radius_covalent ], &
-            placement_list_shuffled )
+            placement_list_shuffled, &
+            lowtol = this%distributions%radius_distance_tol(1), &
+            grid_offset = this%grid_offset &
+       )
     end if
 
 
@@ -433,12 +518,17 @@ contains
                           placement_list_shuffled(iplaced,1)/2._real12 ) * &
                         ( placement_list_shuffled(iplaced,1) - 1 ) + &
                         placement_list_shuffled(iplaced,1) ) &                       
-                     )%radius_covalent )
+                     )%radius_covalent, &
+                     lowtol = this%distributions%radius_distance_tol(1) &                     
+               )
           if(.not.allocated(viable_gridpoints))then
              if(abs(method_probab_(2)).lt.1.E-6)then
-                write(0,*) "ERROR: No viable gridpoints"
-                write(0,*) "No placement methods available"
-                stop 0
+                call stop_program( &
+                     "No viable gridpoints" // &
+                     achar(13) // achar(10) // &
+                     "No placement methods available" &
+                )
+                return
              else if(abs( method_probab_(3) - method_probab_(2) ) .gt. 1.E-6) then
                 write(*,*) "WARNING: No more viable gridpoints"
                 write(*,*) "Suppressing global minimum method"
@@ -450,7 +540,8 @@ contains
        call random_number(rtmp1)
        if(rtmp1.le.method_probab_(1)) then 
           if(verbose.gt.0) write(*,*) "Add Atom Void"
-          point = add_atom_void( this%bins, &
+          point = add_atom_void( this%grid, &
+                this%grid_offset, &
                 basis, &
                 placement_list_shuffled(iplaced+1:,:), viable )
        else if(rtmp1.le.method_probab_(2)) then 
@@ -471,10 +562,16 @@ contains
                 [ this%distributions%bond_info(:)%radius_covalent ], &
                 viable )
           if(.not. viable .and. abs(method_probab_(2)).lt.1.E-6)then
-             write(0,*) "ERROR: No viable gridpoints"
-             write(0,*) "  Min method is the only method, but cannot place another atom"
-             write(0,*) "  Species to place now: ", basis%spec(placement_list_shuffled(iplaced+1,1))%name
-             stop 0
+             write(stop_msg,*) &
+                  "No viable gridpoints" // &
+                  achar(13) // achar(10) // &
+                  "Min method is the only method, but cannot place another &
+                  &atom" // &
+                  achar(13) // achar(10) // &
+                  "Species to place now: ", &
+                  basis%spec(placement_list_shuffled(iplaced+1,1))%name
+             call stop_program(stop_msg)
+             return
           elseif(.not. viable)then
              deallocate(viable_gridpoints)
              write(*,*) "WARNING: No more viable gridpoints"
@@ -485,7 +582,7 @@ contains
        end if
        if(.not. viable) then
           if(void_ticker.gt.10) &
-               point = add_atom_void( this%bins, basis, &
+               point = add_atom_void( this%grid, this%grid_offset, basis, &
                                   placement_list_shuffled(iplaced+1:,:), viable)
           void_ticker = 0
           if(.not.viable) cycle placement_loop

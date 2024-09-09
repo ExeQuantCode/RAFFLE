@@ -234,8 +234,8 @@ subroutine f90wrap_evolver__gvector_type_finalise(this)
     deallocate(this_ptr%p)
 end subroutine f90wrap_evolver__gvector_type_finalise
 
-subroutine f90wrap_evolver__calculate__binding__gvector_type(this, basis, nbins, width, sigma, cutoff_min, &
-    cutoff_max)
+subroutine f90wrap_evolver__calculate__binding__gvector_type(this, basis, nbins, width, sigma, cutoff_min, cutoff_max, &
+    radius_distance_tol)
     use evolver, only: gvector_type
     use rw_geom, only: basis_type
     implicit none
@@ -255,10 +255,11 @@ subroutine f90wrap_evolver__calculate__binding__gvector_type(this, basis, nbins,
     real(4), dimension(3), intent(in), optional :: sigma
     real(4), dimension(3), intent(in), optional :: cutoff_min
     real(4), dimension(3), intent(in), optional :: cutoff_max
+    real(4), dimension(4), intent(in), optional :: radius_distance_tol
     this_ptr = transfer(this, this_ptr)
     basis_ptr = transfer(basis, basis_ptr)
-    call this_ptr%p%calculate(basis=basis_ptr%p, nbins=nbins, width=width, sigma=sigma, &
-        cutoff_min=cutoff_min, cutoff_max=cutoff_max)
+    call this_ptr%p%calculate(basis=basis_ptr%p, nbins=nbins, width=width, sigma=sigma, cutoff_min=cutoff_min, &
+        cutoff_max=cutoff_max, radius_distance_tol=radius_distance_tol)
 end subroutine f90wrap_evolver__calculate__binding__gvector_type
 
 subroutine f90wrap_gvector_container_type__get__num_evaluated(this, f90wrap_num_evaluated)
@@ -372,6 +373,34 @@ subroutine f90wrap_gvector_container_type__set__best_energy(this, f90wrap_best_e
     this_ptr = transfer(this, this_ptr)
     this_ptr%p%best_energy = f90wrap_best_energy
 end subroutine f90wrap_gvector_container_type__set__best_energy
+
+subroutine f90wrap_gvector_container_type__get__kbt(this, f90wrap_kbt)
+    use evolver, only: gvector_container_type
+    implicit none
+    type gvector_container_type_ptr_type
+        type(gvector_container_type), pointer :: p => NULL()
+    end type gvector_container_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(gvector_container_type_ptr_type) :: this_ptr
+    real(4), intent(out) :: f90wrap_kbt
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_kbt = this_ptr%p%kbt
+end subroutine f90wrap_gvector_container_type__get__kbt
+
+subroutine f90wrap_gvector_container_type__set__kbt(this, f90wrap_kbt)
+    use evolver, only: gvector_container_type
+    implicit none
+    type gvector_container_type_ptr_type
+        type(gvector_container_type), pointer :: p => NULL()
+    end type gvector_container_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(gvector_container_type_ptr_type) :: this_ptr
+    real(4), intent(in) :: f90wrap_kbt
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%kbt = f90wrap_kbt
+end subroutine f90wrap_gvector_container_type__set__kbt
 
 subroutine f90wrap_gvector_container_type__array__nbins(this, nd, dtype, dshape, dloc)
     use evolver, only: gvector_container_type
@@ -680,6 +709,20 @@ subroutine f90wrap_evolver__set_cutoff_max__binding__gvector_container047c(this,
     this_ptr = transfer(this, this_ptr)
     call this_ptr%p%set_cutoff_max(cutoff_max=cutoff_max)
 end subroutine f90wrap_evolver__set_cutoff_max__binding__gvector_container047c
+
+subroutine f90wrap_evolver__set_radius_distance_tol__binding__gvector_1dda(this, radius_distance_tol)
+    use evolver, only: gvector_container_type
+    implicit none
+    
+    type gvector_container_type_ptr_type
+        type(gvector_container_type), pointer :: p => NULL()
+    end type gvector_container_type_ptr_type
+    type(gvector_container_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    real(4), dimension(4), intent(in) :: radius_distance_tol
+    this_ptr = transfer(this, this_ptr)
+    call this_ptr%p%set_radius_distance_tol(radius_distance_tol=radius_distance_tol)
+end subroutine f90wrap_evolver__set_radius_distance_tol__binding__gvector_1dda
 
 subroutine f90wrap_evolver__create__binding__gvector_container_type(this, basis_list, deallocate_systems)
     use rw_geom, only: basis_type

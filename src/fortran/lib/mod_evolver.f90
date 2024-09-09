@@ -6,11 +6,13 @@ module evolver
   !! atomic structures to identify similarities and differences between
   !! structures.
   use constants, only: real12, pi
+  use error_handling, only: stop_program
   use misc_raffle, only: set, icount, strip_null, sort_str
-  use misc_maths, only: lnsum, triangular_number
+  use misc_maths, only: triangular_number, set_difference
   use misc_linalg, only: get_angle, get_vol, get_improper_dihedral_angle, &
        cross, modu
   use rw_geom, only: basis_type, get_element_properties
+  use extended_geom, only: extended_basis_type
   use elements, only: &
        element_type, element_bond_type, &
        element_database, element_bond_database
@@ -70,14 +72,24 @@ module evolver
      !! Index of the best system.
      real(real12) :: best_energy = 0.0_real12
      !! Energy of the best system.
+     real(real12) :: kbt = 0.2_real12
+     !! Boltzmann constant times temperature.
+     real(real12) :: &
+          viability_3body_default = 0.1_real12, &
+          viability_4body_default = 0.1_real12
+     !! Default viability for the 3- and 4-body distribution functions.
+     logical, dimension(:), allocatable :: &
+          in_dataset_2body, in_dataset_3body, in_dataset_4body
+     !! Whether the 2-, 3-, and 4-body distribution functions are in 
+     !! the dataset.
      integer, dimension(3) :: nbins = -1
      !! Number of bins for the 2-, 3-, and 4-body distribution functions.
      real(real12), dimension(3) :: &
-          sigma = [ 0.1_real12, 0.05_real12, 0.05_real12 ]
+          sigma = [ 0.1_real12, 0.1_real12, 0.1_real12 ]
      !! Sigma of the gaussians used in the 2-, 3-, and 4-body 
      !! distribution functions.
      real(real12), dimension(3) :: &
-          width = [ 0.025_real12, pi/24._real12, pi/24._real12 ]
+          width = [ 0.025_real12, pi/64._real12, pi/64._real12 ]
      !! Width of the bins used in the 2-, 3-, and 4-body distribution functions.
      real(real12), dimension(3) :: &
           cutoff_min = [ 0.5_real12, 0._real12, 0._real12 ]
@@ -85,6 +97,13 @@ module evolver
      real(real12), dimension(3) :: &
           cutoff_max = [ 6._real12, pi, pi ]
      !! Maximum cutoff for the 2-, 3-, and 4-body distribution functions.
+     real(real12), dimension(4) :: &
+          radius_distance_tol = [ 1.5_real12, 2.5_real12, 3._real12, 6._real12 ]
+     !! Tolerance for the distance between atoms for 3- and 4-body.
+     !! index 1 = lower bound for 3-body
+     !! index 2 = upper bound for 3-body
+     !! index 3 = lower bound for 4-body
+     !! index 4 = upper bound for 4-body
      real(real12), dimension(:), allocatable :: &
           norm_2body, norm_3body, norm_4body
      !! Normalisation factors for the 2-, 3-, and 4-body distribution functions.
@@ -111,6 +130,8 @@ module evolver
      !! Set the minimum cutoff for the 2-, 3-, and 4-body.
      procedure, pass(this) :: set_cutoff_max
      !! Set the maximum cutoff for the 2-, 3-, and 4-body.
+     procedure, pass(this) :: set_radius_distance_tol
+     !! Set the tolerance for the distance between atoms for 3- and 4-body.
 
      procedure, pass(this) :: create
      !! Create the distribution functions for all systems, and the learned one.
@@ -156,6 +177,8 @@ module evolver
      !! Set the best energy and system in the container.
      procedure, pass(this) :: initialise_gvectors
      !! Initialise the distribution functions in the container.
+     procedure, pass(this) :: set_gvector_to_default
+     !! Set the total distribution function to the default value.
      procedure, pass(this) :: evolve
      !! Evolve the learned distribution function.
      procedure, pass(this) :: write
@@ -217,6 +240,10 @@ module evolver
     type(gvector_container_type) :: gvector_container
     !! Instance of the distribution functions container.
 
+    ! Local variables
+    character(256) :: stop_msg
+    !! Error message.
+
 
     if(present(nbins))then
        if(all(nbins .gt. 0)) gvector_container%nbins = nbins
@@ -231,7 +258,7 @@ module evolver
     end if
 
     if(present(cutoff_min))then
-       if(all(cutoff_min.ge.0._real12)) &
+       if(any(cutoff_min.ge.0._real12)) &
             gvector_container%cutoff_min = cutoff_min
     end if
     if(present(cutoff_max))then
@@ -239,10 +266,14 @@ module evolver
             gvector_container%cutoff_max = cutoff_max
     end if
     if(any(gvector_container%cutoff_max .le. gvector_container%cutoff_min))then
-       write(0,*) "ERROR: cutoff_max <= cutoff_min"
-       write(0,*) "cutoff min: ", gvector_container%cutoff_min
-       write(0,*) "cutoff max: ", gvector_container%cutoff_max
-       stop 1
+       write(stop_msg,*) &
+            "cutoff_max <= cutoff_min" // &
+            achar(13) // achar(10) // &
+            "cutoff min: ", gvector_container%cutoff_min, &
+            achar(13) // achar(10) // &
+            "cutoff max: ", gvector_container%cutoff_max
+       call stop_program( stop_msg )
+       return
     end if
 
   end function init_gvector_container
@@ -322,6 +353,23 @@ module evolver
 
 
 !###############################################################################
+  subroutine set_radius_distance_tol(this, radius_distance_tol)
+    !! Set the tolerance for the distance between atoms for 3- and 4-body.
+    implicit none
+
+    ! Arguments
+    class(gvector_container_type), intent(inout) :: this
+    !! Parent. Instance of distribution functions container.
+    real(real12), dimension(4), intent(in) :: radius_distance_tol
+    !! Tolerance for the distance between atoms for 3- and 4-body.
+
+    this%radius_distance_tol = radius_distance_tol
+
+  end subroutine set_radius_distance_tol
+!###############################################################################
+
+
+!###############################################################################
   subroutine create(this, basis_list, deallocate_systems)
     !! create the distribution functions from the input file
     implicit none
@@ -336,8 +384,19 @@ module evolver
 
     ! Local variables
     logical :: deallocate_systems_
+    !! Boolean whether to deallocate the systems after the distribution
+    character(256) :: stop_msg
+    !! Error message.
     
-    
+    if(.not.allocated(element_database))then
+       write(stop_msg,*) "element_database not allocated" // &
+            achar(13) // achar(10) // &
+            "Run the set_element_energies() procedure of " // &
+            "gvector_container_type before calling create()"
+       call stop_program( stop_msg )
+       return
+    end if
+
     deallocate_systems_ = .true.
     if(present(deallocate_systems)) deallocate_systems_ = deallocate_systems
 
@@ -346,7 +405,13 @@ module evolver
     if(allocated(this%total%df_2body)) deallocate(this%total%df_2body)
     if(allocated(this%total%df_3body)) deallocate(this%total%df_3body)
     if(allocated(this%total%df_4body)) deallocate(this%total%df_4body)
+    if(allocated(this%norm_2body)) deallocate(this%norm_2body)
+    if(allocated(this%norm_3body)) deallocate(this%norm_3body)
+    if(allocated(this%norm_4body)) deallocate(this%norm_4body)
     if(allocated(this%system)) deallocate(this%system)
+    if(allocated(this%in_dataset_2body)) deallocate(this%in_dataset_2body)
+    if(allocated(this%in_dataset_3body)) deallocate(this%in_dataset_3body)
+    if(allocated(this%in_dataset_4body)) deallocate(this%in_dataset_4body)
     allocate(this%system(0))
     call this%add(basis_list)
     call this%set_bond_info()
@@ -418,17 +483,20 @@ module evolver
     !! File unit.
     integer :: i, j
     !! Loop indices.
-
+    character(256) :: stop_msg
+    !! Error message.
 
     if(.not.allocated(this%system))then
-       write(0,*) "ERROR: No systems to write"
-       write(0,*) "Systems either not created or deallocated after evolve"
-       write(0,*) "To stop automatic deallocation, &
-            &use the following flag in create()"
-       write(0,*)
-       write(0,*) "   deallocate_systems = .false."
-       write(0,*)
-       stop 1
+       write(stop_msg,*) "No systems to write" // &
+            achar(13) // achar(10) // &
+            "Systems either not created or deallocated after evolve" // &
+            achar(13) // achar(10) // &
+            "To stop automatic deallocation, " // &
+            "use the following flag in create()" // &
+            achar(13) // achar(10) // &
+            "   deallocate_systems = .false."
+       call stop_program( stop_msg )
+       return
     end if
     open(newunit=unit, file=file)
     write(unit, *) "nbins", this%nbins
@@ -662,7 +730,8 @@ module evolver
     !! Number of structures in the container before adding the system.
     character(128) :: buffer
     !! Buffer for writing messages.
-
+    character(256) :: stop_msg
+    !! Error message.
 
     select rank(system)
     rank(0)
@@ -672,9 +741,11 @@ module evolver
        type is (basis_type)
           call this%add_basis(system)
        class default
-          write(0,*) "ERROR: Invalid type for system"
-          write(0,*) "Expected type gvector_type or basis_type"
-          stop 1
+          write(stop_msg,*) "Invalid type for system" // &
+               achar(13) // achar(10) // &
+               "Expected type gvector_type or basis_type"
+          call stop_program( stop_msg )
+          return
        end select
     rank(1)
        num_structures_previous = size(this%system)
@@ -686,15 +757,18 @@ module evolver
              call this%add_basis(system(i))
           end do
        class default
-          write(0,*) "ERROR: Invalid type for system"
-          write(0,*) "Expected type gvector_type or basis_type"
-          stop 1
-       end select
+          write(stop_msg,*) "Invalid type for system" // &
+               achar(13) // achar(10) // &
+               "Expected type gvector_type or basis_type"
+          call stop_program( stop_msg )
+          return
+         end select
     rank default
-       write(0,*) "ERROR: Invalid rank for system"
-       write(buffer,*) rank(system)
-       write(0,*) "Expected rank 0 or 1, got ", trim(buffer)
-       stop 1
+       write(stop_msg,*) "Invalid rank for system" // &
+            achar(13) // achar(10) // &
+            "Expected rank 0 or 1, got ", rank(system)
+       call stop_program( stop_msg )
+       return
     end select
     call this%update_element_info()
     call this%update_bond_info()
@@ -722,7 +796,9 @@ module evolver
     call system%calculate(basis, width = this%width, &
                      sigma = this%sigma, &
                      cutoff_min = this%cutoff_min, &
-                     cutoff_max = this%cutoff_max)
+                     cutoff_max = this%cutoff_max, &
+                     radius_distance_tol = this%radius_distance_tol &
+    )
 
     if(.not.allocated(this%system))then
        this%system = [ system ]
@@ -800,6 +876,9 @@ module evolver
     ! check if element_info is allocated, if not, set it and return
     !---------------------------------------------------------------------------
     if(.not.allocated(this%element_info))then
+       call this%set_element_info()
+       return
+    elseif(size(this%element_info).eq.0)then
        call this%set_element_info()
        return
     end if
@@ -1027,28 +1106,10 @@ module evolver
                success &
           )
           if(success) cycle pair_loop2
-          write(0,*) 'WARNING: No bond data for element pair ', &
-                     this%element_info(i)%name, ' and ', &
-                     this%element_info(j)%name
-          write(0,*) 'WARNING: Setting bond to average of covalent radii'
-          idx1 = findloc([ element_database(:)%name ], &
-                           this%element_info(i)%name, dim=1)
-          idx2 = findloc([ element_database(:)%name ], &
-                           this%element_info(j)%name, dim=1)
-          radius = ( element_database(idx1)%radius + &
-                element_database(idx2)%radius ) / 2._real12
-          if(.not.allocated(element_bond_database)) &
-               allocate(element_bond_database(0))
-          element_bond_database = [ element_bond_database, &
-               element_bond_type(elements=[ &
-                    this%element_info(i)%name, &
-                    this%element_info(j)%name ], radius=radius) ]
-          call sort_str( &
-               element_bond_database(size(element_bond_database))%element )
-          if(idx1.lt.1.or.idx2.lt.1)then
-             write(0,*) "ERROR", idx1, idx2
-             stop 1
-          end if
+          call set_bond_radius_to_default( [ &
+               this%element_info(i)%name, &
+               this%element_info(j)%name ] &
+          )
           call this%bond_info(num_pairs)%set( &
                this%element_info(i)%name, &
                this%element_info(j)%name, &
@@ -1058,6 +1119,69 @@ module evolver
     end do pair_loop1
 
   end subroutine set_bond_info
+!###############################################################################
+
+
+!###############################################################################
+  subroutine set_bond_radius_to_default(elements)
+    !! Set the bond radius to the default value.
+    !!
+    !! The default value is the average of the covalent radii of the elements.
+    implicit none
+
+    ! Arguments
+    character(len=3), dimension(2), intent(in) :: elements
+    !! Element symbols.
+
+    ! Local variables
+    integer :: idx1, idx2
+    !! Index of the elements in the element database.
+    real(real12) :: radius
+    !! Average of covalent radii.
+    character(256) :: stop_msg
+    !! Error message.
+
+
+    write(0,*) 'WARNING: No bond data for element pair ', &
+               elements(1), ' and ', &
+               elements(2)
+    write(0,*) 'WARNING: Setting bond to average of covalent radii'
+    if(.not.allocated(element_database))then
+       call stop_program( "Element database not initialised" )
+       return
+    end if
+    idx1 = findloc([ element_database(:)%name ], &
+         elements(1), dim=1)
+    idx2 = findloc([ element_database(:)%name ], &
+         elements(2), dim=1)
+    if(idx1.lt.1.or.idx2.lt.1)then
+       write(stop_msg,*) "Element not found in database"
+       if(idx1.lt.1) write(stop_msg,*) &
+            trim(stop_msg) // achar(13) // achar(10) // &
+            "Element: ", elements(1)
+       if(idx2.lt.1) write(stop_msg,*) &
+            trim(stop_msg) // achar(13) // achar(10) // &
+            "Element: ", elements(2)
+       write(stop_msg,*) trim(stop_msg) // achar(13) // achar(10) // &
+            "Indices: ", idx1, idx2
+       call stop_program( stop_msg )
+       return
+    end if
+    radius = ( element_database(idx1)%radius + &
+         element_database(idx2)%radius ) / 2._real12
+    if(.not.allocated(element_bond_database)) &
+         allocate(element_bond_database(0))
+    element_bond_database = [ element_bond_database, &
+         element_bond_type(elements=[ &
+              elements(1), &
+              elements(2) &
+         ], radius=radius) &
+    ]
+    call sort_str( &
+         element_bond_database(size(element_bond_database))%element &
+    )
+
+  end subroutine set_bond_radius_to_default
 !###############################################################################
 
 
@@ -1084,7 +1208,10 @@ module evolver
    !----------------------------------------------------------------------------
    ! check if bond_info is allocated, if not, set it and return
    !----------------------------------------------------------------------------
-   if(.not.allocated(this%bond_info).or.size(this%bond_info).eq.0)then
+   if(.not.allocated(this%bond_info))then
+      call this%set_bond_info()
+      return
+   elseif(size(this%bond_info).eq.0)then
       call this%set_bond_info()
       return
    end if
@@ -1332,8 +1459,8 @@ module evolver
           idx = findloc( [ this%element_info(:)%name ], &
                            this%system(i)%element_symbols(is), dim=1 )
           if(idx.lt.1)then
-             write(0,*) "ERROR: Species not found in element_info"
-             stop 1
+             call stop_program( "Species not found in element_info" )
+             return
           end if
           energy = energy - this%system(i)%stoichiometry(is) * &
                             this%element_info(idx)%energy
@@ -1419,13 +1546,9 @@ module evolver
     !! Parent of the procedure. Instance of distribution functions container.
 
     ! Local variables
-    integer :: i
-    !! Loop index.
     integer :: num_pairs
     !! Number of pairs.
-    real(real12) :: eta, weight, height
-    !! Parameters for the g-vectors.
-    !real(real12), dimension(42) :: bonds_cubic
+
 
     num_pairs = nint( gamma(real(size(this%element_info) + 2, real12)) / &
          ( gamma(real(size(this%element_info), real12)) * gamma( 3._real12 ) ) )
@@ -1435,31 +1558,52 @@ module evolver
          source = 0._real12 )
     allocate(this%total%df_4body(this%nbins(3),size(this%element_info)), &
          source = 0._real12 )
-   !  allocate(this%total%df_3body(this%nbins(2),size(this%element_info)), &
-   !       source = 1._real12/this%nbins(2))
-   !  allocate(this%total%df_4body(this%nbins(3),size(this%element_info)), &
-   !       source = 1._real12/this%nbins(3))
-
-    !  this%total%df_2body(:,:) = 1._real12 / this%nbins(1)
-    !! make it extra broad
-    !bonds_cubic(:6) = 1._real12
-    !bonds_cubic(7:14) = sqrt(2._real12)
-    !bonds_cubic(15:22) = sqrt(3._real12)
-    !bonds_cubic(23:30) = 2._real12
-    !bonds_cubic(31:42) = sqrt(5._real12)
-    !weight = exp( this%best_energy )
-    !height = 1._real12 / this%nbins(1)
-    !eta = 1._real12 / ( 2._real12 * ( this%sigma(1) )**2._real12 )
-    !do i = 1, num_pairs
-    !   this%total%df_2body(:,i) = weight * height * get_gvector( &
-    !                      bonds_cubic * this%bond_info(i)%radius_covalent , &
-    !                      this%nbins(1), eta, this%width(1), &
-    !                      this%cutoff_min(1), &
-    !                      ( this%cutoff_max(1) - this%cutoff_min(1) ) &
-    !   )
-    !end do
+    allocate(this%in_dataset_2body(num_pairs), source = .false. )
+    allocate(this%in_dataset_3body(size(this%element_info)), source = .false. )
+    allocate(this%in_dataset_4body(size(this%element_info)), source = .false. )
 
   end subroutine initialise_gvectors
+!###############################################################################
+
+
+!###############################################################################
+  subroutine set_gvector_to_default(this, body, index)
+    !! Initialise the g-vectors for index of body distribution function.
+    implicit none
+
+    ! Arguments
+    class(gvector_container_type), intent(inout) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
+    integer, intent(in) :: body
+    !! Body distribution function to initialise.
+    integer, intent(in) :: index
+    !! Index of the pair in the bond_info array.
+
+    ! Local variables
+    real(real12) :: eta, weight, height
+    !! Parameters for the g-vectors.
+    real(real12), dimension(1) :: bonds
+
+
+    if( body .eq. 2 )then
+       weight = exp( -4._real12 )
+       height = 1._real12 / this%nbins(1)
+       eta = 1._real12 / ( 2._real12 * ( this%sigma(1) )**2._real12 )
+       bonds = [ this%bond_info(index)%radius_covalent ]
+       this%total%df_2body(:,index) = weight * height * get_gvector( &
+                          bonds , &
+                          this%nbins(1), eta, this%width(1), &
+                          this%cutoff_min(1), &
+                          ( this%cutoff_max(1) - this%cutoff_min(1) ), &
+                          scale = [ 1._real12 ] &
+       )
+    elseif( body .eq. 3 )then
+       this%total%df_3body(:,index) = 1._real12/this%nbins(2)
+    elseif( body .eq. 4 )then
+       this%total%df_4body(:,index) = 1._real12/this%nbins(3)
+    end if
+
+  end subroutine set_gvector_to_default
 !###############################################################################
 
 
@@ -1487,6 +1631,9 @@ module evolver
     !! Height of the g-vectors.
     integer, dimension(:,:), allocatable :: idx_list
     !! Index list for the element pairs in a system.
+    real(real12), dimension(:,:), allocatable :: tmp_df
+    !! Temporary array for the g-vectors.
+    logical, dimension(:), allocatable :: tmp_in_dataset
 
 
     !---------------------------------------------------------------------------
@@ -1514,21 +1661,69 @@ module evolver
     if(.not.allocated(this%total%df_2body))then
        call this%initialise_gvectors()
     else
-      this%total%df_2body = this%total%df_2body * exp( this%best_energy ) / &
-                              exp( best_energy_old )
-      this%total%df_3body = this%total%df_3body * exp( this%best_energy ) / &
-                              exp( best_energy_old )
-      this%total%df_4body = this%total%df_4body * exp( this%best_energy ) / &
-                              exp( best_energy_old )
+      this%total%df_2body = this%total%df_2body * &
+                              exp( this%best_energy / this%kbt ) / &
+                              exp( best_energy_old / this%kbt )
+      this%total%df_3body = this%total%df_3body * &
+                              exp( this%best_energy / this%kbt ) / &
+                              exp( best_energy_old / this%kbt )
+      this%total%df_4body = this%total%df_4body * &
+                              exp( this%best_energy / this%kbt ) / &
+                              exp( best_energy_old / this%kbt )
+      if(size(this%total%df_2body,2).ne.size(this%bond_info))then
+         allocate(tmp_df(this%nbins(1),size(this%bond_info)), &
+              source = 0._real12 )
+         tmp_df(:,1:size(this%total%df_2body,2)) = this%total%df_2body
+         deallocate(this%total%df_2body)
+         call move_alloc( tmp_df, this%total%df_2body )
+         allocate(tmp_in_dataset(size(this%bond_info)), source = .false. )
+         tmp_in_dataset(1:size(this%in_dataset_2body)) = this%in_dataset_2body
+         deallocate(this%in_dataset_2body)
+         call move_alloc( tmp_in_dataset, this%in_dataset_2body )
+      end if
+      if(size(this%total%df_3body,2).ne.size(this%element_info))then
+         allocate(tmp_df(this%nbins(2),size(this%element_info)), &
+              source = 0._real12 )
+         tmp_df(:,1:size(this%total%df_3body,2)) = this%total%df_3body
+         deallocate(this%total%df_3body)
+         call move_alloc( tmp_df, this%total%df_3body )
+         allocate(tmp_in_dataset(size(this%element_info)), source = .false. )
+         tmp_in_dataset(1:size(this%in_dataset_3body)) = this%in_dataset_3body
+         deallocate(this%in_dataset_3body)
+         call move_alloc( tmp_in_dataset, this%in_dataset_3body )
+      end if
+      if(size(this%total%df_4body,2).ne.size(this%element_info))then
+         allocate(tmp_df(this%nbins(3),size(this%element_info)), &
+              source = 0._real12 )
+         tmp_df(:,1:size(this%total%df_4body,2)) = this%total%df_4body
+         deallocate(this%total%df_4body)
+         call move_alloc( tmp_df, this%total%df_4body )
+         allocate(tmp_in_dataset(size(this%element_info)), source = .false. )
+         tmp_in_dataset(1:size(this%in_dataset_4body)) = this%in_dataset_4body
+         deallocate(this%in_dataset_4body)
+         call move_alloc( tmp_in_dataset, this%in_dataset_4body )
+      end if
       do j = 1, size(this%total%df_2body,2)
-         this%total%df_2body(:,j) = &
-              this%total%df_2body(:,j) * this%norm_2body(j)
+         if(.not.this%in_dataset_2body(j))then
+            this%total%df_2body(:,j) = 0._real12
+         else
+            this%total%df_2body(:,j) = &
+                 this%total%df_2body(:,j) * this%norm_2body(j)
+         end if
       end do
       do is = 1, size(this%element_info)
-         this%total%df_3body(:,is) = &
-              this%total%df_3body(:,is) * this%norm_3body(is)
-         this%total%df_4body(:,is) = &
-              this%total%df_4body(:,is) * this%norm_4body(is)
+         if(.not.this%in_dataset_3body(is))then
+            this%total%df_3body(:,is) = 0._real12
+         else
+            this%total%df_3body(:,is) = &
+                 this%total%df_3body(:,is) * this%norm_3body(is)
+         end if
+         if(.not.this%in_dataset_4body(is))then
+            this%total%df_4body(:,is) = 0._real12
+         else
+            this%total%df_4body(:,is) = &
+                 this%total%df_4body(:,is) * this%norm_4body(is)
+         end if
       end do
       deallocate(this%norm_2body)
       deallocate(this%norm_3body)
@@ -1565,14 +1760,14 @@ module evolver
           idx1 = findloc( [ this%element_info(:)%name ], &
                           this%system(i)%element_symbols(is), dim=1)
           if(idx1.lt.1)then
-             write(0,*) "ERROR: Species not found in species list"
-             stop 1
+             call stop_program( "Species not found in species list" )
+             return
           end if
           energy = energy - this%system(i)%stoichiometry(is) * &
                this%element_info(idx1)%energy
        end do
        energy = energy / this%system(i)%num_atoms
-       weight = exp( this%best_energy - energy )
+       weight = exp( ( this%best_energy - energy ) / this%kbt )
        j = 0
 
        !------------------------------------------------------------------------
@@ -1583,13 +1778,29 @@ module evolver
           idx1 = findloc( [ this%element_info(:)%name ], &
                           this%system(i)%element_symbols(is), dim=1)
 
-          height = 1._real12 / ( 1._real12 + this%total%df_3body(:,idx1) )
+          ! height = 1._real12 / ( 1._real12 + this%total%df_3body(:,idx1) )
           this%total%df_3body(:,idx1) = this%total%df_3body(:,idx1) + &
-               height * weight * this%system(i)%df_3body(:,is)
+               ! weight * &
+               set_difference( weight * this%system(i)%df_3body(:,is), &
+                               this%total%df_3body(:,idx1), & !/ max( &
+                              !       1._real12, &
+                              !       maxval(this%total%df_3body(:,idx1)) &
+                              !  ), &
+                               set_min_zero = .true. &
+               )
+               ! height * this%system(i)%df_4body(:,is)
           
-          height = 1._real12 / ( 1._real12 + this%total%df_4body(:,idx1) )
+          ! height = 1._real12 / ( 1._real12 + this%total%df_4body(:,idx1) )
           this%total%df_4body(:,idx1) = this%total%df_4body(:,idx1) + &
-               height * weight * this%system(i)%df_4body(:,is)
+               ! weight * &
+               set_difference( weight * this%system(i)%df_4body(:,is), &
+                               this%total%df_4body(:,idx1), &! !/ max( &
+                              !       1._real12, &
+                              !       maxval(this%total%df_4body(:,idx1)) &
+                              !  ), &
+                               set_min_zero = .true. &
+               )
+               ! height * this%system(i)%df_4body(:,is)
           
           do js = is, size(this%system(i)%element_symbols), 1
              idx2 = findloc( [ this%element_info(:)%name ], &
@@ -1597,19 +1808,55 @@ module evolver
              j = nint( ( size(this%element_info) - &
                          min( idx1, idx2 ) / 2._real12 ) * &
                          ( min( idx1, idx2 ) - 1._real12 ) + max( idx1, idx2 ) )
-             height = 1._real12 / &
-                  ( 1._real12 + this%total%df_2body(:,j) ) ** 2._real12
+             ! height = 1._real12 / &
+             !      ( 1._real12 + this%total%df_2body(:,j) ) ** 2._real12
              this%total%df_2body(:,j) = this%total%df_2body(:,j) + &
-                  height * weight * this%system(i)%df_2body(:,idx_list(is,js))
- 
+                  ! weight * &
+                  set_difference( weight * this%system(i)%df_2body(:,idx_list(is,js)), &
+                                  this%total%df_2body(:,j), & !/ max( &
+                                 !       1._real12, &
+                                 !       maxval(this%total%df_2body(:,j)) &
+                                 !  ), &
+                                  set_min_zero = .true. &
+                  )
+                  ! height * this%system(i)%df_2body(:,idx_list(is,js))
+
           end do
        end do
        deallocate(idx_list)
    end do
    
+   !----------------------------------------------------------------------------
+   ! if not in the dataset, set g-vectors to default
+   !----------------------------------------------------------------------------
+   do j = 1, size(this%total%df_2body,2)
+      if(all(abs(this%total%df_2body(:,j)).lt.1.E-6))then
+         call this%set_gvector_to_default(2, j)
+      else
+         this%in_dataset_2body(j) = .true.
+      end if
+   end do
+   do is = 1, size(this%element_info)
+      if(all(abs(this%total%df_3body(:,is)).lt.1.E-6))then
+         call this%set_gvector_to_default(3, is)
+      else
+         this%in_dataset_3body(is) = .true.
+      end if
+      if(all(abs(this%total%df_4body(:,is)).lt.1.E-6))then
+         call this%set_gvector_to_default(4, is)
+      else
+         this%in_dataset_4body(is) = .true.
+      end if
+   end do
+
    allocate(this%norm_2body(size(this%total%df_2body,2)))
    do j = 1, size(this%total%df_2body,2)
       this%norm_2body(j) = maxval(this%total%df_2body(:,j))
+      ! this%norm_2body(j) = sum(this%total%df_2body(:,j))/size(this%total%df_2body,1)
+      if(abs(this%norm_2body(j)).lt.1.E-6)then
+         call stop_program( "Zero norm for 2-body g-vector" )
+         return
+      end if
       this%total%df_2body(:,j) = &
            this%total%df_2body(:,j) / this%norm_2body(j)
    end do
@@ -1617,7 +1864,17 @@ module evolver
    allocate(this%norm_4body(size(this%element_info)))
    do is = 1, size(this%element_info)
       this%norm_3body(is) = maxval(this%total%df_3body(:,is))
+      ! this%norm_3body(is) = sum(this%total%df_3body(:,is))/size(this%total%df_3body,1)
+      if(abs(this%norm_3body(is)).lt.1.E-6)then
+         call stop_program( "Zero norm for 3-body g-vector" )
+         return
+      end if
       this%norm_4body(is) = maxval(this%total%df_4body(:,is))
+      ! this%norm_4body(is) = sum(this%total%df_4body(:,is))/size(this%total%df_4body,1)
+      if(abs(this%norm_4body(is)).lt.1.E-6)then
+         call stop_program( "Zero norm for 4-body g-vector" )
+         return
+      end if
       this%total%df_3body(:,is) = &
            this%total%df_3body(:,is) / this%norm_3body(is)
       this%total%df_4body(:,is) = &
@@ -1627,13 +1884,16 @@ module evolver
    this%num_evaluated_allocated = size(this%system)
    this%num_evaluated = this%num_evaluated + num_evaluated
 
+   this%viability_3body_default = sum(this%total%df_3body)/size(this%total%df_3body)
+   this%viability_4body_default = sum(this%total%df_4body)/size(this%total%df_4body)
+
   end subroutine evolve
 !###############################################################################
 
 
 !###############################################################################
   subroutine calculate(this, basis, &
-       nbins, width, sigma, cutoff_min, cutoff_max)
+       nbins, width, sigma, cutoff_min, cutoff_max, radius_distance_tol)
     !! Calculate the distribution functions for the container.
     !!
     !! This procedure calculates the 2-, 3-, and 4-body distribution function 
@@ -1651,82 +1911,80 @@ module evolver
     !! Optional. Width and sigma for the distribution functions.
     real(real12), dimension(3), intent(in), optional :: cutoff_min, cutoff_max
     !! Optional. Cutoff minimum and maximum for the distribution functions.
+    real(real12), dimension(4), intent(in), optional :: radius_distance_tol
+    !! Tolerance for the distance between atoms for 3- and 4-body.
 
     ! Local variables
     integer, dimension(3) :: nbins_
     !! Number of bins for the distribution functions.
-    real(real12), dimension(3) :: &
-         sigma_ = [0.1_real12, 0.05_real12, 0.05_real12]
+    real(real12), dimension(3) :: sigma_
     !! Sigma for the distribution functions.
-    real(real12), dimension(3) :: &
-         width_ = [0.25_real12, pi/24._real12, pi/24._real12]
+    real(real12), dimension(3) :: width_
     !! Width of the bins for the distribution functions.
-    real(real12), dimension(3) :: &
-         cutoff_min_ = [0._real12, 0._real12, 0._real12]
+    real(real12), dimension(3) :: cutoff_min_
     !! Cutoff minimum for the distribution functions.
-    real(real12), dimension(3) :: &
-         cutoff_max_ = [6._real12, pi, pi]
+    real(real12), dimension(3) :: cutoff_max_
     !! Cutoff maximum for the distribution functions.
+    type(element_bond_type), dimension(:), allocatable :: bond_info
+    !! Bond information for radii.
+    real(real12), dimension(4) :: radius_distance_tol_
+    !! Tolerance for the distance between atoms for 3- and 4-body.
 
 
     !! @note
     !! Defaults for distribution function parametsr are randomly chosen for now.
     !! @endnote
 
-    integer :: bin, max_num_steps
+    integer :: bin
     !! Bin index and maximum number of steps.
-    integer :: i, j, k, b, itmp1
+    integer :: i, j, b, itmp1, idx
     !! Loop index.
-    integer :: is, js, ia, ja
+    integer :: is, js, ia, ja, ka, la
     !! Loop index.
-    integer :: num_pairs, num_angles
+    integer :: num_pairs!, num_angles
     !! Number of pairs and angles.
-    integer :: amax, bmax, cmax
-    !! Maximum number of lattice vectors to consider.
-    real(real12) :: rtmp1, rtmp2
+    real(real12) :: bondlength
     !! Temporary real variables.
-    real(real12) :: fc, weight, scale
-    !! Cutoff, weight and scale for the distribution functions.
+    logical :: success
+    !! Boolean for success.
+    type(extended_basis_type) :: basis_extd
+    !! Extended basis of the system.
+    type(extended_basis_type) :: neighbour_basis
+    !! Basis for storing neighbour data.
     real(real12), dimension(3) :: eta, limit
     !! Parameters for the distribution functions.
     real(real12), dimension(3) :: vtmp1, vtmp2, vtmp3, diff
     !! Temporary real arrays.
-    real(real12), allocatable, dimension(:) :: gvector_tmp, angle, distance
+    real(real12), allocatable, dimension(:) :: angle_list, bondlength_list, &
+         distance
     !! Temporary real arrays.
-    integer, dimension(:), allocatable :: idx_list!, count_list
-    !! Index list for the element pairs in a system.
-
-    integer, dimension(3,2) :: loop_limits
-    !! Loop limits for the 3-body distribution function.
-    integer, allocatable, dimension(:,:) :: idx
-    !! Index list for the element pairs in a system.
-
-    type :: bond_type
-       !! Derived type for a bond.
-       integer, dimension(2) :: species, atom
-       !! Species and atom indices.
-       logical :: skip = .false.
-       !! Boolean whether to skip the bond.
-       real(real12), dimension(3) :: vector
-       !! Vector of the bond.
-    end type bond_type
-    type(bond_type), dimension(:), allocatable :: bond_list
-    !! List of bonds in the system.
-
-    !type :: plane_type
-    !   real(real12), dimension(3) :: vector
-    !   integer :: count
-    !end type plane_type
-    !type(plane_type), dimension(:), allocatable :: plane_list
+    integer, allocatable, dimension(:,:) :: pair_index
+    !! Index of element pairs.
 
 
     !---------------------------------------------------------------------------
     ! initialise optional variables
     !---------------------------------------------------------------------------
-    if(present(cutoff_min)) cutoff_min_ = cutoff_min
-    if(present(cutoff_max)) cutoff_max_ = cutoff_max
-    if(present(width)) width_ = width
-    if(present(sigma)) sigma_ = sigma
+    if(present(cutoff_min))then
+       cutoff_min_ = cutoff_min
+    else
+       cutoff_min_ = [0.5_real12, 0._real12, 0._real12]
+    end if
+    if(present(cutoff_max))then
+       cutoff_max_ = cutoff_max
+    else
+       cutoff_max_ = [6._real12, pi, pi]
+    end if
+    if(present(width))then
+       width_ = width
+    else
+       width_ = [0.25_real12, pi/64._real12, pi/64._real12]
+    end if
+    if(present(sigma))then
+       sigma_ = sigma
+    else
+       sigma_ = [0.1_real12, 0.1_real12, 0.1_real12]
+    end if
     if(present(nbins))then
        nbins_ = nbins
        width_ = ( cutoff_max_ - cutoff_min_ )/real( nbins_ - 1, real12 )
@@ -1734,24 +1992,43 @@ module evolver
        nbins_ = 1 + nint( (cutoff_max_ - cutoff_min_)/width_ )
     end if
     limit = cutoff_max_ - cutoff_min_
+    if(present(radius_distance_tol))then
+       radius_distance_tol_ = radius_distance_tol
+    else
+       radius_distance_tol_ = [1.5_real12, 2.5_real12, 3._real12, 6._real12]
+    end if
+       
 
 
     !---------------------------------------------------------------------------
     ! get the number of pairs of species
     ! (this uses a combination calculator with repetition)
     !---------------------------------------------------------------------------
-    i = 0
     num_pairs = gamma(real(basis%nspec + 2, real12)) / &
                 ( gamma(real(basis%nspec, real12)) * gamma( 3._real12 ) )
-    allocate(idx(2,num_pairs))
     allocate(this%element_symbols(basis%nspec))
     do is = 1, basis%nspec
        this%element_symbols(is) = strip_null(basis%spec(is)%name)
     end do
+    i = 0
+    allocate(bond_info(num_pairs))
+    allocate(pair_index(basis%nspec,basis%nspec))
     do is = 1, basis%nspec
        do js = is, basis%nspec, 1
           i = i + 1
-          idx(:,i) = [is, js]
+          pair_index(js,is) = i
+          pair_index(is,js) = i
+          call bond_info(i)%set( this%element_symbols(is), &
+                                 this%element_symbols(js), success &
+          )
+          if(success) cycle
+          call set_bond_radius_to_default( [ &
+               this%element_symbols(is), &
+               this%element_symbols(js) ] &
+          )
+          call bond_info(i)%set( this%element_symbols(is), &
+                                 this%element_symbols(js), success &
+          )
        end do
     end do
 
@@ -1765,399 +2042,292 @@ module evolver
 
 
     !---------------------------------------------------------------------------
-    ! get the maximum number of lattice vectors to consider
-    ! NOTE: this is not perfect
-    !       won't work for extremely acute/obtuse angle cells
-    !       (due to diagonal path being shorter than individual lattice vectors)
-    !---------------------------------------------------------------------------
-    amax = ceiling(cutoff_max_(1)/modu(basis%lat(1,:)))
-    bmax = ceiling(cutoff_max_(1)/modu(basis%lat(2,:)))
-    cmax = ceiling(cutoff_max_(1)/modu(basis%lat(3,:)))
-
-
-    !---------------------------------------------------------------------------
-    ! build the bond list
-    !---------------------------------------------------------------------------
-    allocate(bond_list(0)) !if doesn't work, allocate a dummy bond first
-    spec_loop1: do is=1,basis%nspec
-       atom_loop1: do ia=1,basis%spec(is)%num
-          spec_loop2: do js=is,basis%nspec
-             atom_loop2: do ja=1,basis%spec(js)%num
-                if(is.eq.js.and.ja.lt.ia) cycle atom_loop2
-                diff = basis%spec(is)%atom(ia,:3) -  basis%spec(js)%atom(ja,:3)
-                diff = diff - ceiling(diff - 0.5_real12)
-                do i=-amax,amax+1,1
-                   vtmp1(1) = diff(1) + real(i, real12)
-                   do j=-bmax,bmax+1,1
-                      vtmp1(2) = diff(2) + real(j, real12)
-                      do k=-cmax,cmax+1,1
-                         vtmp1(3) = diff(3) + real(k, real12)
-                         rtmp1 = modu(matmul(vtmp1,basis%lat))
-                         if( rtmp1 .gt. cutoff_min_(1) - &
-                                        width_(1)/2._real12 .and. &
-                             rtmp1 .lt. cutoff_max_(1) + &
-                                        width_(1)/2._real12 )then
-                            bond_list = [ bond_list, bond_type( &
-                                 species=[is,js], &
-                                 atom=[ia,ja], skip=.false., &
-                                 vector=matmul(vtmp1,basis%lat)) ]
-                         end if
-                      end do
-                   end do
-                end do
-             end do atom_loop2
-          end do spec_loop2
-       end do atom_loop1
-    end do spec_loop1
-
-
-    !---------------------------------------------------------------------------
-    ! calculate the gaussian width
+    ! calculate the gaussian width and allocate the distribution functions
     !---------------------------------------------------------------------------
     eta = 1._real12 / ( 2._real12 * sigma_**2._real12 )
-    max_num_steps = ceiling( sqrt(16._real12/eta(1)) / width_(1) )
+    allocate(this%df_2body(nbins_(1), num_pairs), source = 0._real12)
+    allocate(this%df_3body(nbins_(2), basis%nspec), source = 0._real12)
+    allocate(this%df_4body(nbins_(3), basis%nspec), source = 0._real12)
 
 
     !---------------------------------------------------------------------------
-    ! build the 2-body gvectors (radial distribution functions)
+    ! create the extended basis and neighbour basis
     !---------------------------------------------------------------------------
-    allocate(this%df_2body(nbins_(1),num_pairs), source = 0._real12)
-    allocate(gvector_tmp(nbins_(1)),             source = 0._real12)
-    do i = 1, size(bond_list)
-       if(bond_list(i)%skip) cycle
-       if(abs(modu(bond_list(i)%vector)).lt.1.E-3) cycle
-       is = bond_list(i)%species(1)
-       js = bond_list(i)%species(2)
-       rtmp1 = modu(bond_list(i)%vector)
-       !------------------------------------------------------------------------
-       ! get number of equivalent bonds
-       !------------------------------------------------------------------------
-       scale = 1._real12
-       do j = i+1, size(bond_list)
-          !! don't need to look at reverse of species, as the ordering will ...
-          !! always be enforced by the loop above, i.e. is <= js
-          if( is .ne. bond_list(j)%species(1) .or. &
-              js .ne. bond_list(j)%species(2) ) cycle
-          if(abs(modu(bond_list(j)%vector)-rtmp1).lt.1.E-3)then !!MAKE THIS LINKED TO WIDTH?
-             bond_list(j)%skip = .true.
-             scale = scale + 1._real12
-          end if          
-       end do
-       !------------------------------------------------------------------------
-       bin = nint( ( rtmp1 - cutoff_min_(1) ) / width_(1) ) + 1
-       if(bin.gt.nbins_(1).or.bin.lt.1) cycle
+    call basis_extd%copy(basis)
+    call basis_extd%create_images( max_bondlength = cutoff_max_(1) )
+    allocate(bondlength_list(basis_extd%natom+basis_extd%num_images))
 
-       fc = 0.5_real12 * cos( pi * ( rtmp1 - cutoff_min_(1) ) / limit(1) ) + &
-            0.5_real12
+    allocate(neighbour_basis%spec(1))
+    allocate(neighbour_basis%image_spec(1))
+    allocate(neighbour_basis%spec(1)%atom( &
+         sum(basis_extd%spec(:)%num)+sum(basis_extd%image_spec(:)%num), 3 &
+    ) )
+    allocate(neighbour_basis%image_spec(1)%atom( &
+         sum(basis_extd%spec(:)%num)+sum(basis_extd%image_spec(:)%num), 3 &
+    ) )
+    neighbour_basis%nspec = basis%nspec
+    neighbour_basis%natom = 0
+    neighbour_basis%num_images = 0
+    neighbour_basis%lat = basis%lat
 
-       !------------------------------------------------------------------------
-       ! calculate the gaussian for this bond
-       !------------------------------------------------------------------------
-       gvector_tmp = 0._real12
-       loop_limits(:,1) = [ bin, min(nbins_(1), (bin + max_num_steps) ), 1 ]
-       loop_limits(:,2) = [ bin - 1, max(1, bin - max_num_steps), -1 ]
-       
-       ! do forward and backward loops to add gaussian for larger distances
-       do concurrent ( j = 1:2 )
-          do concurrent ( b = &
-                            loop_limits(1,j):loop_limits(2,j):loop_limits(3,j) )
-             gvector_tmp(b) = gvector_tmp(b) + &
-                  exp( -eta(1) * ( rtmp1 - &
-                                   ( width_(1) * real(b-1, real12) + &
-                                     cutoff_min_(1) ) ) ** 2._real12 )
+
+    !---------------------------------------------------------------------------
+    ! calculate the distribution functions
+    !---------------------------------------------------------------------------
+    do is = 1, basis%nspec
+       do ia = 1, basis%spec(is)%num
+          allocate(distance(basis_extd%natom+basis_extd%num_images)) !!! ALLOCATE THIS ONCE AND JUST WRITE OVER ?
+          neighbour_basis%spec(1)%num = 0
+          neighbour_basis%image_spec(1)%num = 0
+          do js = 1, basis%nspec
+             itmp1 = 0
+
+             !------------------------------------------------------------------
+             ! loop over all atoms inside the unit cell
+             !------------------------------------------------------------------
+             atom_loop: do ja = 1, basis%spec(js)%num
+
+                associate( vector =>  matmul( [ &
+                          basis_extd%spec(js)%atom(ja,1:3) - &
+                          basis_extd%spec(is)%atom(ia,1:3) &
+                     ], basis%lat ) &
+                )
+                   bondlength = modu( vector )
+                   
+                   if( bondlength .lt. cutoff_min_(1) .or. &
+                       bondlength .gt. cutoff_max_(1) ) cycle atom_loop
+                  
+                   ! add 2-body bond to store if within tolerances for 3-body
+                   ! distance
+                   if( &
+                        bondlength .ge. &
+                             bond_info(pair_index(is, js))%radius_covalent * &
+                             radius_distance_tol(1) .and. &
+                        bondlength .le. &
+                             bond_info(pair_index(is, js))%radius_covalent * &
+                             radius_distance_tol(2) &
+                   ) then
+                      neighbour_basis%spec(1)%num = &
+                           neighbour_basis%spec(1)%num + 1
+                      neighbour_basis%spec(1)%atom( &
+                           neighbour_basis%spec(1)%num,1:3) = vector
+                   end if
+
+                   ! add 2-body bond to store if within tolerances for 4-body
+                   ! distance
+                   if( bondlength .ge. ( & 
+                        bond_info(pair_index(is, js))%radius_covalent * &
+                        radius_distance_tol(3) ) .and. &
+                       bondlength .le. ( &
+                        bond_info(pair_index(is, js))%radius_covalent * &
+                        radius_distance_tol(4) ) &
+                   ) then
+                      neighbour_basis%image_spec(1)%num = &
+                           neighbour_basis%image_spec(1)%num + 1
+                      neighbour_basis%image_spec(1)%atom( &
+                           neighbour_basis%image_spec(1)%num,1:3) = vector
+                   end if
+
+                   !if(js.lt.js.or.(is.eq.js.and.ja.le.ia)) cycle
+                   itmp1 = itmp1 + 1
+                   bondlength_list(itmp1) = bondlength
+                   distance(itmp1) = 1._real12
+                
+                end associate
+             end do atom_loop
+
+
+             !------------------------------------------------------------------
+             ! loop over all image atoms outside of the unit cell
+             !------------------------------------------------------------------
+             image_loop: do ja = 1, basis_extd%image_spec(js)%num
+                associate( vector =>  matmul( [ &
+                          basis_extd%image_spec(js)%atom(ja,1:3) - &
+                          basis_extd%spec(is)%atom(ia,1:3) &
+                     ], basis_extd%lat ) &
+                )
+
+                   bondlength = modu( vector )
+                   
+                   if( bondlength .lt. cutoff_min_(1) .or. &
+                       bondlength .gt. cutoff_max_(1) ) cycle image_loop
+                  
+                   ! add 2-body bond to store if within tolerances for 3-body
+                   ! distance
+                   if( &
+                        bondlength .ge. &
+                             bond_info(pair_index(is, js))%radius_covalent * &
+                             radius_distance_tol(1) .and. &
+                        bondlength .le. &
+                             bond_info(pair_index(is, js))%radius_covalent * &
+                             radius_distance_tol(2) &
+                   ) then
+                      neighbour_basis%spec(1)%num = &
+                           neighbour_basis%spec(1)%num + 1
+                      neighbour_basis%spec(1)%atom( &
+                           neighbour_basis%spec(1)%num,1:3 &
+                      ) = vector
+                   end if
+
+                   ! add 2-body bond to store if within tolerances for 4-body
+                   ! distance
+                   if( bondlength .ge. ( & 
+                        bond_info(pair_index(is, js))%radius_covalent * &
+                        radius_distance_tol(3) ) .and. &
+                       bondlength .le. ( &
+                        bond_info(pair_index(is, js))%radius_covalent * &
+                        radius_distance_tol(4) ) &
+                   ) then
+                      neighbour_basis%image_spec(1)%num = &
+                           neighbour_basis%image_spec(1)%num + 1
+                      neighbour_basis%image_spec(1)%atom( &
+                           neighbour_basis%image_spec(1)%num,1:3 &
+                      ) = vector
+                   end if
+
+                   itmp1 = itmp1 + 1
+                   bondlength_list(itmp1) = bondlength
+                   distance(itmp1) = 1._real12
+                
+                end associate
+             end do image_loop
+
+             !------------------------------------------------------------------
+             ! calculate the 2-body distribution function contributions from
+             ! atom (is,ia) for species pair (is,js)
+             !------------------------------------------------------------------
+             if(itmp1.gt.0)then
+                this%df_2body(:,pair_index(is, js)) = &
+                     this%df_2body(:,pair_index(is, js)) + &
+                     get_gvector( &
+                          bondlength_list(:itmp1), &
+                          nbins_(1), eta(1), width_(1), &
+                          cutoff_min_(1), &
+                          limit(1), scale = distance(:itmp1) &
+                     )
+             end if
+
           end do
+          deallocate(distance)
+
+
+          !---------------------------------------------------------------------
+          ! calculate the 3-body distribution function for atom (is,ia)
+          !---------------------------------------------------------------------
+          if(neighbour_basis%spec(1)%num.le.1) cycle
+          associate( &
+               num_angles => &
+               triangular_number( neighbour_basis%spec(1)%num - 1 ) &
+          )
+             allocate( angle_list(num_angles), distance(num_angles) )
+          end associate
+          do concurrent ( ja = 1:neighbour_basis%spec(1)%num:1 )
+             do concurrent ( ka = ja + 1:neighbour_basis%spec(1)%num:1 )
+                idx = nint( &
+                     (ja - 1) * (neighbour_basis%spec(1)%num - ja / 2.0) + &
+                     (ka - ja) &
+                )
+                angle_list(idx) = get_angle( &
+                     [ neighbour_basis%spec(1)%atom(ja,:3) ], &
+                     [ neighbour_basis%spec(1)%atom(ka,:3) ] &
+                )
+                distance(idx) = &
+                     ( &
+                          modu(neighbour_basis%spec(1)%atom(ja,:3)) ** 2 * &
+                          modu(neighbour_basis%spec(1)%atom(ka,:3)) ** 2 &
+                     )
+             end do
+          end do
+          this%df_3body(:,is) = this%df_3body(:,is) + &
+               get_gvector( angle_list, &
+                            nbins_(2), eta(2), width_(2), &
+                            cutoff_min_(2), limit(2), &
+                            scale = distance &
+               )
+          deallocate( angle_list, distance )
+
+
+          !---------------------------------------------------------------------
+          ! calculate the 4-body distribution function for atom (is,ia)
+          !---------------------------------------------------------------------
+          if(neighbour_basis%image_spec(1)%num.eq.0) cycle
+          associate( &
+               num_angles => &
+               triangular_number( neighbour_basis%spec(1)%num - 1 ) * &
+               neighbour_basis%image_spec(1)%num &
+          )
+             allocate( angle_list(num_angles), distance(num_angles) )
+          end associate
+          idx = 0
+          do concurrent ( &
+                 ja = 1:neighbour_basis%spec(1)%num:1, &
+                 la = 1:neighbour_basis%image_spec(1)%num:1 &
+          )
+             do concurrent ( ka = ja + 1:neighbour_basis%spec(1)%num:1 )
+                idx = nint( &
+                     (ja - 1) * (neighbour_basis%spec(1)%num - ja / 2.0) + &
+                     (ka - ja - 1) &
+                ) * neighbour_basis%image_spec(1)%num + la
+                angle_list(idx) = &
+                     get_improper_dihedral_angle( &
+                          [ neighbour_basis%spec(1)%atom(ja,:3) ], &
+                          [ neighbour_basis%spec(1)%atom(ka,:3) ], &
+                          [ neighbour_basis%image_spec(1)%atom(la,:3) ] &
+                     )
+                distance(idx) = &
+                    modu(neighbour_basis%spec(1)%atom(ja,:3)) ** 2 * &
+                    modu(neighbour_basis%spec(1)%atom(ka,:3)) ** 2 * &
+                    modu(neighbour_basis%image_spec(1)%atom(la,:3)) ** 2
+             end do
+          end do
+          this%df_4body(:,is) = this%df_4body(:,is) + &
+               get_gvector( angle_list, &
+                            nbins_(3), eta(3), width_(3), &
+                            cutoff_min_(3), limit(3), &
+                            scale = distance &
+               )
+          deallocate( angle_list, distance )
+
        end do
-       get_pair_index_loop: do j = 1, num_pairs
-          if( is .eq. idx(1,j) .and. js .eq. idx(2,j) )then
-             k = j
-             exit get_pair_index_loop
-          end if
-       end do get_pair_index_loop
-       itmp1 = count( [ ( ( bond_list(j)%species(1) .eq. is .and. &
-                            bond_list(j)%species(2) .eq. js ) .or. &
-                          ( bond_list(j)%species(2) .eq. is .and. &
-                            bond_list(j)%species(1) .eq. js ), &
-                              j = 1, size(bond_list), 1 ) ] )
-       this%df_2body(:,k) = this%df_2body(:,k) + &
-            gvector_tmp * scale * sqrt( eta(1) / pi ) / real(itmp1,real12) ! / width_(1)
     end do
+
+    !---------------------------------------------------------------------------
+    ! apply the cutoff function to the 2-body distribution function
+    !---------------------------------------------------------------------------
     do b = 1, nbins_(1)
        this%df_2body(b,:) = this%df_2body(b,:) / ( cutoff_min_(1) + &
             width_(1) * real(b-1, real12) ) ** 2
     end do
-    ! renormalise so that the area under the curve is 1
-    do k = 1, num_pairs
-       if(all(abs(this%df_2body(:,k)).lt.1.E-6))then
-          this%df_2body(:,k) = 1._real12 / nbins_(1)
-       end if
-       this%df_2body(:,k) = this%df_2body(:,k) / sum(this%df_2body(:,k))
-    end do
 
 
     !---------------------------------------------------------------------------
-    ! build the 3-body gvectors (angular distribution functions)
+    ! renormalise the distribution functions so that area under the curve is 1
     !---------------------------------------------------------------------------
-    deallocate(gvector_tmp)
-    allocate(this%df_3body(nbins_(2), basis%nspec), source = 0._real12)
-    allocate(gvector_tmp(nbins_(2)),                source = 0._real12)
-    do is = 1, basis%nspec
-       num_angles = 0
-       ! number of comibnations without repetitions:
-       !    = n! / (n - r)! r!
-       !    as r = 1, this simplifies to n
-       do i = 1, size(bond_list), 1
-          if( is .eq. bond_list(i)%species(1) )then
-             ia = bond_list(i)%atom(1)
-          elseif( is .eq. bond_list(i)%species(2) )then
-             ia = bond_list(i)%atom(2)
-          else
-             cycle
-          end if
-          num_angles = num_angles + count( &
-             [ ( ( bond_list(j)%species(1) .eq. is .and. &
-                   bond_list(j)%atom(1) .eq. ia ) .or. &
-                 ( bond_list(j)%species(2) .eq. is .and. &
-                   bond_list(j)%atom(2) .eq. ia ), &
-                     j = i + 1, size(bond_list), 1 ) ] )
-       end do
-       allocate(angle(num_angles))
-       allocate(distance(num_angles))
-       num_angles = 0
-
-
-       !------------------------------------------------------------------------
-       ! loop over all bonds to find the first bond
-       !------------------------------------------------------------------------
-       do i = 1, size(bond_list)
-          if( is .eq. bond_list(i)%species(1) )then
-             vtmp1 = -bond_list(i)%vector
-             ia = bond_list(i)%atom(1)
-          elseif( is .eq. bond_list(i)%species(2) )then
-             vtmp1 = bond_list(i)%vector
-             ia = bond_list(i)%atom(2)
-          else
-             !write(0,*) "ERROR: Species not found in bond list1", is, i
-             cycle
-          end if
-        
-          !---------------------------------------------------------------------
-          ! loop over all bonds to find the second bond
-          !---------------------------------------------------------------------
-          do j = i + 1, size(bond_list)
-             if( is .eq. bond_list(j)%species(1) .and. &
-                 ia .eq. bond_list(j)%atom(1) )then
-                vtmp2 = -bond_list(j)%vector
-             elseif( is .eq. bond_list(j)%species(2) .and. &
-                     ia .eq. bond_list(j)%atom(2) )then
-                vtmp2 = bond_list(j)%vector
-             else
-                cycle
-             end if
- 
-             if( abs( &
-                  dot_product(vtmp1, vtmp1) - &
-                  dot_product(vtmp1, vtmp2) &
-             ) .lt. 1.E-3 ) cycle
-
-             !------------------------------------------------------------------
-             ! calculate the angle between the two bonds
-             !------------------------------------------------------------------
-             num_angles = num_angles + 1
-             angle(num_angles) = get_angle( vtmp1, vtmp2 )
-             distance(num_angles) = &
-                  ( modu(vtmp1) ** 2 * modu(vtmp2) ** 2 )
-
-          end do
-       end do
-       if(num_angles.gt.size(angle))then
-          write(0,*) "ERROR: Number of 3-body angles exceeds allocated array"
-          write(0,'("Expected ",I0," got ",I0)') size(angle), num_angles
-          stop 1
+    do i = 1, num_pairs
+       if(all(abs(this%df_2body(:,i)).lt.1.E-6))then
+          this%df_2body(:,i) = 1._real12 / nbins_(1)
        end if
-       this%df_3body(:,is) = this%df_3body(:,is) + &
-            get_gvector( angle(:num_angles), nbins_(2), eta(2), width_(2), &
-                               cutoff_min_(2), &
-                               limit(2), scale = distance(:num_angles) &
-            )
-       deallocate(angle)
-       deallocate(distance)
+       this%df_2body(:,i) = this%df_2body(:,i) / sum(this%df_2body(:,i))
     end do
-    ! renormalise so that the area under the curve is 1
     do is = 1, basis%nspec
        if(all(abs(this%df_3body(:,is)).lt.1.E-6))then
           this%df_3body(:,is) = 1._real12 / nbins_(2)
        end if
        this%df_3body(:,is) = this%df_3body(:,is) / sum(this%df_3body(:,is))
-    end do
-
-  
-    !---------------------------------------------------------------------------
-    ! build the 4-body gvectors (angular distribution functions)
-    !---------------------------------------------------------------------------
-    deallocate(gvector_tmp)
-    allocate(this%df_4body(nbins_(3),basis%nspec), source = 0._real12)
-    allocate(gvector_tmp(nbins_(3)),               source = 0._real12)
-    do is = 1, basis%nspec
-       num_angles = 0
-       ! number of comibnations without repetitions:
-       ! = n! / (n - r)! r!
-       do i = 1, size(bond_list), 1
-          if( is .eq. bond_list(i)%species(1) )then
-             ia = bond_list(i)%atom(1)
-          elseif( is .eq. bond_list(i)%species(2) )then
-             ia = bond_list(i)%atom(2)
-          else
-             cycle
-          end if
-          itmp1 = count( &
-             [ ( ( bond_list(j)%species(1) .eq. is .and. &
-                   bond_list(j)%atom(1) .eq. ia ) .or. &
-                 ( bond_list(j)%species(2) .eq. is .and. &
-                   bond_list(j)%atom(2) .eq. ia ), &
-                     j = i+1, size(bond_list), 1 ) ] )
-          num_angles = num_angles + &
-               nint(exp(lnsum(itmp1) - lnsum(itmp1 - 2) - lnsum(2)))
-       end do
-       allocate(angle(num_angles))
-       allocate(distance(num_angles))
-       !allocate(count_list(num_angles))
-       num_angles = 0
-
-       !------------------------------------------------------------------------
-       ! loop over all bonds to find the first bond
-       !------------------------------------------------------------------------
-       do i = 1, size(bond_list)
-          if(abs(modu(bond_list(i)%vector)).lt.1.E-3) cycle
- 
-          if( is .eq. bond_list(i)%species(1) )then
-             vtmp1 = -bond_list(i)%vector
-             ia = bond_list(i)%atom(1)
-          elseif( is .eq. bond_list(i)%species(2) )then
-             vtmp1 = bond_list(i)%vector
-             ia = bond_list(i)%atom(2)
-          else
-             cycle
-          end if
-          ! ! make list of indices where species is in bond_list(i)%species and atom is in bond_list(i)%atom
-          allocate(idx_list(count( [ ( ( bond_list(j)%species(1) .eq. is .and. &
-                                         bond_list(j)%atom(1) .eq. ia ) .or. &
-                                       ( bond_list(j)%species(2) .eq. is .and. &
-                                         bond_list(j)%atom(2) .eq. ia ), &
-                                           j = i + 1, size(bond_list), 1 ) ] )))
-          k = 0
-          index_list_loop: do j = i + 1, size(bond_list)
-             if(abs(modu(bond_list(j)%vector)).lt.1.E-3) cycle
-             if( ( is .eq. bond_list(j)%species(1) .and. &
-                   ia .eq. bond_list(j)%atom(1)  ) )then
-                k = k + 1
-                idx_list(k) = -j
-             elseif( is .eq. bond_list(j)%species(2) .and. &
-                     ia .eq. bond_list(j)%atom(2) ) then
-                k = k + 1
-                idx_list(k) = j
-             end if
-             ! ! get a list of unique plane normal vectors
-             ! vtmp2 = cross( vtmp1, bond_list(j)%vector )
-             ! vtmp2 = vtmp2 / modu(vtmp2)
-             ! plane_check_loop: do k = 1, size(plane_list)
-             !    if(abs(dot_product(vtmp2, plane_list(k)%vector)) .lt. 1.E-3)then
-             !       plane_list(k)%count = plane_list(k)%count + 1
-             !       cycle index_list_loop
-             !    end if
-             ! end do plane_check_loop
-             ! plane_list = [ plane_list, plane_type(vector = vtmp2, count = 1) ]
-          end do index_list_loop
-
-          !---------------------------------------------------------------------
-          ! loop over all bonds to find the second bond
-          !---------------------------------------------------------------------
-          do j = 1, size(idx_list)!size(plane_list)!size(idx_list)
- 
-             if( idx_list(j) .lt. 0 )then
-                vtmp2 = -bond_list(-idx_list(j))%vector
-             else
-                vtmp2 = bond_list(idx_list(j))%vector
-             end if
-
-             if(modu(vtmp2).gt.2._real12) cycle
-             if( abs( &
-                  dot_product(vtmp1, vtmp1) - &
-                  dot_product(vtmp1, vtmp2) &
-             ) .lt. 1.E-3 ) cycle
-             !------------------------------------------------------------------
-             ! loop over all bonds to find the third bond
-             !------------------------------------------------------------------
-             !count_list(num_angles+1:num_angles+(size(idx_list)-j)) = plane_list(j)%count
-             do k = abs(j) + 1, size(idx_list)
-
-                if( idx_list(k) .lt. 0 )then
-                   vtmp3 = -bond_list(-idx_list(k))%vector
-                else
-                   vtmp3 = bond_list(idx_list(k))%vector
-                end if
-
-
- 
-                !---------------------------------------------------------------
-                ! calculate the angle between the two bonds
-                !---------------------------------------------------------------
-                ! rtmp1 = get_angle( vtmp2, &
-                !      bond_list(idx_list(k))%vector )
-                ! if(rtmp1 .gt. pi/2._real12) rtmp1 = pi - rtmp1
-                ! if(any(abs(rtmp1 - angle(:num_angles)) .lt. 1.E-3)) cycle
-                num_angles = num_angles + 1
-                ! angle(num_angles) = rtmp1
-                angle(num_angles) = &
-                     get_improper_dihedral_angle( &
-                          vtmp1, &
-                          vtmp2, &
-                          vtmp3 &
-                     )
-
-                distance(num_angles) = &
-                    modu(vtmp1) ** 2 * &
-                    modu(vtmp2) ** 2 * &
-                    modu(vtmp3) ** 2
-                
-                ! count_list(num_angles) = plane_list(j)%count
-
-             end do
-             ! num_angles = num_angles + size(idx_list) - j
-          end do
-          deallocate(idx_list)
-          ! deallocate(plane_list)
-       end do
-       if(num_angles.gt.size(angle))then
-          write(0,*) "ERROR: Number of 4-body angles exceeds allocated array"
-          write(0,'("Expected ",I0," got ",I0)') size(angle), num_angles
-          stop 1
+       if(all(abs(this%df_4body(:,is)).lt.1.E-6))then
+          this%df_4body(:,is) = 1._real12 / nbins_(3)
        end if
-       this%df_4body(:,is) = this%df_4body(:,is) + &
-            get_gvector( angle(:num_angles), nbins_(3), eta(3), width_(3), &
-                               cutoff_min_(3), &
-                               limit(3), &
-                               scale = distance(:num_angles) &
-            )!, count_list(:num_angles) )
-       deallocate(angle)
-       deallocate(distance)
-       ! deallocate(count_list)
+       this%df_4body(:,is) = this%df_4body(:,is) / sum(this%df_4body(:,is))
     end do
-    ! renormalise so that the area under the curve is 1
-    do is = 1, basis%nspec
-      if(all(abs(this%df_4body(:,is)).lt.1.E-6))then
-         this%df_4body(:,is) = 1._real12 / nbins_(3)
-      end if
-      this%df_4body(:,is) = this%df_4body(:,is) / sum(this%df_4body(:,is))
-   end do
 
   end subroutine calculate
 !###############################################################################
 
 
 !###############################################################################
-  function get_gvector(vector, nbins, eta, width, cutoff_min, limit, &
+  function get_gvector(value_list, nbins, eta, width, cutoff_min, limit, &
        scale ) result(gvector)
-    !! Calculate the angular distribution function for a list of vectors.
+    !! Calculate the angular distribution function for a list of values.
     implicit none
 
     ! Arguments
@@ -2165,57 +2335,34 @@ module evolver
     !! Number of bins for the distribution functions.
     real(real12), intent(in) :: eta, width, cutoff_min, limit
     !! Parameters for the distribution functions.
-    real(real12), dimension(:), intent(in) :: vector
+    real(real12), dimension(:), intent(in) :: value_list
     !! List of angles.
     real(real12), dimension(:), intent(in) :: scale
     !! List of scaling for each angle (distance**3 or distance**4)
     real(real12), dimension(nbins) :: gvector
-    !! Distribution function for the list of vectors.
-    ! integer, dimension(:), intent(in), optional :: count_list
+    !! Distribution function for the list of values.
 
     ! Local variables
     integer :: i, j, b, bin
     !! Loop index.
     integer :: max_num_steps
     !! Maximum number of steps.
-    !integer, dimension(:), allocatable :: scale_list
-    !real(real12), dimension(nbins) :: gvector_tmp
-    !real(real12), dimension(:), allocatable :: vector_copy
     integer, dimension(3,2) :: loop_limits
     !! Loop limits for the 3-body distribution function.
 
 
-    ! max_num_steps = ceiling( abs( vector_copy(i) - sqrt(16._real12/eta) ) / width )
     max_num_steps = ceiling( sqrt(16._real12/eta) / width )
     gvector = 0._real12
 
     !---------------------------------------------------------------------------
-    ! calculate the gvector for a list of vectors
+    ! calculate the gvector for a list of values
     !---------------------------------------------------------------------------
-    ! vector_copy = vector
-    ! itmp1 = 0
-    ! !  order the vector list, and remove duplicates within a tolerance
-    ! call set(vector_copy, 1.E-3, scale_list)
-    do i = 1, size(vector)
-        ! if( vector_copy(i) .lt. -1.E-3 ) cycle
-        ! !-----------------------------------------------------------------------
-        ! ! remove duplicates
-        ! !-----------------------------------------------------------------------
-        ! scale = 1._real12
-        ! do j = i + 1, size(vector_copy)
-        !    if(abs(vector_copy(i)-vector_copy(j)) .lt. 1.E-3 )then
-        !       !vector_copy(j) = -1.E3_real12
-        !       !scale = scale + 1._real12
-        !       !itmp1 = itmp1 + 1
-        !    end if
-        ! end do
-
+    do i = 1, size(value_list)
 
        !------------------------------------------------------------------------
        ! get the bin closest to the value
        !------------------------------------------------------------------------
-       bin = nint( ( vector(i) - cutoff_min ) / width ) + 1
-       ! if(bin.gt.nbins.or.bin.lt.1) cycle
+       bin = nint( ( value_list(i) - cutoff_min ) / width ) + 1
 
 
        !------------------------------------------------------------------------
@@ -2235,16 +2382,14 @@ module evolver
           do concurrent ( &
                  b = loop_limits(1,j):loop_limits(2,j):loop_limits(3,j) )
              gvector(b) = gvector(b) + &
-                  exp( -eta * ( vector(i) - &
+                  exp( -eta * ( value_list(i) - &
                                    ( width * real(b-1, real12) + &
                                      cutoff_min ) ) ** 2._real12 &
                   ) / scale(i)
           end do
        end do
-       ! if(present(count_list)) gvector_tmp = gvector_tmp * count_list(i)
-       ! gvector(:) = gvector(:) + gvector_tmp !* scale !real(scale_list(i), real12)
     end do
-    gvector = gvector * sqrt( eta / pi ) / real(size(vector),real12) ! / width
+    gvector = gvector * sqrt( eta / pi ) / real(size(value_list),real12)
 
   end function get_gvector
 !###############################################################################

@@ -1,6 +1,7 @@
 module misc_raffle
   !! Module contains various miscellaneous functions and subroutines.
   use constants, only: real12
+  use error_handling, only: stop_program
   implicit none
 
 
@@ -62,16 +63,16 @@ subroutine sort_str(list, lcase)
 
     charlen = len(list(1))
     if(present(lcase))then
-       if(lcase)then
-          lcase_ = lcase
-          allocate(character(len=charlen) :: tlist(size(list)))
-          tlist = list
-          do i=1,size(tlist)
-             list(i) = to_upper(list(i))
-          end do
-       end if
+       lcase_ = lcase
     else
        lcase_ = .false.
+    end if
+    if(lcase_)then
+       allocate(character(len=charlen) :: tlist(size(list)))
+       tlist = list
+       do i=1,size(tlist)
+          list(i) = to_upper(list(i))
+       end do
     end if
     do i=1,size(list)
        loc = minloc(list(i:),dim=1)
@@ -274,10 +275,10 @@ subroutine sort_str(list, lcase)
         i = low
         j = high
         do
-            do while (arr(i) .lt. pivot)
+            do while (arr(i) .lt. pivot .and. i .lt. high)
                 i = i + 1
             end do
-            do while (arr(j) .gt. pivot)
+            do while (arr(j) .gt. pivot .and. j .gt. low)
                 j = j - 1
             end do
             if (i .le. j) then
@@ -287,9 +288,13 @@ subroutine sort_str(list, lcase)
                 i = i + 1
                 j = j - 1
             end if
+
+            ! Exit the loop when indices cross
+            if (i .gt. j) exit
         end do
-        call quicksort(arr, low, j)
-        call quicksort(arr, i, high)
+        ! Recursively apply quicksort to both partitions
+        if (low .lt. j) call quicksort(arr, low, j)
+        if (i .lt. high) call quicksort(arr, i, high)
     end if
   end subroutine quicksort
 !###############################################################################
@@ -451,19 +456,23 @@ subroutine sort_str(list, lcase)
    !! Boolean whether to keep the original size of the array.
     character(len=:), allocatable, dimension(:) :: tmp_arr
     !! Temporary array for storing unique elements.
+    logical :: lcase_
+    !! Boolean whether to perform case insensitive comparison.
 
 
     if(present(lcase))then
-       call sort_str(arr,lcase)
+      lcase_ = lcase
     else
-       call sort_str(arr)
+       lcase_ = .false.
     end if
+    call sort_str(arr,lcase_)
     
     allocate(character(len=len(arr(1))) :: tmp_arr(size(arr)))
     tmp_arr(1) = arr(1)
     n=1
     
     do i=2,size(arr)
+       if(lcase_) arr(i) = to_lower(arr(i))
        if(trim(arr(i)).eq.trim(tmp_arr(n))) cycle
        n = n + 1
        tmp_arr(n) = arr(i)
@@ -831,8 +840,7 @@ subroutine sort_str(list, lcase)
           if(is_iostat_end(iostat))then
              exit wholeloop
           elseif(iostat.ne.0)then
-             write(0,*) "Error reading file"
-             stop 1
+             call stop_program('I/O stat error encounted when reading file')
           end if
           if(index(trim(buffer),trim(input)).eq.1)then
              success_ = .true.
@@ -845,8 +853,7 @@ subroutine sort_str(list, lcase)
           if(is_iostat_end(iostat))then
              exit greploop
           elseif(iostat.ne.0)then
-             write(0,*) "Error reading file"
-             stop 1
+             call stop_program('I/O stat error encounted when reading file')
           end if
           if(index(trim(buffer),trim(input)).ne.0)then
             success_ = .true.

@@ -1,5 +1,6 @@
 program raffle_program
   use constants, only: real12
+  use error_handling, only: stop_program
   use misc_raffle, only: touch
   use inputs
   use read_structures, only: get_evolved_gvectors_from_data
@@ -48,8 +49,7 @@ program raffle_program
   case(2)
      write(*,*) "Running HOST_RSS"
   case default
-     write(*,*) "Invalid option"
-     stop 1
+     call stop_program("Invalid option")
   end select
 
 
@@ -103,7 +103,13 @@ program raffle_program
   open(newunit=unit, file=filename_host, status='old')
   call geom_read(unit, generator%host)
   close(unit)
-  generator%bins = bins
+  if(grid_spacing.gt.1.E-6.and.all(grid.ne.0))then
+     call stop_program('Cannot specify grid spacing and grid at the same time')
+  elseif(grid_spacing.gt.1.E-6)then
+     call generator%set_grid(grid_spacing = grid_spacing)
+  elseif(all(grid.ne.0))then
+     call generator%set_grid(grid = grid)
+  end if
 
 
   !-----------------------------------------------------------------------------

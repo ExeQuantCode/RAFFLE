@@ -304,7 +304,7 @@ subroutine f90wrap_raffle_generator_type__set__host(this, f90wrap_host)
     this_ptr%p%host = host_ptr%p
 end subroutine f90wrap_raffle_generator_type__set__host
 
-subroutine f90wrap_raffle_generator_type__array__bins(this, nd, dtype, dshape, dloc)
+subroutine f90wrap_raffle_generator_type__array__grid(this, nd, dtype, dshape, dloc)
     use generator, only: raffle_generator_type
     use, intrinsic :: iso_c_binding, only : c_int
     implicit none
@@ -321,9 +321,58 @@ subroutine f90wrap_raffle_generator_type__array__bins(this, nd, dtype, dshape, d
     nd = 1
     dtype = 5
     this_ptr = transfer(this, this_ptr)
-    dshape(1:1) = shape(this_ptr%p%bins)
-    dloc = loc(this_ptr%p%bins)
-end subroutine f90wrap_raffle_generator_type__array__bins
+    dshape(1:1) = shape(this_ptr%p%grid)
+    dloc = loc(this_ptr%p%grid)
+end subroutine f90wrap_raffle_generator_type__array__grid
+
+subroutine f90wrap_raffle_generator_type__array__grid_offset(this, nd, dtype, dshape, dloc)
+    use generator, only: raffle_generator_type
+    use, intrinsic :: iso_c_binding, only : c_int
+    implicit none
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    integer(c_int), intent(in) :: this(2)
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer(c_int), intent(out) :: nd
+    integer(c_int), intent(out) :: dtype
+    integer(c_int), dimension(10), intent(out) :: dshape
+    integer*8, intent(out) :: dloc
+    
+    nd = 1
+    dtype = 11
+    this_ptr = transfer(this, this_ptr)
+    dshape(1:1) = shape(this_ptr%p%grid_offset)
+    dloc = loc(this_ptr%p%grid_offset)
+end subroutine f90wrap_raffle_generator_type__array__grid_offset
+
+subroutine f90wrap_raffle_generator_type__get__grid_spacing(this, f90wrap_grid_spacing)
+    use generator, only: raffle_generator_type
+    implicit none
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    real(4), intent(out) :: f90wrap_grid_spacing
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_grid_spacing = this_ptr%p%grid_spacing
+end subroutine f90wrap_raffle_generator_type__get__grid_spacing
+
+subroutine f90wrap_raffle_generator_type__set__grid_spacing(this, f90wrap_grid_spacing)
+    use generator, only: raffle_generator_type
+    implicit none
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    real(4), intent(in) :: f90wrap_grid_spacing
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%grid_spacing = f90wrap_grid_spacing
+end subroutine f90wrap_raffle_generator_type__set__grid_spacing
 
 subroutine f90wrap_raffle_generator_type__get__distributions(this, f90wrap_distributions)
     use generator, only: raffle_generator_type
@@ -514,6 +563,35 @@ subroutine f90wrap_generator__set_host__binding__rgt(this, host)
     host_ptr = transfer(host, host_ptr)
     call this_ptr%p%set_host(host=host_ptr%p)
 end subroutine f90wrap_generator__set_host__binding__rgt
+
+subroutine f90wrap_generator__set_grid__binding__raffle_generator_type(this, grid, grid_spacing, grid_offset)
+    use generator, only: raffle_generator_type
+    implicit none
+    
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    integer, dimension(3), intent(in), optional :: grid
+    real(4), intent(in), optional :: grid_spacing
+    real(4), dimension(3), intent(in), optional :: grid_offset
+    this_ptr = transfer(this, this_ptr)
+    call this_ptr%p%set_grid(grid=grid, grid_spacing=grid_spacing, grid_offset=grid_offset)
+end subroutine f90wrap_generator__set_grid__binding__raffle_generator_type
+
+subroutine f90wrap_generator__reset_grid__binding__raffle_generator_type(this)
+    use generator, only: raffle_generator_type
+    implicit none
+    
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    this_ptr = transfer(this, this_ptr)
+    call this_ptr%p%reset_grid()
+end subroutine f90wrap_generator__reset_grid__binding__raffle_generator_type
 
 subroutine f90wrap_generator__generate__binding__rgt( &
        this, num_structures, stoichiometry, &

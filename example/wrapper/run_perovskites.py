@@ -1,25 +1,35 @@
-import sys
-# caution: path[0] is reserved for script path (or '' in REPL)
-# sys.path.insert(1, '../../build/')
+# This script demonstrates how to use the raffle generator to generate perovskite supperlattice structures
 
+# The script reads a host structure from a POSCAR file, and sets it as the host structure for the generator.
+
+# import standard libraries
+import sys
+import os
+import numpy as np
+
+# import raffle library
 import raffle
-import ase
+
+# import ASE (Atomic Simulation Environment) modules
 from ase import Atoms
 from ase.io import read, write
+from ase.optimize import BFGS
 
+# import CHGNet calculator (for MLP energy evaluation)
+from chgnet.model.dynamics import CHGNetCalculator
 
-# atoms = Atoms('CC', positions=[[0, 0, 0], [1.2, 0, 0]], pbc=True, cell=[2.4, 2.4, 2.4])
-
+# set up an instance of the raffle generator
 print("Initialising raffle generator")
 generator = raffle.generator.raffle_generator_type()
 
-
+# read the host structure from a POSCAR file
 print("Reading host")
 host = read("../example_files/POSCAR_host_perovskites")
 host_basis = raffle.rw_geom.basis_type(host)
 generator.set_host(host_basis)
 print("Host read")
 
+# set the element reference energies
 print("Setting element energies")
 generator.distributions.set_element_energies(
     {
@@ -30,7 +40,7 @@ generator.distributions.set_element_energies(
     }
 )
 
-
+# set the distribution function widths (2-body, 3-body, 4-body)
 print("Reading database")
 database = read("../example_files/database_perovskites/database.xyz", index=":")
 num_database = len(database)
@@ -38,29 +48,32 @@ database_basis = raffle.rw_geom.basis_type_xnum_array()
 database_basis.allocate(num_database)
 for i, atoms in enumerate(database):
     database_basis.items[i].fromase(atoms)
-
-
 print("Database read")
 
+# create the distribution functions
 print("Setting database")
 generator.distributions.create(database_basis, deallocate_systems=False)
 print("Database set")
 
+# print the distribution functions to a file
 print("Printing distributions")
 generator.distributions.write("distributions.txt")
 generator.distributions.write_2body("df2.txt")
 generator.distributions.write_3body("df3.txt")
 generator.distributions.write_4body("df4.txt")
 
+# check the element energies and bond radii
 print("Checking element energies")
 print(generator.distributions.get_element_energies())
-
 print("Checking bond radii")
 print(generator.distributions.get_bond_radii())
 
+# set the grid for the host cell
 print("Setting bins (discretisation of host cell)")
-generator.bins = [8,8,128]
+generator.set_grid(grid=[8,8,128], grid_offset=[0.0, 0.0, 0.0])
+print(generator.grid)
 
+# set the stoichiometry for the structures to be generated
 print("Setting stoichiometry to insert")
 stoich_list = raffle.generator.stoichiometry_type_xnum_array()
 stoich_list.allocate(4)
@@ -73,17 +86,18 @@ stoich_list.items[2].num = 8
 stoich_list.items[3].element = 'O'
 stoich_list.items[3].num = 24
 
+# this is the main function to generate structures
 print("Generating...")
 generator.generate(num_structures=10, stoichiometry=stoich_list, seed=0, verbose=0, method_probab={"void":1.0, "walk":1.0, "min":1.0})
 print("Generated")
 
 print("Getting structures")
-# generated_structures = generator.get_structures()
 print("number of structures supposed to be generated: ", generator.num_structures)
 generated_structures = generator.structures
 print("actual number allocated: ",len(generated_structures))
 print("Got structures")
 
+# get energies using MLPs
 print("Converting to ASE")
 for i, structure in enumerate(generated_structures):
     print(f"Converting structure {i}")

@@ -2304,20 +2304,17 @@ module evolver
     ! renormalise the distribution functions so that area under the curve is 1
     !---------------------------------------------------------------------------
     do i = 1, num_pairs
-       if(all(abs(this%df_2body(:,i)).lt.1.E-6))then
-          this%df_2body(:,i) = 1._real12 / nbins_(1)
+       if(any(abs(this%df_2body(:,i)).gt.1.E-6))then
+          this%df_2body(:,i) = this%df_2body(:,i) / sum(this%df_2body(:,i))
        end if
-       this%df_2body(:,i) = this%df_2body(:,i) / sum(this%df_2body(:,i))
     end do
     do is = 1, basis%nspec
-       if(all(abs(this%df_3body(:,is)).lt.1.E-6))then
-          this%df_3body(:,is) = 1._real12 / nbins_(2)
+       if(any(abs(this%df_3body(:,is)).gt.1.E-6))then
+          this%df_3body(:,is) = this%df_3body(:,is) / sum(this%df_3body(:,is))
        end if
-       this%df_3body(:,is) = this%df_3body(:,is) / sum(this%df_3body(:,is))
-       if(all(abs(this%df_4body(:,is)).lt.1.E-6))then
-          this%df_4body(:,is) = 1._real12 / nbins_(3)
+       if(any(abs(this%df_4body(:,is)).gt.1.E-6))then
+          this%df_4body(:,is) = this%df_4body(:,is) / sum(this%df_4body(:,is))
        end if
-       this%df_4body(:,is) = this%df_4body(:,is) / sum(this%df_4body(:,is))
     end do
 
   end subroutine calculate

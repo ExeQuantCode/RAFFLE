@@ -1,20 +1,117 @@
-This is a quick how-to guide for using RAFFLE.
+# RAFFLE
 
-First, compile using
-``` 
-make
+by Ned Thaddeus Taylor, Joe Pitfield, and Steven Paul Hepplestone
+
+RAFFLE (pseudoRandom Approach For Finding Local Energetic minima) is a package for structural prediction applied to material interfaces. RAFFLE can interface with the [Atomic Simulation Environment (ASE)](https://gitlab.com/ase/ase).
+
+RAFFLE is both a Fortran and a Python library. A standalone Fortran executable is also being developed. The code heavily relies on features of Fortran2008 and above, so there is no backwards compatibility with Fortran95.
+
+## Requirements
+
+- Python 3.11 or later (might work on earlier, have not tested)
+- Fortran compiler supporting Fortran 2008 standard or later
+- NumPy
+- f90wrap
+- CMake
+
+Optional:
+- ASE
+
+The library bas been developed and tested using the following Fortran compilers:
+- gfortran -- gcc 13.2.0
+
+## Installation
+
+To install RAFFLE, the source must be obtained from the git repository. Use the following commands to get started:
+```
+ git clone https://github.com/nedtaylor/raffle.git
+ cd athena
 ```
 
-It has been developed using gfortran version 13.2.0. It can only be guaranteed to work for this version of fortran for now. It heavily relies on a lot of features of Fortran2008 and above, so there is no backwards compatibility with Fortran95.
 
-First, you need to ensure that the following two files exist in the directory in which you run RAFFLE:
+Depending on what language will be used in, installation will fary from this point.
+
+### Python
+
+For Python, the easiest installation is through pip:
 ```
-elements.dat
-chem.in
+pip install .
 ```
 
-Each of these files should follow the format found in the current repository. They should each have a header line that starts with "#" and contains the word "element". The example headers should then be followed for filling in data. For the elements.dat, the energy provided can be whatever you want to use as a reference energy. This energy is used for calculating formation energy. The example uses energy/atom of the bulk phase of the element. The mass and charge are not currently used, but data needs to be provided in those columns.
+Another option is installing it through cmake, which involves:
+```
+mkdir build
+cd build
+cmake ..
+make install
+```
 
+Then, the path to the install directory (`${HOME}/.local/raffle`) needs to be added to the include path. NOTE: this method requires that the user manually installs the `ase`, `numpy` and `f90wrap` modules for Python.
+
+### Fortran
+
+For Fortran, either fpm or cmake are required.
+
+#### fpm
+
+fpm installation is as follows:
+
+```
+fpm build --profile release
+```
+
+This will install both the Fortran library and the Fortran application for RAFFLE.
+The library can then be called from other fpm-built Fortran programs through normal means (usually referencing the location of RAFFLE in the program's own `fpm.toml` file).
+The application can be run using **(NOTE: The application is not a priority for development, so is less likely to work)**:
+```
+fpm run
+```
+
+The library can be tested to ensure compilation was successful **(NOTE: Unit tests currently only provide minimal code coverage)**:
+```
+fpm test --profile release
+```
+
+#### cmake
+
+cmake installation is as follows:
+```
+mkdir build
+cd build
+cmake [-DBUILD_PYTHON=Off] ..
+make install
+```
+The optional filed (dentoted with `[...]`) can be used to turn off installation of the Python library.
+This will build the library in the build/ directory. All library files will then be found in:
+```
+${HOME}/.local/raffle
+```
+Inside this directory, the following files will be generated:
+```
+include/raffle.mod
+lib/libraffle.a
+```
+
+To check whether RAFFLE has installed correctly and that the compilation works as expected, the following command can be run:
+```
+ctest
+```
+This runs the unit tests (found in the `test` directory) to ensure procedures output as expected.
+
+
+## Examples
+
+After the library has been installed, a set of example programs can be found in the `example` directory (note, the `test` directory is for unit tests to ensure each procedure in the library produces expected outputs after compilation, they are not really needed to be looked at by potential users).
+
+The `example/executable` example uses a shell script to run the Fortran installed application.
+It uses a user-editable input file `param.in` in the same directory to change values of the RAFFLE generator and provided database.
+
+The `example/wrapper` directory contains a set of `run_*.py` files that show how RAFFLE can be called using Python to implement it into existing random structure search workflows.
+These examples are the recommended ones to run.
+To successfully run them, follow the above installation instructions for Python, then go to the `example/wrapper` directory and run one of the scripts.
+
+
+<!-- 
 Next, after the code is compiled, the way to run it is as follows:
 ```
 <PATH TO RAFFLE DIRECTORY>/bin/raffle -f <PARAMETER_FILE>
@@ -29,3 +126,4 @@ For testing purposes, the code will output the 2-, 3-, and 4-body gvectors to fi
 The code will then output any generated structures to increment1/strucXXX/POSCAR. Note, if you rerun, the code will likely break as it won't want to write over existing files.
 
 It seems that the void finder works. I don't think that scan or pseudo-random walk work at all (and neither should they as they look for the old directory space to calculated distribution function contributions, instead of using the new gvectors).
+-->

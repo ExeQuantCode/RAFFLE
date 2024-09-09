@@ -18,6 +18,10 @@ from ase.optimize import BFGS
 # import CHGNet calculator (for MLP energy evaluation)
 from chgnet.model.dynamics import CHGNetCalculator
 
+# load CHGNet calculator
+print("Initialising CHGNet calculator")
+calculator = CHGNetCalculator(model=None)
+
 # set up an instance of the raffle generator
 print("Initialising raffle generator")
 generator = raffle.generator.raffle_generator_type()
@@ -86,20 +90,58 @@ stoich_list.items[2].num = 8
 stoich_list.items[3].element = 'O'
 stoich_list.items[3].num = 24
 
-# this is the main function to generate structures
-print("Generating...")
-generator.generate(num_structures=10, stoichiometry=stoich_list, seed=0, verbose=0, method_probab={"void":1.0, "walk":1.0, "min":1.0})
-print("Generated")
+# generate structures
+num_structures_old = 0
+optimise_structure = True
+for iter in range(20):
+    print(f"Iteration {iter}")
+    print("Generating...")
+    # this is the main function to generate structures
+    generator.generate(num_structures=1, stoichiometry=stoich_list, seed=0+iter, verbose=0, method_probab={"void":0.001, "walk":0.0, "min":1.0})
+    print("Generated")
 
-print("Getting structures")
-print("number of structures supposed to be generated: ", generator.num_structures)
-generated_structures = generator.structures
-print("actual number allocated: ",len(generated_structures))
-print("Got structures")
+    print("Getting structures")
+    print("number of structures supposed to be generated: ", generator.num_structures)
+    generated_structures = generator.structures
+    print("actual number allocated: ",len(generated_structures))
+    print("Got structures")
 
-# get energies using MLPs
-print("Converting to ASE")
-for i, structure in enumerate(generated_structures):
-    print(f"Converting structure {i}")
-    atoms = structure.toase()
-    write(f"POSCAR_{i}", atoms)
+    # check if directory iteration[iter] exists, if not create it
+    iterdir = f"iteration{iter}/"
+    if not os.path.exists(iterdir):
+        os.makedirs(iterdir)
+
+    # get energies using MLPs and optimise the structures
+    print("Converting to ASE")
+    num_structures_new = len(generated_structures)
+    structures_rlxd = raffle.rw_geom.basis_type_xnum_array()
+    structures_rlxd.allocate(num_structures_new - num_structures_old)
+    for i, structure in enumerate(generated_structures):
+        if(i < num_structures_old):
+            continue
+        inew = i - num_structures_old
+        print(f"Converting structure {i}")
+        atoms = structure.toase()
+        atoms.calc = calculator
+        if optimise_structure:
+            optimizer = BFGS(atoms, trajectory = "traje.traj")
+            optimizer.run(fmax=0.5)
+            print(f"Structure {inew} optimised")
+        atoms.get_potential_energy()
+        print(f"Structure {inew} energy: {atoms.get_potential_energy()}")
+        structures_rlxd.items[inew].fromase(atoms)
+        write(iterdir+f"POSCAR_{inew}", atoms)
+
+    # update the distribution functions
+    print("Updating distributions")
+    generator.distributions.update(structures_rlxd, deallocate_systems=False)
+
+    # print the new distribution functions to a file
+    print("Printing distributions")
+    generator.distributions.write(iterdir+"distributions.txt")
+    generator.distributions.write_2body(iterdir+"df2.txt")
+    generator.distributions.write_3body(iterdir+"df3.txt")
+    generator.distributions.write_4body(iterdir+"df4.txt")
+
+    # update the number of structures generated
+    num_structures_old = num_structures_new

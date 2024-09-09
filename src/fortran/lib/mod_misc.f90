@@ -1,6 +1,7 @@
 module misc_raffle
   !! Module contains various miscellaneous functions and subroutines.
   use constants, only: real12
+  use error_handling, only: stop_program
   implicit none
 
 
@@ -839,8 +840,7 @@ subroutine sort_str(list, lcase)
           if(is_iostat_end(iostat))then
              exit wholeloop
           elseif(iostat.ne.0)then
-             write(0,*) "Error reading file"
-             stop 1
+             call stop_program('I/O stat error encounted when reading file')
           end if
           if(index(trim(buffer),trim(input)).eq.1)then
              success_ = .true.
@@ -853,8 +853,7 @@ subroutine sort_str(list, lcase)
           if(is_iostat_end(iostat))then
              exit greploop
           elseif(iostat.ne.0)then
-             write(0,*) "Error reading file"
-             stop 1
+             call stop_program('I/O stat error encounted when reading file')
           end if
           if(index(trim(buffer),trim(input)).ne.0)then
             success_ = .true.

@@ -270,7 +270,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             """, Rw_Geom.species_type)
             return self.spec
         
-        def toase(self):
+        def toase(self, calculator=None):
             from ase import Atoms
 
             # Set the species list
@@ -287,6 +287,8 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             else:
                 atoms = Atoms(species_string, scaled_positions=positions, cell=self.lat, pbc=self.pbc)
 
+            if calculator is not None:
+                atoms.calc = calculator
             return atoms
         
         def fromase(self, atoms):
@@ -485,7 +487,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             19-21
         
         """
-        def __init__(self, handle=None):
+        def __init__(self, atoms=None, handle=None):
             """
             self = basis_Type()
             
@@ -502,9 +504,22 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             
             Automatically generated constructor for basis_type
             """
+
             f90wrap.runtime.FortranDerivedType.__init__(self)
             result = _raffle.f90wrap_rw_geom__basis_type_xnum_array_initialise()
             self._handle = result[0] if isinstance(result, tuple) else result
+
+
+            # check if atoms is an ASE Atoms object or a list of ASE Atoms objects
+            if atoms:
+                from ase import Atoms
+                if isinstance(atoms, Atoms):
+                    self.allocate(1)
+                    self.items[0].fromase(atoms)
+                elif isinstance(atoms, list):
+                    self.allocate(len(atoms))
+                    for i, atom in enumerate(atoms):
+                        self.items[i].fromase(atom)
         
         def __del__(self):
             """
@@ -539,6 +554,14 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             """, Rw_Geom.basis_type)
             return self.items
         
+        def toase(self):
+
+            # Set the species list
+            atoms = []
+            for i in range(len(self.items)):
+                atoms.append(self.items[i].toase())
+            return atoms
+
         def allocate(self, size):
             """
             Allocate the items array with the given size
@@ -556,7 +579,6 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             Deallocate the items array
             """
             _raffle.f90wrap_basis_type_xnum_array__array_dealloc__items(self._handle)
-
         
         _dt_array_initialisers = [init_array_items]
 
@@ -1160,6 +1182,13 @@ class Evolver(f90wrap.runtime.FortranModule):
             deallocate_systems : bool
 
             """
+            from ase import Atoms
+            if isinstance(basis_list, Atoms):
+                basis_list = rw_geom.basis_type_xnum_array(basis_list)
+            elif isinstance(basis_list, list):
+                if all([isinstance(basis, Atoms) for basis in basis_list]):
+                    basis_list = rw_geom.basis_type_xnum_array(basis_list)
+
             _raffle.f90wrap_evolver__create__binding__gvector_container_type(this=self._handle, \
                 basis_list=basis_list._handle, deallocate_systems=deallocate_systems)
             
@@ -1177,6 +1206,14 @@ class Evolver(f90wrap.runtime.FortranModule):
             deallocate_systems : bool
 
             """
+            from ase import Atoms
+            if isinstance(basis_list, Atoms):
+                basis_list = rw_geom.basis_type_xnum_array(basis_list)
+            elif isinstance(basis_list, list):
+                if all([isinstance(basis, Atoms) for basis in basis_list]):
+                    basis_list = rw_geom.basis_type_xnum_array(basis_list)
+            
+
             _raffle.f90wrap_evolver__update__binding__gvector_container_type(this=self._handle, \
                 basis_list=basis_list._handle, deallocate_systems=deallocate_systems)
             
@@ -1904,7 +1941,7 @@ class Generator(f90wrap.runtime.FortranModule):
             19-21
         
         """
-        def __init__(self, element=None, num=None, handle=None):
+        def __init__(self, dict=None, element=None, num=None, handle=None):
             """
             self = Stoichiometry_Type()
             
@@ -2004,7 +2041,7 @@ class Generator(f90wrap.runtime.FortranModule):
             19-21
         
         """
-        def __init__(self, handle=None):
+        def __init__(self, dict=None, handle=None):
             """
             self = Stoichiometry_Type()
             
@@ -2021,9 +2058,20 @@ class Generator(f90wrap.runtime.FortranModule):
             
             Automatically generated constructor for stoichiometry_type
             """
+
+
+
             f90wrap.runtime.FortranDerivedType.__init__(self)
             result = _raffle.f90wrap_generator__stoich_type_xnum_array_initialise()
             self._handle = result[0] if isinstance(result, tuple) else result
+            if dict:
+                num_elements = len(dict)
+                elements = list(dict.keys())
+                nums = list(dict.values())
+                self.allocate(num_elements)
+                for i in range(num_elements):
+                    self.items[i].element = elements[i]
+                    self.items[i].num = nums[i]
         
         def __del__(self):
             """
@@ -2145,6 +2193,11 @@ class Generator(f90wrap.runtime.FortranModule):
             host : basis_type
             
             """
+            from ase import Atoms
+            # check if host is ase.Atoms object
+            if isinstance(host, Atoms):
+                host = rw_geom.basis_type(atoms=host)
+
             _raffle.f90wrap_generator__set_host__binding__rgt(this=self._handle, \
                 host=host._handle)
         
@@ -2207,6 +2260,10 @@ class Generator(f90wrap.runtime.FortranModule):
             method_probab_list.append(method_probab.get("walk", 1.0))
             method_probab_list.append(method_probab.get("min", 1.0))
 
+            # if stoichiometry is a dictionary, convert it to a stoichiometry_type_xnum_array
+            if isinstance(stoichiometry, dict):
+                stoichiometry = Generator.stoichiometry_type_xnum_array(dict=stoichiometry)
+
             if seed is not None:
                 _raffle.f90wrap_generator__generate__binding__rgt(
                     this=self._handle,
@@ -2220,22 +2277,13 @@ class Generator(f90wrap.runtime.FortranModule):
                     stoichiometry=stoichiometry._handle,
                     method_probab=method_probab_list, verbose=verbose)
             
-        def get_structures(self):
-            """
-            structures = get_structures__binding__raffle_generator_type(self)
-            
-            
-            Defined at ../src/lib/mod_generator.f90 lines \
-                86-97
-            
-            Parameters
-            ----------
-            this : unknown
-            
-            """
-            structures = _raffle.f90wrap_generator__get_structures__binding__rgt(this=self._handle)
-            return structures
-        
+        def get_structures(self, calculator=None):
+            atoms = []
+            for structure in self.structures:
+                atoms.append(structure.toase(calculator))
+            return atoms
+
+
         def evaluate(self, basis):
             """
             viability = evaluate__binding__raffle_generator_type(self, basis)
@@ -2450,6 +2498,8 @@ class Generator(f90wrap.runtime.FortranModule):
             ret.append(repr(self.distributions))
             ret.append(',\n    method_probab : ')
             ret.append(repr(self.method_probab))
+            ret.append(',\n    structures : ')
+            ret.append(repr(self.structures))
             ret.append('}')
             return ''.join(ret)
         

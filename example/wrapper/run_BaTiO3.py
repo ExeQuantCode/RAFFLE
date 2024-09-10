@@ -3,12 +3,11 @@
 # The script reads a host structure from a POSCAR file, and sets it as the host structure for the generator.
 
 # import standard libraries
-import sys
 import os
 import numpy as np
 
 # import raffle library
-import raffle
+from raffle.generator import raffle_generator_type
 
 # import ASE (Atomic Simulation Environment) modules
 from ase import Atoms
@@ -24,14 +23,16 @@ calculator = CHGNetCalculator(model=None)
 
 # set up an instance of the raffle generator
 print("Initialising raffle generator")
-generator = raffle.generator.raffle_generator_type()
+generator = raffle_generator_type()
 
 # read the host structure from a POSCAR file
 print("Reading host")
 host = read("../example_files/POSCAR_host_BaTiO3")
-host_basis = raffle.rw_geom.basis_type(host)
-generator.set_host(host_basis)
+generator.set_host(host)
 print("Host read")
+
+host.calc = calculator
+print("host energy: ", host.get_potential_energy())
 
 # generate bulk BaTiO3 and get its energy
 reference_bulk = Atoms("BaTiO3", positions=[[0.0, 0.0, 0.0], 
@@ -70,9 +71,6 @@ print(f"Ti_reference_energy: {Ti_reference_energy}")
 print(f"O_reference_energy: {O_reference_energy}")
 print(f"BaTiO3_reference_energy: {reference_bulk.get_potential_energy()}")
 
-# write reference bulk to file
-write("POSCAR_ref_bulk", reference_bulk)
-
 # set the element reference energies
 print("Setting element energies")
 generator.distributions.set_element_energies(
@@ -82,6 +80,11 @@ generator.distributions.set_element_energies(
         'O': O_reference_energy
     }
 )
+
+# set energy scale
+generator.distributions.kbT = 0.2
+# set the distribution function widths (2-body, 3-body, 4-body)
+generator.distributions.set_width([0.025, np.pi/200.0, np.pi/200.0])
 
 # set the radii tolerances for the 3-body and 4-body distributions
 #    these are the lower and upper bounds for the bond radii
@@ -93,28 +96,20 @@ generator.distributions.set_radius_distance_tol([1.5, 2.5, 3.0, 6.0])
 
 # set the distribution function widths (2-body, 3-body, 4-body)
 print("Reading database")
-database = read("../example_files/database_carbon/database.xyz", index=":")
-database_basis = raffle.rw_geom.basis_type_xnum_array()
-
-print("Allocating database")
 use_database = False
 if use_database:
-    num_database = len(database)
-    database_basis.allocate(num_database)
+    database = read("../example_files/database_perovskites/database.xyz", index=":")
     for i, atoms in enumerate(database):
         # reset energy to use CHGNet
         atoms.calc = calculator
-        print(f"Reading structure {i}")
-        database_basis.items[i].fromase(atoms)
 else:
-    num_database = 1
-    database_basis.allocate(num_database)
-    database_basis.items[0].fromase(reference_bulk)
+    database = []
+    database.append(reference_bulk)
 print("Database read")
 
 # create the distribution functions
 print("Setting database")
-generator.distributions.create(database_basis, deallocate_systems=False)
+generator.distributions.create(database, deallocate_systems=False)
 print("Database set")
 
 # print the distribution functions to a file
@@ -137,14 +132,7 @@ print(generator.grid)
 
 # set the stoichiometry for the structures to be generated
 print("Setting stoichiometry to insert")
-stoich_list = raffle.generator.stoichiometry_type_xnum_array()
-stoich_list.allocate(3)
-stoich_list.items[0].element = 'Ba'
-stoich_list.items[0].num = 1
-stoich_list.items[1].element = 'Ti'
-stoich_list.items[1].num = 1
-stoich_list.items[2].element = 'O'
-stoich_list.items[2].num = 3
+stoich_dict = { 'Ba': 1, 'Ti': 1, 'O': 3 }
 
 # generate structures
 num_structures_old = 0
@@ -153,12 +141,12 @@ for iter in range(1):
     print(f"Iteration {iter}")
     print("Generating...")
     # this is the main function to generate structures
-    generator.generate(num_structures=1, stoichiometry=stoich_list, seed=3+iter, verbose=0, method_probab={"void":0.001, "walk":0.0, "min":1.0})
+    generator.generate(num_structures=1, stoichiometry=stoich_dict, seed=3+iter, verbose=0, method_probab={"void":0.001, "walk":0.0, "min":1.0})
     print("Generated")
 
     print("Getting structures")
     print("number of structures supposed to be generated: ", generator.num_structures)
-    generated_structures = generator.structures
+    generated_structures = generator.get_structures()
     print("actual number allocated: ",len(generated_structures))
     print("Got structures")
 
@@ -168,16 +156,11 @@ for iter in range(1):
         os.makedirs(iterdir)
 
     # get energies using MLPs and optimise the structures
-    print("Converting to ASE")
     num_structures_new = len(generated_structures)
-    structures_rlxd = raffle.rw_geom.basis_type_xnum_array()
-    structures_rlxd.allocate(num_structures_new - num_structures_old)
-    for i, structure in enumerate(generated_structures):
+    for i, atoms in enumerate(generated_structures):
         if(i < num_structures_old):
             continue
         inew = i - num_structures_old
-        print(f"Converting structure {i}")
-        atoms = structure.toase()
         atoms.calc = calculator
         if optimise_structure:
             optimizer = BFGS(atoms, trajectory = "traje.traj")
@@ -185,12 +168,11 @@ for iter in range(1):
             print(f"Structure {inew} optimised")
         atoms.get_potential_energy()
         print(f"Structure {inew} energy: {atoms.get_potential_energy()}")
-        structures_rlxd.items[inew].fromase(atoms)
         write(iterdir+f"POSCAR_{inew}", atoms)
 
     # update the distribution functions
     print("Updating distributions")
-    generator.distributions.update(structures_rlxd, deallocate_systems=False)
+    generator.distributions.update(generated_structures[num_structures_old:], deallocate_systems=False)
 
     # print the new distribution functions to a file
     print("Printing distributions")

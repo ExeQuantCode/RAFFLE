@@ -1,5 +1,5 @@
 name = "raffle"
-version = "0.2.0"
+version = "0.3.1"
 author = "Ned Thaddeus Taylor"
 maintainer = "n.t.taylor@exeter.ac.uk"
 description = "A Fortran library and executable for structure prediction at material interfaces"

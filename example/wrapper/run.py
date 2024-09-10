@@ -1,21 +1,19 @@
-import sys
 # caution: path[0] is reserved for script path (or '' in REPL)
 # sys.path.insert(1, '../../build/')
 
-import raffle
+from raffle.generator import raffle_generator
 from ase import Atoms
 from ase.io import read, write
 
 # atoms = Atoms('CC', positions=[[0, 0, 0], [1.2, 0, 0]], pbc=True, cell=[2.4, 2.4, 2.4])
 
 print("Initialising raffle generator")
-generator = raffle.generator.raffle_generator_type()
+generator = raffle_generator()
 
 
 print("Reading host")
 host = read("../example_files/POSCAR_host")
-host_basis = raffle.rw_geom.basis_type(host)
-generator.set_host(host_basis)
+generator.set_host(host)
 print("Host read")
 
 print("Setting element energies")
@@ -43,16 +41,11 @@ generator.distributions.set_bond_radii(
 print("Reading database")
 database = read("../example_files/database/database.xyz", index=":")
 num_database = len(database)
-database_basis = raffle.rw_geom.basis_type_xnum_array()
-database_basis.allocate(num_database)
-for i, atoms in enumerate(database):
-    database_basis.items[i].fromase(atoms)
-
 
 print("Database read")
 
 print("Setting database")
-generator.distributions.create(database_basis, deallocate_systems=False)
+generator.distributions.create(database, deallocate_systems=False)
 print("Database set")
 
 print("Printing distributions")
@@ -72,26 +65,20 @@ print("Setting bins (discretisation of host cell)")
 generator.bins = [12,12,30]
 
 print("Setting stoichiometry to insert")
-stoich_list = raffle.generator.stoichiometry_type_xnum_array()
-stoich_list.allocate(2)
-stoich_list.items[0].element = 'C'
-stoich_list.items[0].num = 8
-stoich_list.items[1].element = 'Mg'
-stoich_list.items[1].num = 8
+stoich_dict = { 'C': 8, 'Mg': 8 }
 
 print("Generating...")
-generator.generate(num_structures=10, stoichiometry=stoich_list, seed=0, verbose=1, method_probab={"void":1.0, "walk":1.0, "min":1.0})
+generator.generate(num_structures=10, stoichiometry=stoich_dict, seed=0, verbose=1, method_probab={"void":1.0, "walk":1.0, "min":1.0})
 print("Generated")
 
 print("Getting structures")
 # generated_structures = generator.get_structures()
 print("number of structures supposed to be generated: ", generator.num_structures)
-generated_structures = generator.structures
+generated_structures = generator.get_structures()
 print("actual number allocated: ",len(generated_structures))
 print("Got structures")
 
 print("Converting to ASE")
-for i, structure in enumerate(generated_structures):
+for i, atoms in enumerate(generated_structures):
     print(f"Converting structure {i}")
-    atoms = structure.toase()
     write(f"POSCAR_{i}", atoms)

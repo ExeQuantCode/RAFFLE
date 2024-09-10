@@ -180,10 +180,10 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
         _dt_array_initialisers = []
         
     
-    @f90wrap.runtime.register_class("raffle.basis_type")
-    class basis_type(f90wrap.runtime.FortranDerivedType):
+    @f90wrap.runtime.register_class("raffle.basis")
+    class basis(f90wrap.runtime.FortranDerivedType):
         """
-        Type(name=basis_type)
+        Type(name=basis)
         
         
         Defined at ../src/lib/mod_rw_geom.f90 lines \
@@ -192,7 +192,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
         """
         def __init__(self, atoms=None, handle=None):
             """
-            self = basis_type()
+            self = basis()
             
             
             Defined at ../src/lib/mod_rw_geom.f90 lines \
@@ -201,11 +201,11 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             
             Returns
             -------
-            this : basis_type
+            this : basis
             	Object to be constructed
             
             
-            Automatically generated constructor for basis_type
+            Automatically generated constructor for basis
             """
             f90wrap.runtime.FortranDerivedType.__init__(self)
             result = _raffle.f90wrap_rw_geom__basis_type_initialise()
@@ -216,7 +216,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
         
         def __del__(self):
             """
-            Destructor for class basis_type
+            Destructor for class basis
             
             
             Defined at ../src/lib/mod_rw_geom.f90 lines \
@@ -224,11 +224,11 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             
             Parameters
             ----------
-            this : basis_type
+            this : basis
             	Object to be destructed
             
             
-            Automatically generated destructor for basis_type
+            Automatically generated destructor for basis
             """
             if self._alloc:
                 _raffle.f90wrap_rw_geom__basis_type_finalise(this=self._handle)
@@ -455,7 +455,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             _raffle.f90wrap_basis_type__set__sysname(self._handle, sysname)
                 
         def __str__(self):
-            ret = ['<basis_type>{\n']
+            ret = ['<basis>{\n']
             ret.append('    nspec : ')
             ret.append(repr(self.nspec))
             ret.append(',\n    natom : ')
@@ -477,10 +477,10 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
         
 
 
-    @f90wrap.runtime.register_class("raffle.basis_type_xnum_array")
-    class basis_type_xnum_array(f90wrap.runtime.FortranDerivedType):
+    @f90wrap.runtime.register_class("raffle.basis_array")
+    class basis_array(f90wrap.runtime.FortranDerivedType):
         """
-        Type(name=basis_type_xnum_array)
+        Type(name=basis_array)
         
         
         Defined at ../src/lib/mod_generator.f90 lines \
@@ -489,7 +489,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
         """
         def __init__(self, atoms=None, handle=None):
             """
-            self = basis_Type()
+            self = basis_array()
             
             
             Defined at ../src/lib/mod_generator.f90 lines \
@@ -498,11 +498,11 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             
             Returns
             -------
-            this : basis_Type
+            this : basis_array
             	Object to be constructed
             
             
-            Automatically generated constructor for basis_type
+            Automatically generated constructor for basis_array
             """
 
             f90wrap.runtime.FortranDerivedType.__init__(self)
@@ -523,7 +523,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
         
         def __del__(self):
             """
-            Destructor for class basis_Type
+            Destructor for class basis_array
             
             
             Defined at ../src/lib/mod_generator.f90 lines \
@@ -531,11 +531,11 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             
             Parameters
             ----------
-            this : basis_type
+            this : basis_array
             	Object to be destructed
             
             
-            Automatically generated destructor for basis_type
+            Automatically generated destructor for basis_array
             """
             if self._alloc:
                 _raffle.f90wrap_rw_geom__basis_type_xnum_array_finalise(this=self._handle)
@@ -546,12 +546,12 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
                                             _raffle.f90wrap_basis_type_xnum_array__array_setitem__items,
                                             _raffle.f90wrap_basis_type_xnum_array__array_len__items,
                                             """
-            Element items ftype=type(basis_type) pytype=basis_type
+            Element items ftype=type(basis_type) pytype=basis
             
             
             Defined at  line 0
             
-            """, Rw_Geom.basis_type)
+            """, Rw_Geom.basis)
             return self.items
         
         def toase(self):
@@ -568,7 +568,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             
             Parameters
             ----------
-            self : basis_type
+            self : basis_conatiner
             size : int
                 Size of the items array
             """
@@ -596,7 +596,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
     #     ----------
     #     unit : int
     #     lat : float array
-    #     bas : basis_type
+    #     bas : basis
     #     length : int
         
     #     """
@@ -616,7 +616,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
     #     ----------
     #     unit : int
     #     lat : float array
-    #     bas : basis_type
+    #     bas : basis
         
     #     """
     #     _raffle.f90wrap_rw_geom__geom_write(unit=unit, lat=lat, bas=bas._handle)
@@ -632,17 +632,17 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
         
     #     Parameters
     #     ----------
-    #     inbas : basis_type
+    #     inbas : basis
     #     latconv : float array
         
     #     Returns
     #     -------
-    #     outbas : basis_type
+    #     outbas : basis
         
     #     """
     #     outbas = _raffle.f90wrap_rw_geom__convert_bas(inbas=self._handle, \
     #         latconv=latconv)
-    #     outbas = f90wrap.runtime.lookup_class("raffle.basis_type").from_handle(outbas, \
+    #     outbas = f90wrap.runtime.lookup_class("raffle.basis").from_handle(outbas, \
     #         alloc=True)
     #     return outbas
     
@@ -657,8 +657,8 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
         
     #     Parameters
     #     ----------
-    #     inbas : basis_type
-    #     outbas : basis_type
+    #     inbas : basis
+    #     outbas : basis
     #     inlat : float array
     #     outlat : float array
     #     trans_dim : bool
@@ -923,7 +923,7 @@ class Evolver(f90wrap.runtime.FortranModule):
             ----------
             this : unknown
             lattice : float array
-            basis : Basis_Type
+            basis : basis
             nbins : int array
             width : float array
             sigma : float array
@@ -1083,6 +1083,16 @@ class Evolver(f90wrap.runtime.FortranModule):
             if self._alloc:
                 _raffle.f90wrap_evolver__gvector_container_type_finalise(this=self._handle)
         
+        def set_kbT(self, kbT):
+            """
+            Parameters
+            ----------
+            this : unknown
+            kbT : float
+            
+            """
+            self.kbT = kbT
+
         def set_width(self, width):
             """
             set_width__binding__gvector_container_type(self, width)
@@ -1178,16 +1188,16 @@ class Evolver(f90wrap.runtime.FortranModule):
             Parameters
             ----------
             this : unknown
-            basis_list : Basis_Type array
+            basis_list : basis_array or Atoms or list of Atoms
             deallocate_systems : bool
 
             """
             from ase import Atoms
             if isinstance(basis_list, Atoms):
-                basis_list = rw_geom.basis_type_xnum_array(basis_list)
+                basis_list = rw_geom.basis_array(basis_list)
             elif isinstance(basis_list, list):
                 if all([isinstance(basis, Atoms) for basis in basis_list]):
-                    basis_list = rw_geom.basis_type_xnum_array(basis_list)
+                    basis_list = rw_geom.basis_array(basis_list)
 
             _raffle.f90wrap_evolver__create__binding__gvector_container_type(this=self._handle, \
                 basis_list=basis_list._handle, deallocate_systems=deallocate_systems)
@@ -1202,16 +1212,16 @@ class Evolver(f90wrap.runtime.FortranModule):
             Parameters
             ----------
             this : unknown
-            basis_list : Basis_Type array
+            basis_list : basis_array or list of Atoms
             deallocate_systems : bool
 
             """
             from ase import Atoms
             if isinstance(basis_list, Atoms):
-                basis_list = rw_geom.basis_type_xnum_array(basis_list)
+                basis_list = rw_geom.basis_array(basis_list)
             elif isinstance(basis_list, list):
                 if all([isinstance(basis, Atoms) for basis in basis_list]):
-                    basis_list = rw_geom.basis_type_xnum_array(basis_list)
+                    basis_list = rw_geom.basis_array(basis_list)
             
 
             _raffle.f90wrap_evolver__update__binding__gvector_container_type(this=self._handle, \
@@ -1244,7 +1254,7 @@ class Evolver(f90wrap.runtime.FortranModule):
             ----------
             this : unknown
             lattice : float array
-            basis : Basis_Type
+            basis : basis
             
             """
             _raffle.f90wrap_evolver__add_basis__binding__gvector_container_type(this=self._handle, \
@@ -2031,10 +2041,10 @@ class Generator(f90wrap.runtime.FortranModule):
         _dt_array_initialisers = []
         
     
-    @f90wrap.runtime.register_class("raffle.stoichiometry_type_xnum_array")
-    class stoichiometry_type_xnum_array(f90wrap.runtime.FortranDerivedType):
+    @f90wrap.runtime.register_class("raffle.stoichiometry_array")
+    class stoichiometry_array(f90wrap.runtime.FortranDerivedType):
         """
-        Type(name=stoichiometry_type_xnum_array)
+        Type(name=stoichiometry_array)
         
         
         Defined at ../src/lib/mod_generator.f90 lines \
@@ -2129,10 +2139,10 @@ class Generator(f90wrap.runtime.FortranModule):
         _dt_array_initialisers = [init_array_items]
         
     
-    @f90wrap.runtime.register_class("raffle.raffle_generator_type")
-    class raffle_generator_type(f90wrap.runtime.FortranDerivedType):
+    @f90wrap.runtime.register_class("raffle.raffle_generator")
+    class raffle_generator(f90wrap.runtime.FortranDerivedType):
         """
-        Type(name=raffle_generator_type)
+        Type(name=raffle_generator)
         
         
         Defined at ../src/lib/mod_generator.f90 lines \
@@ -2141,7 +2151,7 @@ class Generator(f90wrap.runtime.FortranModule):
         """
         def __init__(self, handle=None):
             """
-            self = Raffle_Generator_Type()
+            self = raffle_generator()
             
             
             Defined at ../src/lib/mod_generator.f90 lines \
@@ -2150,11 +2160,11 @@ class Generator(f90wrap.runtime.FortranModule):
             
             Returns
             -------
-            this : Raffle_Generator_Type
+            this : raffle_generator
             	Object to be constructed
             
             
-            Automatically generated constructor for raffle_generator_type
+            Automatically generated constructor for raffle_generator
             """
             f90wrap.runtime.FortranDerivedType.__init__(self)
             result = _raffle.f90wrap_generator__raffle_generator_type_initialise()
@@ -2162,7 +2172,7 @@ class Generator(f90wrap.runtime.FortranModule):
         
         def __del__(self):
             """
-            Destructor for class Raffle_Generator_Type
+            Destructor for class raffle_generator
             
             
             Defined at ../src/lib/mod_generator.f90 lines \
@@ -2170,18 +2180,18 @@ class Generator(f90wrap.runtime.FortranModule):
             
             Parameters
             ----------
-            this : Raffle_Generator_Type
+            this : raffle_generator
             	Object to be destructed
             
             
-            Automatically generated destructor for raffle_generator_type
+            Automatically generated destructor for raffle_generator
             """
             if self._alloc:
                 _raffle.f90wrap_generator__raffle_generator_type_finalise(this=self._handle)
 
         def set_host(self, host):
             """
-            set_host__binding__raffle_generator_type(self, host)
+            set_host__binding__raffle_generator(self, host)
             
             
             Defined at ../src/lib/mod_generator.f90 lines \
@@ -2190,20 +2200,20 @@ class Generator(f90wrap.runtime.FortranModule):
             Parameters
             ----------
             this : unknown
-            host : basis_type
+            host : basis
             
             """
             from ase import Atoms
             # check if host is ase.Atoms object
             if isinstance(host, Atoms):
-                host = rw_geom.basis_type(atoms=host)
+                host = rw_geom.basis(atoms=host)
 
             _raffle.f90wrap_generator__set_host__binding__rgt(this=self._handle, \
                 host=host._handle)
         
         def set_grid(self, grid=None, grid_spacing=None, grid_offset=None):
             """
-            set_grid__binding__raffle_generator_type(self[, grid, grid_spacing, \
+            set_grid__binding__raffle_generator(self[, grid, grid_spacing, \
                 grid_offset])
             
             
@@ -2224,7 +2234,7 @@ class Generator(f90wrap.runtime.FortranModule):
         
         def reset_grid(self):
             """
-            reset_grid__binding__raffle_generator_type(self)
+            reset_grid__binding__raffle_generator(self)
             
             
             Defined at \
@@ -2240,7 +2250,7 @@ class Generator(f90wrap.runtime.FortranModule):
         
         def generate(self, num_structures, stoichiometry, method_probab={"void": 1.0, "walk": 1.0, "min": 1.0}, seed=None, verbose=0):
             """
-            generate__binding__raffle_generator_type(self, num_structures, stoichiometry, method_probab)
+            generate__binding__raffle_generator(self, num_structures, stoichiometry, method_probab)
 
             Defined at ../src/lib/mod_generator.f90 lines \
                 76-84
@@ -2249,7 +2259,7 @@ class Generator(f90wrap.runtime.FortranModule):
             ----------
             this : unknown
             num_structures : int
-            stoichiometry : stoichiometry_type_xnum_array
+            stoichiometry : stoichiometry_array
             method_probab : list of float
             verbose : int
 
@@ -2260,9 +2270,9 @@ class Generator(f90wrap.runtime.FortranModule):
             method_probab_list.append(method_probab.get("walk", 1.0))
             method_probab_list.append(method_probab.get("min", 1.0))
 
-            # if stoichiometry is a dictionary, convert it to a stoichiometry_type_xnum_array
+            # if stoichiometry is a dictionary, convert it to a stoichiometry_array
             if isinstance(stoichiometry, dict):
-                stoichiometry = Generator.stoichiometry_type_xnum_array(dict=stoichiometry)
+                stoichiometry = Generator.stoichiometry_array(dict=stoichiometry)
 
             if seed is not None:
                 _raffle.f90wrap_generator__generate__binding__rgt(
@@ -2286,7 +2296,7 @@ class Generator(f90wrap.runtime.FortranModule):
 
         def evaluate(self, basis):
             """
-            viability = evaluate__binding__raffle_generator_type(self, basis)
+            viability = evaluate__binding__raffle_generator(self, basis)
             
             
             Defined at ../src/lib/mod_generator.f90 lines \
@@ -2295,7 +2305,7 @@ class Generator(f90wrap.runtime.FortranModule):
             Parameters
             ----------
             this : unknown
-            basis : basis_type
+            basis : basis
             
             Returns
             -------
@@ -2327,7 +2337,7 @@ class Generator(f90wrap.runtime.FortranModule):
         @property
         def host(self):
             """
-            Element host ftype=type(basis_type) pytype=basis_type
+            Element host ftype=type(basis_type) pytype=basis
             
             
             Defined at ../src/lib/mod_generator.f90 line \
@@ -2338,7 +2348,7 @@ class Generator(f90wrap.runtime.FortranModule):
             if tuple(host_handle) in self._objs:
                 host = self._objs[tuple(host_handle)]
             else:
-                host = rw_geom.basis_type.from_handle(host_handle)
+                host = rw_geom.basis.from_handle(host_handle)
                 self._objs[tuple(host_handle)] = host
             return host
         
@@ -2473,17 +2483,17 @@ class Generator(f90wrap.runtime.FortranModule):
                                             _raffle.f90wrap_raffle_generator_type__array_setitem__structures,
                                             _raffle.f90wrap_raffle_generator_type__array_len__structures,
                                             """
-            Element items ftype=type(basis_type) pytype=basis_type
+            Element items ftype=type(basis_type) pytype=basis
             
             
             Defined at ../src/lib/mod_generator.f90 line \
                 29
             
-            """, Rw_Geom.basis_type)
+            """, Rw_Geom.basis)
             return self.structures
 
         def __str__(self):
-            ret = ['<raffle_generator_type>{\n']
+            ret = ['<raffle_generator>{\n']
             ret.append('    num_structures : ')
             ret.append(repr(self.num_structures))
             ret.append(',\n    host : ')

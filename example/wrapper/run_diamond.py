@@ -7,7 +7,7 @@ import os
 import numpy as np
 
 # import raffle library
-from raffle.generator import raffle_generator_type
+from raffle.generator import raffle_generator
 
 # import ASE (Atomic Simulation Environment) modules
 from ase import Atoms
@@ -23,7 +23,7 @@ calculator = CHGNetCalculator(model=None)
 
 # set up an instance of the raffle generator
 print("Initialising raffle generator")
-generator = raffle_generator_type()
+generator = raffle_generator()
 
 # read the host structure from a POSCAR file
 print("Reading host")

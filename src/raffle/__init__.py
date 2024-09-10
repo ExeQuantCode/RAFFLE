@@ -22,12 +22,12 @@ generator = types.ModuleType('generator')
 geom = types.ModuleType('geom')
 
 # Assign the class to the simulated 'generator' module
-generator.raffle_generator_type = _generator_class.raffle_generator_type
-generator.stoichiometry_list_type = _generator_class.stoichiometry_type_xnum_array
+generator.raffle_generator = _generator_class.raffle_generator
+generator.stoichiometry_array = _generator_class.stoichiometry_array
 
 # Assign the class to the simulated 'geom' module
-geom.basis_list_type = _rw_geom_class.basis_type_xnum_array
-geom.basis_type = _rw_geom_class.basis_type
+geom.basis_array = _rw_geom_class.basis_array
+geom.basis = _rw_geom_class.basis
 
 
 # Add the simulated 'generator' module to the current package
@@ -42,5 +42,6 @@ del PackageNotFoundError
 del version
 del sys
 del types
+del raffle
 
 __all__ = ['__version__', 'generator', 'geom']

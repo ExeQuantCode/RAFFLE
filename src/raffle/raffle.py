@@ -256,7 +256,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
                 num_species=num_species, species_symbols=species_symbols, species_count=species_count, \
                 atoms=positions)
         
-        def init_array_spec(self):
+        def _init_array_spec(self):
             self.spec = f90wrap.runtime.FortranDerivedTypeArray(self,
                                             _raffle.f90wrap_basis_type__array_getitem__spec,
                                             _raffle.f90wrap_basis_type__array_setitem__spec,
@@ -473,7 +473,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             ret.append('}')
             return ''.join(ret)
         
-        _dt_array_initialisers = [init_array_spec]
+        _dt_array_initialisers = [_init_array_spec]
         
 
 
@@ -540,7 +540,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             if self._alloc:
                 _raffle.f90wrap_rw_geom__basis_type_xnum_array_finalise(this=self._handle)
         
-        def init_array_items(self):
+        def _init_array_items(self):
             self.items = f90wrap.runtime.FortranDerivedTypeArray(self,
                                             _raffle.f90wrap_basis_type_xnum_array__array_getitem__items,
                                             _raffle.f90wrap_basis_type_xnum_array__array_setitem__items,
@@ -580,7 +580,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             """
             _raffle.f90wrap_basis_type_xnum_array__array_dealloc__items(self._handle)
         
-        _dt_array_initialisers = [init_array_items]
+        _dt_array_initialisers = [_init_array_items]
 
 
     # @staticmethod
@@ -1334,7 +1334,7 @@ class Evolver(f90wrap.runtime.FortranModule):
 
             return element_energies
 
-        def set_bond_info(self, bond_file=None):
+        def _set_bond_info(self, bond_file=None):
             """
             set_bond_info__binding__gvector_container_type(self[, bond_file])
             
@@ -1449,7 +1449,7 @@ class Evolver(f90wrap.runtime.FortranModule):
 
             return bond_radii
         
-        def set_best_energy(self):
+        def _set_best_energy(self):
             """
             set_best_energy__binding__gvector_container_type(self)
             
@@ -1885,7 +1885,7 @@ class Evolver(f90wrap.runtime.FortranModule):
             total = total._handle
             _raffle.f90wrap_gvector_container_type__set__total(self._handle, total)
         
-        def init_array_system(self):
+        def _init_array_system(self):
             self.system = f90wrap.runtime.FortranDerivedTypeArray(self,
                                             _raffle.f90wrap_gvector_container_type__array_getitem__system,
                                             _raffle.f90wrap_gvector_container_type__array_setitem__system,
@@ -1924,7 +1924,7 @@ class Evolver(f90wrap.runtime.FortranModule):
             ret.append('}')
             return ''.join(ret)
         
-        _dt_array_initialisers = [init_array_system]
+        _dt_array_initialisers = [_init_array_system]
         
     
     _dt_array_initialisers = []
@@ -2102,7 +2102,7 @@ class Generator(f90wrap.runtime.FortranModule):
             if self._alloc:
                 _raffle.f90wrap_generator__stoich_type_xnum_array_finalise(this=self._handle)
         
-        def init_array_items(self):
+        def _init_array_items(self):
             self.items = f90wrap.runtime.FortranDerivedTypeArray(self,
                                             _raffle.f90wrap_stoich_type_xnum_array__array_getitem__items,
                                             _raffle.f90wrap_stoich_type_xnum_array__array_setitem__items,
@@ -2136,7 +2136,7 @@ class Generator(f90wrap.runtime.FortranModule):
 
         
 
-        _dt_array_initialisers = [init_array_items]
+        _dt_array_initialisers = [_init_array_items]
         
     
     @f90wrap.runtime.register_class("raffle.raffle_generator")
@@ -2477,7 +2477,7 @@ class Generator(f90wrap.runtime.FortranModule):
         def method_probab(self, method_probab):
             self.method_probab[...] = method_probab
         
-        def init_array_structures(self):
+        def _init_array_structures(self):
             self.structures = f90wrap.runtime.FortranDerivedTypeArray(self,
                                             _raffle.f90wrap_raffle_generator_type__array_getitem__structures,
                                             _raffle.f90wrap_raffle_generator_type__array_setitem__structures,
@@ -2513,7 +2513,7 @@ class Generator(f90wrap.runtime.FortranModule):
             ret.append('}')
             return ''.join(ret)
         
-        _dt_array_initialisers = [init_array_structures]
+        _dt_array_initialisers = [_init_array_structures]
         
     
     _dt_array_initialisers = []

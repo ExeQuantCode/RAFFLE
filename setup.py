@@ -82,7 +82,7 @@ minimum_requirements = [
 
 setup(
     name='raffle',
-    version='0.2.0',
+    version='0.3.1',
     author='Ned Thaddeus Taylor',
     author_email='n.t.taylor@exeter.ac.uk',
     description='A Python project with a Fortran library',

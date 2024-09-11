@@ -127,3 +127,25 @@ The code will then output any generated structures to increment1/strucXXX/POSCAR
 
 It seems that the void finder works. I don't think that scan or pseudo-random walk work at all (and neither should they as they look for the old directory space to calculated distribution function contributions, instead of using the new gvectors).
 -->
+
+
+## References
+
+If you use this code, please cite our papers:
+```text
+@article{Pitfield2024PredictingPhaseStability,
+  title = {Predicting Phase Stability at Interfaces},
+  author = {Pitfield, J. and Taylor, N. T. and Hepplestone, S. P.},
+  journal = {Phys. Rev. Lett.},
+  volume = {132},
+  issue = {6},
+  pages = {066201},
+  numpages = {8},
+  year = {2024},
+  month = {Feb},
+  publisher = {American Physical Society},
+  doi = {10.1103/PhysRevLett.132.066201},
+  url = {https://link.aps.org/doi/10.1103/PhysRevLett.132.066201}
+}
+
+```

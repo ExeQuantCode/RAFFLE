@@ -1589,7 +1589,7 @@ module evolver
        weight = exp( -4._real12 )
        height = 1._real12 / this%nbins(1)
        eta = 1._real12 / ( 2._real12 * ( this%sigma(1) )**2._real12 )
-       bonds = [ this%bond_info(index)%radius_covalent ]
+       bonds = [ 2._real12 * this%bond_info(index)%radius_covalent ]
        this%total%df_2body(:,index) = weight * height * get_gvector( &
                           bonds , &
                           this%nbins(1), eta, this%width(1), &

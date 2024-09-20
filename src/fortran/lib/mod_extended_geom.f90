@@ -5,7 +5,7 @@ module extended_geom
   !! within a specified distance of the unit cell. This is useful for
   !! calculating interactions between atoms that are not within the unit cell.
   use constants, only: real12, pi
-  use misc_linalg, only: modu, LUinv, cross
+  use misc_linalg, only: modu, LUinv, cross, inverse_3x3
   use rw_geom, only: basis_type, species_type
   implicit none
 
@@ -267,7 +267,7 @@ contains
     ! check if the point is in cartesian coordinates
     !---------------------------------------------------------------------------
     if(present(is_cartesian)) is_cartesian_ = is_cartesian
-    inverse_lattice = LUinv( lattice )
+    inverse_lattice = inverse_3x3( lattice )
     if(is_cartesian_) then
         ! Convert point to fractional coordinates
         ! point_ = matmul(LUinv(lattice), point)

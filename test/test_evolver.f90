@@ -68,10 +68,10 @@ program test_evolver
   basis_mgo%spec(2)%atom(3, :3) = [0.0, 0.0, 0.5]
   basis_mgo%spec(2)%atom(4, :3) = [0.5, 0.5, 0.5]
 
-  basis_diamond%lat(1,:) = [4.19, 0.0, 0.0]
-  basis_diamond%lat(2,:) = [0.0, 4.19, 0.0]
-  basis_diamond%lat(3,:) = [0.0, 0.0, 4.19]
-  basis_diamond%energy = -20.0
+  basis_mgo%lat(1,:) = [4.19, 0.0, 0.0]
+  basis_mgo%lat(2,:) = [0.0, 4.19, 0.0]
+  basis_mgo%lat(3,:) = [0.0, 0.0, 4.19]
+  basis_mgo%energy = -20.0
 
   call test_init_gvector_container(success)
   call test_set_width(success)
@@ -582,7 +582,7 @@ contains
 
     ! Check if the system information is correct
     call assert( &
-         gvector_container%system(1)%energy .eq. basis%energy,  &
+         abs( gvector_container%system(1)%energy - basis%energy ) .lt. 1.E-6,  &
          "System energy is incorrect",  &
          success &
     )

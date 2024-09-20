@@ -9,7 +9,7 @@ module misc_linalg
   public :: uvec, modu, cross
   public :: get_distance, get_angle, get_dihedral_angle, get_area, get_vol
   public :: get_improper_dihedral_angle
-  public :: LUinv, LUdecompose
+  public :: inverse_3x3
 
 
   interface get_angle
@@ -280,120 +280,27 @@ pure function uvec(vector)
 
 
 !###############################################################################
-  function LUinv(matrix)
-    !! Inverse of a matrix of any size using LU decomposition.
-    !!
-    !! The function uses LU decomposition to solve the equation Ax=b for x.
-    !! The function returns the inverse of the input matrix.
-    !! L = lower matrix, U = upper matrix.
-    !! NOTE: The function does not work if a diagonal element = 0.
+  pure function inverse_3x3(mat) result(inverse)
     implicit none
+    real(real12) :: det
+    real(real12), dimension(3,3) :: inverse
+    real(real12), dimension(3,3), intent(in) :: mat
 
-    ! Arguments
-    real(real12), dimension(:,:), intent(in) :: matrix
-    !! Input matrix.
+    det=mat(1,1)*mat(2,2)*mat(3,3)-mat(1,1)*mat(2,3)*mat(3,2)&
+         - mat(1,2)*mat(2,1)*mat(3,3)+mat(1,2)*mat(2,3)*mat(3,1)&
+         + mat(1,3)*mat(2,1)*mat(3,2)-mat(1,3)*mat(2,2)*mat(3,1)
 
-    ! Local variables
-    integer :: i,m,N
-    !! Loop indices.
-    real(real12), dimension(size(matrix,1),size(matrix,1)) :: LUinv
-    !! Inverse of the input matrix.
-    real(real12), dimension(size(matrix,1),size(matrix,1)) :: L,U
-    !! Lower and upper matrices.
-    real(real12), dimension(size(matrix,1)) :: c,z,x
-    !! Column vectors of the identity matrix.
+    inverse(1,1) = +1.E0 / det * (mat(2,2) * mat(3,3) - mat(2,3) * mat(3,2))
+    inverse(2,1) = -1.E0 / det * (mat(2,1) * mat(3,3) - mat(2,3) * mat(3,1))
+    inverse(3,1) = +1.E0 / det * (mat(2,1) * mat(3,2) - mat(2,2) * mat(3,1))
+    inverse(1,2) = -1.E0 / det * (mat(1,2) * mat(3,3) - mat(1,3) * mat(3,2))
+    inverse(2,2) = +1.E0 / det * (mat(1,1) * mat(3,3) - mat(1,3) * mat(3,1))
+    inverse(3,2) = -1.E0 / det * (mat(1,1) * mat(3,2) - mat(1,2) * mat(3,1))
+    inverse(1,3) = +1.E0 / det * (mat(1,2) * mat(2,3) - mat(1,3) * mat(2,2))
+    inverse(2,3) = -1.E0 / det * (mat(1,1) * mat(2,3) - mat(1,3) * mat(2,1))
+    inverse(3,3) = +1.E0 / det * (mat(1,1) * mat(2,2) - mat(1,2) * mat(2,1))
 
-
-    L=0._real12
-    U=0._real12
-    N=size(matrix,1)
-    call LUdecompose(matrix,L,U)
-
-    !---------------------------------------------------------------------------
-    ! Lz=c
-    ! c are column vectors of the identity matrix
-    ! use forward substitution to solve
-    !---------------------------------------------------------------------------
-    do m=1,N
-       c=0._real12
-       c(m)=1._real12
-
-       z(1)=c(1)
-       do i=2,N
-          z(i)=c(i)-dot_product(L(i,1:i-1),z(1:i-1))
-       end do
-
-
-       !------------------------------------------------------------------------
-       ! Ux=z
-       ! x are the rows of the inversion matrix
-       ! use backwards substitution to solve
-       !------------------------------------------------------------------------
-       x(N)=z(N)/U(N,N)
-       do i=N-1,1,-1
-          x(i)=z(i)-dot_product(U(i,i+1:N),x(i+1:N))
-          x(i)= x(i)/U(i,i)
-       end do
-
-       LUinv(:,m)=x(:)
-    end do
-
-  end function LUinv
-!###############################################################################
-
-
-!###############################################################################
-  subroutine LUdecompose(matrix,L,U)
-    !! Decompose a matrix into upper and lower matrices. A=LU
-    !!
-    !! The subroutine uses LU decomposition to solve the equation Ax=b for x.
-    !! NOTE: The subroutine does not work if a diagonal element = 0.
-    implicit none
-
-    ! Arguments
-    integer :: i,j,N
-    !! Loop indices.
-    real(real12), dimension(:,:), intent(in) :: matrix
-    !! Input matrix, lower and upper matrices.
-    real(real12), dimension(size(matrix,1),size(matrix,1)) :: L,U
-    !! Lower and upper matrices.
-
-    ! Local variables
-    real(real12), dimension(size(matrix,1),size(matrix,1)) :: mat
-    !! Temporary matrix.
-
-
-    N=size(matrix,1)
-    mat=matrix
-    L=0._real12
-    U=0._real12
-
-    do j=1,N
-       L(j,j)=1._real12
-    end do
-
-
-    !---------------------------------------------------------------------------
-    ! Solve the lower matrix
-    !---------------------------------------------------------------------------
-    do j=1,N-1
-       do i=j+1,N
-          L(i,j)=mat(i,j)/mat(j,j)
-          mat(i,j+1:N)=mat(i,j+1:N)-L(i,j)*mat(j,j+1:N)
-       end do
-    end do
-
-
-    !---------------------------------------------------------------------------
-    ! Equate upper half of remaining mat to upper matrix
-    !---------------------------------------------------------------------------
-    do j=1,N
-       do i=1,j
-          U(i,j)=mat(i,j)
-       end do
-    end do
-
-  end subroutine LUdecompose
+  end function inverse_3x3
 !###############################################################################
 
 end module misc_linalg

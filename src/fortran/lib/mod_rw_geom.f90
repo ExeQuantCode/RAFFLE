@@ -5,7 +5,7 @@ module rw_geom
   !! It also contains the derived types used to store the geometry data.
   use constants, only: pi,real12
   use misc_raffle, only: to_upper, to_lower, jump, icount
-  use misc_linalg, only: LUinv,modu
+  use misc_linalg, only: modu, inverse_3x3
   implicit none
 
 
@@ -1193,7 +1193,7 @@ contains
 
    
    if(this%lcart)then
-      lattice = LUinv( this%lat ) !transpose( LUinv( this%lat ) ) !* 2._real12 * pi
+      lattice = inverse_3x3( this%lat )
    else
       lattice = this%lat
    end if
@@ -1203,7 +1203,6 @@ contains
       do ia = 1, this%spec(is)%num
          this%spec(is)%atom(ia,1:3) = &
               matmul( this%spec(is)%atom(ia,1:3), lattice )
-              ! matmul( lattice, this%spec(is)%atom(ia,1:3) )
       end do
    end do
    

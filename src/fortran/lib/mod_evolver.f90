@@ -1145,27 +1145,23 @@ module evolver
                elements(1), ' and ', &
                elements(2)
     write(0,*) 'WARNING: Setting bond to average of covalent radii'
-    if(.not.allocated(element_database))then
-       call stop_program( "Element database not initialised" )
-       return
-    end if
+    if(.not.allocated(element_database)) allocate(element_database(0))
     idx1 = findloc([ element_database(:)%name ], &
          elements(1), dim=1)
-    idx2 = findloc([ element_database(:)%name ], &
-         elements(2), dim=1)
-    if(idx1.lt.1.or.idx2.lt.1)then
-       write(stop_msg,*) "Element not found in database"
-       if(idx1.lt.1) write(stop_msg,*) &
-            trim(stop_msg) // achar(13) // achar(10) // &
-            "Element: ", elements(1)
-       if(idx2.lt.1) write(stop_msg,*) &
-            trim(stop_msg) // achar(13) // achar(10) // &
-            "Element: ", elements(2)
-       write(stop_msg,*) trim(stop_msg) // achar(13) // achar(10) // &
-            "Indices: ", idx1, idx2
-       call stop_program( stop_msg )
-       return
-    end if
+    if(idx1.lt.1)then
+        call get_element_properties(elements(1), radius=radius1)
+        element_database = [ element_database, &
+              element_type(name=elements(1), radius=radius1) ]
+        idx1 = size(element_database)
+     end if
+     idx2 = findloc([ element_database(:)%name ], &
+          elements(2), dim=1)
+     if(idx2.lt.1)then
+        call get_element_properties(elements(2), radius=radius2)
+        element_database = [ element_database, &
+              element_type(name=elements(2), radius=radius2) ]
+        idx2 = size(element_database)
+     end if
     radius = ( element_database(idx1)%radius + &
          element_database(idx2)%radius ) / 2._real12
     if(.not.allocated(element_bond_database)) &

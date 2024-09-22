@@ -772,7 +772,6 @@ module evolver
     end select
     call this%update_element_info()
     call this%update_bond_info()
-    call this%set_best_energy()
 
   end subroutine add
 !###############################################################################

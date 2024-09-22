@@ -1452,20 +1452,20 @@ class Evolver(f90wrap.runtime.FortranModule):
 
             return bond_radii
         
-        def _set_best_energy(self):
-            """
-            set_best_energy__binding__gvector_container_type(self)
+        # def _set_best_energy(self):
+        #     """
+        #     set_best_energy__binding__gvector_container_type(self)
             
             
-            Defined at ../src/lib/mod_evolver.f90 lines \
-                532-554
+        #     Defined at ../src/lib/mod_evolver.f90 lines \
+        #         532-554
             
-            Parameters
-            ----------
-            this : unknown
+        #     Parameters
+        #     ----------
+        #     this : unknown
             
-            """
-            _raffle.f90wrap_evolver__set_best_energy__binding__gvector_containe4680(this=self._handle)
+        #     """
+        #     _raffle.f90wrap_evolver__set_best_energy__binding__gvector_containe4680(this=self._handle)
         
         def initialise_gvectors(self):
             """
@@ -1672,37 +1672,37 @@ class Evolver(f90wrap.runtime.FortranModule):
             _raffle.f90wrap_gvector_container_type__set__num_evaluated_allocated(self._handle, \
                 num_evaluated_allocated)
         
-        @property
-        def best_system(self):
-            """
-            Element best_system ftype=integer  pytype=int
+        # @property
+        # def best_system(self):
+        #     """
+        #     Element best_system ftype=integer  pytype=int
             
             
-            Defined at ../src/lib/mod_evolver.f90 line 31
+        #     Defined at ../src/lib/mod_evolver.f90 line 31
             
-            """
-            return _raffle.f90wrap_gvector_container_type__get__best_system(self._handle)
+        #     """
+        #     return _raffle.f90wrap_gvector_container_type__get__best_system(self._handle)
         
-        @best_system.setter
-        def best_system(self, best_system):
-            _raffle.f90wrap_gvector_container_type__set__best_system(self._handle, \
-                best_system)
+        # @best_system.setter
+        # def best_system(self, best_system):
+        #     _raffle.f90wrap_gvector_container_type__set__best_system(self._handle, \
+        #         best_system)
         
-        @property
-        def best_energy(self):
-            """
-            Element best_energy ftype=real(real12) pytype=float
+        # @property
+        # def best_energy(self):
+        #     """
+        #     Element best_energy ftype=real(real12) pytype=float
             
             
-            Defined at ../src/lib/mod_evolver.f90 line 32
+        #     Defined at ../src/lib/mod_evolver.f90 line 32
             
-            """
-            return _raffle.f90wrap_gvector_container_type__get__best_energy(self._handle)
+        #     """
+        #     return _raffle.f90wrap_gvector_container_type__get__best_energy(self._handle)
         
-        @best_energy.setter
-        def best_energy(self, best_energy):
-            _raffle.f90wrap_gvector_container_type__set__best_energy(self._handle, \
-                best_energy)
+        # @best_energy.setter
+        # def best_energy(self, best_energy):
+        #     _raffle.f90wrap_gvector_container_type__set__best_energy(self._handle, \
+        #         best_energy)
         
         @property
         def kbT(self):
@@ -1904,10 +1904,10 @@ class Evolver(f90wrap.runtime.FortranModule):
         
         def __str__(self):
             ret = ['<gvector_container_type>{\n']
-            ret.append('    best_system : ')
-            ret.append(repr(self.best_system))
-            ret.append(',\n    best_energy : ')
-            ret.append(repr(self.best_energy))
+            # ret.append('    best_system : ')
+            # ret.append(repr(self.best_system))
+            # ret.append(',\n    best_energy : ')
+            # ret.append(repr(self.best_energy))
             ret.append(',\n    kbT : ')
             ret.append(repr(self.kbT))
             ret.append(',\n    nbins : ')

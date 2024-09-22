@@ -53,6 +53,10 @@ module evolver
      !! Stoichiometry of the structure.
      character(len=3), dimension(:), allocatable :: element_symbols
      !! Elements contained within the structure.
+     integer, dimension(:), allocatable :: num_pairs, num_per_species
+     !! Number of pairs and number of pairs per species.
+     real(real12), dimension(:), allocatable :: weight_pair, weight_per_species
+     !! Weights for the 2-body and species distribution functions.
    contains
      procedure, pass(this) :: calculate
   end type gvector_type
@@ -85,10 +89,6 @@ module evolver
      !! Number of evaluated systems.
      integer :: num_evaluated_allocated = 0
      !! Number of evaluated systems still allocated.
-     integer :: best_system = 0
-     !! Index of the best system.
-     real(real12) :: best_energy = 0.0_real12
-     !! Energy of the best system.
      real(real12) :: kbt = 0.2_real12
      !! Boltzmann constant times temperature.
      real(real12) :: &
@@ -99,6 +99,10 @@ module evolver
           in_dataset_2body, in_dataset_3body, in_dataset_4body
      !! Whether the 2-, 3-, and 4-body distribution functions are in 
      !! the dataset.
+     real(real12), dimension(:), allocatable :: &
+          best_energy_pair, &
+          best_energy_per_species
+     !! Best energy for the 2-body and species distribution functions.
      integer, dimension(3) :: nbins = -1
      !! Number of bins for the 2-, 3-, and 4-body distribution functions.
      real(real12), dimension(3) :: &
@@ -499,6 +503,9 @@ module evolver
     if(allocated(this%in_dataset_2body)) deallocate(this%in_dataset_2body)
     if(allocated(this%in_dataset_3body)) deallocate(this%in_dataset_3body)
     if(allocated(this%in_dataset_4body)) deallocate(this%in_dataset_4body)
+    if(allocated(this%best_energy_pair)) deallocate(this%best_energy_pair)
+    if(allocated(this%best_energy_per_species)) &
+         deallocate(this%best_energy_per_species)
     allocate(this%system(0))
     call this%add(basis_list)
     call this%set_bond_info()
@@ -597,7 +604,8 @@ module evolver
     !! Parent. Instance of distribution functions container.
 
     deallocate(this%system)
-    this%best_system = 0
+    !  this%best_system = 0
+    deallocate(this%best_energy_pair, this%best_energy_per_species)
     this%num_evaluated_allocated = 0
 
   end subroutine deallocate_systems
@@ -1580,28 +1588,87 @@ module evolver
     !! Parent of the procedure. Instance of distribution functions container.
 
     ! Local variables
-    integer :: i, is, idx
+    integer :: i, j, is, js, idx1, idx2
     !! Loop index.
-    real(real12) :: energy
+    real(real12) :: energy, energy_per_species, energy_pair
     !! Energy of the system.
+    integer, dimension(:,:), allocatable :: idx_list
+    !! Index list for pairs of elements.
+
+    if(.not.allocated(this%best_energy_pair))then
+       allocate(this%best_energy_pair(size(this%bond_info,1)), source = 0._real12)
+    elseif(size(this%best_energy_pair).ne.size(this%bond_info))then
+       deallocate(this%best_energy_pair)
+       allocate(this%best_energy_pair(size(this%bond_info,1)), source = 0._real12)
+    end if
+
+    if(.not.allocated(this%best_energy_per_species))then
+       allocate(this%best_energy_per_species(size(this%element_info,1)), source = 0._real12)
+    elseif(size(this%best_energy_per_species).ne.size(this%element_info))then
+       deallocate(this%best_energy_per_species)
+       allocate(this%best_energy_per_species(size(this%element_info,1)), source = 0._real12)
+    end if
 
     do i = 1, size(this%system)
+       j = 0
+       allocate(idx_list(size(this%system(i)%element_symbols),&
+                         size(this%system(i)%element_symbols)))
+       do is = 1, size(this%system(i)%element_symbols)
+          do js = is, size(this%system(i)%element_symbols), 1
+             j = j + 1
+             idx_list(is,js) = j
+             idx_list(js,is) = j
+          end do
+       end do
+
        energy = this%system(i)%energy
        do is = 1, size(this%system(i)%element_symbols)
-          idx = findloc( [ this%element_info(:)%name ], &
+          idx1 = findloc( [ this%element_info(:)%name ], &
                            this%system(i)%element_symbols(is), dim=1 )
-          if(idx.lt.1)then
+          if(idx1.lt.1)then
              call stop_program( "Species not found in element_info" )
              return
           end if
           energy = energy - this%system(i)%stoichiometry(is) * &
-                            this%element_info(idx)%energy
+                            this%element_info(idx1)%energy
        end do
        energy = energy / this%system(i)%num_atoms
-       if( energy .lt. this%best_energy ) then
-          this%best_energy = energy
-          this%best_system = i
-       end if
+
+       do is = 1, size(this%system(i)%element_symbols)
+          idx1 = findloc( [ this%element_info(:)%name ], &
+                           this%system(i)%element_symbols(is), dim=1 )
+          energy_per_species = energy * this%system(i)%weight_per_species(is) / &
+                               real( this%system(i)%num_per_species(is), real12)
+          
+          if( energy_per_species .lt. this%best_energy_per_species(idx1) )then
+             this%best_energy_per_species(idx1) = energy_per_species
+          end if
+          do js = 1, size(this%system(i)%element_symbols)
+             idx2 = findloc( [ this%element_info(:)%name ], &
+                             this%system(i)%element_symbols(js), dim=1)
+             j = nint( ( size(this%element_info) - &
+                         min( idx1, idx2 ) / 2._real12 ) * &
+                         ( min( idx1, idx2 ) - 1._real12 ) + max( idx1, idx2 ) ) 
+
+             energy_pair = energy * this%system(i)%weight_pair(idx_list(is,js)) / &
+                           real( this%system(i)%num_pairs(idx_list(is,js)), real12)
+
+             if( energy_pair .lt. this%best_energy_pair(j) )then
+                this%best_energy_pair(j) = energy_pair
+             end if
+
+          end do
+          if(this%system(i)%num_per_species(is).eq.0)then
+             write(0,*) "system ", i
+             write(0,*) this%system(i)%element_symbols(is), is
+             write(*,*) this%system(i)%num_per_species(is), this%system(i)%num_pairs
+             call stop_program( "Species not found in system" )
+             stop
+             return
+          end if
+       end do
+       deallocate(idx_list)
+            
     end do
 
   end subroutine set_best_energy
@@ -1766,8 +1833,12 @@ module evolver
     !! Index of the element in the element_info array.
     integer :: num_evaluated
     !! Number of systems evaluated this iteration.
-    real(real12) :: weight, energy, best_energy_old
+    real(real12) :: weight, energy
     !! Energy and weight variables for a system.
+    real(real12), dimension(:), allocatable :: &
+         best_energy_pair_old, &
+         best_energy_per_species_old
+    !! Old best energies.
     real(real12), dimension(:), allocatable :: height
     !! Height of the g-vectors.
     integer, dimension(:,:), allocatable :: idx_list
@@ -1795,85 +1866,87 @@ module evolver
 
 
     !---------------------------------------------------------------------------
-    ! get the energy from the lowest formation energy system
-    !---------------------------------------------------------------------------
-    best_energy_old = this%best_energy
-    call this%set_best_energy()
-
-
-    !---------------------------------------------------------------------------
-    ! initialise the total gvectors
+    ! initialise the total gvectors and get best energies from lowest
+    ! formation energy system
     !---------------------------------------------------------------------------
     if(.not.allocated(this%total%df_2body))then
+       call this%set_best_energy()
        call this%initialise_gvectors()
     else
-      this%total%df_2body = this%total%df_2body * &
-                              exp( this%best_energy / this%kbt ) / &
-                              exp( best_energy_old / this%kbt )
-      this%total%df_3body = this%total%df_3body * &
-                              exp( this%best_energy / this%kbt ) / &
-                              exp( best_energy_old / this%kbt )
-      this%total%df_4body = this%total%df_4body * &
-                              exp( this%best_energy / this%kbt ) / &
-                              exp( best_energy_old / this%kbt )
-      if(size(this%total%df_2body,2).ne.size(this%bond_info))then
-         allocate(tmp_df(this%nbins(1),size(this%bond_info)), &
-              source = 0._real12 )
-         tmp_df(:,1:size(this%total%df_2body,2)) = this%total%df_2body
-         deallocate(this%total%df_2body)
-         call move_alloc( tmp_df, this%total%df_2body )
-         allocate(tmp_in_dataset(size(this%bond_info)), source = .false. )
-         tmp_in_dataset(1:size(this%in_dataset_2body)) = this%in_dataset_2body
-         deallocate(this%in_dataset_2body)
-         call move_alloc( tmp_in_dataset, this%in_dataset_2body )
-      end if
-      if(size(this%total%df_3body,2).ne.size(this%element_info))then
-         allocate(tmp_df(this%nbins(2),size(this%element_info)), &
-              source = 0._real12 )
-         tmp_df(:,1:size(this%total%df_3body,2)) = this%total%df_3body
-         deallocate(this%total%df_3body)
-         call move_alloc( tmp_df, this%total%df_3body )
-         allocate(tmp_in_dataset(size(this%element_info)), source = .false. )
-         tmp_in_dataset(1:size(this%in_dataset_3body)) = this%in_dataset_3body
-         deallocate(this%in_dataset_3body)
-         call move_alloc( tmp_in_dataset, this%in_dataset_3body )
-      end if
-      if(size(this%total%df_4body,2).ne.size(this%element_info))then
-         allocate(tmp_df(this%nbins(3),size(this%element_info)), &
-              source = 0._real12 )
-         tmp_df(:,1:size(this%total%df_4body,2)) = this%total%df_4body
-         deallocate(this%total%df_4body)
-         call move_alloc( tmp_df, this%total%df_4body )
-         allocate(tmp_in_dataset(size(this%element_info)), source = .false. )
-         tmp_in_dataset(1:size(this%in_dataset_4body)) = this%in_dataset_4body
-         deallocate(this%in_dataset_4body)
-         call move_alloc( tmp_in_dataset, this%in_dataset_4body )
-      end if
-      do j = 1, size(this%total%df_2body,2)
-         if(.not.this%in_dataset_2body(j))then
-            this%total%df_2body(:,j) = 0._real12
-         else
-            this%total%df_2body(:,j) = &
-                 this%total%df_2body(:,j) * this%norm_2body(j)
-         end if
-      end do
-      do is = 1, size(this%element_info)
-         if(.not.this%in_dataset_3body(is))then
-            this%total%df_3body(:,is) = 0._real12
-         else
-            this%total%df_3body(:,is) = &
-                 this%total%df_3body(:,is) * this%norm_3body(is)
-         end if
-         if(.not.this%in_dataset_4body(is))then
-            this%total%df_4body(:,is) = 0._real12
-         else
-            this%total%df_4body(:,is) = &
-                 this%total%df_4body(:,is) * this%norm_4body(is)
-         end if
-      end do
-      deallocate(this%norm_2body)
-      deallocate(this%norm_3body)
-      deallocate(this%norm_4body)
+       best_energy_pair_old = this%best_energy_pair
+       best_energy_per_species_old = this%best_energy_per_species
+       call this%set_best_energy()
+       do i = 1, size(this%total%df_2body,2)
+          this%total%df_2body(:,i) = this%total%df_2body(:,i) * &
+                                  exp( this%best_energy_pair(i) / this%kbt ) / &
+                                  exp( best_energy_pair_old(i) / this%kbt )
+       end do
+       do i = 1, size(this%total%df_3body,2)
+          this%total%df_3body(:,i) = this%total%df_3body(:,i) * &
+                                  exp( this%best_energy_per_species(i) / this%kbt ) / &
+                                  exp( best_energy_per_species_old(i) / this%kbt )
+          this%total%df_4body(:,i) = this%total%df_4body(:,i) * &
+                                  exp( this%best_energy_per_species(i) / this%kbt ) / &
+                                  exp( best_energy_per_species_old(i) / this%kbt )
+       end do
+       if(size(this%total%df_2body,2).ne.size(this%bond_info))then
+          allocate(tmp_df(this%nbins(1),size(this%bond_info)), &
+               source = 0._real12 )
+          tmp_df(:,1:size(this%total%df_2body,2)) = this%total%df_2body
+          deallocate(this%total%df_2body)
+          call move_alloc( tmp_df, this%total%df_2body )
+          allocate(tmp_in_dataset(size(this%bond_info)), source = .false. )
+          tmp_in_dataset(1:size(this%in_dataset_2body)) = this%in_dataset_2body
+          deallocate(this%in_dataset_2body)
+          call move_alloc( tmp_in_dataset, this%in_dataset_2body )
+       end if
+       if(size(this%total%df_3body,2).ne.size(this%element_info))then
+          allocate(tmp_df(this%nbins(2),size(this%element_info)), &
+               source = 0._real12 )
+          tmp_df(:,1:size(this%total%df_3body,2)) = this%total%df_3body
+          deallocate(this%total%df_3body)
+          call move_alloc( tmp_df, this%total%df_3body )
+          allocate(tmp_in_dataset(size(this%element_info)), source = .false. )
+          tmp_in_dataset(1:size(this%in_dataset_3body)) = this%in_dataset_3body
+          deallocate(this%in_dataset_3body)
+          call move_alloc( tmp_in_dataset, this%in_dataset_3body )
+       end if
+       if(size(this%total%df_4body,2).ne.size(this%element_info))then
+          allocate(tmp_df(this%nbins(3),size(this%element_info)), &
+               source = 0._real12 )
+          tmp_df(:,1:size(this%total%df_4body,2)) = this%total%df_4body
+          deallocate(this%total%df_4body)
+          call move_alloc( tmp_df, this%total%df_4body )
+          allocate(tmp_in_dataset(size(this%element_info)), source = .false. )
+          tmp_in_dataset(1:size(this%in_dataset_4body)) = this%in_dataset_4body
+          deallocate(this%in_dataset_4body)
+          call move_alloc( tmp_in_dataset, this%in_dataset_4body )
+       end if
+       do j = 1, size(this%total%df_2body,2)
+          if(.not.this%in_dataset_2body(j))then
+             this%total%df_2body(:,j) = 0._real12
+          else
+             this%total%df_2body(:,j) = &
+                  this%total%df_2body(:,j) * this%norm_2body(j)
+          end if
+       end do
+       do is = 1, size(this%element_info)
+          if(.not.this%in_dataset_3body(is))then
+             this%total%df_3body(:,is) = 0._real12
+          else
+             this%total%df_3body(:,is) = &
+                  this%total%df_3body(:,is) * this%norm_3body(is)
+          end if
+          if(.not.this%in_dataset_4body(is))then
+             this%total%df_4body(:,is) = 0._real12
+          else
+             this%total%df_4body(:,is) = &
+                  this%total%df_4body(:,is) * this%norm_4body(is)
+          end if
+       end do
+       deallocate(this%norm_2body)
+       deallocate(this%norm_3body)
+       deallocate(this%norm_4body)
     end if
 
     if(any(this%system(this%num_evaluated_allocated+1:)%from_host).and.this%host_system%defined)then
@@ -1927,7 +2000,8 @@ module evolver
                this%element_info(idx1)%energy
        end do
        energy = energy / this%system(i)%num_atoms
-       weight = exp( ( this%best_energy - energy ) / this%kbt )
+      !  write(*,*) "Energy of system ",i,": ", energy
+      !  weight = exp( ( this%best_energy - energy ) / this%kbt )
        j = 0
       !  if(weight.lt.1.E-6.and.this%system(i)%from_host)then
          
@@ -1981,6 +2055,17 @@ module evolver
           idx1 = findloc( [ this%element_info(:)%name ], &
                           this%system(i)%element_symbols(is), dim=1)
 
+          weight = exp( &
+               ( &
+                    this%best_energy_per_species(is) - &
+                    energy * ( &
+                         this%system(i)%weight_per_species(is) / &
+                         real( this%system(i)%num_per_species(is), real12 ) &
+                    ) &
+               ) / this%kbt &
+          )
+          if(weight.lt.1.E-6) cycle
+
           ! height = 1._real12 / ( 1._real12 + this%total%df_3body(:,idx1) )
           this%total%df_3body(:,idx1) = this%total%df_3body(:,idx1) + &
                ! weight * &
@@ -2013,6 +2098,18 @@ module evolver
                          ( min( idx1, idx2 ) - 1._real12 ) + max( idx1, idx2 ) )
              ! height = 1._real12 / &
              !      ( 1._real12 + this%total%df_2body(:,j) ) ** 2._real12
+
+             weight = exp( &
+                  ( &
+                       this%best_energy_pair(j) - &
+                       energy * ( &
+                            this%system(i)%weight_pair(idx_list(is,js)) / &
+                            real( this%system(i)%num_pairs(idx_list(is,js)), real12 ) &
+                       ) &
+                  ) / this%kbt &
+             )
+             if(weight.lt.1.E-6) cycle
+
              this%total%df_2body(:,j) = this%total%df_2body(:,j) + &
                   ! weight * &
                   set_difference( weight * this%system(i)%df_2body(:,idx_list(is,js)), &
@@ -2058,8 +2155,14 @@ module evolver
       this%norm_2body(j) = maxval(this%total%df_2body(:,j))
       ! this%norm_2body(j) = sum(this%total%df_2body(:,j))/size(this%total%df_2body,1)
       if(abs(this%norm_2body(j)).lt.1.E-6)then
-         call stop_program( "Zero norm for 2-body g-vector" )
-         return
+         ! if(any(this%system(this%num_evaluated_allocated+1:)%from_host))then
+         !    this%norm_2body(j) = 1.E-2_real12
+         !    this%total%df_2body(:,j) = 1.E-2_real12
+         !    cycle
+         ! else
+            call stop_program( "Zero norm for 2-body g-vector" )
+            return
+         ! end if
       end if
       this%total%df_2body(:,j) = &
            this%total%df_2body(:,j) / this%norm_2body(j)
@@ -2070,14 +2173,25 @@ module evolver
       this%norm_3body(is) = maxval(this%total%df_3body(:,is))
       ! this%norm_3body(is) = sum(this%total%df_3body(:,is))/size(this%total%df_3body,1)
       if(abs(this%norm_3body(is)).lt.1.E-6)then
-         call stop_program( "Zero norm for 3-body g-vector" )
-         return
+         ! if(any(this%system(this%num_evaluated_allocated+1:)%from_host))then
+         !    this%norm_3body(is) = 1.E-2_real12
+         !    this%total%df_3body(:,is) = 1.E-2_real12
+         !    cycle
+         ! else
+            call stop_program( "Zero norm for 3-body g-vector" )
+            return
+         ! end if
       end if
       this%norm_4body(is) = maxval(this%total%df_4body(:,is))
       ! this%norm_4body(is) = sum(this%total%df_4body(:,is))/size(this%total%df_4body,1)
       if(abs(this%norm_4body(is)).lt.1.E-6)then
-         call stop_program( "Zero norm for 4-body g-vector" )
-         return
+         ! if(any(this%system(this%num_evaluated_allocated+1:)%from_host))then
+         !    this%norm_4body(is) = 1.E-2_real12
+         !    this%total%df_4body(:,is) = 1.E-2_real12
+         ! else
+            call stop_program( "Zero norm for 4-body g-vector" )
+            return
+         ! end if
       end if
       this%total%df_3body(:,is) = &
            this%total%df_3body(:,is) / this%norm_3body(is)
@@ -2249,6 +2363,10 @@ module evolver
     ! calculate the gaussian width and allocate the distribution functions
     !---------------------------------------------------------------------------
     eta = 1._real12 / ( 2._real12 * sigma_**2._real12 )
+    allocate(this%num_pairs(num_pairs), source = 0)
+    allocate(this%num_per_species(basis%nspec), source = 0)
+    allocate(this%weight_pair(num_pairs), source = 0._real12)
+    allocate(this%weight_per_species(basis%nspec), source = 0._real12)
     allocate(this%df_2body(nbins_(1), num_pairs), source = 0._real12)
     allocate(this%df_3body(nbins_(2), basis%nspec), source = 0._real12)
     allocate(this%df_4body(nbins_(3), basis%nspec), source = 0._real12)
@@ -2409,6 +2527,22 @@ module evolver
                           cutoff_min_(1), &
                           limit(1), scale_list = distance(:itmp1) &
                      )
+                this%weight_pair(pair_index(is, js)) = &
+                     this%weight_pair(pair_index(is, js)) +&
+                     4._real12 * sum( &
+                          ( &
+                               bond_info(pair_index(is, js))%radius_covalent / &
+                               bondlength_list(:itmp1) ) ** 2 &
+                     )
+                this%num_pairs(pair_index(is, js)) = this%num_pairs(pair_index(is, js)) + itmp1
+                this%weight_per_species(is) = &
+                     this%weight_per_species(is) + &
+                     4._real12 * sum( &
+                          ( &
+                               bond_info(pair_index(is, js))%radius_covalent / &
+                               bondlength_list(:itmp1) ) ** 2 &
+                     )
+                this%num_per_species(is) = this%num_per_species(is) + itmp1
              end if
 
           end do

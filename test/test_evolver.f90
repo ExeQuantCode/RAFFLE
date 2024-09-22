@@ -520,6 +520,9 @@ contains
        call basis_list(i)%copy(basis(i))
     end do
 
+    ! Set host system
+    call gvector_container%host_system%set(basis(1))
+
     ! Set element energies
     allocate(elements(0))
     do i = 1, size(basis_list)

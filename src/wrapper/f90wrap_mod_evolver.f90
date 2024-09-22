@@ -755,7 +755,7 @@ subroutine f90wrap_evolver__create__binding__gvector_container_type(this, basis_
     end if
 end subroutine f90wrap_evolver__create__binding__gvector_container_type
 
-subroutine f90wrap_evolver__update__binding__gvector_container_type(this, basis_list, deallocate_systems)
+subroutine f90wrap_evolver__update__binding__gvector_container_type(this, basis_list, from_host, deallocate_systems)
     use rw_geom, only: basis_type
     use evolver, only: gvector_container_type
     implicit none
@@ -775,15 +775,14 @@ subroutine f90wrap_evolver__update__binding__gvector_container_type(this, basis_
     integer, intent(in), dimension(2) :: this
     type(basis_type_xnum_array_ptr_type) :: basis_list_ptr
     integer, intent(in), dimension(2) :: basis_list
-    logical, intent(in), optional :: deallocate_systems
+    logical, intent(in) :: from_host
+    logical, intent(in) :: deallocate_systems
 
     this_ptr = transfer(this, this_ptr)
     basis_list_ptr = transfer(basis_list, basis_list_ptr)
-    if(present(deallocate_systems)) then
-        call this_ptr%p%update(basis_list=basis_list_ptr%p%items, deallocate_systems=deallocate_systems)
-    else
-        call this_ptr%p%update(basis_list=basis_list_ptr%p%items)
-    end if
+    call this_ptr%p%update(basis_list=basis_list_ptr%p%items, &
+         from_host=from_host, &
+         deallocate_systems=deallocate_systems)
 end subroutine f90wrap_evolver__update__binding__gvector_container_type
 
 subroutine f90wrap_evolver__deallocate_systems__binding__gvector_conta8f02(this)

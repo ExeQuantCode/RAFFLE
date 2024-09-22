@@ -28,11 +28,12 @@ generator = raffle_generator()
 # read the host structure from a POSCAR file
 print("Reading host")
 host = read("../example_files/POSCAR_graphite_missing_layer")
+host.calc = calculator
+print("host energy: ", host.get_potential_energy())
+
 generator.set_host(host)
 print("Host read")
 
-host.calc = calculator
-print("host energy: ", host.get_potential_energy())
 
 # generate bulk diamond and get its energy
 diamond_bulk = Atoms("C8",

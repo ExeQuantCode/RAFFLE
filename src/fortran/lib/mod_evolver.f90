@@ -1135,7 +1135,7 @@ module evolver
     ! Local variables
     integer :: idx1, idx2
     !! Index of the elements in the element database.
-    real(real12) :: radius
+    real(real12) :: radius, radius1, radius2
     !! Average of covalent radii.
     character(256) :: stop_msg
     !! Error message.

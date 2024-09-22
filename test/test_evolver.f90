@@ -526,6 +526,9 @@ contains
        call basis_list(i)%copy(basis(i))
     end do
 
+    ! Set host system
+    call gvector_container%host_system%set(basis(1))
+
     ! Set element energies
     do i = 1, size(basis_list)
        species_loop: do j = 1, basis_list(i)%nspec

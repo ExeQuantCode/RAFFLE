@@ -47,6 +47,8 @@ module evolver
      !! Number of atoms in the structure.
      real(real12) :: energy = 0.0_real12
      !! Energy of the structure.
+     logical :: from_host = .false.
+     !! Boolean whether the structure is derived from the host.
      integer, dimension(:), allocatable :: stoichiometry
      !! Stoichiometry of the structure.
      character(len=3), dimension(:), allocatable :: element_symbols
@@ -55,10 +57,25 @@ module evolver
      procedure, pass(this) :: calculate
   end type gvector_type
 
+  type, extends(gvector_type) :: gvector_host_type
+     !! Type for host information.
+     !!
+     !! This type contains the information regarding the host structure that
+     !! will be used in the grandparent generator type.
+     logical :: defined = .false.
+     !! Boolean whether the host structure has been set.
+     real(real12) :: interface_energy = 0.0_real12
+     !! Energy associated with the formation of the interface in the host.
+     type(basis_type) :: basis
+     !! Host structure.
+     integer, dimension(:,:), allocatable :: pair_index
+   contains
+     procedure, pass(this) :: calculate_interface_energy
+     !! Calculate the interface formation energy of the host.
+     procedure, pass(this) :: set => set_host
+     !! Set the host structure for the distribution functions.
+  end type gvector_host_type
 
-  !! should gvector be for the entire prediction, or one for each system?
-  !! if one for each system, do not contain nbins, width, as this would ...
-  !! ... result in lots of duplicated data
   type :: gvector_container_type
      !! Container for distribution functions.
      !!
@@ -111,6 +128,8 @@ module evolver
      !! Total distribution functions for all systems.
      !! Generated from combining the energy-weighted distribution functions
      !! of all systems
+     type(gvector_host_type) :: host_system
+     !! Host structure for the distribution functions.
      type(gvector_type), dimension(:), allocatable :: system
      !! Distribution functions for each system.
      type(element_type), dimension(:), allocatable :: element_info
@@ -370,6 +389,74 @@ module evolver
 
 
 !###############################################################################
+! set the host stoichiometry, energy, and the final stoichiometry of the 
+  subroutine set_host(this, host)
+    !! Set the host structure for the distribution functions.
+    !!
+    !! distribution function not needed for host
+    implicit none
+
+    ! Arguments
+    class(gvector_host_type), intent(inout) :: this
+    !! Parent. Instance of distribution functions container.
+    type(basis_type), intent(in) :: host
+    !! Host structure for the distribution functions.
+
+    ! Local variables
+    integer :: i, is, js
+    !! Loop indices.
+
+    call this%basis%copy(host)
+    this%defined = .true.
+    allocate(this%pair_index(this%basis%nspec, this%basis%nspec))
+    i = 0
+    do is = 1, this%basis%nspec
+       do js = is, this%basis%nspec, 1
+          i = i + 1
+          this%pair_index(js,is) = i
+          this%pair_index(is,js) = i
+       end do
+   end do
+   if(allocated(this%df_2body)) deallocate(this%df_2body)
+   if(allocated(this%df_3body)) deallocate(this%df_3body)
+   if(allocated(this%df_4body)) deallocate(this%df_4body)
+
+  end subroutine set_host
+!###############################################################################
+
+
+!###############################################################################
+  subroutine calculate_interface_energy(this, element_info)
+    !! Calculate the interface formation energy of the host.
+    implicit none
+
+    ! Arguments
+    class(gvector_host_type), intent(inout) :: this
+    !! Parent. Instance of host type.
+    type(element_type), dimension(:), intent(in) :: element_info
+    !! List of elements and properties.
+
+    ! Local variables
+    integer :: is, idx1
+    !! Loop indices.
+
+    this%interface_energy = this%energy
+    do is = 1, size(this%element_symbols)
+       idx1 = findloc( [ element_info(:)%name ], &
+                       this%element_symbols(is), dim=1)
+       if(idx1.lt.1)then
+          call stop_program( "Species not found in species list" )
+          return
+       end if
+       this%interface_energy = this%interface_energy - &
+            this%stoichiometry(is) * element_info(idx1)%energy
+    end do
+
+  end subroutine calculate_interface_energy
+!###############################################################################
+
+
+!###############################################################################
   subroutine create(this, basis_list, deallocate_systems)
     !! create the distribution functions from the input file
     implicit none
@@ -423,7 +510,7 @@ module evolver
 
 
 !###############################################################################
-  subroutine update(this, basis_list, deallocate_systems)
+  subroutine update(this, basis_list, from_host, deallocate_systems)
     !! update the distribution functions from the input file
     implicit none
     ! Arguments
@@ -431,24 +518,74 @@ module evolver
     !! Parent. Instance of distribution functions container.
     type(basis_type), dimension(:), intent(in) :: basis_list
     !! List of basis structures.
+    logical, intent(in), optional :: from_host
+    !! Optional. Boolean whether structures are derived from the host.
     logical, intent(in), optional :: deallocate_systems
     !! Optional. Boolean whether to deallocate the systems after the
     !! distribution functions are created.
 
     ! Local variables
+    integer :: i
+    !! Loop index.
     logical :: deallocate_systems_
+    !! Boolean whether to deallocate the systems after the distribution
+    logical :: from_host_
+    !! Boolean whether structures are derived from the host.
+    character(256) :: stop_msg
+    !! Error message.
 
+    if(present(from_host))then
+       from_host_ = from_host
+    else
+       from_host_ = .true.
+    end if
 
     deallocate_systems_ = .true.
     if(present(deallocate_systems)) deallocate_systems_ = deallocate_systems
 
     call this%add(basis_list)
     call this%update_bond_info()
+
+    ! If the structures are derived from the host, subtract the interface energy
+    if(from_host_)then
+       if(.not.this%host_system%defined)then
+          write(stop_msg,*) "host not set" // &
+               achar(13) // achar(10) // &
+               "Run the set_host() procedure of parent of" // &
+               "gvector_container_type before calling create()"
+          call stop_program( stop_msg )
+          return
+       else
+         if(.not.allocated(this%host_system%df_2body))then
+             call this%host_system%calculate(this%host_system%basis, width = this%width, &
+                              sigma = this%sigma, &
+                              cutoff_min = this%cutoff_min, &
+                              cutoff_max = this%cutoff_max, &
+                              radius_distance_tol = this%radius_distance_tol &
+             )
+          end if
+          call this%host_system%calculate_interface_energy(this%element_info)
+          write(*,*) "host interface energy: ", this%host_system%interface_energy
+          write(*,*) "Stoichiometry of host: ", this%host_system%stoichiometry
+          write(*,*) this%element_info(1)%energy
+          do i = this%num_evaluated_allocated + 1, size(this%system), 1
+             this%system(i)%from_host = .true.
+             write(*,*) "unmodified energy: ", this%system(i)%energy
+             this%system(i)%energy = this%system(i)%energy - &
+                  this%host_system%interface_energy
+             this%system(i)%num_atoms = this%system(i)%num_atoms - &
+                  this%host_system%num_atoms
+             write(*,*) "modified energy: ", this%system(i)%energy
+         end do
+       end if
+    end if
+
     call this%evolve()
     if(deallocate_systems_) call this%deallocate_systems()
     
   end subroutine update
 !###############################################################################
+
 
 !###############################################################################
   subroutine deallocate_systems(this)
@@ -1639,6 +1776,8 @@ module evolver
     !! Temporary array for the g-vectors.
     logical, dimension(:), allocatable :: tmp_in_dataset
 
+    integer, dimension(:), allocatable :: host_idx_list
+
 
     !---------------------------------------------------------------------------
     ! if present, add the system to the container
@@ -1737,6 +1876,20 @@ module evolver
       deallocate(this%norm_4body)
     end if
 
+    if(any(this%system(this%num_evaluated_allocated+1:)%from_host).and.this%host_system%defined)then
+       ! set host_idx_list
+       allocate(host_idx_list(size(this%element_info)))
+       host_idx_list = 0
+       do is = 1, size(this%host_system%element_symbols)
+          idx1 = findloc( [ this%element_info(:)%name ], &
+                         this%host_system%element_symbols(is), dim=1)
+          if(idx1.lt.1)then
+             call stop_program( "Host species not found in species list" )
+             return
+          end if
+          host_idx_list(idx1) = is
+       end do
+    end if
 
     !---------------------------------------------------------------------------
     ! loop over all systems to calculate the total gvectors
@@ -1776,7 +1929,50 @@ module evolver
        energy = energy / this%system(i)%num_atoms
        weight = exp( ( this%best_energy - energy ) / this%kbt )
        j = 0
-
+      !  if(weight.lt.1.E-6.and.this%system(i)%from_host)then
+         
+      !     do is = 1, size(this%system(i)%element_symbols)
+      !       idx1 = findloc( [ this%element_info(:)%name ], &
+      !                       this%system(i)%element_symbols(is), dim=1)
+      !        if(host_idx_list(idx1).eq.0)then
+      !          this%total%df_3body(:,idx1) = this%total%df_3body(:,idx1) - &
+      !               0.1_real12 * this%system(i)%df_3body(:,is)
+      !          this%total%df_4body(:,idx1) = this%total%df_4body(:,idx1) - &
+      !               0.1_real12 * this%system(i)%df_4body(:,is)
+      !        else
+      !           this%total%df_3body(:,idx1) = this%total%df_3body(:,idx1) - &
+      !                set_difference( 0.1_real12 * this%system(i)%df_3body(:,is), &
+      !                                this%host_system%df_3body(:,host_idx_list(idx1)), &
+      !                                set_min_zero = .false. &
+      !                )
+      !           this%total%df_4body(:,idx1) = this%total%df_4body(:,idx1) - &
+      !                set_difference( 0.1_real12 * this%system(i)%df_4body(:,is), &
+      !                                this%host_system%df_4body(:,host_idx_list(idx1)), &
+      !                                set_min_zero = .false. &
+      !                )
+      !           do js = is, size(this%system(i)%element_symbols), 1
+      !              idx2 = findloc( [ this%element_info(:)%name ], &
+      !                              this%system(i)%element_symbols(js), dim=1)
+      !              j = nint( ( size(this%element_info) - &
+      !                          min( idx1, idx2 ) / 2._real12 ) * &
+      !                          ( min( idx1, idx2 ) - 1._real12 ) + max( idx1, idx2 ) )
+      !              if(host_idx_list(idx2).eq.0)then
+      !                 this%total%df_2body(:,j) = this%total%df_2body(:,j) - &
+      !                      0.1_real12 * this%system(i)%df_2body(:,idx_list(is,js))
+      !              else
+      !                 this%total%df_2body(:,j) = this%total%df_2body(:,j) - &
+      !                      set_difference( 0.1_real12 * this%system(i)%df_2body(:,idx_list(is,js)), &
+      !                                      this%host_system%df_2body(:,this%host_system%pair_index(host_idx_list(idx1),host_idx_list(idx2))), &
+      !                                      set_min_zero = .false. &
+      !                      )
+      !              end if
+      !           end do
+      !        end if
+      !     end do
+      !  if(weight.lt.1.E-6)then
+      !     deallocate(idx_list)
+      !     cycle
+      !  else
        !------------------------------------------------------------------------
        ! loop over all species in the system to add the gvectors
        !------------------------------------------------------------------------
@@ -1830,6 +2026,7 @@ module evolver
 
           end do
        end do
+      !  end if
        deallocate(idx_list)
    end do
    

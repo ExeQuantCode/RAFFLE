@@ -67,7 +67,7 @@ contains
    !  do concurrent( i = 1:size(gridpoints,dim=2) )
     do i = 1, size(gridpoints,dim=2)
        suitability_grid(i) = evaluate_point( gvector_container, &
-            gridpoints(:,i), basis, &
+            gridpoints(:,i), atom_ignore_list(1,1), basis, &
             atom_ignore_list, radius_list &
        )
     end do
@@ -216,7 +216,7 @@ contains
        end do
 
        calculated_value = evaluate_point( gvector_container, &
-            tmpvector, basis, &
+            tmpvector, atom_ignore_list(1,1), basis, &
             atom_ignore_list, radius_list &
        )
        call random_number(rtmp1)
@@ -248,7 +248,7 @@ contains
        testvector = testvector - floor(testvector)
 
        calculated_test = evaluate_point( gvector_container, &
-            testvector, basis, &
+            testvector, atom_ignore_list(1,1), basis, &
             atom_ignore_list, radius_list &
        )     
        if(calculated_test.lt.calculated_value) then 

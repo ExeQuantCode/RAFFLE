@@ -9,6 +9,7 @@ program test_evaluator
   implicit none
 
 
+  integer :: unit
   integer :: i, ia, num_points
   integer :: best_loc
   real(real12) :: max_bondlength
@@ -144,14 +145,18 @@ program test_evaluator
   ! call evaluator
   !-----------------------------------------------------------------------------
   allocate(suitability_grid(size(gridpoints,2)))
+!   open(newunit=unit, file='test_evaluator.dat', status='unknown')
   do ia = 1, size(atom_ignore_list,1)
      do i = 1, size(gridpoints,dim=2)
         suitability_grid(i) = evaluate_point( generator%distributions, &
-             gridpoints(:,i), basis_host, &
+             gridpoints(:,i), atom_ignore_list(ia,1), basis_host, &
              atom_ignore_list(ia:,:), &
              [ generator%distributions%bond_info(:)%radius_covalent ] &
         )
+     !    write(unit, *) gridpoints(:,i), suitability_grid(i)
      end do
+     ! close(unit)
+     ! stop 0
      best_loc = maxloc(suitability_grid,dim=1)
      ! Check point is correct
      call assert( &

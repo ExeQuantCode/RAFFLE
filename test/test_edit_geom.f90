@@ -5,7 +5,7 @@ program test_edit_geom
   use edit_geom, only: &
        get_min_dist, &
        get_min_dist_between_point_and_atom, &
-       bas_merge
+       basis_merge
 
   implicit none
 
@@ -66,7 +66,7 @@ program test_edit_geom
 
 
   !-----------------------------------------------------------------------------
-  ! Test bas_merge
+  ! Test basis_merge
   !-----------------------------------------------------------------------------
 
   ! Initialise second basis
@@ -90,30 +90,30 @@ program test_edit_geom
   bas2%lat(3,:) = [2.14, 2.14, 0.0]
 
   
-  basis_merged = bas_merge(bas, bas2)
+  basis_merged = basis_merge(bas, bas2)
 
   if ( basis_merged%nspec .ne. 2 ) then
-    write(0,*) 'bas_merge failed, number of species not equal to 2: ', basis_merged%nspec
+    write(0,*) 'basis_merge failed, number of species not equal to 2: ', basis_merged%nspec
     success = .false.
   end if
   if ( basis_merged%natom .ne. 5 ) then
-    write(0,*) 'bas_merge failed, number of atoms not equal to 5: ', basis_merged%natom
+    write(0,*) 'basis_merge failed, number of atoms not equal to 5: ', basis_merged%natom
     success = .false.
   end if
   if ( basis_merged%spec(1)%num .ne. 4 ) then
-    write(0,*) 'bas_merge failed, number of atoms for species 1 not equal to 4: ', basis_merged%spec(1)%num
+    write(0,*) 'basis_merge failed, number of atoms for species 1 not equal to 4: ', basis_merged%spec(1)%num
     success = .false.
   end if
   if ( basis_merged%spec(2)%num .ne. 1 ) then
-    write(0,*) 'bas_merge failed, number of atoms for species 2 not equal to 1: ', basis_merged%spec(2)%num
+    write(0,*) 'basis_merge failed, number of atoms for species 2 not equal to 1: ', basis_merged%spec(2)%num
     success = .false.
   end if
   if( basis_merged%spec(1)%name .ne. 'Si' ) then
-    write(0,*) 'bas_merge failed, name of species 1 not equal to Si: ', basis_merged%spec(1)%name
+    write(0,*) 'basis_merge failed, name of species 1 not equal to Si: ', basis_merged%spec(1)%name
     success = .false.
   end if
   if( basis_merged%spec(2)%name .ne. 'O' ) then
-    write(0,*) 'bas_merge failed, name of species 2 not equal to O: ', basis_merged%spec(2)%name
+    write(0,*) 'basis_merge failed, name of species 2 not equal to O: ', basis_merged%spec(2)%name
     success = .false.
   end if
 

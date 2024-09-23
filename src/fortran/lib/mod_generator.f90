@@ -15,7 +15,7 @@ module generator
 
   use constants, only: verbose_global => verbose
   use misc_raffle, only: shuffle
-  use edit_geom, only: bas_merge
+  use edit_geom, only: basis_merge
   use add_atom, only: add_atom_void, add_atom_walk, add_atom_min, &
        get_viable_gridpoints, update_viable_gridpoints
 
@@ -347,7 +347,7 @@ contains
        call stop_program("Host structure not set")
        return
     end if
-    basis_template = bas_merge(this%host,basis_template)
+    basis_template = basis_merge(this%host,basis_template)
     basis_template%lat = this%host%lat
 
 

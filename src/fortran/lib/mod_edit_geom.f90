@@ -148,32 +148,79 @@ contains
 
 
 !###############################################################################
-  pure function get_dist_between_point_and_atom(bas,loc,atom) &
-  result(dist)
-!! Return the distance between a point and an atom in a cell.
-!!
-!! This function returns the distance between a point and an atom in a cell.
-implicit none
+  pure function get_min_dist_between_point_and_species( &
+       basis, loc, species, ignore_list) result(dist)
+    !! Return the minimum distance between a point and a species in a cell.
+    !!
+    !! This function returns the minimum distance between a point and any
+    !! instance of the specified species in a periodic cell.
+    implicit none
 
-! Arguments
-class(basis_type), intent(in) :: bas
-!! The basis of the cell.
-integer, dimension(2), intent(in) :: atom
-!! The index of the atom in the cell (species, atom).
-real(real12), dimension(3), intent(in) :: loc
-!! The location of the point (in crystal coordinates).
-real(real12) :: dist
-!! The minimum distance between the point and the atom.
+    ! Arguments
+    class(basis_type), intent(in) :: basis
+    !! The basis of the cell.
+    integer, intent(in) :: species
+    !! The index of the species in the cell.
+    real(real12), dimension(3), intent(in) :: loc
+    !! The location of the point (in crystal coordinates).
+    integer, dimension(:,:), intent(in), optional :: ignore_list
+    !! List of atoms to ignore.
+    real(real12) :: dist
+    !! The minimum distance between the point and the species.
 
-! Local variables
-real(real12), dimension(3) :: vec
-!! Vector between the point and the atom.
+    ! Local variables
+    integer :: ia, i
+    !! Loop indices.
+    real(real12) :: rtmp1
+    !! Temporary variable.
+    real(real12), dimension(3) :: vec
+    !! Vector between the point and the atom.
 
-vec = loc - bas%spec(atom(1))%atom(atom(2),:3)
-vec = matmul(vec,bas%lat)
-dist = modu(vec)
 
-end function get_dist_between_point_and_atom
+    dist = huge(0._real12)
+    atom_loop: do ia = 1,basis%spec(species)%num
+       if(present(ignore_list))then
+          do i = 1, size(ignore_list,1), 1
+             if(all(ignore_list(i,:).eq.[species,ia])) cycle atom_loop
+          end do
+       end if
+       vec = loc - basis%spec(species)%atom(ia,:3)
+       vec = vec - ceiling(vec - 0.5_real12)
+       vec = matmul(vec, basis%lat)
+       rtmp1 = modu(vec)
+       if( rtmp1 .lt. dist ) dist = rtmp1
+    end do atom_loop
+
+  end function get_min_dist_between_point_and_species
+!###############################################################################
+
+
+!###############################################################################
+  pure function get_dist_between_point_and_atom(basis,loc,atom) result(dist)
+    !! Return the distance between a point and an atom in a cell.
+    !!
+    !! This function returns the distance between a point and an atom in a cell.
+    implicit none
+
+    ! Arguments
+    class(basis_type), intent(in) :: basis
+    !! The basis of the cell.
+    integer, dimension(2), intent(in) :: atom
+    !! The index of the atom in the cell (species, atom).
+    real(real12), dimension(3), intent(in) :: loc
+    !! The location of the point (in crystal coordinates).
+    real(real12) :: dist
+    !! The minimum distance between the point and the atom.
+
+    ! Local variables
+    real(real12), dimension(3) :: vec
+    !! Vector between the point and the atom.
+
+    vec = loc - basis%spec(atom(1))%atom(atom(2),:3)
+    vec = matmul(vec,basis%lat)
+    dist = modu(vec)
+
+  end function get_dist_between_point_and_atom
 !###############################################################################
 
 

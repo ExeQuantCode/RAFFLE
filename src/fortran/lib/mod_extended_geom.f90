@@ -5,7 +5,7 @@ module extended_geom
   !! within a specified distance of the unit cell. This is useful for
   !! calculating interactions between atoms that are not within the unit cell.
   use constants, only: real12, pi
-  use misc_linalg, only: modu, LUinv, cross, inverse_3x3
+  use misc_linalg, only: modu, cross, inverse_3x3
   use rw_geom, only: basis_type, species_type
   implicit none
 

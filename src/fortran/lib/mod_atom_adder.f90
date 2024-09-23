@@ -20,6 +20,8 @@ module add_atom
 
   public :: add_atom_min, add_atom_void, add_atom_walk
   public :: get_viable_gridpoints, update_viable_gridpoints
+  public :: add_atom_min_precalculated
+  public :: get_gridpoints_and_viability, update_gridpoints_and_viability
 
 
 contains
@@ -87,6 +89,48 @@ contains
     viable = .true.
    
   end function add_atom_min
+!###############################################################################
+
+!###############################################################################
+  function add_atom_min_precalculated(points, species, viable) result(point)
+    !! Global minimum placement method.
+    !!
+    !! This method places the atom at the gridpoint with the highest
+    !! suitability.
+    implicit none
+
+    ! Arguments
+    logical, intent(out) :: viable
+    !! Boolean to indicate if point is viable.
+    integer, intent(in) :: species
+    !! Species index to add atom to.
+    real(real12), dimension(:,:), intent(in) :: points
+    !! List of gridpoints to consider.
+    real(real12), dimension(3) :: point
+    !! Point to add atom to.
+
+    ! Local variables
+    integer :: i
+    !! Loop indices.
+    integer :: best_gridpoint
+    !! Index of best gridpoint.
+
+
+    viable = .false.
+
+    ! find the gridpoint with the highest suitability
+    best_gridpoint = maxloc(points(3+species,:), dim=1)
+    if(best_gridpoint.eq.0)then
+       return
+    elseif(points(3+species,best_gridpoint).lt.1.E-6)then
+       return
+    end if
+
+    ! return the gridpoint with the highest suitability
+    point = points(1:3,best_gridpoint)
+    viable = .true.
+   
+  end function add_atom_min_precalculated
 !###############################################################################
 
 
@@ -599,6 +643,7 @@ contains
           distance = modu( matmul( atom_pos - points(1:3,i), basis%lat ) )
           if( distance .lt. min_radius )then
              viable(i) = .false.
+             cycle
           elseif( distance .gt. gvector_container%cutoff_max(1) )then
              cycle
           end if
@@ -618,6 +663,8 @@ contains
     end if
     allocate(points_tmp(3+basis%nspec,num_points))
 
+    i = 0
+    j = 0
     do while (i .lt. num_points)
        j = j + 1
        if(.not.viable(j)) cycle

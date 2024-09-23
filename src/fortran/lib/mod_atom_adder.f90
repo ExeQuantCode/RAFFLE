@@ -311,11 +311,14 @@ contains
     real(real12), intent(in) :: lowtol
     !! Lower tolerance for distance between atoms.
     real(real12), dimension(3), intent(in), optional :: grid_offset
+    !! Offset for gridpoints.
+    real(real12), dimension(:,:), allocatable :: points
+    !! List of gridpoints.
 
     ! Local variables
     integer, dimension(:), allocatable :: pair_index
     !! List of element pair indices.
-    real(real12), dimension(:,:), allocatable :: points_tmp, points
+    real(real12), dimension(:,:), allocatable :: points_tmp
     !! List of gridpoints.
 
     ! Local variables

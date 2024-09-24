@@ -529,7 +529,7 @@ contains
           if(.not.allocated(elements)) then
              elements = [ basis_list(i)%spec(j)%name ]
              cycle species_loop
-          else
+          end if
           do k = 1, size(elements), 1
              if ( trim(elements(k)) .eq. trim(basis_list(i)%spec(j)%name) ) &
                   cycle species_loop

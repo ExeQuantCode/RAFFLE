@@ -92,7 +92,8 @@ contains
 !###############################################################################
 
 !###############################################################################
-  function add_atom_min_precalculated(points, species, viable) result(point)
+  function add_atom_min_precalculated(points, species, &
+       species_index_list, viable) result(point)
     !! Global minimum placement method.
     !!
     !! This method places the atom at the gridpoint with the highest
@@ -104,14 +105,16 @@ contains
     !! Boolean to indicate if point is viable.
     integer, intent(in) :: species
     !! Species index to add atom to.
+    integer, dimension(:), intent(in) :: species_index_list
+    !! List of species indices to add atoms to.
     real(real12), dimension(:,:), intent(in) :: points
     !! List of gridpoints to consider.
     real(real12), dimension(3) :: point
     !! Point to add atom to.
 
     ! Local variables
-    integer :: i
-    !! Loop indices.
+    integer :: species_index
+    !! Index of species in list.
     integer :: best_gridpoint
     !! Index of best gridpoint.
 
@@ -119,7 +122,8 @@ contains
     viable = .false.
 
     ! find the gridpoint with the highest suitability
-    best_gridpoint = maxloc(points(3+species,:), dim=1)
+    species_index = findloc(species_index_list, species, 1)
+    best_gridpoint = maxloc(points(3+species_index,:), dim=1)
     if(best_gridpoint.eq.0)then
        return
     elseif(points(3+species,best_gridpoint).lt.1.E-6)then
@@ -497,6 +501,7 @@ contains
 
 !###############################################################################
   function get_gridpoints_and_viability(gvector_container, grid, basis, &
+       species_index_list, &
        radius_list, atom_ignore_list, grid_offset) result(points)
     !! Return a list of viable gridpoints and their viability for each species.
     !!
@@ -512,6 +517,8 @@ contains
     !! Number of gridpoints in each direction.
     real(real12), dimension(:), intent(in) :: radius_list
     !! List of radii for each pair of elements.
+    integer, dimension(:), intent(in) :: species_index_list
+    !! List of species indices to add atoms to.
     integer, dimension(:,:), intent(in) :: atom_ignore_list
     !! List of atoms to ignore (i.e. indices of atoms not yet placed).
     real(real12), dimension(3), intent(in) :: grid_offset
@@ -580,11 +587,12 @@ contains
     !---------------------------------------------------------------------------
     !do concurrent( i = 1:size(gridpoints,dim=2) )
     do i = 1, size(points,dim=2)
-       do is = 1, basis%nspec
-          points(3+is,i) = evaluate_point( gvector_container, &
-               points(1:3,i), is, basis, &
-               atom_ignore_list, radius_list &
-          )
+       do is = 1, size(species_index_list,1)
+          points(3+is,i) = &
+               evaluate_point( gvector_container, &
+                    points(1:3,i), species_index_list(is), basis, &
+                    atom_ignore_list, radius_list &
+               )
        end do
     end do
 
@@ -594,6 +602,7 @@ contains
 
 !###############################################################################
   subroutine update_gridpoints_and_viability(points, gvector_container, basis, &
+       species_index_list, &
        atom, radius_list, atom_ignore_list)
     !! Update the list of viable gridpoints and their viability for each 
     !! species.
@@ -612,6 +621,8 @@ contains
     !! Index of atom to add.
     real(real12), dimension(:), intent(in) :: radius_list
     !! List of radii for each pair of elements.
+    integer, dimension(:), intent(in) :: species_index_list
+    !! List of species indices to add atoms to.
     integer, dimension(:,:), intent(in) :: atom_ignore_list
     !! List of atoms to ignore (i.e. indices of atoms not yet placed).
 
@@ -647,11 +658,12 @@ contains
           elseif( distance .gt. gvector_container%cutoff_max(1) )then
              cycle
           end if
-          do is = 1, basis%nspec
-             points(3+is,i) = evaluate_point( gvector_container, &
-                  points(1:3,i), is, basis, &
-                  atom_ignore_list, radius_list &
-             )
+          do is = 1, size(species_index_list,1)
+             points(3+is,i) = &
+                  evaluate_point( gvector_container, &
+                       points(1:3,i), species_index_list(is), basis, &
+                       atom_ignore_list, radius_list &
+                  )
           end do
        end do
     end associate

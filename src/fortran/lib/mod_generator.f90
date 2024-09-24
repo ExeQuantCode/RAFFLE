@@ -8,7 +8,7 @@ module generator
    use error_handling, only: stop_program
    use constants, only: real12
   use misc_linalg, only: modu
-  use misc_raffle, only: strip_null
+  use misc_raffle, only: strip_null, set
   use rw_geom, only: basis_type
   use extended_geom, only: extended_basis_type
   use evolver, only: gvector_container_type
@@ -461,7 +461,9 @@ contains
     !! Temporary probability of each placement method.
     !! This is used to update the probability of the global minimum method if
     !! no viable gridpoints are found.
-    real(real12), dimension(:,:), allocatable :: viable_gridpoints, gridpoint_viability
+    integer, dimension(:), allocatable :: species_index_list
+    !! List of species indices to add.
+    real(real12), dimension(:,:), allocatable :: gridpoint_viability
     !! Viable gridpoints for placing atoms.
     character(len=256) :: stop_msg
     !! Error message.
@@ -487,23 +489,23 @@ contains
     !! NEED TO SORT OUT RANDOM SEED
     !! @endnote
 
+    !---------------------------------------------------------------------------
+    ! generate species index list to add
+    !---------------------------------------------------------------------------
+    species_index_list = placement_list_shuffled(:,1)
+    call set(species_index_list)
+
 
     !---------------------------------------------------------------------------
     ! check for viable gridpoints
     !---------------------------------------------------------------------------
     method_probab_ = method_probab
     if(abs( method_probab_(3) - method_probab_(2) ) .gt. 1.E-3)then
-      !  viable_gridpoints = get_viable_gridpoints( this%grid, &
-      !       basis, &
-      !       [ this%distributions%bond_info(:)%radius_covalent ], &
-      !       placement_list_shuffled, &
-      !       lowtol = this%distributions%radius_distance_tol(1), &
-      !       grid_offset = this%grid_offset &
-      !  )
        gridpoint_viability = get_gridpoints_and_viability( &
             this%distributions, &
             this%grid, &
             basis, &
+            species_index_list, &
             [ this%distributions%bond_info(:)%radius_covalent ], &
             placement_list_shuffled, &
             this%grid_offset &
@@ -524,24 +526,12 @@ contains
                     gridpoint_viability, &
                     this%distributions, &
                     basis, &
+                    species_index_list, &
                     [ placement_list_shuffled(iplaced,:) ], &
                     [ this%distributions%bond_info(:)%radius_covalent ], &
                     placement_list_shuffled(iplaced:,:) &
                )
-         !  if(allocated(viable_gridpoints)) &
-         !       call update_viable_gridpoints( viable_gridpoints, &
-         !             basis, &
-         !             [ placement_list_shuffled(iplaced,:) ], &
-         !             this%distributions%bond_info( &
-         !                nint( ( basis%nspec - &
-         !                  placement_list_shuffled(iplaced,1)/2._real12 ) * &
-         !                ( placement_list_shuffled(iplaced,1) - 1 ) + &
-         !                placement_list_shuffled(iplaced,1) ) &                       
-         !             )%radius_covalent, &
-         !             lowtol = this%distributions%radius_distance_tol(1) &                     
-         !       )
           if(.not.allocated(gridpoint_viability))then
-         !  if(.not.allocated(viable_gridpoints))then
              if(abs(method_probab_(2)).lt.1.E-6)then
                 call stop_program( &
                      "No viable gridpoints" // &
@@ -577,13 +567,8 @@ contains
           if(verbose.gt.0) write(*,*) "Add Atom Min"
           point = add_atom_min_precalculated( gridpoint_viability, &
                 placement_list_shuffled(iplaced+1,1), &
+                species_index_list, &
                 viable )
-          ! point = add_atom_min( viable_gridpoints, &
-          !       this%distributions, &
-          !       basis, &
-          !       placement_list_shuffled(iplaced+1:,:), &
-          !       [ this%distributions%bond_info(:)%radius_covalent ], &
-          !       viable )
           if(.not. viable .and. abs(method_probab_(2)).lt.1.E-6)then
              write(stop_msg,*) &
                   "No viable gridpoints" // &
@@ -597,7 +582,6 @@ contains
              return
           elseif(.not. viable)then
              deallocate(gridpoint_viability)
-             ! deallocate(viable_gridpoints)
              write(*,*) "WARNING: No more viable gridpoints"
              write(*,*) "Suppressing global minimum method"
              method_probab_ = method_probab_ / method_probab_(2)
@@ -625,7 +609,6 @@ contains
        end if
 
     end do placement_loop
-    if(allocated(viable_gridpoints)) deallocate(viable_gridpoints)
     if(allocated(gridpoint_viability)) deallocate(gridpoint_viability)
 
   end function generate_structure

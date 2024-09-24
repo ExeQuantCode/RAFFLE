@@ -1584,7 +1584,16 @@ module evolver
        weight = exp( -4._real12 )
        height = 1._real12 / this%nbins(1)
        eta = 1._real12 / ( 2._real12 * ( this%sigma(1) )**2._real12 )
+       if(size(this%bond_info).eq.0)then
+          call set_bond_radius_to_default( [ &
+               this%bond_info(index)%element(1), &
+               this%bond_info(index)%element(2) ] &
+          )
+       end if
        bonds = [ 2._real12 * this%bond_info(index)%radius_covalent ]
+       if(abs(bonds(1)).lt.1.E-6)then
+          call stop_program( "Bond radius is zero" )
+       end if
        this%total%df_2body(:,index) = weight * height * get_gvector( &
                           bonds , &
                           this%nbins(1), eta, this%width(1), &
@@ -1638,7 +1647,10 @@ module evolver
     do i = 1, 3
        if(this%nbins(i).eq.-1)then
           this%nbins(i) = 1 + &
-               ( this%cutoff_max(i) - this%cutoff_min(i) ) / this%width(i)
+               nint( &
+                    ( this%cutoff_max(i) - this%cutoff_min(i) ) / &
+                    this%width(i) &
+               )
        end if
     end do
 
@@ -1999,8 +2011,8 @@ module evolver
     ! get the number of pairs of species
     ! (this uses a combination calculator with repetition)
     !---------------------------------------------------------------------------
-    num_pairs = gamma(real(basis%nspec + 2, real12)) / &
-                ( gamma(real(basis%nspec, real12)) * gamma( 3._real12 ) )
+    num_pairs = nint(gamma(real(basis%nspec + 2, real12)) / &
+                ( gamma(real(basis%nspec, real12)) * gamma( 3._real12 ) ))
     allocate(this%element_symbols(basis%nspec))
     do is = 1, basis%nspec
        this%element_symbols(is) = strip_null(basis%spec(is)%name)

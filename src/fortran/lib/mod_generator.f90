@@ -527,7 +527,7 @@ contains
                     species_index_list, &
                     [ placement_list_shuffled(iplaced,:) ], &
                     [ this%distributions%bond_info(:)%radius_covalent ], &
-                    placement_list_shuffled(iplaced:,:) &
+                    placement_list_shuffled(iplaced+1:,:) &
                )
           if(.not.allocated(gridpoint_viability))then
              if(abs(method_probab_(2)).lt.1.E-6)then
@@ -561,7 +561,7 @@ contains
                 [ this%distributions%bond_info(:)%radius_covalent ], &
                 viable )
           if(.not. viable) void_ticker = void_ticker + 1
-       else if(rtmp1.le.method_probab_(3)) then 
+       else if(rtmp1.le.method_probab_(3)) then
           if(verbose.gt.0) write(*,*) "Add Atom Min"
           point = add_atom_min( gridpoint_viability, &
                 placement_list_shuffled(iplaced+1,1), &

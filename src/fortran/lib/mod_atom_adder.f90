@@ -425,9 +425,11 @@ contains
        do i = 1, num_points
           distance = modu( matmul( atom_pos - points(1:3,i), basis%lat ) )
           if( distance .lt. min_radius )then
+             points(4:,i) = 0._real12
              viable(i) = .false.
              cycle
           elseif( distance .gt. gvector_container%cutoff_max(1) )then
+             points(4:,i) = 0._real12
              cycle
           end if
           do is = 1, size(species_index_list,1)

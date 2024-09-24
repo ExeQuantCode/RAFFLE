@@ -7,12 +7,14 @@ on:
       - ".github/workflows/coverage.yml"
       - "CMakeLists.txt"
       - "**.f90"
+      - "**.cmake"
   pull_request:
     branches: ["main"]
     paths:
       - ".github/workflows/coverage.yml"
       - "CMakeLists.txt"
       - "**.f90"
+      - "**.cmake"
   workflow_dispatch:
 
 permissions:
@@ -42,7 +44,7 @@ jobs:
       - name: actions-setup-cmake
         uses: jwlawson/actions-setup-cmake@v2.0.1
         with:
-          cmake-version: '3.27.x'
+          cmake-version: '3.24.x'
             
       - uses: fortran-lang/setup-fortran@v1
         id: setup-fortran

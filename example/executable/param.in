@@ -1,0 +1,39 @@
+&setup
+  task = 2,
+  filename_host = "../example_files/POSCAR_host",
+  database_format = "xyz"
+  database = "../example_files/database/",
+  seed = 1,
+  method_probab = 1.0 1.0 1.0,
+  grid_spacing = 0.05,
+  verbose = 0,
+  output_dir = "iteration1"
+/
+
+&structure
+  num_structures=10,
+  stoichiometry="{C:8, Mg:8}",
+/
+
+&volume
+  vdW=10,
+  volvar=10
+/
+
+&distribution
+  cutoff_min = 0.5 0.0 0.0,
+  cutoff_max = 6.0 "pi" "pi",
+  sigma = 0.5 0.1 0.1
+/
+
+&element_info
+  energies = "{
+    C: -9.0266865,
+    Mg: -1.5478236,
+    O: -4.3707458
+  }"
+  bond_radii = "{
+    C-C: 1.54461,
+    C-Mg: 2.3
+  }
+/

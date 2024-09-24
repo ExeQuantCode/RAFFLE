@@ -63,7 +63,7 @@ jobs:
           cmake --version
           mkdir -p build
           cd build
-          cmake -DCMAKE_BUILD_TYPE=Debug ..
+          cmake -DCMAKE_BUILD_TYPE=Debug -DBUILD_PYTHON=Off -DBUILD_EXECUTABLE=Off ..
           make
           make coverage
 

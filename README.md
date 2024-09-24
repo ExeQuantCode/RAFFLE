@@ -1,3 +1,11 @@
+[![MIT workflow](https://img.shields.io/badge/License-GPLv3-yellow.svg)](https://www.gnu.org/licenses/gpl-3.0.en.html "View GPLv3 license")
+[![Latest Release](https://img.shields.io/github/v/release/nedtaylor/RAFFLE?sort=semver)](https://github.com/nedtaylor/RAFFLE/releases "View on GitHub")
+[![Paper](https://img.shields.io/badge/Paper-Phys_Rev_B-blue.svg)](https://link.aps.org/doi/10.1103/PhysRevLett.132.066201)
+[![FPM](https://img.shields.io/badge/fpm-0.10.1-purple)](https://github.com/fortran-lang/fpm "View Fortran Package Manager")
+[![CMAKE](https://img.shields.io/badge/cmake-3.27.7-red)](https://github.com/Kitware/CMake/releases/tag/v3.27.7 "View cmake")
+[![GCC compatibility](https://img.shields.io/badge/gcc-14.1.0-green)](https://gcc.gnu.org/gcc-14/ "View GCC")
+[![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/nedtaylor/48f14ebb5636b54d3813e4b4494903eb/raw/raffle_coverage.json)](https://nedtaylor.github.io/RAFFLE/ "View coverage report")
+
 # RAFFLE
 
 by Ned Thaddeus Taylor, Joe Pitfield, and Steven Paul Hepplestone
@@ -19,6 +27,7 @@ Optional:
 
 The library bas been developed and tested using the following Fortran compilers:
 - gfortran -- gcc 13.2.0
+- gfortran -- gcc 14.1.0
 
 ## Installation
 

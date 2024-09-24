@@ -15,6 +15,7 @@ program test_atom_adder
   ! Initialise basis
   basis%nspec = 1
   allocate(basis%spec(basis%nspec))
+  basis%spec(1)%name = 'C'
   basis%spec(1)%num = 2
   allocate(basis%spec(1)%atom(basis%spec(1)%num,3))
   basis%spec(1)%atom(1,:) = [0.0_real12, 0.0_real12, 0.0_real12]
@@ -48,6 +49,7 @@ contains
     logical, intent(inout) :: success
     type(basis_type), intent(in) :: basis
 
+    integer :: i
     type(extended_basis_type) :: basis_copy
     type(gvector_container_type) :: gvector_container
     integer, dimension(3) :: grid
@@ -68,8 +70,20 @@ contains
 
     ! Initialise basis
     call basis_copy%copy(basis)
+    call basis_copy%create_images( &
+         max_bondlength = gvector_container%cutoff_max(1), &
+         atom_ignore_list = atom_ignore_list &
+    )
 
+    ! Initialise gvector container
+    write(*,*) "test0"
+    call gvector_container%set_element_energies( &
+         [basis%spec(:)%name], &
+         [ ( 0.0_real12, i = 1, basis%nspec ) ] &
+    )
+    write(*,*) "test1"
     call gvector_container%create([basis])
+    write(*,*) "test2"
 
     ! Call the function to test
     points = get_gridpoints_and_viability( &
@@ -92,7 +106,7 @@ contains
     )
     ! Check number of points
     call assert( &
-         size(points, 2) .eq. 992, &
+         size(points, 2) .eq. 864, &
          "Incorrect number of gridpoints found.", &
          success &
     )
@@ -104,6 +118,7 @@ contains
     logical, intent(inout) :: success
     type(basis_type), intent(in) :: basis
 
+    integer :: i
     type(extended_basis_type) :: basis_copy
     type(gvector_container_type) :: gvector_container
     integer, dimension(3) :: grid
@@ -118,14 +133,26 @@ contains
     allocate(atom_ignore_list(1, 2))  ! No atoms to ignore
     atom_ignore_list(1,:) = [1,2]
     allocate(radius_list(1))
-    radius_list = 1.0_real12
+    radius_list = 1.0_real12 !!! NO!!! USING CARBON RADIUS
     lowtol = 0.5_real12
     grid_offset = [0.5_real12, 0.5_real12, 0.5_real12]
 
     ! Initialise basis
     call basis_copy%copy(basis)
+    call basis_copy%create_images( &
+         max_bondlength = gvector_container%cutoff_max(1), &
+         atom_ignore_list = atom_ignore_list &
+    )
 
+    ! Initialise gvector container
+    write(*,*) "test3"
+    call gvector_container%set_element_energies( &
+         [basis%spec(:)%name], &
+         [ ( 0.0_real12, i = 1, basis%nspec ) ] &
+    )
+    write(*,*) "test4"
     call gvector_container%create([basis])
+    write(*,*) "test5"
 
     ! Call the function to test
     points = get_gridpoints_and_viability( &
@@ -158,7 +185,7 @@ contains
 
     ! Check number of points
     call assert( &
-         size(points, 2) .eq. 984, &
+         size(points, 2) .eq. 728, &
          "Incorrect number of gridpoints found.", &
          success &
     )

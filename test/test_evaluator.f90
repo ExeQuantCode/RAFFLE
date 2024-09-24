@@ -164,7 +164,7 @@ program test_evaluator
      call assert( &
           all( &
                abs( &
-                    gridpoints(:,best_loc) - &
+                    gridpoints(1:3,best_loc) - &
                     basis_host%spec(1)%atom(atom_ignore_list(ia,2),:3) &
                ) .lt. tolerance + 1.E-6_real12 &
           ), &

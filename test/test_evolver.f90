@@ -394,8 +394,6 @@ contains
     )
 
     ! Check number of species and species pairs are correct
-    write(*,*) "number of pairs: ", num_pairs
-    write(*,*) "size of 2body: ", size(gvector_container%total%df_2body, dim=2)
     call assert( &
          size(gvector_container%total%df_2body, dim=2) .eq. num_pairs,  &
          "Number of species pairs in 2-body distribution function &

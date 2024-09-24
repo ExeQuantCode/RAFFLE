@@ -347,8 +347,8 @@ contains
           elements = [ elements, species_tmp ]
        end do species_loop
     end do
-    num_pairs = gamma(real(size(elements) + 2, real12)) / &
-                ( gamma(real(size(elements), real12)) * gamma( 3._real12 ) )
+    num_pairs = nint(gamma(real(size(elements) + 2, real12)) / &
+                ( gamma(real(size(elements), real12)) * gamma( 3._real12 ) ) )
 
     ! Call the create subroutine
     call gvector_container%create(basis_list, deallocate_systems=.false.)
@@ -394,6 +394,8 @@ contains
     )
 
     ! Check number of species and species pairs are correct
+    write(*,*) "number of pairs: ", num_pairs
+    write(*,*) "size of 2body: ", size(gvector_container%total%df_2body, dim=2)
     call assert( &
          size(gvector_container%total%df_2body, dim=2) .eq. num_pairs,  &
          "Number of species pairs in 2-body distribution function &
@@ -544,8 +546,8 @@ contains
           elements = [ elements, species_tmp ]
        end do species_loop
     end do
-    num_pairs = gamma(real(size(elements) + 2, real12)) / &
-                ( gamma(real(size(elements), real12)) * gamma( 3._real12 ) )
+    num_pairs = nint( gamma(real(size(elements) + 2, real12)) / &
+                ( gamma(real(size(elements), real12)) * gamma( 3._real12 ) ) )
 
     ! Call the create subroutine
     call gvector_container%create([basis_list(1)], deallocate_systems=.false.)

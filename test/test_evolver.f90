@@ -521,12 +521,15 @@ contains
     end do
 
     ! Set element energies
-    allocate(elements(0))
     do i = 1, size(basis_list)
        species_loop: do j = 1, basis_list(i)%nspec
           call gvector_container%set_element_energies( &
                [ basis_list(i)%spec(1)%name ], [ -9.027_real12 ] &
           )
+          if(.not.allocated(elements)) then
+             elements = [ basis_list(i)%spec(j)%name ]
+             cycle species_loop
+          else
           do k = 1, size(elements), 1
              if ( trim(elements(k)) .eq. trim(basis_list(i)%spec(j)%name) ) &
                   cycle species_loop

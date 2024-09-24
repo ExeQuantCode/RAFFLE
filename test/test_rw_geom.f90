@@ -24,6 +24,7 @@ program test_rw_geom
   filename = trim(cwd)//"/"//filename
   inquire(file=filename, exist=exist)
   if(iostat .ne. 0) then
+     write(0,*) "Filepath: ", filename
      write(0,*) 'Geometry file not found'
      success = .false.
      stop 1

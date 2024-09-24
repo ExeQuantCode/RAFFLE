@@ -19,80 +19,13 @@ module add_atom
   private
 
   public :: add_atom_min, add_atom_void, add_atom_walk
-  public :: get_viable_gridpoints, update_viable_gridpoints
-  public :: add_atom_min_precalculated
   public :: get_gridpoints_and_viability, update_gridpoints_and_viability
 
 
 contains
 
 !###############################################################################
-  function add_atom_min(gridpoints, gvector_container, &
-       basis, atom_ignore_list, &
-       radius_list, viable) result(point)
-    !! Global minimum placement method.
-    !!
-    !! This method places the atom at the gridpoint with the highest
-    !! suitability.
-    implicit none
-
-    ! Arguments
-    type(gvector_container_type), intent(in) :: gvector_container
-    !! Distribution function (gvector) container.
-    type(extended_basis_type), intent(inout) :: basis
-    !! Structure to add atom to.
-    logical, intent(out) :: viable
-    !! Boolean to indicate if point is viable.
-    integer, dimension(:,:), intent(in) :: atom_ignore_list
-    !! List of atoms to ignore (i.e. indices of atoms not yet placed).
-    real(real12), dimension(:,:), intent(in) :: gridpoints
-    !! List of gridpoints to consider.
-    real(real12), dimension(:) :: radius_list
-    !! List of radii for each pair of elements.
-    real(real12), dimension(3) :: point
-    !! Point to add atom to.
-
-    ! Local variables
-    integer :: i
-    !! Loop indices.
-    integer :: best_gridpoint
-    !! Index of best gridpoint.
-    real(real12), dimension(:), allocatable :: suitability_grid
-    !! Suitability of each gridpoint.
-
-
-    !---------------------------------------------------------------------------
-    ! run evaluate_point for a set of points in the unit cell
-    !---------------------------------------------------------------------------
-    viable = .false.
-    allocate(suitability_grid(size(gridpoints,dim=2)))
-   !  do concurrent( i = 1:size(gridpoints,dim=2) )
-    do i = 1, size(gridpoints,dim=2)
-       suitability_grid(i) = evaluate_point( gvector_container, &
-            gridpoints(:,i), atom_ignore_list(1,1), basis, &
-            atom_ignore_list, radius_list &
-       )
-    end do
-    if(abs(maxval(suitability_grid)).lt.1.E-6) then
-      deallocate(suitability_grid)
-      return
-    end if
-
-    ! find the gridpoint with the highest suitability
-    best_gridpoint = maxloc(suitability_grid, dim=1)
-
-    ! deallocate the suitability grid
-    deallocate(suitability_grid)
-
-    ! return the gridpoint with the highest suitability
-    point = gridpoints(:,best_gridpoint)
-    viable = .true.
-   
-  end function add_atom_min
-!###############################################################################
-
-!###############################################################################
-  function add_atom_min_precalculated(points, species, &
+  function add_atom_min(points, species, &
        species_index_list, viable) result(point)
     !! Global minimum placement method.
     !!
@@ -134,7 +67,7 @@ contains
     point = points(1:3,best_gridpoint)
     viable = .true.
    
-  end function add_atom_min_precalculated
+  end function add_atom_min
 !###############################################################################
 
 
@@ -335,167 +268,6 @@ contains
     viable=.true.
    
   end function add_atom_walk
-!###############################################################################
-
-
-!###############################################################################
-  function get_viable_gridpoints(grid, basis, &
-       radius_list, atom_ignore_list, lowtol, grid_offset) result(points)
-    !! Get the viable gridpoints for adding an atom.
-    !!
-    !! This function returns a list of gridpoints that are not too close to an
-    !! existing atom.
-    implicit none
-
-    ! Arguments
-    type(extended_basis_type), intent(in) :: basis
-    !! Structure to add atom to.
-    integer, dimension(3), intent(in) :: grid
-    !! Number of gridpoints in each direction.
-    integer, dimension(:,:), intent(in) :: atom_ignore_list
-    !! List of atoms to ignore (i.e. indices of atoms not yet placed).
-    real(real12), dimension(:), intent(in) :: radius_list
-    !! List of radii for each pair of elements.
-    real(real12), intent(in) :: lowtol
-    !! Lower tolerance for distance between atoms.
-    real(real12), dimension(3), intent(in), optional :: grid_offset
-    !! Offset for gridpoints.
-    real(real12), dimension(:,:), allocatable :: points
-    !! List of gridpoints.
-
-    ! Local variables
-    integer, dimension(:), allocatable :: pair_index
-    !! List of element pair indices.
-    real(real12), dimension(:,:), allocatable :: points_tmp
-    !! List of gridpoints.
-
-    ! Local variables
-    integer :: i, j, k, l, is, ia
-    !! Loop indices.
-    integer :: num_points
-    !! Number of gridpoints.
-    real(real12), dimension(3) :: offset_
-
-
-    !---------------------------------------------------------------------------
-    ! set offset
-    !---------------------------------------------------------------------------
-    if(present(grid_offset)) then
-       offset_ = grid_offset
-    else
-       offset_ = 0.5_real12
-    end if
-   
-
-    !---------------------------------------------------------------------------
-    ! get list of element pair indices
-    !---------------------------------------------------------------------------
-    allocate(pair_index(basis%nspec), source = 0)
-    do is = 1, basis%nspec
-       pair_index(is) = nint( ( basis%nspec - is/2._real12 ) * ( is - 1 ) + is )
-    end do
-
-
-    !---------------------------------------------------------------------------
-    ! loop over all gridpoints in the unit cell and check if they are too ...
-    ! ... close to an existing atom. If they are, remove them from the list ...
-    ! ... of viable gridpoints
-    !---------------------------------------------------------------------------
-    allocate(points_tmp(3,product(grid)))
-    num_points = 0
-    grid_loop1: do i = 0, grid(1) - 1, 1
-       grid_loop2: do j = 0, grid(2) - 1, 1
-          grid_loop3: do k = 0, grid(3) - 1, 1
-             do is = 1, basis%nspec
-                atom_loop: do ia = 1, basis%spec(is)%num
-                   do l = 1, size(atom_ignore_list,dim=1), 1
-                      if(all(atom_ignore_list(l,:).eq.[is,ia])) cycle atom_loop
-                   end do
-                   if( get_min_dist_between_point_and_atom( &
-                             basis, &
-                             [ &
-                                  i + offset_(1), &
-                                  j + offset_(2), &
-                                  k + offset_(3) &
-                             ] / &
-                                  real(grid,real12), &
-                             [is,ia] &
-                        ) .lt. &
-                        radius_list(pair_index(is)) * lowtol &
-                   ) cycle grid_loop3
-                end do atom_loop
-             end do
-             num_points = num_points + 1
-             points_tmp(:,num_points) = [ &
-                       i + offset_(1), &
-                       j + offset_(2), &
-                       k + offset_(3) &
-                ] / real(grid,real12)
-          end do grid_loop3
-       end do grid_loop2
-    end do grid_loop1
-    allocate(points, source = points_tmp(:,:num_points))
-
-    deallocate(points_tmp, pair_index)
-
-  end function get_viable_gridpoints
-!###############################################################################
-
-
-!###############################################################################
-  subroutine update_viable_gridpoints(points, basis, atom, radius, lowtol)
-    !! Update the viable gridpoints after a new atom has been added.
-    implicit none
-
-    ! Arguments
-    type(extended_basis_type), intent(in) :: basis
-    !! Structure to add atom to.
-    integer, dimension(2) :: atom
-    !! Index of atom to add.
-    real(real12), dimension(:,:), allocatable, intent(inout) :: points
-    !! List of gridpoints.
-    real(real12), intent(in) :: radius
-    !! Radius of added atom.
-    real(real12), intent(in) :: lowtol
-    !! Lower tolerance for distance between atoms.
-
-    ! Local variables
-    integer :: i
-    !! Loop indices.
-    integer :: num_points
-    !! Number of gridpoints.
-    real(real12), dimension(:,:), allocatable :: points_tmp
-    !! Temporary list of gridpoints.
-
-
-    !---------------------------------------------------------------------------
-    ! loop over all gridpoints in the unit cell and check if they are too ...
-    ! ... close to the new atom. If they are, remove them from the list of ...
-    ! ... viable gridpoints
-    !---------------------------------------------------------------------------
-    if(.not.allocated(points)) return
-    num_points = size(points,dim=2)
-    i = 0
-    points_tmp = points
-    do while (i .lt. num_points)
-       i = i + 1
-       if( get_min_dist_between_point_and_atom( &
-             basis, points_tmp(:,i), atom ) .lt. &
-             radius * lowtol ) then
-          num_points = num_points - 1
-          points_tmp(:,i:num_points) = points_tmp(:,i+1:num_points+1)
-          i = i - 1
-       end if
-    end do
-    if(num_points.lt.1)then
-       deallocate(points)
-    else
-       points = points_tmp(:,:num_points)
-    end if
-
-    deallocate(points_tmp)
-
-  end subroutine update_viable_gridpoints
 !###############################################################################
 
 

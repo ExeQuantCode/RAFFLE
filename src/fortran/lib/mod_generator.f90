@@ -17,9 +17,7 @@ module generator
   use misc_raffle, only: shuffle
   use edit_geom, only: basis_merge
   use add_atom, only: add_atom_void, add_atom_walk, add_atom_min, &
-       get_viable_gridpoints, update_viable_gridpoints, &
-       get_gridpoints_and_viability, update_gridpoints_and_viability, &
-       add_atom_min_precalculated
+       get_gridpoints_and_viability, update_gridpoints_and_viability
 
 #ifdef ENABLE_ATHENA
   use machine_learning, only: network_predict_graph, get_graph_from_basis
@@ -565,7 +563,7 @@ contains
           if(.not. viable) void_ticker = void_ticker + 1
        else if(rtmp1.le.method_probab_(3)) then 
           if(verbose.gt.0) write(*,*) "Add Atom Min"
-          point = add_atom_min_precalculated( gridpoint_viability, &
+          point = add_atom_min( gridpoint_viability, &
                 placement_list_shuffled(iplaced+1,1), &
                 species_index_list, &
                 viable )

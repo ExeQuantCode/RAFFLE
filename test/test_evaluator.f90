@@ -5,7 +5,7 @@ program test_evaluator
   use extended_geom, only: extended_basis_type
   use evaluator, only: evaluate_point
   use generator, only: raffle_generator_type
-  use add_atom, only: get_viable_gridpoints
+  use add_atom, only: get_gridpoints_and_viability
   implicit none
 
 
@@ -129,11 +129,13 @@ program test_evaluator
   ! set up gridpoints
   !-----------------------------------------------------------------------------
   num_points = 0
-  gridpoints = get_viable_gridpoints( generator%grid, &
+  gridpoints = get_gridpoints_and_viability( &
+       generator%distributions, &
+       generator%grid, &
        basis_host, &
+       [ 1 ], &
        [ generator%distributions%bond_info(:)%radius_covalent ], &
        atom_ignore_list, &
-       lowtol = generator%distributions%radius_distance_tol(1), &
        grid_offset = generator%grid_offset &
   )
   do i = 1, 3

@@ -65,7 +65,7 @@ jobs:
           cd build
           cmake -DCMAKE_BUILD_TYPE=Debug -DBUILD_PYTHON=Off -DBUILD_EXECUTABLE=Off ..
           make
-          make coverage
+          env CTEST_OUTPUT_ON_FAILURE=1 make coverage
 
       - name: Get coverage percentage
         run: |

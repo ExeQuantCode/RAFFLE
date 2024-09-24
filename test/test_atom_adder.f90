@@ -76,14 +76,11 @@ contains
     )
 
     ! Initialise gvector container
-    write(*,*) "test0"
     call gvector_container%set_element_energies( &
          [basis%spec(:)%name], &
          [ ( 0.0_real12, i = 1, basis%nspec ) ] &
     )
-    write(*,*) "test1"
     call gvector_container%create([basis])
-    write(*,*) "test2"
 
     ! Call the function to test
     points = get_gridpoints_and_viability( &
@@ -145,14 +142,11 @@ contains
     )
 
     ! Initialise gvector container
-    write(*,*) "test3"
     call gvector_container%set_element_energies( &
          [basis%spec(:)%name], &
          [ ( 0.0_real12, i = 1, basis%nspec ) ] &
     )
-    write(*,*) "test4"
     call gvector_container%create([basis])
-    write(*,*) "test5"
 
     ! Call the function to test
     points = get_gridpoints_and_viability( &

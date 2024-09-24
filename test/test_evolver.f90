@@ -314,6 +314,7 @@ contains
 
     integer :: i, j, k
     integer :: num_pairs
+    character(len=3) :: species_tmp
     type(gvector_container_type) :: gvector_container
     type(basis_type), dimension(size(basis,1)) :: basis_list
     character(len=3), dimension(:), allocatable :: elements
@@ -329,17 +330,21 @@ contains
     write(*,*) "Handled error: element_database not initialised"
 
     ! Set element energies
-    allocate(elements(0))
     do i = 1, size(basis_list)
        species_loop: do j = 1, basis_list(i)%nspec
           call gvector_container%set_element_energies( &
                [ basis_list(i)%spec(1)%name ], [ -9.027_real12 ] &
           )
+          species_tmp = basis_list(i)%spec(j)%name(1:3)
+          if(.not.allocated(elements)) then
+             elements = [ species_tmp ]
+             cycle species_loop
+          end if
           do k = 1, size(elements), 1
-             if ( trim(elements(k)) .eq. trim(basis_list(i)%spec(j)%name) ) &
+             if ( trim(elements(k)) .eq. trim(species_tmp) ) &
                   cycle species_loop
           end do
-          elements = [ elements, basis_list(i)%spec(j)%name ]
+          elements = [ elements, species_tmp ]
        end do species_loop
     end do
     num_pairs = gamma(real(size(elements) + 2, real12)) / &

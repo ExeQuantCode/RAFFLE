@@ -21,3 +21,10 @@ iteration/
 *.png
 *.param
 fort.*
+*.o
+*.out
+*.dat
+*.err
+*.e
+*.log
+*.agr

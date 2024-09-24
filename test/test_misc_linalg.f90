@@ -19,7 +19,7 @@ program test_misc_linalg
   call test_get_dihedral_angle_from_points(success)
   call test_get_area(success)
   call test_get_vol(success)
-  call test_LUinv(success)
+  call test_inverse_3x3(success)
 
 
   !-----------------------------------------------------------------------------
@@ -164,7 +164,7 @@ contains
     )
   end subroutine test_get_vol
 
-  subroutine test_LUinv(success)
+  subroutine test_inverse_3x3(success)
     logical, intent(inout) :: success
     real(real12), dimension(3,3) :: matrix, result, expected
     matrix = reshape([4.0_real12, 3.0_real12, 0.0_real12, &
@@ -174,11 +174,11 @@ contains
                         3.0_real12, -4.0_real12, 4.0_real12, &
                         -3.0_real12, 4.0_real12, 1.0_real12], [3,3])
     expected = expected / 5.0_real12
-    result = LUinv(matrix)
+    result = inverse_3x3(matrix)
     call assert_almost_equal_matrix( &
-         result, expected, 1.E-6_real12, "LUinv", success &
+         result, expected, 1.E-6_real12, "inverse_3x3", success &
     )
-  end subroutine test_LUinv
+  end subroutine test_inverse_3x3
 
   subroutine assert_almost_equal_scalar(actual, expected, tol, message, success)
     real(real12), intent(in) :: actual

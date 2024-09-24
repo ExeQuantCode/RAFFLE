@@ -1,6 +1,7 @@
 program test_atom_adder
   use error_handling
   use add_atom
+  use evolver, only: gvector_container_type
   use constants, only: real12
   use rw_geom, only: basis_type
   use extended_geom, only: extended_basis_type
@@ -14,6 +15,7 @@ program test_atom_adder
   ! Initialise basis
   basis%nspec = 1
   allocate(basis%spec(basis%nspec))
+  basis%spec(1)%name = 'C'
   basis%spec(1)%num = 2
   allocate(basis%spec(1)%atom(basis%spec(1)%num,3))
   basis%spec(1)%atom(1,:) = [0.0_real12, 0.0_real12, 0.0_real12]
@@ -24,8 +26,8 @@ program test_atom_adder
   basis%lat(3,3) = 5.0_real12
 
 
-  call test_get_viable_gridpoints(basis, success)
-  call test_update_viable_gridpoints(basis, success)
+  call test_get_gridpoints_and_viability(basis, success)
+  call test_update_gridpoints_and_viability(basis, success)
   call test_add_atom_void(basis, success)
 
 
@@ -42,12 +44,14 @@ program test_atom_adder
 
 contains
 
-  subroutine test_get_viable_gridpoints(basis, success)
+  subroutine test_get_gridpoints_and_viability(basis, success)
     implicit none
     logical, intent(inout) :: success
     type(basis_type), intent(in) :: basis
 
+    integer :: i
     type(extended_basis_type) :: basis_copy
+    type(gvector_container_type) :: gvector_container
     integer, dimension(3) :: grid
     integer, dimension(:,:), allocatable :: atom_ignore_list
     real(real12), dimension(:), allocatable :: radius_list
@@ -66,12 +70,26 @@ contains
 
     ! Initialise basis
     call basis_copy%copy(basis)
+    call basis_copy%create_images( &
+         max_bondlength = gvector_container%cutoff_max(1), &
+         atom_ignore_list = atom_ignore_list &
+    )
+
+    ! Initialise gvector container
+    call gvector_container%set_element_energies( &
+         [basis%spec(:)%name], &
+         [ ( 0.0_real12, i = 1, basis%nspec ) ] &
+    )
+    call gvector_container%create([basis])
 
     ! Call the function to test
-    points = get_viable_gridpoints( &
+    points = get_gridpoints_and_viability( &
+         gvector_container, &
          grid, basis_copy, &
+         [ 1 ], &
          radius_list, &
-         atom_ignore_list, lowtol, grid_offset &
+         atom_ignore_list, &
+         grid_offset &
     )
 
     ! Check points exist
@@ -85,19 +103,21 @@ contains
     )
     ! Check number of points
     call assert( &
-         size(points, 2) .eq. 992, &
+         size(points, 2) .eq. 864, &
          "Incorrect number of gridpoints found.", &
          success &
     )
 
-  end subroutine test_get_viable_gridpoints
+  end subroutine test_get_gridpoints_and_viability
 
-  subroutine test_update_viable_gridpoints(basis, success)
+  subroutine test_update_gridpoints_and_viability(basis, success)
     implicit none
     logical, intent(inout) :: success
     type(basis_type), intent(in) :: basis
 
+    integer :: i
     type(extended_basis_type) :: basis_copy
+    type(gvector_container_type) :: gvector_container
     integer, dimension(3) :: grid
     integer, dimension(:,:), allocatable :: atom_ignore_list
     real(real12), dimension(:), allocatable :: radius_list
@@ -110,26 +130,41 @@ contains
     allocate(atom_ignore_list(1, 2))  ! No atoms to ignore
     atom_ignore_list(1,:) = [1,2]
     allocate(radius_list(1))
-    radius_list = 1.0_real12
+    radius_list = 1.0_real12 !!! NO!!! USING CARBON RADIUS
     lowtol = 0.5_real12
     grid_offset = [0.5_real12, 0.5_real12, 0.5_real12]
 
     ! Initialise basis
     call basis_copy%copy(basis)
+    call basis_copy%create_images( &
+         max_bondlength = gvector_container%cutoff_max(1), &
+         atom_ignore_list = atom_ignore_list &
+    )
 
-    ! Call the initial function
-    points = get_viable_gridpoints( &
+    ! Initialise gvector container
+    call gvector_container%set_element_energies( &
+         [basis%spec(:)%name], &
+         [ ( 0.0_real12, i = 1, basis%nspec ) ] &
+    )
+    call gvector_container%create([basis])
+
+    ! Call the function to test
+    points = get_gridpoints_and_viability( &
+         gvector_container, &
          grid, basis_copy, &
+         [ 1 ], &
          radius_list, &
-         atom_ignore_list, lowtol, grid_offset &
+         atom_ignore_list, &
+         grid_offset &
     )
 
     ! Call the update subroutine
-    call update_viable_gridpoints( &
-         points, basis_copy, &
+    call update_gridpoints_and_viability( &
+         points, gvector_container, basis_copy, &
+         [1], &
          [1,2], &
-         radius_list(1), &
-         lowtol &
+         radius_list, &
+         atom_ignore_list &
     )
 
     ! Check points exist
@@ -144,23 +179,25 @@ contains
 
     ! Check number of points
     call assert( &
-         size(points, 2) .eq. 984, &
+         size(points, 2) .eq. 728, &
          "Incorrect number of gridpoints found.", &
          success &
     )
 
     ! Call the update subroutine
-    call update_viable_gridpoints( &
-         points, basis_copy, &
+    gvector_container%radius_distance_tol(1) = 100._real12
+    call update_gridpoints_and_viability( &
+         points, gvector_container, basis_copy, &
+         [1], &
          [1,2], &
-         100._real12, &
-         1._real12 &
+         radius_list, &
+         atom_ignore_list &
     )
 
     ! Check all points have been removed
     call assert(.not.allocated(points), "Some grid points remain.", success)
 
-  end subroutine test_update_viable_gridpoints
+  end subroutine test_update_gridpoints_and_viability
 
   subroutine test_add_atom_void(basis, success)
     implicit none

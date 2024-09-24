@@ -141,7 +141,7 @@ for iter in range(1):
     print(f"Iteration {iter}")
     print("Generating...")
     # this is the main function to generate structures
-    generator.generate(num_structures=1, stoichiometry=stoich_dict, seed=3+iter, verbose=0, method_probab={"void":0.001, "walk":0.0, "min":1.0})
+    generator.generate(num_structures=1, stoichiometry=stoich_dict, seed=4+iter, verbose=1, method_probab={"void":0.001, "walk":0.0, "min":1.0})
     print("Generated")
 
     print("Getting structures")

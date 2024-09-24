@@ -5,10 +5,11 @@ program test_evaluator
   use extended_geom, only: extended_basis_type
   use evaluator, only: evaluate_point
   use generator, only: raffle_generator_type
-  use add_atom, only: get_viable_gridpoints
+  use add_atom, only: get_gridpoints_and_viability
   implicit none
 
 
+  integer :: unit
   integer :: i, ia, num_points
   integer :: best_loc
   real(real12) :: max_bondlength
@@ -128,11 +129,13 @@ program test_evaluator
   ! set up gridpoints
   !-----------------------------------------------------------------------------
   num_points = 0
-  gridpoints = get_viable_gridpoints( generator%grid, &
+  gridpoints = get_gridpoints_and_viability( &
+       generator%distributions, &
+       generator%grid, &
        basis_host, &
+       [ 1 ], &
        [ generator%distributions%bond_info(:)%radius_covalent ], &
        atom_ignore_list, &
-       lowtol = generator%distributions%radius_distance_tol(1), &
        grid_offset = generator%grid_offset &
   )
   do i = 1, 3
@@ -144,20 +147,24 @@ program test_evaluator
   ! call evaluator
   !-----------------------------------------------------------------------------
   allocate(suitability_grid(size(gridpoints,2)))
+!   open(newunit=unit, file='test_evaluator.dat', status='unknown')
   do ia = 1, size(atom_ignore_list,1)
      do i = 1, size(gridpoints,dim=2)
         suitability_grid(i) = evaluate_point( generator%distributions, &
-             gridpoints(:,i), basis_host, &
+             gridpoints(:,i), atom_ignore_list(ia,1), basis_host, &
              atom_ignore_list(ia:,:), &
              [ generator%distributions%bond_info(:)%radius_covalent ] &
         )
+     !    write(unit, *) gridpoints(:,i), suitability_grid(i)
      end do
+     ! close(unit)
+     ! stop 0
      best_loc = maxloc(suitability_grid,dim=1)
      ! Check point is correct
      call assert( &
           all( &
                abs( &
-                    gridpoints(:,best_loc) - &
+                    gridpoints(1:3,best_loc) - &
                     basis_host%spec(1)%atom(atom_ignore_list(ia,2),:3) &
                ) .lt. tolerance + 1.E-6_real12 &
           ), &

@@ -13,14 +13,15 @@ module edit_geom
 
   public :: get_min_dist
   public :: get_min_dist_between_point_and_atom
+  public :: get_min_dist_between_point_and_species
   public :: get_dist_between_point_and_atom
-  public :: bas_merge
+  public :: basis_merge
 
 
 contains
 
 !###############################################################################
-  function get_min_dist(bas,loc,lignore_close,axis,labove,lreal,tol, &
+  function get_min_dist(basis,loc,lignore_close,axis,labove,lreal,tol, &
        ignore_list) result(output)
     !! Return the minimum distance between a point and the nearest atom
     !! in a cell.
@@ -32,7 +33,7 @@ contains
     ! Arguments
     logical, intent(in) :: lignore_close
     !! If true, ignore atoms that are really close to the point.
-    class(basis_type), intent(in) :: bas
+    class(basis_type), intent(in) :: basis
     !! The basis of the cell.
     real(real12), dimension(3), intent(in) :: loc
     !! The location of the point (in crystal coordinates).
@@ -78,14 +79,14 @@ contains
 
     min_bond=huge(0._real12)
     output = 0._real12
-    do js = 1, bas%nspec
-       atmloop: do ja=1,bas%spec(js)%num
+    do js = 1, basis%nspec
+       atmloop: do ja=1,basis%spec(js)%num
           if(present(ignore_list))then
              do i = 1, size(ignore_list,1), 1
                 if(all(ignore_list(i,:).eq.[js,ja])) cycle atmloop
              end do
           end if
-          vdtmp1 = bas%spec(js)%atom(ja,:3) - loc
+          vdtmp1 = basis%spec(js)%atom(ja,:3) - loc
           if(lignore_close.and.modu(vdtmp1).lt.tol_) cycle atmloop
           if(axis_.gt.0)then
              if(abs(vdtmp1(axis_)).lt.tol_) cycle atmloop
@@ -97,7 +98,7 @@ contains
           else
              vdtmp1 = vdtmp1 - ceiling(vdtmp1 - 0.5_real12)
           end if
-          vdtmp2 = matmul(vdtmp1,bas%lat)
+          vdtmp2 = matmul(vdtmp1,basis%lat)
           dtmp1 = modu(vdtmp2)
           if(dtmp1.lt.min_bond)then
              min_bond = dtmp1
@@ -115,7 +116,7 @@ contains
 
 
 !###############################################################################
-  pure function get_min_dist_between_point_and_atom(bas,loc,atom) &
+  pure function get_min_dist_between_point_and_atom(basis,loc,atom) &
        result(dist)
     !! Return the minimum distance between a point and an atom in a cell.
     !!
@@ -124,7 +125,7 @@ contains
     implicit none
 
     ! Arguments
-    class(basis_type), intent(in) :: bas
+    class(basis_type), intent(in) :: basis
     !! The basis of the cell.
     integer, dimension(2), intent(in) :: atom
     !! The index of the atom in the cell (species, atom).
@@ -137,9 +138,9 @@ contains
     real(real12), dimension(3) :: vec
     !! Vector between the point and the atom.
 
-    vec = loc - bas%spec(atom(1))%atom(atom(2),:3)
+    vec = loc - basis%spec(atom(1))%atom(atom(2),:3)
     vec = vec - ceiling(vec - 0.5_real12)
-    vec = matmul(vec,bas%lat)
+    vec = matmul(vec,basis%lat)
     dist = modu(vec)
 
   end function get_min_dist_between_point_and_atom
@@ -147,46 +148,93 @@ contains
 
 
 !###############################################################################
-  pure function get_dist_between_point_and_atom(bas,loc,atom) &
-  result(dist)
-!! Return the distance between a point and an atom in a cell.
-!!
-!! This function returns the distance between a point and an atom in a cell.
-implicit none
+  pure function get_min_dist_between_point_and_species( &
+       basis, loc, species, ignore_list) result(dist)
+    !! Return the minimum distance between a point and a species in a cell.
+    !!
+    !! This function returns the minimum distance between a point and any
+    !! instance of the specified species in a periodic cell.
+    implicit none
 
-! Arguments
-class(basis_type), intent(in) :: bas
-!! The basis of the cell.
-integer, dimension(2), intent(in) :: atom
-!! The index of the atom in the cell (species, atom).
-real(real12), dimension(3), intent(in) :: loc
-!! The location of the point (in crystal coordinates).
-real(real12) :: dist
-!! The minimum distance between the point and the atom.
+    ! Arguments
+    class(basis_type), intent(in) :: basis
+    !! The basis of the cell.
+    integer, intent(in) :: species
+    !! The index of the species in the cell.
+    real(real12), dimension(3), intent(in) :: loc
+    !! The location of the point (in crystal coordinates).
+    integer, dimension(:,:), intent(in), optional :: ignore_list
+    !! List of atoms to ignore.
+    real(real12) :: dist
+    !! The minimum distance between the point and the species.
 
-! Local variables
-real(real12), dimension(3) :: vec
-!! Vector between the point and the atom.
+    ! Local variables
+    integer :: ia, i
+    !! Loop indices.
+    real(real12) :: rtmp1
+    !! Temporary variable.
+    real(real12), dimension(3) :: vec
+    !! Vector between the point and the atom.
 
-vec = loc - bas%spec(atom(1))%atom(atom(2),:3)
-vec = matmul(vec,bas%lat)
-dist = modu(vec)
 
-end function get_dist_between_point_and_atom
+    dist = huge(0._real12)
+    atom_loop: do ia = 1,basis%spec(species)%num
+       if(present(ignore_list))then
+          do i = 1, size(ignore_list,1), 1
+             if(all(ignore_list(i,:).eq.[species,ia])) cycle atom_loop
+          end do
+       end if
+       vec = loc - basis%spec(species)%atom(ia,:3)
+       vec = vec - ceiling(vec - 0.5_real12)
+       vec = matmul(vec, basis%lat)
+       rtmp1 = modu(vec)
+       if( rtmp1 .lt. dist ) dist = rtmp1
+    end do atom_loop
+
+  end function get_min_dist_between_point_and_species
 !###############################################################################
 
 
 !###############################################################################
-  function bas_merge(bas1,bas2,length,map1,map2) result(mergbas)
+  pure function get_dist_between_point_and_atom(basis,loc,atom) result(dist)
+    !! Return the distance between a point and an atom in a cell.
+    !!
+    !! This function returns the distance between a point and an atom in a cell.
+    implicit none
+
+    ! Arguments
+    class(basis_type), intent(in) :: basis
+    !! The basis of the cell.
+    integer, dimension(2), intent(in) :: atom
+    !! The index of the atom in the cell (species, atom).
+    real(real12), dimension(3), intent(in) :: loc
+    !! The location of the point (in crystal coordinates).
+    real(real12) :: dist
+    !! The minimum distance between the point and the atom.
+
+    ! Local variables
+    real(real12), dimension(3) :: vec
+    !! Vector between the point and the atom.
+
+    vec = loc - basis%spec(atom(1))%atom(atom(2),:3)
+    vec = matmul(vec,basis%lat)
+    dist = modu(vec)
+
+  end function get_dist_between_point_and_atom
+!###############################################################################
+
+
+!###############################################################################
+  function basis_merge(basis1,basis2,length,map1,map2) result(output)
     !! Merge two supplied bases
     !!
     !! Merge two bases assuming that the lattice is the same
     implicit none
 
     ! Arguments
-    type(basis_type) :: mergbas
+    type(basis_type) :: output
     !! Output merged basis.
-    class(basis_type), intent(in) :: bas1, bas2
+    class(basis_type), intent(in) :: basis1, basis2
     !! Input bases to merge.
     integer, intent(in), optional :: length
     !! Number of dimensions for atomic positions (default 3).
@@ -211,34 +259,34 @@ end function get_dist_between_point_and_atom
     dim=3
     if(present(length)) dim=length
 
-    allocate(match(bas2%nspec))
+    allocate(match(basis2%nspec))
     match=0
-    mergbas%nspec=bas1%nspec
-    do i=1,bas2%nspec
-       if(.not.any(bas2%spec(i)%name.eq.bas1%spec(:)%name))then
-          mergbas%nspec=mergbas%nspec+1
+    output%nspec=basis1%nspec
+    do i=1,basis2%nspec
+       if(.not.any(basis2%spec(i)%name.eq.basis1%spec(:)%name))then
+          output%nspec=output%nspec+1
        end if
     end do
-    allocate(mergbas%spec(mergbas%nspec))
-    mergbas%spec(:bas1%nspec)%num=bas1%spec(:)%num
-    mergbas%spec(:bas1%nspec)%name=bas1%spec(:)%name
+    allocate(output%spec(output%nspec))
+    output%spec(:basis1%nspec)%num=basis1%spec(:)%num
+    output%spec(:basis1%nspec)%name=basis1%spec(:)%name
 
 
-    write(mergbas%sysname,'(A,"+",A)') &
-         trim(bas1%sysname),trim(bas2%sysname)
-    k=bas1%nspec
-    spec1check: do i=1,bas2%nspec
-       do j=1,bas1%nspec
-          if(bas2%spec(i)%name.eq.bas1%spec(j)%name)then
-             mergbas%spec(j)%num=mergbas%spec(j)%num+bas2%spec(i)%num
+    write(output%sysname,'(A,"+",A)') &
+         trim(basis1%sysname),trim(basis2%sysname)
+    k=basis1%nspec
+    spec1check: do i=1,basis2%nspec
+       do j=1,basis1%nspec
+          if(basis2%spec(i)%name.eq.basis1%spec(j)%name)then
+             output%spec(j)%num=output%spec(j)%num+basis2%spec(i)%num
              match(i)=j
              cycle spec1check
           end if
        end do
        k=k+1
        match(i)=k
-       mergbas%spec(k)%num=bas2%spec(i)%num
-       mergbas%spec(k)%name=bas2%spec(i)%name
+       output%spec(k)%num=basis2%spec(i)%num
+       output%spec(k)%name=basis2%spec(i)%name
     end do spec1check
 
 
@@ -250,8 +298,8 @@ end function get_dist_between_point_and_atom
        if(all(map1.eq.-1)) exit if_map
        lmap = .true.
        allocate(new_map(&
-            mergbas%nspec,&
-            maxval(mergbas%spec(:)%num,dim=1),2))
+            output%nspec,&
+            maxval(output%spec(:)%num,dim=1),2))
        new_map = 0
     end if if_map
 
@@ -259,34 +307,34 @@ end function get_dist_between_point_and_atom
     !---------------------------------------------------------------------------
     ! set up atoms in merged basis
     !---------------------------------------------------------------------------
-    do i=1,bas1%nspec
-       allocate(mergbas%spec(i)%atom(mergbas%spec(i)%num,dim))
-       mergbas%spec(i)%atom(:,:)=0._real12
-       mergbas%spec(i)%atom(1:bas1%spec(i)%num,:3)=bas1%spec(i)%atom(:,:3)
-       if(lmap) new_map(i,:bas1%spec(i)%num,:)=map1(i,:bas1%spec(i)%num,:)
+    do i=1,basis1%nspec
+       allocate(output%spec(i)%atom(output%spec(i)%num,dim))
+       output%spec(i)%atom(:,:)=0._real12
+       output%spec(i)%atom(1:basis1%spec(i)%num,:3)=basis1%spec(i)%atom(:,:3)
+       if(lmap) new_map(i,:basis1%spec(i)%num,:)=map1(i,:basis1%spec(i)%num,:)
     end do
-    do i=1,bas2%nspec
-       if(match(i).gt.bas1%nspec)then
-          allocate(mergbas%spec(match(i))%atom(mergbas%spec(match(i))%num,dim))
-          mergbas%spec(match(i))%atom(:,:)=0._real12
-          mergbas%spec(match(i))%atom(:,:3)=bas2%spec(i)%atom(:,:3)
-          if(lmap) new_map(match(i),:bas2%spec(i)%num,:) = &
-               map2(i,:bas2%spec(i)%num,:)
+    do i=1,basis2%nspec
+       if(match(i).gt.basis1%nspec)then
+          allocate(output%spec(match(i))%atom(output%spec(match(i))%num,dim))
+          output%spec(match(i))%atom(:,:)=0._real12
+          output%spec(match(i))%atom(:,:3)=basis2%spec(i)%atom(:,:3)
+          if(lmap) new_map(match(i),:basis2%spec(i)%num,:) = &
+               map2(i,:basis2%spec(i)%num,:)
        else
-          itmp=bas1%spec(match(i))%num
-          mergbas%spec(match(i))%atom(itmp+1:bas2%spec(i)%num+itmp,:3) = &
-               bas2%spec(i)%atom(:,:3)   
-          if(lmap) new_map(match(i),itmp+1:bas2%spec(i)%num+itmp,:) = &
-               map2(i,:bas2%spec(i)%num,:)      
+          itmp=basis1%spec(match(i))%num
+          output%spec(match(i))%atom(itmp+1:basis2%spec(i)%num+itmp,:3) = &
+               basis2%spec(i)%atom(:,:3)   
+          if(lmap) new_map(match(i),itmp+1:basis2%spec(i)%num+itmp,:) = &
+               map2(i,:basis2%spec(i)%num,:)      
        end if
     end do
-    mergbas%natom=sum(mergbas%spec(:)%num)
+    output%natom=sum(output%spec(:)%num)
 
 
     if(lmap) call move_alloc(new_map,map1)
 
     return
-  end function bas_merge
+  end function basis_merge
 !###############################################################################
 
 end module edit_geom

@@ -11,6 +11,8 @@ program test_rw_geom
   integer :: unit, iostat, i
   real :: mass, charge, radius
   type(basis_type) :: bas1, bas2
+  class(basis_type), allocatable :: bas
+  real(real12), dimension(3,3) :: atoms
 
   character(len=256) :: cwd, filename = 'test/data/POSCAR_Si'
   logical :: exist, check
@@ -36,6 +38,74 @@ program test_rw_geom
      success = .false.
   end if
   close(unit)
+
+
+  !-----------------------------------------------------------------------------
+  ! test basis_type initialisation
+  !-----------------------------------------------------------------------------
+  bas = basis_type(bas1)
+  check = compare_bas(bas, bas1)
+  if(.not.check)then
+     write(0,*) 'basis_type initialisation failed'
+     success = .false.
+  end if
+
+
+  !-----------------------------------------------------------------------------
+  ! test allocate_species
+  !-----------------------------------------------------------------------------
+  call bas%allocate_species()
+  if(bas%nspec .ne. 1) then
+      write(0,*) 'allocate_species failed, nspec changed'
+      write(0,*) bas%nspec
+      success = .false.
+  end if
+  call bas%allocate_species()
+  if(size(bas%spec,1) .ne. bas%nspec) then
+      write(0,*) 'allocate_species failed, spec array size not equal to nspec'
+      write(0,*) bas%nspec
+      success = .false.
+  end if
+  call bas%allocate_species(2)
+  if(bas%nspec .ne. 2 .or. size(bas%spec,1) .ne. 2) then
+        write(0,*) 'allocate_species failed, &
+             &nspec or spec array size not equal to 2'
+        write(0,*) bas%nspec
+        success = .false.
+  end if
+  atoms(1,:3) = [0.0, 0.0, 0.0]
+  atoms(2,:3) = [0.5, 0.5, 0.5]
+  atoms(3,:3) = [0.0, 0.0, 0.5]
+  call bas%allocate_species( &
+       num_species = 2, &
+       species_symbols = ['Si ', 'O  '], &
+       species_count = [1, 2], &
+       atoms = atoms &
+  )
+  if(bas%nspec .ne. 2 .or. size(bas%spec,1) .ne. 2) then
+     write(0,*) 'allocate_species failed, &
+          &nspec or spec array size not equal to 2'
+     write(0,*) bas%nspec
+     success = .false.
+  end if
+  if(bas%spec(1)%num .ne. 1 .or. bas%spec(2)%num .ne. 2) then
+     write(0,*) 'allocate_species failed, &
+          &num not equal to species_count'
+     write(0,*) bas%spec(1)%num, bas%spec(2)%num
+     success = .false.
+  end if
+  if(trim(bas%spec(1)%name) .ne. 'Si' .or. trim(bas%spec(2)%name) .ne. 'O') then
+     write(0,*) 'allocate_species failed, &
+          &name not equal to species_symbols'
+     write(0,*) bas%spec(1)%name, bas%spec(2)%name
+     success = .false.
+  end if
+  if(any(abs(bas%spec(2)%atom(1,1:3) - 0.5).gt.1.E-6))then
+     write(0,*) 'allocate_species failed, atom positions not equal to atoms'
+     write(0,*) bas%spec(2)%atom(1,1:3)
+     success = .false.
+   end if
+
 
 
   !-----------------------------------------------------------------------------

@@ -382,4 +382,6 @@ if ( ( CMAKE_Fortran_COMPILER MATCHES ".*gfortran.*" OR CMAKE_Fortran_COMPILER M
         DEPENDS ${CMAKE_BINARY_DIR}/test/test ${CMAKE_BINARY_DIR}/test/test/data
     )
 
+    add_dependencies(${PROJECT_NAME} copy_test_data)
+
 endif()

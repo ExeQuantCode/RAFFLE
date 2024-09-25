@@ -22,6 +22,7 @@ program test_misc
   call test_to_lower(success)
   call test_strip_null(success)
   call test_grep(success)
+  call test_jump(success)
   call test_rswap(success)
   call test_rswap_vec(success)
 
@@ -314,6 +315,27 @@ contains
     close(unit, status='delete')
 
   end subroutine test_grep
+
+  subroutine test_jump(success)
+    implicit none
+    logical, intent(inout) :: success
+    integer :: i, j, unit
+    character(len=10) :: str
+
+    open(newunit=unit, status='scratch', action='readwrite')
+    do i = 1, 10
+       write(unit, '(I0)') i
+    end do
+
+    ! Test case 1: Jump to the end of the file
+    do i = 1, 10
+       call jump(unit, j)
+       read(unit, *) j
+       call assert(j .eq. i, 'Jump failed', success)
+       backspace(unit)
+    end do
+
+  end subroutine test_jump
 
   subroutine test_rswap(success)
     implicit none

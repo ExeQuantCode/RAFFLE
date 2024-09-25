@@ -22,6 +22,8 @@ program test_misc
   call test_to_lower(success)
   call test_strip_null(success)
   call test_grep(success)
+  call test_rswap(success)
+  call test_rswap_vec(success)
 
 
   !-----------------------------------------------------------------------------
@@ -249,9 +251,11 @@ contains
   subroutine test_to_upper(success)
     implicit none
     logical, intent(inout) :: success
-    character(len=10) :: str = "hello"
-    character(len=10) :: expected_str = "HELLO"
+    character(len=10) :: str
+    character(len=10) :: expected_str
 
+    str = "hello"
+    expected_str = "HELLO"
     str = to_upper(str)
     call assert(trim(str) .eq. trim(expected_str), "to_upper failed", success)
   end subroutine test_to_upper
@@ -259,9 +263,11 @@ contains
   subroutine test_to_lower(success)
     implicit none
     logical, intent(inout) :: success
-    character(len=10) :: str = "HELLO"
-    character(len=10) :: expected_str = "hello"
+    character(len=10) :: str
+    character(len=10) :: expected_str
 
+    str = "HELLO"
+    expected_str = "hello"
     str = to_lower(str)
     call assert(trim(str) .eq. trim(expected_str), "to_lower failed", success)
  end subroutine test_to_lower
@@ -269,9 +275,11 @@ contains
  subroutine test_strip_null(success)
     implicit none
     logical, intent(inout) :: success
-    character(len=10) :: str = "hello"//char(0)//"world"
-    character(len=10) :: expected_str = "hello"
+    character(len=10) :: str
+    character(len=10) :: expected_str
 
+    str = "hello"//char(0)//"world"
+    expected_str = "hello"
     str = strip_null(str)
     call assert(trim(str) .eq. trim(expected_str), "strip_null failed", success)
   end subroutine test_strip_null
@@ -306,6 +314,38 @@ contains
     close(unit, status='delete')
 
   end subroutine test_grep
+
+  subroutine test_rswap(success)
+    implicit none
+    logical, intent(inout) :: success
+    real(real12) :: a = 1._real12
+    real(real12) :: b = 2._real12
+    real(real12) :: expected_a = 2._real12
+    real(real12) :: expected_b = 1._real12
+
+    call swap(a, b)
+    call assert( &
+         abs(a - expected_a).lt. 1.E-6 .and. &
+         abs(b - expected_b).lt. 1.E-6, &
+         "rswap failed", success &
+    )
+    
+  end subroutine test_rswap
+
+  subroutine test_rswap_vec(success)
+    implicit none
+    logical, intent(inout) :: success
+    real(real12), dimension(2) :: a = [1._real12, 2._real12]
+    real(real12), dimension(2) :: b = [3._real12, 4._real12]
+
+    call swap(a, b)
+    call assert( &
+          all( abs(a - [3._real12, 4._real12]) .lt. 1.E-6_real12 ) .and. &
+          all( abs(b - [1._real12, 2._real12]) .lt. 1.E-6_real12 ), &
+          "rswap_vec failed", success &
+    )
+
+  end subroutine test_rswap_vec
 
 !###############################################################################
 

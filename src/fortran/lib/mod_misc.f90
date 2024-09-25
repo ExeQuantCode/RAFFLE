@@ -8,7 +8,7 @@ module misc_raffle
   private
 
   public :: sort1D, sort2D, sort_str, sort_str_order
-  public :: set
+  public :: set, swap
   public :: shuffle
   public :: icount, grep, flagmaker
   public :: jump, file_check, touch, to_upper, to_lower

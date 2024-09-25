@@ -21,6 +21,7 @@ program test_misc
   call test_to_upper(success)
   call test_to_lower(success)
   call test_strip_null(success)
+  call test_grep(success)
 
 
   !-----------------------------------------------------------------------------
@@ -275,6 +276,36 @@ contains
     call assert(trim(str) .eq. trim(expected_str), "strip_null failed", success)
   end subroutine test_strip_null
 
+  subroutine test_grep(success)
+    implicit none
+    logical, intent(inout) :: success
+    integer :: unit
+    logical :: success_tmp
+    character(len=1024) :: buffer
+
+    ! Create a temporary scratch file for testing
+    open(newunit=unit, status='scratch', action='readwrite')
+    write(unit, '(A)') 'This is a test line.'
+    write(unit, '(A)') 'Another line with test pattern.'
+    write(unit, '(A)') 'Yet another line.'
+    rewind(unit)
+
+    ! Test case 1: Pattern found in the middle of the line
+    call grep(unit, 'test pattern', success=success_tmp)
+    call assert(success_tmp, 'Pattern not found', success)
+    rewind(unit)
+
+    ! Test case 2: Pattern not found
+    call grep(unit, 'nonexistent pattern', lstart=.true., success=success_tmp)
+    call assert(.not. success_tmp, 'Nonexistent pattern found', success)
+    rewind(unit)
+
+    ! Test case 3: Pattern at the start of the line
+    call grep(unit, 'This is', lline=.true., success=success_tmp)
+    call assert(success_tmp, 'Pattern at start of line not found', success)
+    close(unit, status='delete')
+
+  end subroutine test_grep
 
 !###############################################################################
 

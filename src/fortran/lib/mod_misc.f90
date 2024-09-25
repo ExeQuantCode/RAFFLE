@@ -765,12 +765,14 @@ subroutine sort_str(list, lcase)
     ! Local variables
     integer :: k
     !! Loop index.
-    integer :: items = 0, pos = 1, length = 1
+    integer :: items, pos, length
     !! Number of fields and position in the string.
     character(len=:), allocatable :: fs_
     !! Delimiter (aka field separator).
 
 
+    items=0
+    pos=1
     length=1
     if(present(fs)) length=len(trim(fs))
     allocate(character(len=length) :: fs_)
@@ -821,12 +823,14 @@ subroutine sort_str(list, lcase)
     !! I/O status.
     character(1024) :: buffer
     !! Buffer for reading lines.
-    logical :: lline_ = .false.
+    logical :: lline_
     !! Boolean whether the pattern is at the start of the line.
-    logical :: success_ = .false.
+    logical :: success_
     !! Boolean whether the pattern is found.
 
 
+    lline_ = .false.
+    success_ = .false.
     if(present(lstart))then
        if(lstart) rewind(unit)
     else

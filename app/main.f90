@@ -1,4 +1,5 @@
 program raffle_program
+  !! Main program for the interface-based random structure search
   use constants, only: real12
   use error_handling, only: stop_program
   use misc_raffle, only: touch
@@ -8,15 +9,21 @@ program raffle_program
   use rw_geom, only: geom_read, geom_write
   implicit none
 
-  integer :: i, unit
+  ! Local variables
+  integer :: i, unit, itmp1
+  !! Loop index, unit number, temporary integer
   character(1024) :: buffer
+  !! Buffer for strings
+  character(:), allocatable :: next_dir
+  !! Next directory name
 
-  ! type(gvector_container_type) :: gvector_container
   real(real12), dimension(:), allocatable :: tmp_energies
+  !! Temporary array for element energies
   character(len=3), dimension(:), allocatable :: tmp_symbols
+  !! Temporary array for element symbols
 
   type(raffle_generator_type) :: generator
-
+  !! Random structure generator
 
 
   !-----------------------------------------------------------------------------
@@ -28,30 +35,23 @@ program raffle_program
   !-----------------------------------------------------------------------------
   ! check the task and run the appropriate case
   !-----------------------------------------------------------------------------
-  ! OLD TASKS !
   ! 0) Run RSS
-  ! 1) Regenerate DIst Files (WIP)
-  ! 2) Run HOST_RSS
-  ! 3) Test
-  ! 4) Sphere_Overlap
-  ! 5) Bondangle_test ! THIS LITERALLY JUST TESTS THAT THE BONDANGLE METHOD WORKS! DO NOT USE! !
-  ! 6) Run evo (Should be run after any set created)
-  ! 7) Add new poscar  
-  ! 8) Run evo, but don't regen energies or evolve distributions (only reformat gaussians) 
-  ! 9) Run evo, don't get energies but do evolve distributions
+  ! 1) Continue RSS
   select case(task)
   case(0)
-     write(*,*) "NOTHING WAS EVER SET UP FOR CASE 0"
+     allocate(character(len=len_trim(output_dir)+1) :: next_dir)
+     write(next_dir, '(A,"0")') trim(output_dir)
+     write(*,'("Running host-based random structure search for ",I0,&
+          &" structures")' &
+     ) num_structures
   case(1)
-     write(*,*) "Regenerating Distribution Files"
-     write(*,*) "DEPRECATED"
-     stop 0
-  case(2)
-     write(*,*) "Running HOST_RSS"
+     call get_next_directory(trim(output_dir), itmp1, next_dir)
+     write(*,'("Running iteration ",I0,&
+          " of host-based random structure search for ",I0," structures")' &
+     ) itmp1 + 1, num_structures
   case default
      call stop_program("Invalid option")
   end select
-
 
 
   !-----------------------------------------------------------------------------
@@ -126,11 +126,82 @@ program raffle_program
   ! save generated structures
   !-----------------------------------------------------------------------------
   do i = 1, generator%num_structures
-     write(buffer,'(A,"/struc",I0.3)') trim(output_dir),i
+     write(buffer,'(A,"/struc",I0.3)') trim(next_dir),i
      call touch(buffer)
      open(newunit = unit, file=trim(buffer)//"/POSCAR")
      call geom_write(unit, generator%structures(i))
      close(unit)
   end do
+
+contains
+
+!###############################################################################
+  subroutine get_next_directory(prefix, num, next_dir)
+    !! Get the next directory name
+    implicit none
+
+    ! Arguments
+    character(len=*), intent(in) :: prefix
+    !! Prefix of the directory name
+    integer, intent(out) :: num
+    !! Number of directories with the prefix
+    character(len=:), allocatable, intent(out) :: next_dir
+    !! Next directory name
+
+    ! Local variables
+    integer :: i, ierror, itmp1, max_num
+    !! Loop index, error code, temporary integer
+    integer :: unit
+    !! Unit number for the pipe
+    character(len=1024) :: pattern, line, ctmp1
+    !! Pattern to match directories
+    character(len=1024), dimension(:), allocatable :: dir_list
+    !! List of directories
+
+    ! Initialise variables
+    num = 0
+    max_num = 0
+    pattern = trim(prefix) // "[0-9]*"
+
+    ! Command to list directories matching the pattern
+    call execute_command_line('ls -d ' // trim(pattern) // ' 2>/dev/null')
+
+    ! Open a pipe to execute the command
+    open( newunit=unit, file='iter_count.txt', &
+         status='old', action='read', iostat=ierror)
+    if (ierror .ne. 0) then
+      call stop_program('Opening pipe to list directories')
+      return
+    end if
+
+    ! Read the output of the command and get number of directories
+    allocate(dir_list(0))  ! Allocate a large enough array
+    num = 0
+    do
+       read(unit, '(A)', iostat=ierror) line
+       if (ierror .ne. 0) exit
+       dir_list = [ dir_list, line ]
+       num = num + 1
+    end do
+    close(unit)
+
+    ! Count the number of matching directories and find the highest number
+    do i = 1, num
+       ctmp1 = dir_list(i)
+       ctmp1 = ctmp1(index(ctmp1,prefix)+len_trim(prefix):)
+       read(ctmp1, *, iostat=ierror) itmp1
+       if (ierror .eq. 0) then
+          if (itmp1 .gt. max_num) max_num = itmp1
+       end if
+    end do
+
+    ! Determine the next directory name
+    allocate(character(len=len_trim(prefix)+ceiling(max_num/10.0)) :: next_dir)
+    write(next_dir, '(A,I0)') prefix, max_num + 1
+
+    ! Deallocate the array
+    deallocate(dir_list)
+  end subroutine get_next_directory
+!###############################################################################
 
 end program raffle_program

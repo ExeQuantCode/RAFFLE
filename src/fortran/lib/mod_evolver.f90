@@ -1638,7 +1638,7 @@ module evolver
           idx1 = findloc( [ this%element_info(:)%name ], &
                            this%system(i)%element_symbols(is), dim=1 )
           energy_per_species = energy * this%system(i)%weight_per_species(is) / &
-                               real( this%system(i)%num_per_species(is), real12)
+                               real( sum( this%system(i)%num_per_species(:) ), real12)
           
           if( energy_per_species .lt. this%best_energy_per_species(idx1) )then
              this%best_energy_per_species(idx1) = energy_per_species
@@ -1651,7 +1651,7 @@ module evolver
                          ( min( idx1, idx2 ) - 1._real12 ) + max( idx1, idx2 ) ) 
 
              energy_pair = energy * this%system(i)%weight_pair(idx_list(is,js)) / &
-                           real( this%system(i)%num_pairs(idx_list(is,js)), real12)
+                           real( sum( this%system(i)%num_per_species(:) ), real12)
 
              if( energy_pair .lt. this%best_energy_pair(j) )then
                 this%best_energy_pair(j) = energy_pair
@@ -2048,7 +2048,7 @@ module evolver
                     this%best_energy_per_species(is) - &
                     energy * ( &
                          this%system(i)%weight_per_species(is) / &
-                         real( this%system(i)%num_per_species(is), real12 ) &
+                         real( sum( this%system(i)%num_per_species(:) ), real12 ) &
                     ) &
                ) / this%kbt &
           )
@@ -2092,7 +2092,7 @@ module evolver
                        this%best_energy_pair(j) - &
                        energy * ( &
                             this%system(i)%weight_pair(idx_list(is,js)) / &
-                            real( this%system(i)%num_pairs(idx_list(is,js)), real12 ) &
+                            real( sum( this%system(i)%num_per_species(:) ), real12 ) &
                        ) &
                   ) / this%kbt &
              )
@@ -2516,7 +2516,7 @@ module evolver
                           limit(1), scale = distance(:itmp1) &
                      )
                 this%weight_pair(pair_index(is, js)) = &
-                     this%weight_pair(pair_index(is, js)) +&
+                     this%weight_pair(pair_index(is, js)) + &
                      4._real12 * sum( &
                           ( &
                                bond_info(pair_index(is, js))%radius_covalent / &

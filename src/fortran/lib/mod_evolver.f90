@@ -2311,7 +2311,6 @@ module evolver
     ! renormalise the distribution functions so that area under the curve is 1
     !---------------------------------------------------------------------------
     do i = 1, num_pairs
-       write(*,*) "2-body", i, sum(this%df_2body(:,i),1)
        if(any(abs(this%df_2body(:,i)).gt.1.E-6))then
           this%df_2body(:,i) = this%df_2body(:,i) / sum(this%df_2body(:,i))
        end if

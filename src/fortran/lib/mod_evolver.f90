@@ -589,8 +589,7 @@ module evolver
     ! Check if energy_above_hull_list and basis_list are the same size
     if(present(energy_above_hull_list))then
        if(size(energy_above_hull_list).eq.0 .and. .not. this%weight_by_hull)then
-          exit
-       if(size(energy_above_hull_list) .ne. size(basis_list) .and. &
+       elseif(size(energy_above_hull_list) .ne. size(basis_list) .and. &
             this%weight_by_hull &
        )then
           write(stop_msg,*) "energy_above_hull_list and basis_list " // &

@@ -47,6 +47,8 @@ module evolver
      !! Number of atoms in the structure.
      real(real12) :: energy = 0.0_real12
      !! Energy of the structure.
+     real(real12) :: energy_above_hull = 0.0_real12
+     !! Energy above the hull of the structure.
      logical :: from_host = .false.
      !! Boolean whether the structure is derived from the host.
      integer, dimension(:), allocatable :: stoichiometry
@@ -91,6 +93,10 @@ module evolver
      !! Number of evaluated systems still allocated.
      real(real12) :: kbt = 0.2_real12
      !! Boltzmann constant times temperature.
+     logical :: weight_by_hull = .false.
+     !! Boolean whether to weight the distribution functions by the energy
+     !! above the hull. If false, the formation energy from the element
+     !! reference energies is used.
      real(real12) :: &
           viability_3body_default = 0.1_real12, &
           viability_4body_default = 0.1_real12
@@ -461,7 +467,9 @@ module evolver
 
 
 !###############################################################################
-  subroutine create(this, basis_list, deallocate_systems)
+  subroutine create( &
+       this, basis_list, energy_above_hull_list, deallocate_systems &
+  )
     !! create the distribution functions from the input file
     implicit none
     ! Arguments
@@ -469,6 +477,8 @@ module evolver
     !! Parent. Instance of distribution functions container.
     type(basis_type), dimension(:), intent(in) :: basis_list
     !! List of basis structures.
+    real(real12), dimension(:), intent(in), optional :: energy_above_hull_list
+    !! List of energies above the hull for the structures.
     logical, intent(in), optional :: deallocate_systems
     !! Optional. Boolean whether to deallocate the systems after the 
     !! distribution functions are created.
@@ -489,6 +499,32 @@ module evolver
        return
     end if
 
+    ! Check if energy_above_hull_list and basis_list are the same size
+    if(present(energy_above_hull_list))then
+       if(size(energy_above_hull_list).eq.0)then
+          this%weight_by_hull = .false.
+       elseif(size(energy_above_hull_list) .ne. size(basis_list))then
+          this%weight_by_hull = .true.
+          write(stop_msg,*) "energy_above_hull_list and basis_list " // &
+               "not the same size" // &
+               achar(13) // achar(10) // &
+               "energy_above_hull_list: ", size(energy_above_hull_list), &
+               achar(13) // achar(10) // &
+               "basis_list: ", size(basis_list)
+          call stop_program( stop_msg )
+          return
+       end if
+    end if
+    if(this%weight_by_hull.and..not.present(energy_above_hull_list))then
+       write(stop_msg,*) "energy_above_hull_list not present" // &
+            achar(13) // achar(10) // &
+            "energy_above_hull_list must be present when using hull weighting"
+       call stop_program( stop_msg )
+       return
+    end if
+
+
+    ! Check if deallocate_systems is present
     deallocate_systems_ = .true.
     if(present(deallocate_systems)) deallocate_systems_ = deallocate_systems
 
@@ -509,6 +545,9 @@ module evolver
          deallocate(this%best_energy_per_species)
     allocate(this%system(0))
     call this%add(basis_list)
+    if(present(energy_above_hull_list).and.this%weight_by_hull)then
+       this%system(:)%energy_above_hull = energy_above_hull_list(:)
+    end if
     call this%set_bond_info()
     call this%evolve()
     if(deallocate_systems_) call this%deallocate_systems()
@@ -518,7 +557,9 @@ module evolver
 
 
 !###############################################################################
-  subroutine update(this, basis_list, from_host, deallocate_systems)
+  subroutine update( &
+       this, basis_list, energy_above_hull_list, from_host, deallocate_systems &
+  )
     !! update the distribution functions from the input file
     implicit none
     ! Arguments
@@ -526,6 +567,8 @@ module evolver
     !! Parent. Instance of distribution functions container.
     type(basis_type), dimension(:), intent(in) :: basis_list
     !! List of basis structures.
+    real(real12), dimension(:), intent(in), optional :: energy_above_hull_list
+    !! List of energies above the hull for the structures.
     logical, intent(in), optional :: from_host
     !! Optional. Boolean whether structures are derived from the host.
     logical, intent(in), optional :: deallocate_systems
@@ -542,10 +585,48 @@ module evolver
     character(256) :: stop_msg
     !! Error message.
 
+
+    ! Check if energy_above_hull_list and basis_list are the same size
+    if(present(energy_above_hull_list))then
+       if(size(energy_above_hull_list).eq.0 .and. .not. this%weight_by_hull)then
+          exit
+       if(size(energy_above_hull_list) .ne. size(basis_list) .and. &
+            this%weight_by_hull &
+       )then
+          write(stop_msg,*) "energy_above_hull_list and basis_list " // &
+               "not the same size whilst using hull weighting" // &
+               achar(13) // achar(10) // &
+               "energy_above_hull_list: ", size(energy_above_hull_list), &
+               achar(13) // achar(10) // &
+               "basis_list: ", size(basis_list)
+          call stop_program( stop_msg )
+          return
+       end if
+    end if
+    if(this%weight_by_hull.and..not.present(energy_above_hull_list))then
+       write(stop_msg,*) "energy_above_hull_list not present" // &
+            achar(13) // achar(10) // &
+            "energy_above_hull_list must be present when using hull weighting"
+       call stop_program( stop_msg )
+       return
+    end if
+
+    ! Check if from_host is present
     if(present(from_host))then
        from_host_ = from_host
+       if(this%weight_by_hull.and.from_host_)then
+          write(stop_msg,*) "Hull weighting and from_host are incompatible" // &
+               achar(13) // achar(10) // &
+               "Set from_host = .false. to use hull weighting"
+          call stop_program( stop_msg )
+          return
+       end if
     else
-       from_host_ = .true.
+       if(this%weight_by_hull)then
+          from_host_ = .false.
+       else
+          from_host_ = .true.
+       end if
     end if
 
     ! Check if deallocate_systems is present
@@ -555,6 +636,10 @@ module evolver
     ! Add the new basis structures
     call this%add(basis_list)
     call this%update_bond_info()
+    if(present(energy_above_hull_list).and.this%weight_by_hull)then
+       this%system(this%num_evaluated_allocated + 1:)%energy_above_hull = &
+            energy_above_hull_list(:)
+    end if
 
     ! If the structures are derived from the host, subtract the interface energy
     if(from_host_)then
@@ -1985,6 +2070,10 @@ module evolver
     num_evaluated = 0
     do i = this%num_evaluated_allocated + 1, size(this%system), 1
        num_evaluated = num_evaluated + 1
+       if(this%weight_by_hull)then
+          weight = exp( this%system(i)%energy_above_hull / this%kbt )
+          if(weight.lt.1.E-6) cycle
+       end if
        !------------------------------------------------------------------------
        ! get the list of 2-body species pairs the system
        !------------------------------------------------------------------------
@@ -2024,16 +2113,21 @@ module evolver
           idx1 = findloc( [ this%element_info(:)%name ], &
                           this%system(i)%element_symbols(is), dim=1)
 
-          weight = exp( &
-               ( &
-                    this%best_energy_per_species(is) - &
-                    energy * ( &
-                         this%system(i)%weight_per_species(is) / &
-                         real( sum( this%system(i)%num_per_species(:) ), real12 ) &
-                    ) &
-               ) / this%kbt &
-          )
-          if(weight.lt.1.E-6) cycle
+          if(.not.this%weight_by_hull)then
+             weight = exp( &
+                  ( &
+                       this%best_energy_per_species(is) - &
+                       energy * ( &
+                            this%system(i)%weight_per_species(is) / &
+                            real( &
+                                 sum( this%system(i)%num_per_species(:) ), &
+                                 real12 &
+                            ) &
+                       ) &
+                  ) / this%kbt &
+             )
+             if(weight.lt.1.E-6) cycle
+          end if
 
           this%total%df_3body(:,idx1) = this%total%df_3body(:,idx1) + &
                set_difference( weight * this%system(i)%df_3body(:,is), &
@@ -2054,16 +2148,21 @@ module evolver
                          min( idx1, idx2 ) / 2._real12 ) * &
                          ( min( idx1, idx2 ) - 1._real12 ) + max( idx1, idx2 ) )
 
-             weight = exp( &
-                  ( &
-                       this%best_energy_pair(j) - &
-                       energy * ( &
-                            this%system(i)%weight_pair(idx_list(is,js)) / &
-                            real( sum( this%system(i)%num_per_species(:) ), real12 ) &
-                       ) &
-                  ) / this%kbt &
-             )
-             if(weight.lt.1.E-6) cycle
+             if(.not.this%weight_by_hull)then
+                weight = exp( &
+                     ( &
+                          this%best_energy_pair(j) - &
+                          energy * ( &
+                               this%system(i)%weight_pair(idx_list(is,js)) / &
+                               real( &
+                                    sum( this%system(i)%num_per_species(:) ), &
+                                    real12 &
+                               ) &
+                          ) &
+                     ) / this%kbt &
+                )
+                if(weight.lt.1.E-6) cycle
+             end if
 
              this%total%df_2body(:,j) = this%total%df_2body(:,j) + &
                   set_difference( &

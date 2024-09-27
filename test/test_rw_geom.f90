@@ -24,14 +24,14 @@ program test_rw_geom
   ! Read the geometry
   call getcwd(cwd)
   filename = trim(cwd)//"/"//filename
-  inquire(file=filename, exist=exist)
-  if(iostat .ne. 0) then
+  inquire(file=trim(filename), exist=exist)
+  if(.not.exist) then
      write(0,*) "Filepath: ", filename
      write(0,*) 'Geometry file not found'
      success = .false.
      stop 1
   end if
-  open(newunit=unit, file=filename, status='old')
+  open(newunit=unit, file=trim(filename), status='old', action='read')
   call geom_read(unit, bas1, iostat=iostat)
   if(iostat .ne. 0) then
      write(0,*) 'Geometry read failed'

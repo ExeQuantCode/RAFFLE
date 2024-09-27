@@ -181,12 +181,14 @@ contains
     ! Local variables
     integer :: i
     !! Loop index.
-    integer :: length_ = 3
+    integer :: length_
     !! The dimension of the basis atom positions.
-    integer :: iostat_ = 0
+    integer :: iostat_
     !! The I/O status of the read.
 
 
+    length_ = 3
+    iostat_ = 0
     if(present(length)) length_=length
 
     select case(igeom_input)
@@ -288,12 +290,14 @@ contains
     !! The reciprocal lattice vectors.
     integer :: i, j, k
     !! Loop index.
-    integer :: length_ = 3
+    integer :: length_
     !! The dimension of the basis atom positions.
-    integer :: iostat_ = 0
+    integer :: iostat_
     !! The I/O status of the read.
 
 
+    length_ = 3
+    iostat_ = 0
     !---------------------------------------------------------------------------
     ! determine dimension of basis (include translation dimension for symmetry?)
     !---------------------------------------------------------------------------
@@ -914,12 +918,14 @@ contains
     !! Temporary character variable.
     character(len=5), allocatable, dimension(:) :: tmp_spec
     !! Temporary array to store the species names.
-    integer :: length_ = 3
+    integer :: length_
     !! The dimension of the basis atom positions.
-    integer :: iostat_ = 0
+    integer :: iostat_
     !! The I/O status of the read.
 
 
+    length_ = 3
+    iostat_ = 0
     if(present(length)) length_ = length
 
 

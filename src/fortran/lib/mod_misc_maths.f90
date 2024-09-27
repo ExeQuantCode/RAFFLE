@@ -28,9 +28,9 @@ contains
     integer :: i
     !! Loop index.
 
-    lnsum=0
-    do i=1,n
-       lnsum=lnsum+log(real(i))
+    lnsum = 0._real12
+    do i = 1, n
+       lnsum = lnsum + log( real(i, real12) )
     end do
 
     return

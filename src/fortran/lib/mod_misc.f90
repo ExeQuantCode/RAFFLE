@@ -544,41 +544,41 @@ subroutine sort_str(list, lcase)
 
 
 !###############################################################################
-  subroutine iswap(i1,i2)
+  subroutine iswap(value1,value2)
     !! Swap two integers.
     implicit none
 
     ! Arguments
-    integer, intent(inout) :: i1, i2
+    integer, intent(inout) :: value1, value2
     !! Integers to be swapped.
 
     ! Local variables
-    integer :: itmp
+    integer :: itmp1
     !! Temporary buffer for swapping elements.
 
-    itmp=i1
-    i1=i2
-    i2=itmp
+    itmp1  = value1
+    value1 = value2
+    value2 = itmp1
   end subroutine iswap
 !###############################################################################
 
 
 !###############################################################################
-  subroutine rswap(d1,d2)
+  subroutine rswap(value1,value2)
    !! Swap two reals.
    implicit none
 
    ! Arguments
-   real, intent(inout) :: d1, d2
+   real(real12), intent(inout) :: value1, value2
    !! Reals to be swapped.
 
    ! Local variables
-   real :: dtmp
+   real(real12) :: rtmp1
    !! Temporary buffer for swapping elements.
 
-    dtmp=d1
-    d1=d2
-    d2=dtmp
+    rtmp1  = value1
+    value1 = value2
+    value2 = rtmp1
   end subroutine rswap
 !###############################################################################
 

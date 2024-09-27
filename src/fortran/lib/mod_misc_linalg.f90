@@ -28,7 +28,7 @@ module misc_linalg
 contains
 
 !###############################################################################
-pure function uvec(vector)
+  pure function uvec(vector)
     !! Return the unit vector of a vector of any size.
     implicit none
 
@@ -38,8 +38,7 @@ pure function uvec(vector)
     real(real12),allocatable,dimension(:)::uvec
     !! Output unit vector.
 
-    allocate(uvec(size(vector)))
-    uvec = vector/modu(vector)
+    uvec = vector / modu(vector)
   end function uvec
 !###############################################################################
 
@@ -55,7 +54,7 @@ pure function uvec(vector)
     real(real12)::modu
     !! Output magnitude.
 
-    modu = abs(sqrt(sum(vector(:)**2)))
+    modu = abs( sqrt( sum(vector(:)**2) ) )
   end function modu
 !###############################################################################
 
@@ -71,9 +70,9 @@ pure function uvec(vector)
     real(real12), dimension(3) :: cross
     !! Output cross product.
 
-    cross(1) = a(2)*b(3) - a(3)*b(2)
-    cross(2) = a(3)*b(1) - a(1)*b(3)
-    cross(3) = a(1)*b(2) - a(2)*b(1)
+    cross(1) = a(2) * b(3) - a(3) * b(2)
+    cross(2) = a(3) * b(1) - a(1) * b(3)
+    cross(3) = a(1) * b(2) - a(2) * b(1)
 
   end function cross
 !###############################################################################
@@ -90,7 +89,7 @@ pure function uvec(vector)
     real(real12) :: distance
     !! Output distance.
 
-    distance = modu(point1-point2)
+    distance = modu( point1 - point2 )
 
     return
   end function get_distance
@@ -192,10 +191,10 @@ pure function uvec(vector)
 
     angle = get_angle( &
          cross(vector1, vector2), &
-          cross(vector2, vector3) &
+         cross(vector2, vector3) &
     )
     !! map angle back into the range [0, pi]
-    if(angle .gt. pi) angle = 2*pi - angle
+    if(angle .gt. pi) angle = 2._real12 * pi - angle
 
 
   end function get_improper_dihedral_angle_from_vectors
@@ -280,25 +279,26 @@ pure function uvec(vector)
 
 
 !###############################################################################
-  pure function inverse_3x3(mat) result(inverse)
+  pure function inverse_3x3(mat) result(output)
     implicit none
     real(real12) :: det
-    real(real12), dimension(3,3) :: inverse
+    real(real12), dimension(3,3) :: output
     real(real12), dimension(3,3), intent(in) :: mat
 
-    det=mat(1,1)*mat(2,2)*mat(3,3)-mat(1,1)*mat(2,3)*mat(3,2)&
-         - mat(1,2)*mat(2,1)*mat(3,3)+mat(1,2)*mat(2,3)*mat(3,1)&
-         + mat(1,3)*mat(2,1)*mat(3,2)-mat(1,3)*mat(2,2)*mat(3,1)
+    det = &
+         mat(1,1) * mat(2,2) * mat(3,3) - mat(1,1) * mat(2,3) * mat(3,2) - &
+         mat(1,2) * mat(2,1) * mat(3,3) + mat(1,2) * mat(2,3) * mat(3,1) + &
+         mat(1,3) * mat(2,1) * mat(3,2) - mat(1,3) * mat(2,2) * mat(3,1)
 
-    inverse(1,1) = +1.E0 / det * (mat(2,2) * mat(3,3) - mat(2,3) * mat(3,2))
-    inverse(2,1) = -1.E0 / det * (mat(2,1) * mat(3,3) - mat(2,3) * mat(3,1))
-    inverse(3,1) = +1.E0 / det * (mat(2,1) * mat(3,2) - mat(2,2) * mat(3,1))
-    inverse(1,2) = -1.E0 / det * (mat(1,2) * mat(3,3) - mat(1,3) * mat(3,2))
-    inverse(2,2) = +1.E0 / det * (mat(1,1) * mat(3,3) - mat(1,3) * mat(3,1))
-    inverse(3,2) = -1.E0 / det * (mat(1,1) * mat(3,2) - mat(1,2) * mat(3,1))
-    inverse(1,3) = +1.E0 / det * (mat(1,2) * mat(2,3) - mat(1,3) * mat(2,2))
-    inverse(2,3) = -1.E0 / det * (mat(1,1) * mat(2,3) - mat(1,3) * mat(2,1))
-    inverse(3,3) = +1.E0 / det * (mat(1,1) * mat(2,2) - mat(1,2) * mat(2,1))
+    output(1,1) = +1._real12 / det * (mat(2,2) * mat(3,3) - mat(2,3) * mat(3,2))
+    output(2,1) = -1._real12 / det * (mat(2,1) * mat(3,3) - mat(2,3) * mat(3,1))
+    output(3,1) = +1._real12 / det * (mat(2,1) * mat(3,2) - mat(2,2) * mat(3,1))
+    output(1,2) = -1._real12 / det * (mat(1,2) * mat(3,3) - mat(1,3) * mat(3,2))
+    output(2,2) = +1._real12 / det * (mat(1,1) * mat(3,3) - mat(1,3) * mat(3,1))
+    output(3,2) = -1._real12 / det * (mat(1,1) * mat(3,2) - mat(1,2) * mat(3,1))
+    output(1,3) = +1._real12 / det * (mat(1,2) * mat(2,3) - mat(1,3) * mat(2,2))
+    output(2,3) = -1._real12 / det * (mat(1,1) * mat(2,3) - mat(1,3) * mat(2,1))
+    output(3,3) = +1._real12 / det * (mat(1,1) * mat(2,2) - mat(1,2) * mat(2,1))
 
   end function inverse_3x3
 !###############################################################################

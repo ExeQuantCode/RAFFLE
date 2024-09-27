@@ -57,7 +57,8 @@ jobs:
           pip --version
           pip install gcovr
       
-      - run: |
+      - name: Build project
+        run: |
           sudo apt-get update
           sudo apt-get install -y cmake make
           cmake --version
@@ -65,6 +66,10 @@ jobs:
           cd build
           cmake -DCMAKE_BUILD_TYPE=Debug -DBUILD_PYTHON=Off -DBUILD_EXECUTABLE=Off ..
           make
+      
+      - name: Run coverage tests
+        run: |
+          cd build
           env CTEST_OUTPUT_ON_FAILURE=1 make coverage
 
       - name: Get coverage percentage

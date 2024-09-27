@@ -391,7 +391,7 @@ if(BUILD_TESTS)
         DEPENDS ${CMAKE_BINARY_DIR}/test/test ${CMAKE_BINARY_DIR}/test/test/data  # Ensure it depends on the creation of the directory and copied data
     )
 
-    # Ensure that your main project target depends on the copy_test_data target
+    # Add dependency to your main project target
     add_dependencies(${PROJECT_NAME} copy_test_data)
 
     # Ensure that ctest waits for copy_test_data
@@ -399,13 +399,12 @@ if(BUILD_TESTS)
         COMMAND ${CMAKE_COMMAND} -E echo "Test data files copied successfully"
     )
 
-    # Add a custom command to run tests that depends on copy_test_data
-    add_custom_target(run_tests
-        COMMAND ${CMAKE_CTEST_COMMAND}  # Run ctest
-        DEPENDS copy_test_data           # Ensure tests run only after test data is copied
-    )
+    # Get all registered tests
+    get_property(all_tests GLOBAL PROPERTY TESTS)
 
-    # Add the run_tests target to the default build target
-    add_dependencies(${PROJECT_NAME} run_tests)
+    # Loop through all tests and add the dependency
+    foreach(test_name IN LISTS all_tests)
+        add_dependencies(${test_name} copy_test_data)
+    endforeach()
 
 endif()

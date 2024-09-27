@@ -1,5 +1,6 @@
 program test_edit_geom
   !! Test program for the module edit_geom.
+  use constants, only: real12
   use rw_geom, only: basis_type
   use misc_linalg, only: modu
   use edit_geom, only: &
@@ -10,8 +11,8 @@ program test_edit_geom
   implicit none
 
   type(basis_type) :: bas, bas2, basis_merged
-  real :: rtmp1, rtmp2
-  real, dimension(3) :: loc
+  real(real12) :: rtmp1, rtmp2
+  real(real12), dimension(3) :: loc
 
   logical :: success = .true.
 

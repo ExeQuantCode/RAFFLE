@@ -9,7 +9,7 @@ program test_rw_geom
   implicit none
 
   integer :: unit, iostat, i
-  real :: mass, charge, radius
+  real(real12) :: mass, charge, radius
   type(basis_type) :: bas1, bas2
   class(basis_type), allocatable :: bas
   real(real12), dimension(3,3) :: atoms

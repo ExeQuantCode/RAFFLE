@@ -1,7 +1,7 @@
 program test_evaluator
   use error_handling
   use constants, only: real12
-  use rw_geom, only: basis_type
+  use rw_geom, only: basis_type, geom_write
   use extended_geom, only: extended_basis_type
   use evaluator, only: evaluate_point
   use generator, only: raffle_generator_type
@@ -147,18 +147,15 @@ program test_evaluator
   ! call evaluator
   !-----------------------------------------------------------------------------
   allocate(suitability_grid(size(gridpoints,2)))
-!   open(newunit=unit, file='test_evaluator.dat', status='unknown')
   do ia = 1, size(atom_ignore_list,1)
+     suitability_grid(:) = 0._real12
      do i = 1, size(gridpoints,dim=2)
         suitability_grid(i) = evaluate_point( generator%distributions, &
-             gridpoints(:,i), atom_ignore_list(ia,1), basis_host, &
+             gridpoints(1:3,i), atom_ignore_list(ia,1), basis_host, &
              atom_ignore_list(ia:,:), &
              [ generator%distributions%bond_info(:)%radius_covalent ] &
         )
-     !    write(unit, *) gridpoints(:,i), suitability_grid(i)
      end do
-     ! close(unit)
-     ! stop 0
      best_loc = maxloc(suitability_grid,dim=1)
      ! Check point is correct
      call assert( &

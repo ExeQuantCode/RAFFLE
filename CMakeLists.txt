@@ -368,20 +368,27 @@ if ( ( CMAKE_Fortran_COMPILER MATCHES ".*gfortran.*" OR CMAKE_Fortran_COMPILER M
 
     append_coverage_compiler_flags()
 
-    # Copy test data files
+    # Create a directory for test data
     add_custom_command(
         OUTPUT ${CMAKE_BINARY_DIR}/test/test
-        COMMAND mkdir -p ${CMAKE_BINARY_DIR}/test/test
-    )
-    add_custom_command(
-        OUTPUT ${CMAKE_BINARY_DIR}/test/test/data
-        COMMAND cp -r ${CMAKE_CURRENT_LIST_DIR}/test/data ${CMAKE_BINARY_DIR}/test/test/.
-        COMMENT "Copying test data files"
-    )
-    add_custom_target(copy_test_data ALL
-        DEPENDS ${CMAKE_BINARY_DIR}/test/test ${CMAKE_BINARY_DIR}/test/test/data
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/test/test
+        COMMENT "Creating test directory"
     )
 
+    # Copy test data files
+    add_custom_command(
+        OUTPUT ${CMAKE_BINARY_DIR}/test/test/data
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/test/data ${CMAKE_BINARY_DIR}/test/test/data
+        DEPENDS ${CMAKE_CURRENT_LIST_DIR}/test/data  ${CMAKE_BINARY_DIR}/test/test # Ensure the source data exists
+        COMMENT "Copying test data files"
+    )
+
+    # Create a custom target to ensure that the copy commands are executed
+    add_custom_target(copy_test_data ALL
+        DEPENDS ${CMAKE_BINARY_DIR}/test/test/data  # Ensure this target depends on the final output
+    )
+
+    # Add dependency to your main project target
     add_dependencies(${PROJECT_NAME} copy_test_data)
 
 endif()

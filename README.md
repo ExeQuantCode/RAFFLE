@@ -4,8 +4,7 @@
 [![FPM](https://img.shields.io/badge/fpm-0.10.1-purple)](https://github.com/fortran-lang/fpm "View Fortran Package Manager")
 [![CMAKE](https://img.shields.io/badge/cmake-3.27.7-red)](https://github.com/Kitware/CMake/releases/tag/v3.27.7 "View cmake")
 [![GCC compatibility](https://img.shields.io/badge/gcc-14.1.0-green)](https://gcc.gnu.org/gcc-14/ "View GCC")
-[![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/nedtaylor/48f14ebb5636b54d3813e4b4494903eb/raw/raffle_coverage.json)](https://nedtaylor.github.io/RAFFLE/ "View coverage report")
-[![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/nedtaylor/48f14ebb5636b54d3813e4b4494903eb/raw/raffle_coverage_${BRANCH_NAME:-main}.json)](https://nedtaylor.github.io/RAFFLE/${BRANCH_NAME:-main}/ "View coverage report")
+[![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/nedtaylor/48f14ebb5636b54d3813e4b4494903eb/raw/raffle_coverage_main.json)](https://nedtaylor.github.io/RAFFLE/ "View coverage report")
 
 
 # RAFFLE

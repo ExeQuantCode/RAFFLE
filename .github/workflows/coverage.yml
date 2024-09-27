@@ -96,7 +96,6 @@ jobs:
         id: deployment
         with:
           path: './build/coverage/'  # Use the same coverage directory
-          branch: gh-pages-main  # Main branch deployment location
 
       - name: deploy to GitHub Pages (non-main branch)
         if: ${{ github.ref != 'refs/heads/main' }}
@@ -104,7 +103,3 @@ jobs:
         with:
           path: './build/coverage/'  # Same local coverage directory
           branch: gh-pages-${{ github.head_ref }}  # Deploy to a branch-specific GitHub Pages branch
-
-      - name: deploy to Github Pages
-        uses: actions/deploy-pages@v2
-        id: deployment

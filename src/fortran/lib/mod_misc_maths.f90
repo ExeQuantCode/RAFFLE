@@ -67,12 +67,10 @@ contains
     !! The set difference of the two arrays.
 
     ! Local variables
-    integer :: i, j
+    integer :: i
     !! Loop indices.
-    logical :: in_b
-    !! Whether the current element of a is in b.
     logical :: set_min_zero_
-    !! Boolean to set the maximum value of the output array to zero.
+    !! Boolean to set all values below zero to zero.
 
 
     if(present(set_min_zero)) then
@@ -81,14 +79,18 @@ contains
        set_min_zero_ = .false.
     end if
 
-    if(size(a) .ne. size(b)) then
+    if(size(a,1) .ne. size(b,1)) then
        call stop_program('Arrays must be the same size.')
        return
     end if
 
-    do i = 1, size(a)
-       set_difference(i) = max(0.0_real12, a(i) - b(i))
-    end do
+    if(set_min_zero_)then
+       do i = 1, size(a,1)
+          set_difference(i) = max(0.0_real12, a(i) - b(i))
+       end do
+    else
+       set_difference = a - b
+    end if
 
   end function set_difference
 !###############################################################################

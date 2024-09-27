@@ -60,15 +60,18 @@ contains
     !! Temporary variables.
     real(real12) :: min_bond
     !! Minimum bond length.
-    real(real12) :: tol_ = 1.E-5
+    real(real12) :: tol_
     !! Tolerance for the distance.
-    logical :: labove_ = .false., lreal_ = .true.
+    logical :: labove_, lreal_
     !! Booleans for above and real distance arguments
     real(real12), dimension(3) :: vdtmp1, vdtmp2
     !! Vectors for distance calculations.
 
 
     ! CORRECT tol TO ACCOUNT FOR LATTICE SIZE
+    tol_ = 1.E-5_real12
+    labove_ = .false.
+    lreal_ = .true.
     if(present(tol)) tol_ = tol
 
     if(present(labove)) labove_ = labove

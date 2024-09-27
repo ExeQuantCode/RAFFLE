@@ -52,7 +52,8 @@ module generator
     !! Host structure.
     integer, dimension(3) :: grid = [0, 0, 0]
     !! Grid to divide the host structure into along each axis.
-    real, dimension(3) :: grid_offset = [0.5_real12, 0.5_real12, 0.5_real12]
+    real(real12), dimension(3) :: &
+         grid_offset = [0.5_real12, 0.5_real12, 0.5_real12]
     !! Offset of the gridpoints.
     real(real12) :: grid_spacing = 0.1_real12
     !! Spacing of the gridpoints.

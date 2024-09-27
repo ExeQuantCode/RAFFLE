@@ -88,7 +88,7 @@ contains
     neighbour_basis%nspec = basis%nspec
     neighbour_basis%lat = basis%lat
     num_2body = 0
-    species_loop: do is=1, basis%nspec
+    species_loop: do is = 1, basis%nspec
        ! 2-body map
        ! check bondlength between test point and all other atoms
        !------------------------------------------------------------------------
@@ -222,7 +222,7 @@ contains
        ! The evaluator cannot comment on the viability of the point.
        viability_2body = 0.5_real12
     else
-       viability_2body = viability_2body / num_2body
+       viability_2body = viability_2body / real( num_2body, real12 )
       !  viability_2body = viability_2body ** (1._real12 / num_2body)
     end if
 
@@ -279,13 +279,13 @@ contains
        viability_3body = gvector_container%viability_3body_default
       !  viability_3body = 1.5_real12
     else
-       viability_3body = viability_3body ** (1._real12 / num_3body)
+       viability_3body = viability_3body ** (1._real12 / real(num_3body,real12))
     end if
     if(num_4body.eq.0)then
        viability_4body = gvector_container%viability_4body_default
       !  viability_4body = 1.5_real12
     else
-       viability_4body = viability_4body ** (1._real12 / num_4body)
+       viability_4body = viability_4body ** (1._real12 / real(num_4body,real12))
     end if
     
     ! Combine the 2-, 3- and 4-body maps
@@ -327,8 +327,8 @@ contains
     !! Number of 3-body interactions local to the current atom pair.
 
 
-    num_3body_local = 0
     output = 1._real12
+    num_3body_local = 0
     species_loop: do js = current_idx(1), basis%nspec, 1
        atom_loop: do ja = 1, basis%spec(js)%num
           if(all([js,ja].eq.current_idx))cycle
@@ -355,7 +355,7 @@ contains
        output = 1._real12
        num_3body = num_3body - 1
     else
-       output = output ** (1._real12 / num_3body_local)
+       output = output ** (1._real12 / real( num_3body_local, real12 ) )
     end if
 
   end function evaluate_3body_contributions
@@ -393,10 +393,7 @@ contains
 
     output = 1._real12
     num_4body_local = sum(basis%image_spec(:)%num)
-    if(num_4body_local.eq.0)then
-       output = 1._real12
-       return
-    end if
+    if(num_4body_local.eq.0) return
     species_loop: do ks = 1, basis%nspec, 1
        atom_loop: do ka = 1, basis%image_spec(ks)%num
           associate( position_store => [ basis%image_spec(ks)%atom(ka,1:3) ] )
@@ -418,7 +415,7 @@ contains
              end if
              output = output * &
                   gvector_container%total%df_4body(bin,species) ** ( &
-                       1._real12 / num_4body_local &
+                       1._real12 / real( num_4body_local, real12 ) &
                   )
           end associate
        end do atom_loop

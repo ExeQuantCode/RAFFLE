@@ -255,17 +255,20 @@ contains
     !! Inverse projection of the point onto the plane.
     real(real12) :: min_distance
     !! Minimum distance to the unit cell.
-    logical :: is_outside = .false.
+    logical :: is_outside
     !! Boolean whether the point is outside the unit cell.
-    integer, dimension(3) :: index_list = [1, 2, 3]
+    integer, dimension(3) :: index_list
     !! List of indices for the lattice vectors.
-    logical :: is_cartesian_ = .false.
+    logical :: is_cartesian_
     !! Boolean whether the point is in cartesian coordinates.
         
 
     !---------------------------------------------------------------------------
     ! check if the point is in cartesian coordinates
     !---------------------------------------------------------------------------
+    is_outside = .false.
+    is_cartesian_ = .false.
+    index_list = [1, 2, 3]
     if(present(is_cartesian)) is_cartesian_ = is_cartesian
     inverse_lattice = inverse_3x3( lattice )
     if(is_cartesian_) then

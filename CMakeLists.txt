@@ -377,7 +377,7 @@ if ( ( CMAKE_Fortran_COMPILER MATCHES ".*gfortran.*" OR CMAKE_Fortran_COMPILER M
 
     # Copy test data files
     add_custom_command(
-        OUTPUT ${CMAKE_BINARY_DIR}/test/test/data
+        OUTPUT ${CMAKE_BINARY_DIR}/test/test/data  # Specify an output that will be created
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/test/data ${CMAKE_BINARY_DIR}/test/test/data
         DEPENDS ${CMAKE_CURRENT_LIST_DIR}/test/data  ${CMAKE_BINARY_DIR}/test/test # Ensure the source data exists
         COMMENT "Copying test data files"
@@ -385,10 +385,24 @@ if ( ( CMAKE_Fortran_COMPILER MATCHES ".*gfortran.*" OR CMAKE_Fortran_COMPILER M
 
     # Create a custom target to ensure that the copy commands are executed
     add_custom_target(copy_test_data ALL
-        DEPENDS ${CMAKE_BINARY_DIR}/test/test/data  # Ensure this target depends on the final output
+        DEPENDS ${CMAKE_BINARY_DIR}/test/test ${CMAKE_BINARY_DIR}/test/test/data  # Ensure it depends on the creation of the directory and copied data
     )
 
-    # Add dependency to your main project target
+    # Ensure that your main project target depends on the copy_test_data target
     add_dependencies(${PROJECT_NAME} copy_test_data)
+
+    # Ensure that ctest waits for copy_test_data
+    add_custom_command(TARGET copy_test_data POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E echo "Test data files copied successfully"
+    )
+
+    # Add a custom command to run tests that depends on copy_test_data
+    add_custom_target(run_tests
+        COMMAND ${CMAKE_CTEST_COMMAND}  # Run ctest
+        DEPENDS copy_test_data           # Ensure tests run only after test data is copied
+    )
+
+    # Add the run_tests target to the default build target
+    add_dependencies(${PROJECT_NAME} run_tests)
 
 endif()

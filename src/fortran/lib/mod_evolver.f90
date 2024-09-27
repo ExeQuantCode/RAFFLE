@@ -1599,7 +1599,7 @@ module evolver
                           this%nbins(1), eta, this%width(1), &
                           this%cutoff_min(1), &
                           ( this%cutoff_max(1) - this%cutoff_min(1) ), &
-                          scale = [ 1._real12 ] &
+                          scale_list = [ 1._real12 ] &
        )
     elseif( body .eq. 3 )then
        this%total%df_3body(:,index) = 1._real12/this%nbins(2)
@@ -2092,12 +2092,12 @@ module evolver
              !------------------------------------------------------------------
              ! loop over all atoms inside the unit cell
              !------------------------------------------------------------------
-             atom_loop: do ja = 1, basis%spec(js)%num
+             atom_loop: do ja = 1, basis_extd%spec(js)%num
 
                 associate( vector =>  matmul( [ &
                           basis_extd%spec(js)%atom(ja,1:3) - &
                           basis_extd%spec(is)%atom(ia,1:3) &
-                     ], basis%lat ) &
+                     ], basis_extd%lat ) &
                 )
                    bondlength = modu( vector )
                    
@@ -2109,10 +2109,10 @@ module evolver
                    if( &
                         bondlength .ge. &
                              bond_info(pair_index(is, js))%radius_covalent * &
-                             radius_distance_tol(1) .and. &
+                             radius_distance_tol_(1) .and. &
                         bondlength .le. &
                              bond_info(pair_index(is, js))%radius_covalent * &
-                             radius_distance_tol(2) &
+                             radius_distance_tol_(2) &
                    ) then
                       neighbour_basis%spec(1)%num = &
                            neighbour_basis%spec(1)%num + 1
@@ -2124,10 +2124,10 @@ module evolver
                    ! distance
                    if( bondlength .ge. ( & 
                         bond_info(pair_index(is, js))%radius_covalent * &
-                        radius_distance_tol(3) ) .and. &
+                        radius_distance_tol_(3) ) .and. &
                        bondlength .le. ( &
                         bond_info(pair_index(is, js))%radius_covalent * &
-                        radius_distance_tol(4) ) &
+                        radius_distance_tol_(4) ) &
                    ) then
                       neighbour_basis%image_spec(1)%num = &
                            neighbour_basis%image_spec(1)%num + 1
@@ -2164,10 +2164,10 @@ module evolver
                    if( &
                         bondlength .ge. &
                              bond_info(pair_index(is, js))%radius_covalent * &
-                             radius_distance_tol(1) .and. &
+                             radius_distance_tol_(1) .and. &
                         bondlength .le. &
                              bond_info(pair_index(is, js))%radius_covalent * &
-                             radius_distance_tol(2) &
+                             radius_distance_tol_(2) &
                    ) then
                       neighbour_basis%spec(1)%num = &
                            neighbour_basis%spec(1)%num + 1
@@ -2180,10 +2180,10 @@ module evolver
                    ! distance
                    if( bondlength .ge. ( & 
                         bond_info(pair_index(is, js))%radius_covalent * &
-                        radius_distance_tol(3) ) .and. &
+                        radius_distance_tol_(3) ) .and. &
                        bondlength .le. ( &
                         bond_info(pair_index(is, js))%radius_covalent * &
-                        radius_distance_tol(4) ) &
+                        radius_distance_tol_(4) ) &
                    ) then
                       neighbour_basis%image_spec(1)%num = &
                            neighbour_basis%image_spec(1)%num + 1
@@ -2210,7 +2210,7 @@ module evolver
                           bondlength_list(:itmp1), &
                           nbins_(1), eta(1), width_(1), &
                           cutoff_min_(1), &
-                          limit(1), scale = distance(:itmp1) &
+                          limit(1), scale_list = distance(:itmp1) &
                      )
              end if
 
@@ -2249,7 +2249,7 @@ module evolver
                get_gvector( angle_list, &
                             nbins_(2), eta(2), width_(2), &
                             cutoff_min_(2), limit(2), &
-                            scale = distance &
+                            scale_list = distance &
                )
           deallocate( angle_list, distance )
 
@@ -2291,7 +2291,7 @@ module evolver
                get_gvector( angle_list, &
                             nbins_(3), eta(3), width_(3), &
                             cutoff_min_(3), limit(3), &
-                            scale = distance &
+                            scale_list = distance &
                )
           deallocate( angle_list, distance )
 
@@ -2311,6 +2311,7 @@ module evolver
     ! renormalise the distribution functions so that area under the curve is 1
     !---------------------------------------------------------------------------
     do i = 1, num_pairs
+       write(*,*) "2-body", i, sum(this%df_2body(:,i),1)
        if(any(abs(this%df_2body(:,i)).gt.1.E-6))then
           this%df_2body(:,i) = this%df_2body(:,i) / sum(this%df_2body(:,i))
        end if
@@ -2330,7 +2331,7 @@ module evolver
 
 !###############################################################################
   function get_gvector(value_list, nbins, eta, width, cutoff_min, limit, &
-       scale ) result(gvector)
+       scale_list ) result(gvector)
     !! Calculate the angular distribution function for a list of values.
     implicit none
 
@@ -2341,7 +2342,7 @@ module evolver
     !! Parameters for the distribution functions.
     real(real12), dimension(:), intent(in) :: value_list
     !! List of angles.
-    real(real12), dimension(:), intent(in) :: scale
+    real(real12), dimension(:), intent(in) :: scale_list
     !! List of scaling for each angle (distance**3 or distance**4)
     real(real12), dimension(nbins) :: gvector
     !! Distribution function for the list of values.
@@ -2361,7 +2362,7 @@ module evolver
     !---------------------------------------------------------------------------
     ! calculate the gvector for a list of values
     !---------------------------------------------------------------------------
-    do i = 1, size(value_list)
+    do i = 1, size(value_list), 1
 
        !------------------------------------------------------------------------
        ! get the bin closest to the value
@@ -2389,11 +2390,11 @@ module evolver
                   exp( -eta * ( value_list(i) - &
                                    ( width * real(b-1, real12) + &
                                      cutoff_min ) ) ** 2._real12 &
-                  ) / scale(i)
+                  ) / scale_list(i)
           end do
        end do
     end do
-    gvector = gvector * sqrt( eta / pi ) / real(size(value_list),real12)
+    gvector = gvector * sqrt( eta / pi ) / real(size(value_list,1),real12)
 
   end function get_gvector
 !###############################################################################

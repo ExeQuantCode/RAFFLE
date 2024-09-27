@@ -329,10 +329,11 @@ contains
 
     ! Test case 1: Jump to the end of the file
     do i = 1, 10
-       call jump(unit, j)
+       rewind(unit)
+       call jump(unit, i)
+       backspace(unit)
        read(unit, *) j
        call assert(j .eq. i, 'Jump failed', success)
-       backspace(unit)
     end do
 
   end subroutine test_jump

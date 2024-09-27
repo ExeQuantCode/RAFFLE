@@ -209,6 +209,8 @@ contains
     if(iostat_.ne.0) then
        if(present(iostat)) iostat = iostat_
        return
+    else
+       if(present(iostat)) iostat = 0
     end if
     if(length_.eq.4)then
        do i=1,basis%nspec

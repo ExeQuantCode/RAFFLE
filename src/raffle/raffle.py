@@ -1093,6 +1093,27 @@ class Evolver(f90wrap.runtime.FortranModule):
             """
             self.kbT = kbT
 
+        def set_weight_method(self, method):
+            """
+            Parameters
+            ----------
+            this : unknown
+            method : str
+            
+            """
+            # method can be 'formation_energy' or 'energy_above_hull'
+            # allowed abbreviations for 'formation_energy':
+            #  'formation', 'form', 'e_form'
+            # allowed abbreviations for 'hull_distance':
+            #  'hull_distance', 'hull', 'distance', 'convex_hull'
+
+            if method in ['formation_energy', 'formation', 'form', 'e_form']:
+                self.weight_by_hull = False
+            elif method in ['energy_above_hull', 'hull_distance', 'hull', 'distance', 'convex_hull']:
+                self.weight_by_hull = True
+            else:
+                raise ValueError("Invalid weight method: {}".format(method))
+
         def set_width(self, width):
             """
             set_width__binding__gvector_container_type(self, width)
@@ -1178,7 +1199,7 @@ class Evolver(f90wrap.runtime.FortranModule):
             _raffle.f90wrap_evolver__set_radius_distance_tol__binding__gvector_1dda(this=self._handle, \
                 radius_distance_tol=radius_distance_tol)
         
-        def create(self, basis_list, deallocate_systems=True):
+        def create(self, basis_list, energy_above_hull_list=None, deallocate_systems=True):
             """
             create__binding__gvector_container_type(self, basis_list)
 
@@ -1189,6 +1210,7 @@ class Evolver(f90wrap.runtime.FortranModule):
             ----------
             this : unknown
             basis_list : basis_array or Atoms or list of Atoms
+            energy_above_hull_list : list of float
             deallocate_systems : bool
 
             """
@@ -1200,9 +1222,12 @@ class Evolver(f90wrap.runtime.FortranModule):
                     basis_list = rw_geom.basis_array(basis_list)
 
             _raffle.f90wrap_evolver__create__binding__gvector_container_type(this=self._handle, \
-                basis_list=basis_list._handle, deallocate_systems=deallocate_systems)
+                basis_list=basis_list._handle, \
+                energy_above_hull_list=energy_above_hull_list, \
+                deallocate_systems=deallocate_systems \
+            )
             
-        def update(self, basis_list, from_host=True, deallocate_systems=True):
+        def update(self, basis_list, energy_above_hull_list=None, from_host=True, deallocate_systems=True):
             """
             update__binding__gvector_container_type(self, basis_list)
 
@@ -1213,6 +1238,8 @@ class Evolver(f90wrap.runtime.FortranModule):
             ----------
             this : unknown
             basis_list : basis_array or list of Atoms
+            energy_above_hull_list : list of float
+            from_host : bool
             deallocate_systems : bool
 
             """
@@ -1226,6 +1253,7 @@ class Evolver(f90wrap.runtime.FortranModule):
 
             _raffle.f90wrap_evolver__update__binding__gvector_container_type(this=self._handle, \
                 basis_list=basis_list._handle, \
+                energy_above_hull_list=energy_above_hull_list, \
                 from_host=from_host, \
                 deallocate_systems=deallocate_systems \
             )
@@ -1672,37 +1700,40 @@ class Evolver(f90wrap.runtime.FortranModule):
             _raffle.f90wrap_gvector_container_type__set__num_evaluated_allocated(self._handle, \
                 num_evaluated_allocated)
         
-        # @property
-        # def best_system(self):
-        #     """
-        #     Element best_system ftype=integer  pytype=int
+        @property
+        def num_evaluated(self):
+            """
+            Element num_evaluated ftype=integer  pytype=int
             
             
-        #     Defined at ../src/lib/mod_evolver.f90 line 31
+            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_evolver.f90 \
+                line 82
             
-        #     """
-        #     return _raffle.f90wrap_gvector_container_type__get__best_system(self._handle)
+            """
+            return _raffle.f90wrap_gvector_container_type__get__num_evaluated(self._handle)
         
-        # @best_system.setter
-        # def best_system(self, best_system):
-        #     _raffle.f90wrap_gvector_container_type__set__best_system(self._handle, \
-        #         best_system)
+        @num_evaluated.setter
+        def num_evaluated(self, num_evaluated):
+            _raffle.f90wrap_gvector_container_type__set__num_evaluated(self._handle, \
+                num_evaluated)
         
-        # @property
-        # def best_energy(self):
-        #     """
-        #     Element best_energy ftype=real(real12) pytype=float
+        @property
+        def num_evaluated_allocated(self):
+            """
+            Element num_evaluated_allocated ftype=integer  pytype=int
             
             
-        #     Defined at ../src/lib/mod_evolver.f90 line 32
+            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_evolver.f90 \
+                line 84
             
-        #     """
-        #     return _raffle.f90wrap_gvector_container_type__get__best_energy(self._handle)
+            """
+            return \
+                _raffle.f90wrap_gvector_container_type__get__num_evaluated_allocated(self._handle)
         
-        # @best_energy.setter
-        # def best_energy(self, best_energy):
-        #     _raffle.f90wrap_gvector_container_type__set__best_energy(self._handle, \
-        #         best_energy)
+        @num_evaluated_allocated.setter
+        def num_evaluated_allocated(self, num_evaluated_allocated):
+            _raffle.f90wrap_gvector_container_type__set__num_evaluated_allocated(self._handle, \
+                num_evaluated_allocated)
         
         @property
         def kbT(self):
@@ -1720,6 +1751,23 @@ class Evolver(f90wrap.runtime.FortranModule):
         def kbT(self, kbT):
             _raffle.f90wrap_gvector_container_type__set__kbt(self._handle, kbT)
                 
+        @property
+        def weight_by_hull(self):
+            """
+            Element weight_by_hull ftype=logical pytype=bool
+            
+            
+            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_evolver.f90 \
+                line 88
+            
+            """
+            return _raffle.f90wrap_gvector_container_type__get__weight_by_hull(self._handle)
+        
+        @weight_by_hull.setter
+        def weight_by_hull(self, weight_by_hull):
+            _raffle.f90wrap_gvector_container_type__set__weight_by_hull(self._handle, \
+                weight_by_hull)
+        
         @property
         def nbins(self):
             """
@@ -1904,12 +1952,14 @@ class Evolver(f90wrap.runtime.FortranModule):
         
         def __str__(self):
             ret = ['<gvector_container_type>{\n']
-            # ret.append('    best_system : ')
-            # ret.append(repr(self.best_system))
-            # ret.append(',\n    best_energy : ')
-            # ret.append(repr(self.best_energy))
+            ret.append('    num_evaluated : ')
+            ret.append(repr(self.num_evaluated))
+            ret.append(',\n    num_evaluated_allocated : ')
+            ret.append(repr(self.num_evaluated_allocated))
             ret.append(',\n    kbT : ')
             ret.append(repr(self.kbT))
+            ret.append(',\n    weight_by_hull : ')
+            ret.append(repr(self.weight_by_hull))
             ret.append(',\n    nbins : ')
             ret.append(repr(self.nbins))
             ret.append(',\n    sigma : ')

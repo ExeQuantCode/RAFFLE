@@ -318,62 +318,6 @@ subroutine f90wrap_gvector_container_type__set__num_evaluated_allocated(this, f9
     this_ptr%p%num_evaluated_allocated = f90wrap_num_evaluated_allocated
 end subroutine f90wrap_gvector_container_type__set__num_evaluated_allocated
 
-! subroutine f90wrap_gvector_container_type__get__best_system(this, f90wrap_best_system)
-!     use evolver, only: gvector_container_type
-!     implicit none
-!     type gvector_container_type_ptr_type
-!         type(gvector_container_type), pointer :: p => NULL()
-!     end type gvector_container_type_ptr_type
-!     integer, intent(in)   :: this(2)
-!     type(gvector_container_type_ptr_type) :: this_ptr
-!     integer, intent(out) :: f90wrap_best_system
-    
-!     this_ptr = transfer(this, this_ptr)
-!     f90wrap_best_system = this_ptr%p%best_system
-! end subroutine f90wrap_gvector_container_type__get__best_system
-
-! subroutine f90wrap_gvector_container_type__set__best_system(this, f90wrap_best_system)
-!     use evolver, only: gvector_container_type
-!     implicit none
-!     type gvector_container_type_ptr_type
-!         type(gvector_container_type), pointer :: p => NULL()
-!     end type gvector_container_type_ptr_type
-!     integer, intent(in)   :: this(2)
-!     type(gvector_container_type_ptr_type) :: this_ptr
-!     integer, intent(in) :: f90wrap_best_system
-    
-!     this_ptr = transfer(this, this_ptr)
-!     this_ptr%p%best_system = f90wrap_best_system
-! end subroutine f90wrap_gvector_container_type__set__best_system
-
-! subroutine f90wrap_gvector_container_type__get__best_energy(this, f90wrap_best_energy)
-!     use evolver, only: gvector_container_type
-!     implicit none
-!     type gvector_container_type_ptr_type
-!         type(gvector_container_type), pointer :: p => NULL()
-!     end type gvector_container_type_ptr_type
-!     integer, intent(in)   :: this(2)
-!     type(gvector_container_type_ptr_type) :: this_ptr
-!     real(4), intent(out) :: f90wrap_best_energy
-    
-!     this_ptr = transfer(this, this_ptr)
-!     f90wrap_best_energy = this_ptr%p%best_energy
-! end subroutine f90wrap_gvector_container_type__get__best_energy
-
-! subroutine f90wrap_gvector_container_type__set__best_energy(this, f90wrap_best_energy)
-!     use evolver, only: gvector_container_type
-!     implicit none
-!     type gvector_container_type_ptr_type
-!         type(gvector_container_type), pointer :: p => NULL()
-!     end type gvector_container_type_ptr_type
-!     integer, intent(in)   :: this(2)
-!     type(gvector_container_type_ptr_type) :: this_ptr
-!     real(4), intent(in) :: f90wrap_best_energy
-    
-!     this_ptr = transfer(this, this_ptr)
-!     this_ptr%p%best_energy = f90wrap_best_energy
-! end subroutine f90wrap_gvector_container_type__set__best_energy
-
 subroutine f90wrap_gvector_container_type__get__kbt(this, f90wrap_kbt)
     use evolver, only: gvector_container_type
     implicit none
@@ -401,6 +345,34 @@ subroutine f90wrap_gvector_container_type__set__kbt(this, f90wrap_kbt)
     this_ptr = transfer(this, this_ptr)
     this_ptr%p%kbt = f90wrap_kbt
 end subroutine f90wrap_gvector_container_type__set__kbt
+
+subroutine f90wrap_gvector_container_type__get__weight_by_hull(this, f90wrap_weight_by_hull)
+    use evolver, only: gvector_container_type
+    implicit none
+    type gvector_container_type_ptr_type
+        type(gvector_container_type), pointer :: p => NULL()
+    end type gvector_container_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(gvector_container_type_ptr_type) :: this_ptr
+    logical, intent(out) :: f90wrap_weight_by_hull
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_weight_by_hull = this_ptr%p%weight_by_hull
+end subroutine f90wrap_gvector_container_type__get__weight_by_hull
+
+subroutine f90wrap_gvector_container_type__set__weight_by_hull(this, f90wrap_weight_by_hull)
+    use evolver, only: gvector_container_type
+    implicit none
+    type gvector_container_type_ptr_type
+        type(gvector_container_type), pointer :: p => NULL()
+    end type gvector_container_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(gvector_container_type_ptr_type) :: this_ptr
+    logical, intent(in) :: f90wrap_weight_by_hull
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%weight_by_hull = f90wrap_weight_by_hull
+end subroutine f90wrap_gvector_container_type__set__weight_by_hull
 
 subroutine f90wrap_gvector_container_type__array__nbins(this, nd, dtype, dshape, dloc)
     use evolver, only: gvector_container_type
@@ -724,7 +696,9 @@ subroutine f90wrap_evolver__set_radius_distance_tol__binding__gvector_1dda(this,
     call this_ptr%p%set_radius_distance_tol(radius_distance_tol=radius_distance_tol)
 end subroutine f90wrap_evolver__set_radius_distance_tol__binding__gvector_1dda
 
-subroutine f90wrap_evolver__create__binding__gvector_container_type(this, basis_list, deallocate_systems)
+subroutine f90wrap_evolver__create__binding__gvector_container_type( &
+         this, basis_list, deallocate_systems, energy_above_hull_list, n0 &
+)
     use rw_geom, only: basis_type
     use evolver, only: gvector_container_type
     implicit none
@@ -745,17 +719,23 @@ subroutine f90wrap_evolver__create__binding__gvector_container_type(this, basis_
     type(basis_type_xnum_array_ptr_type) :: basis_list_ptr
     integer, intent(in), dimension(2) :: basis_list
     logical, intent(in), optional :: deallocate_systems
+    real(4), dimension(n0), intent(in), optional :: energy_above_hull_list
+    integer :: n0
+    !f2py intent(hide), depend(energy_above_hull_list) :: n0 = shape(energy_above_hull_list,0)
 
     this_ptr = transfer(this, this_ptr)
     basis_list_ptr = transfer(basis_list, basis_list_ptr)
-    if(present(deallocate_systems)) then
-        call this_ptr%p%create(basis_list=basis_list_ptr%p%items, deallocate_systems=deallocate_systems)
-    else
-        call this_ptr%p%create(basis_list=basis_list_ptr%p%items)
-    end if
+    call this_ptr%p%create( &
+         basis_list=basis_list_ptr%p%items, &
+         energy_above_hull_list=energy_above_hull_list, &
+         deallocate_systems=deallocate_systems &
+    )
 end subroutine f90wrap_evolver__create__binding__gvector_container_type
 
-subroutine f90wrap_evolver__update__binding__gvector_container_type(this, basis_list, from_host, deallocate_systems)
+subroutine f90wrap_evolver__update__binding__gvector_container_type( &
+         this, basis_list, &
+         from_host, deallocate_systems, energy_above_hull_list, n0 &
+)
     use rw_geom, only: basis_type
     use evolver, only: gvector_container_type
     implicit none
@@ -775,14 +755,19 @@ subroutine f90wrap_evolver__update__binding__gvector_container_type(this, basis_
     integer, intent(in), dimension(2) :: this
     type(basis_type_xnum_array_ptr_type) :: basis_list_ptr
     integer, intent(in), dimension(2) :: basis_list
-    logical, intent(in) :: from_host
-    logical, intent(in) :: deallocate_systems
+    logical, intent(in), optional :: from_host
+    logical, intent(in), optional :: deallocate_systems
+    real(4), dimension(n0), intent(in), optional :: energy_above_hull_list
+    integer :: n0
+    !f2py intent(hide), depend(energy_above_hull_list) :: n0 = shape(energy_above_hull_list,0)
 
     this_ptr = transfer(this, this_ptr)
     basis_list_ptr = transfer(basis_list, basis_list_ptr)
     call this_ptr%p%update(basis_list=basis_list_ptr%p%items, &
+         energy_above_hull_list=energy_above_hull_list, &
          from_host=from_host, &
-         deallocate_systems=deallocate_systems)
+         deallocate_systems=deallocate_systems &
+    )
 end subroutine f90wrap_evolver__update__binding__gvector_container_type
 
 subroutine f90wrap_evolver__deallocate_systems__binding__gvector_conta8f02(this)

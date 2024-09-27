@@ -368,6 +368,9 @@ if ( ( CMAKE_Fortran_COMPILER MATCHES ".*gfortran.*" OR CMAKE_Fortran_COMPILER M
 
     append_coverage_compiler_flags()
 
+endif()
+
+if(BUILD_TESTS)
     # Create a directory for test data
     add_custom_command(
         OUTPUT ${CMAKE_BINARY_DIR}/test/test

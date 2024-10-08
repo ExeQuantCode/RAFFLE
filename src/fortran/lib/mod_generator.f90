@@ -586,7 +586,7 @@ contains
           if(.not. viable) void_ticker = void_ticker + 1
        else if(rtmp1.le.method_probab_(4)) then
           if(iplaced.eq.0)then
-             if(verbose.gt.0) write(*,*) "Add Atom Minimum"
+             if(verbose.gt.0) write(*,*) "Add Atom Random (growth seed)"
              point = add_atom_rand( &
                   basis, &
                   placement_list_shuffled(iplaced+1:,:), &

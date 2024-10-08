@@ -414,6 +414,34 @@ subroutine f90wrap_raffle_generator_type__set__distributions(this, f90wrap_distr
     this_ptr%p%distributions = distributions_ptr%p
 end subroutine f90wrap_raffle_generator_type__set__distributions
 
+subroutine f90wrap_raffle_generator_type__get__max_attempts(this, f90wrap_max_attempts)
+    use generator, only: raffle_generator_type
+    implicit none
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer, intent(out) :: f90wrap_max_attempts
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_max_attempts = this_ptr%p%max_attempts
+end subroutine f90wrap_raffle_generator_type__get__max_attempts
+
+subroutine f90wrap_raffle_generator_type__set__max_attempts(this, f90wrap_max_attempts)
+    use generator, only: raffle_generator_type
+    implicit none
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer, intent(in) :: f90wrap_max_attempts
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%max_attempts = f90wrap_max_attempts
+end subroutine f90wrap_raffle_generator_type__set__max_attempts
+
 subroutine f90wrap_raffle_generator_type__array__method_probab(this, nd, dtype, dshape, dloc)
     use generator, only: raffle_generator_type
     use, intrinsic :: iso_c_binding, only : c_int
@@ -595,7 +623,7 @@ end subroutine f90wrap_generator__reset_grid__binding__raffle_generator_type
 
 subroutine f90wrap_generator__generate__binding__rgt( &
        this, num_structures, stoichiometry, &
-    method_probab, seed, verbose, n0)
+    method_probab, seed, verbose)
     use generator, only: raffle_generator_type, stoichiometry_type
     implicit none
     
@@ -616,36 +644,19 @@ subroutine f90wrap_generator__generate__binding__rgt( &
     integer, intent(in) :: num_structures
     type(stoichiometry_type_xnum_array_ptr_type) :: stoichiometry_ptr
     integer, intent(in), dimension(2) :: stoichiometry
-    real(4), intent(in), optional, dimension(n0) :: method_probab
+    real(4), intent(in), optional, dimension(5) :: method_probab
     integer, intent(in), optional :: seed
     integer, intent(in), optional :: verbose
-    integer :: n0
-    !f2py intent(hide), depend(method_probab) :: n0 = shape(method_probab,0)
-    integer :: verbose_ = 0
 
-    if(present(verbose)) verbose_ = verbose
     this_ptr = transfer(this, this_ptr)
     stoichiometry_ptr = transfer(stoichiometry, stoichiometry_ptr)
-    if(present(method_probab)) then
-        if(present(seed)) then
-           call this_ptr%p%generate(num_structures=num_structures, &
-                stoichiometry=stoichiometry_ptr%p%items, &
-                method_probab=method_probab, seed=seed, verbose=verbose_)
-        else
-           call this_ptr%p%generate(num_structures=num_structures, &
-                stoichiometry=stoichiometry_ptr%p%items, &
-                method_probab=method_probab, verbose=verbose_)
-        end if
-    else
-        if(present(seed)) then
-           call this_ptr%p%generate(num_structures=num_structures, &
-                stoichiometry=stoichiometry_ptr%p%items, &
-                seed=seed, verbose=verbose_)
-        else
-           call this_ptr%p%generate(num_structures=num_structures, &
-                stoichiometry=stoichiometry_ptr%p%items, verbose=verbose_)
-        end if
-    end if
+    call this_ptr%p%generate( &
+         num_structures=num_structures, &
+         stoichiometry=stoichiometry_ptr%p%items, &
+         method_probab=method_probab, &
+         seed=seed, &
+         verbose=verbose &
+    )
 end subroutine f90wrap_generator__generate__binding__rgt
 
 subroutine f90wrap_generator__evaluate__binding__rgt(this, ret_viability, basis)

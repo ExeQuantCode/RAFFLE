@@ -51,7 +51,7 @@ program test_generator
   write(*,*) "Testing generator missing host handling"
   call generator_var%generate( num_structures = 1, &
        stoichiometry = [ stoichiometry_type(element='C  ', num = 8) ], &
-       method_probab = [0.0, 0.0, 1.0], &
+       method_probab = [0.0, 0.0, 0.0, 0.0, 1.0], &
        seed = 0, &
        verbose = 1 &
   )
@@ -247,7 +247,7 @@ program test_generator
   !-----------------------------------------------------------------------------
   call generator%generate( num_structures = 0, &
        stoichiometry = [ stoichiometry_type(element='C  ', num = 8) ], &
-       method_probab = [0.0, 0.0, 1.0] &
+       method_probab = [0.0, 0.0, 0.0, 0.0, 1.0] &
   )
 
   !-----------------------------------------------------------------------------
@@ -255,7 +255,7 @@ program test_generator
   !-----------------------------------------------------------------------------
   call generator%generate( num_structures = 1, &
        stoichiometry = [ stoichiometry_type(element='C  ', num = 8) ], &
-       method_probab = [0.0, 0.0, 1.0], &
+       method_probab = [0.0, 0.0, 0.0, 0.0, 1.0], &
        seed = 0, &
        verbose = 1 &
   )
@@ -275,7 +275,7 @@ program test_generator
   !-----------------------------------------------------------------------------
   call generator%generate( num_structures = 2, &
        stoichiometry = [ stoichiometry_type(element='C  ', num = 12) ], &
-       method_probab = [0.0, 0.0, 1.0], &
+       method_probab = [0.0, 0.0, 0.0, 0.0, 1.0], &
        seed = 0, &
        verbose = 1 &
   )

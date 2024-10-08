@@ -2242,6 +2242,16 @@ class Generator(f90wrap.runtime.FortranModule):
             if self._alloc:
                 _raffle.f90wrap_generator__raffle_generator_type_finalise(this=self._handle)
 
+        def set_max_attempts(self, max_attempts):
+            """
+            Parameters
+            ----------
+            this : unknown
+            max_attempts : integer
+            
+            """
+            self.max_attempts = max_attempts
+
         def set_host(self, host):
             """
             set_host__binding__raffle_generator(self, host)
@@ -2301,7 +2311,7 @@ class Generator(f90wrap.runtime.FortranModule):
             """
             _raffle.f90wrap_generator__reset_grid__binding__raffle_generator_type(this=self._handle)
         
-        def generate(self, num_structures, stoichiometry, method_probab={"void": 1.0, "walk": 1.0, "min": 1.0}, seed=None, verbose=0):
+        def generate(self, num_structures, stoichiometry, method_probab={"void": 0.0, "rand": 0.0, "walk": 0.0, "grow": 0.0, "min": 0.0}, seed=None, verbose=0):
             """
             generate__binding__raffle_generator(self, num_structures, stoichiometry, method_probab)
 
@@ -2313,15 +2323,21 @@ class Generator(f90wrap.runtime.FortranModule):
             this : unknown
             num_structures : int
             stoichiometry : stoichiometry_array
-            method_probab : list of float
+            method_probab : dict
             verbose : int
 
             """
             
             method_probab_list = []
-            method_probab_list.append(method_probab.get("void", 1.0))
-            method_probab_list.append(method_probab.get("walk", 1.0))
-            method_probab_list.append(method_probab.get("min", 1.0))
+            method_probab_list.append(method_probab.get("void", 0.0))
+            method_probab_list.append(method_probab.get("rand", 0.0)) # or method_probab.get("random", 0.0))
+            method_probab_list.append(method_probab.get("walk", 0.0))
+            method_probab_list.append(method_probab.get("grow", 0.0)) # or method_probab.get("growth", 0.0))
+            method_probab_list.append(method_probab.get("min", 0.0))  # or method_probab.get("minimum", 0.0) or method_probab.get("global", 0.0))
+            
+            # check if all values are 0.0, if so, set them to the default of all 1.0
+            if all([probab < 1E-6 for probab in method_probab_list]):
+                method_probab_list = [1.0 for _ in method_probab_list]
 
             # if stoichiometry is a dictionary, convert it to a stoichiometry_array
             if isinstance(stoichiometry, dict):
@@ -2506,13 +2522,30 @@ class Generator(f90wrap.runtime.FortranModule):
                 distributions)
         
         @property
+        def max_attempts(self):
+            """
+            Element max_attempts ftype=integer  pytype=int
+            
+            
+            Defined at ../src/lib/mod_generator.f90 line \
+                24
+            
+            """
+            return _raffle.f90wrap_raffle_generator_type__get__max_attempts(self._handle)
+        
+        @max_attempts.setter
+        def max_attempts(self, max_attempts):
+            _raffle.f90wrap_raffle_generator_type__set__max_attempts(self._handle, \
+                max_attempts)
+
+        @property
         def method_probab(self):
             """
             Element method_probab ftype=real(real12) pytype=float
             
             
             Defined at ../src/lib/mod_generator.f90 line \
-                28
+                67
             
             """
             array_ndim, array_type, array_shape, array_handle = \
@@ -2559,6 +2592,8 @@ class Generator(f90wrap.runtime.FortranModule):
             ret.append(repr(self.grid_spacing))
             ret.append(',\n    distributions : ')
             ret.append(repr(self.distributions))
+            ret.append(',\n    max_attempts : ')
+            ret.append(repr(self.max_attempts))
             ret.append(',\n    method_probab : ')
             ret.append(repr(self.method_probab))
             ret.append(',\n    structures : ')

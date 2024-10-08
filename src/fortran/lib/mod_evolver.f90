@@ -2227,9 +2227,9 @@ module evolver
    this%num_evaluated = this%num_evaluated + num_evaluated
 
    this%viability_3body_default = sum( this%total%df_3body ) / &
-        size( this%total%df_3body )
+        real( size( this%total%df_3body ), real12 )
    this%viability_4body_default = sum( this%total%df_4body ) / &
-        size( this%total%df_4body )
+        real( size( this%total%df_4body ), real12 )
 
   end subroutine evolve
 !###############################################################################
@@ -2279,7 +2279,7 @@ module evolver
     !! Loop index.
     integer :: is, js, ia, ja, ka, la
     !! Loop index.
-    integer :: num_pairs!, num_angles
+    integer :: num_pairs
     !! Number of pairs and angles.
     real(real12) :: bondlength
     !! Temporary real variables.
@@ -2289,7 +2289,7 @@ module evolver
     !! Extended basis of the system.
     type(extended_basis_type) :: neighbour_basis
     !! Basis for storing neighbour data.
-    real(real12), dimension(3) :: eta, limit
+    real(real12), dimension(3) :: eta
     !! Parameters for the distribution functions.
     real(real12), allocatable, dimension(:) :: angle_list, bondlength_list, &
          distance
@@ -2327,7 +2327,6 @@ module evolver
     else
        nbins_ = 1 + nint( (cutoff_max_ - cutoff_min_)/width_ )
     end if
-    limit = cutoff_max_ - cutoff_min_
     if(present(radius_distance_tol))then
        radius_distance_tol_ = radius_distance_tol
     else

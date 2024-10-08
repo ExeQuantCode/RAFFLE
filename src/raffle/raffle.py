@@ -1103,11 +1103,11 @@ class Evolver(f90wrap.runtime.FortranModule):
             """
             # method can be 'formation_energy' or 'energy_above_hull'
             # allowed abbreviations for 'formation_energy':
-            #  'formation', 'form', 'e_form'
+            #  'empirical', 'formation', 'form', 'e_form'
             # allowed abbreviations for 'hull_distance':
             #  'hull_distance', 'hull', 'distance', 'convex_hull'
 
-            if method in ['formation_energy', 'formation', 'form', 'e_form']:
+            if method in ['empirical', 'formation_energy', 'formation', 'form', 'e_form']:
                 self.weight_by_hull = False
             elif method in ['energy_above_hull', 'hull_distance', 'hull', 'distance', 'convex_hull']:
                 self.weight_by_hull = True

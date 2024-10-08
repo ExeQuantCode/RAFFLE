@@ -79,7 +79,7 @@ contains
     list = [ &
          'banana    ', 'apple     ', 'cherry    ', 'date      ', 'elderberry' &
     ]
-    order = sort_str_order(list)
+    allocate(order, source=sort_str_order(list))
     call assert( &
          all(order .eq. expected_order), &
          'test_sort_str_order failed', success &
@@ -319,7 +319,6 @@ contains
     implicit none
     logical, intent(inout) :: success
     integer :: i, j, unit
-    character(len=10) :: str
 
     open(newunit=unit, status='scratch', action='readwrite')
     do i = 1, 10

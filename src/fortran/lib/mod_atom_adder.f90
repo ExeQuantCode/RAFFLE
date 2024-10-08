@@ -110,6 +110,7 @@ contains
     ! ... largest void space
     !---------------------------------------------------------------------------
     viable = .false.
+    best_location = 0._real12
     best_location_bond = -huge(1._real12)
     do i = 0, grid(1) - 1, 1
        do j = 0, grid(2) - 1, 1

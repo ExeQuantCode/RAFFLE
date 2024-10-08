@@ -299,7 +299,8 @@ contains
     do i = 2, 5, 1
        method_probab_(i) = method_probab_(i) + method_probab_(i-1)
     end do
-    if(verbose_.gt.0) write(*,*) "Method probabilities (void, walk, min): ", &
+    if(verbose_.gt.0) write(*,*) &
+         "Method probabilities (void, rand, walk, grow, min): ", &
          method_probab_
 
 

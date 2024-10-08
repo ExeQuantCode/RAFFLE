@@ -9,10 +9,11 @@ program test_evaluator
   implicit none
 
 
-  integer :: i, ia, num_points
+  integer :: i, ia, ja, num_points
   integer :: best_loc
   real(real12) :: max_bondlength
   type(extended_basis_type) :: basis_host
+  logical :: ltmp1
   type(basis_type), dimension(1) :: database
   character(3), dimension(1) :: element_symbols
   real(real12), dimension(1) :: element_energies
@@ -157,13 +158,19 @@ program test_evaluator
      end do
      best_loc = maxloc(suitability_grid,dim=1)
      ! Check point is correct
+     ltmp1 = .false.
+     do ja = ia, size(atom_ignore_list,1), 1
+        if( &
+             all( &
+                  abs( &
+                       gridpoints(1:3,best_loc) - &
+                       basis_host%spec(1)%atom(atom_ignore_list(ja,2),:3) &
+                  ) .lt. tolerance + 1.E-6_real12 &
+             ) &
+        ) ltmp1 = .true.
+     end do
      call assert( &
-          all( &
-               abs( &
-                    gridpoints(1:3,best_loc) - &
-                    basis_host%spec(1)%atom(atom_ignore_list(ia,2),:3) &
-               ) .lt. tolerance + 1.E-6_real12 &
-          ), &
+          ltmp1, &
           "Incorrect gridpoint found.", &
           success &
      )

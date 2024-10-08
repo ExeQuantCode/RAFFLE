@@ -47,7 +47,7 @@ program raffle_program
   case(1)
      call get_next_directory(trim(output_dir), itmp1, next_dir)
      write(*,'("Running iteration ",I0,&
-          " of host-based random structure search for ",I0," structures")' &
+          &" of host-based random structure search for ",I0," structures")' &
      ) itmp1 + 1, num_structures
   case default
      call stop_program("Invalid option")

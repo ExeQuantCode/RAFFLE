@@ -9,7 +9,6 @@ program test_evaluator
   implicit none
 
 
-  integer :: unit
   integer :: i, ia, num_points
   integer :: best_loc
   real(real12) :: max_bondlength

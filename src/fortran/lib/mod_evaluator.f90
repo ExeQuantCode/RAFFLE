@@ -50,8 +50,6 @@ contains
     !! Loop counters.
     integer :: num_2body, num_3body, num_4body
     !! Number of 2-, 3- and 4-body interactions.
-    real(real12) :: contribution
-    !! Contribution to the viability map
     real(real12) :: viability_2body
     !! Viability of the test point for 2-body interactions.
     real(real12) :: viability_3body, viability_4body
@@ -385,8 +383,6 @@ contains
     !! Loop indices.
     integer :: bin
     !! Bin for the distribution function.
-    real(real12) :: contribution
-    !! Contribution to the viability map.
     integer :: num_4body_local
     !! Number of 4-body interactions local to the current atom triplet.
 

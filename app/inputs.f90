@@ -59,15 +59,13 @@ contains
     implicit none
 
     ! Local variables
-    integer :: iostat
-    !! I/O status.
     integer :: i,j
     !! Loop indices.
     integer :: nseed
     !! Number of random seed values.
-    character(1024) :: pattern,buffer,flag,input_file
+    character(1024) :: buffer, flag, input_file
     !! Character variables.
-    logical :: skip, empty, filefound
+    logical :: skip, empty
     !! Logical variables.
     integer, dimension(:), allocatable :: seed_arr 
     !! Random seed array.
@@ -178,21 +176,15 @@ contains
     !! Number of species and bonds.
     integer :: iostat, unit, l_pos, r_pos
     !! I/O status, unit, left and right positions.
-    character(1) :: fs
-    !! Field separator.
     character(32) :: pair
     !! Pair of elements.
-    character(1024) :: stoichiometry, elements, database, buffer, energies, &
+    character(1024) :: stoichiometry, database, buffer, energies, &
          bond_radii
     !! Strings buffers to hold input values (usually derived types).
     real(real12), dimension(3) :: width, sigma
     !! Width and sigma values for distribution functions.
     character(50), dimension(3) :: cutoff_min, cutoff_max
     !! Cutoff values for distribution functions.
-    integer, allocatable, dimension(:) :: stoichiometry_list
-    !! Stoichiometry list.
-    character(3), allocatable, dimension(:) :: element_list
-    !! Element list.
 
 
     !---------------------------------------------------------------------------

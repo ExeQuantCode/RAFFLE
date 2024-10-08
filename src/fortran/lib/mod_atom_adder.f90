@@ -172,7 +172,7 @@ contains
     !! Loop indices.
     real(real12) :: rtmp1
     !! Random number.
-    integer :: crude_norm
+    real(real12) :: crude_norm
     !! Crude normalisation.
     real(real12) :: calculated_value, calculated_test
     !! Viability values.
@@ -186,7 +186,7 @@ contains
     i = 0
     viable = .false.
     crude_norm = 0._real12
-100 random_loop : do 
+    random_loop : do 
        i = i + 1
       
        !call random_number(rtmp1)
@@ -399,7 +399,7 @@ contains
     !! List of atoms to ignore (i.e. indices of atoms not yet placed).
 
     ! Local variables
-    integer :: i, j, k, l, is, ia
+    integer :: i, j, is
     !! Loop indices.
     integer :: num_points
     !! Number of gridpoints.

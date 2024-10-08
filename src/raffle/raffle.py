@@ -2337,7 +2337,7 @@ class Generator(f90wrap.runtime.FortranModule):
             
             # check if all values are 0.0, if so, set them to the default of all 1.0
             if all([probab < 1E-6 for probab in method_probab_list]):
-                method_probab_list = [1.0 for _ in method_probab_list]
+                method_probab_list = [1.0, 0.1, 0.5, 0.5, 1.0]
 
             # if stoichiometry is a dictionary, convert it to a stoichiometry_array
             if isinstance(stoichiometry, dict):

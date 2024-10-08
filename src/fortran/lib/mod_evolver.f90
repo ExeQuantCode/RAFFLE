@@ -91,7 +91,7 @@ module evolver
      !! Number of evaluated systems.
      integer :: num_evaluated_allocated = 0
      !! Number of evaluated systems still allocated.
-     real(real12) :: kbt = 0.2_real12
+     real(real12) :: kBT = 0.2_real12
      !! Boltzmann constant times temperature.
      logical :: weight_by_hull = .false.
      !! Boolean whether to weight the distribution functions by the energy
@@ -1972,18 +1972,18 @@ module evolver
        call this%set_best_energy()
        do i = 1, size(this%total%df_2body,2)
           this%total%df_2body(:,i) = this%total%df_2body(:,i) * &
-                                  exp( this%best_energy_pair(i) / this%kbt ) / &
-                                  exp( best_energy_pair_old(i) / this%kbt )
+                                  exp( this%best_energy_pair(i) / this%kBT ) / &
+                                  exp( best_energy_pair_old(i) / this%kBT )
        end do
        do i = 1, size(this%total%df_3body,2)
           this%total%df_3body(:,i) = &
                this%total%df_3body(:,i) * exp( &
-                    this%best_energy_per_species(i) / this%kbt &
-               ) / exp( best_energy_per_species_old(i) / this%kbt )
+                    this%best_energy_per_species(i) / this%kBT &
+               ) / exp( best_energy_per_species_old(i) / this%kBT )
           this%total%df_4body(:,i) = &
                this%total%df_4body(:,i) * exp( &
-                    this%best_energy_per_species(i) / this%kbt &
-               ) / exp( best_energy_per_species_old(i) / this%kbt )
+                    this%best_energy_per_species(i) / this%kBT &
+               ) / exp( best_energy_per_species_old(i) / this%kBT )
        end do
        if(size(this%total%df_2body,2).ne.size(this%bond_info))then
           allocate(tmp_df(this%nbins(1),size(this%bond_info)), &
@@ -2070,7 +2070,7 @@ module evolver
     do i = this%num_evaluated_allocated + 1, size(this%system), 1
        num_evaluated = num_evaluated + 1
        if(this%weight_by_hull)then
-          weight = exp( this%system(i)%energy_above_hull / this%kbt )
+          weight = exp( this%system(i)%energy_above_hull / this%kBT )
           if(weight.lt.1.E-6) cycle
        end if
        !------------------------------------------------------------------------
@@ -2123,7 +2123,7 @@ module evolver
                                  real12 &
                             ) &
                        ) &
-                  ) / this%kbt &
+                  ) / this%kBT &
              )
              if(weight.lt.1.E-6) cycle
           end if
@@ -2158,7 +2158,7 @@ module evolver
                                     real12 &
                                ) &
                           ) &
-                     ) / this%kbt &
+                     ) / this%kBT &
                 )
                 if(weight.lt.1.E-6) cycle
              end if

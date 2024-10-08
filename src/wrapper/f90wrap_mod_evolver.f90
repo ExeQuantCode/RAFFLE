@@ -318,7 +318,7 @@ subroutine f90wrap_gvector_container_type__set__num_evaluated_allocated(this, f9
     this_ptr%p%num_evaluated_allocated = f90wrap_num_evaluated_allocated
 end subroutine f90wrap_gvector_container_type__set__num_evaluated_allocated
 
-subroutine f90wrap_gvector_container_type__get__kbt(this, f90wrap_kbt)
+subroutine f90wrap_gvector_container_type__get__kBT(this, f90wrap_kBT)
     use evolver, only: gvector_container_type
     implicit none
     type gvector_container_type_ptr_type
@@ -326,13 +326,13 @@ subroutine f90wrap_gvector_container_type__get__kbt(this, f90wrap_kbt)
     end type gvector_container_type_ptr_type
     integer, intent(in)   :: this(2)
     type(gvector_container_type_ptr_type) :: this_ptr
-    real(4), intent(out) :: f90wrap_kbt
+    real(4), intent(out) :: f90wrap_kBT
     
     this_ptr = transfer(this, this_ptr)
-    f90wrap_kbt = this_ptr%p%kbt
-end subroutine f90wrap_gvector_container_type__get__kbt
+    f90wrap_kBT = this_ptr%p%kBT
+end subroutine f90wrap_gvector_container_type__get__kBT
 
-subroutine f90wrap_gvector_container_type__set__kbt(this, f90wrap_kbt)
+subroutine f90wrap_gvector_container_type__set__kBT(this, f90wrap_kBT)
     use evolver, only: gvector_container_type
     implicit none
     type gvector_container_type_ptr_type
@@ -340,11 +340,11 @@ subroutine f90wrap_gvector_container_type__set__kbt(this, f90wrap_kbt)
     end type gvector_container_type_ptr_type
     integer, intent(in)   :: this(2)
     type(gvector_container_type_ptr_type) :: this_ptr
-    real(4), intent(in) :: f90wrap_kbt
+    real(4), intent(in) :: f90wrap_kBT
     
     this_ptr = transfer(this, this_ptr)
-    this_ptr%p%kbt = f90wrap_kbt
-end subroutine f90wrap_gvector_container_type__set__kbt
+    this_ptr%p%kBT = f90wrap_kBT
+end subroutine f90wrap_gvector_container_type__set__kBT
 
 subroutine f90wrap_gvector_container_type__get__weight_by_hull(this, f90wrap_weight_by_hull)
     use evolver, only: gvector_container_type

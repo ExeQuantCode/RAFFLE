@@ -1083,15 +1083,15 @@ class Evolver(f90wrap.runtime.FortranModule):
             if self._alloc:
                 _raffle.f90wrap_evolver__gvector_container_type_finalise(this=self._handle)
         
-        def set_kbT(self, kbT):
+        def set_kBT(self, kBT):
             """
             Parameters
             ----------
             this : unknown
-            kbT : float
+            kBT : float
             
             """
-            self.kbT = kbT
+            self.kBT = kBT
 
         def set_weight_method(self, method):
             """
@@ -1736,20 +1736,20 @@ class Evolver(f90wrap.runtime.FortranModule):
                 num_evaluated_allocated)
         
         @property
-        def kbT(self):
+        def kBT(self):
             """
-            Element kbT ftype=real(real12) pytype=float
+            Element kBT ftype=real(real12) pytype=float
             
             
             Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_evolver.f90 \
                 line 66
             
             """
-            return _raffle.f90wrap_gvector_container_type__get__kbt(self._handle)
+            return _raffle.f90wrap_gvector_container_type__get__kBT(self._handle)
         
-        @kbT.setter
-        def kbT(self, kbT):
-            _raffle.f90wrap_gvector_container_type__set__kbt(self._handle, kbT)
+        @kBT.setter
+        def kBT(self, kBT):
+            _raffle.f90wrap_gvector_container_type__set__kBT(self._handle, kBT)
                 
         @property
         def weight_by_hull(self):
@@ -1956,8 +1956,8 @@ class Evolver(f90wrap.runtime.FortranModule):
             ret.append(repr(self.num_evaluated))
             ret.append(',\n    num_evaluated_allocated : ')
             ret.append(repr(self.num_evaluated_allocated))
-            ret.append(',\n    kbT : ')
-            ret.append(repr(self.kbT))
+            ret.append(',\n    kBT : ')
+            ret.append(repr(self.kBT))
             ret.append(',\n    weight_by_hull : ')
             ret.append(repr(self.weight_by_hull))
             ret.append(',\n    nbins : ')

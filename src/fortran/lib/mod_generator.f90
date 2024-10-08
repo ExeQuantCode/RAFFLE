@@ -269,7 +269,7 @@ contains
     !! Basis of the structure to generate (i.e. allocated species and atoms).
     real(real12), dimension(5) :: &
          method_probab_ = &
-         [1.0_real12, 1.0_real12, 1.0_real12, 1.0_real12, 1.0_real12]
+         [1.0_real12, 0.1_real12, 0.5_real12, 0.5_real12, 1.0_real12]
     !! Default probability of each placement method.
 
     integer, dimension(:), allocatable :: seed_arr

@@ -43,7 +43,7 @@ module inputs
   integer, dimension(3) :: grid = [0, 0, 0]
   real(real12) :: grid_spacing = 0._real12
   real(real12), dimension(5) :: method_probab = &
-       [1._real12, 1._real12, 1._real12, 1._real12, 1._real12]
+       [1._real12, 0.1_real12, 0.5_real12, 0.5_real12, 1._real12]
 
   character(1024), dimension(:), allocatable :: database_list ! list of directories containing input database
   character(1024) :: database_format !format of input file (POSCAR, XYZ, etc.
@@ -270,8 +270,9 @@ contains
 
     method_probab = [void, rand, walk, grow, min]
     if(all(abs(method_probab).lt.1.E-6))then
-       method_probab = [1._real12, 0._real12, 1._real12, 0._real12, 1._real12]
-    end if
+       method_probab = &
+            [1._real12, 0.1_real12, 0.5_real12, 0.5_real12, 1._real12]
+      end if
 
     if(trim(stoichiometry).ne."")then
        num_species = icount(stoichiometry,",")

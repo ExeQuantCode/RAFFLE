@@ -32,31 +32,31 @@ module raffle__element_utils
      !! Type for storing the properties of a bond between two elements.    
      real(real32) :: radius_covalent
      character(3), dimension(2) :: element
-    contains
-      procedure, pass(this) :: set => set_bond
-   end type element_bond_type
-   type(element_bond_type), dimension(:), allocatable :: element_bond_database
+   contains
+     procedure, pass(this) :: set => set_bond
+  end type element_bond_type
+  type(element_bond_type), dimension(:), allocatable :: element_bond_database
   
    
   interface element_type
-    !! Constructor for the element type.
-    module function init_element_type( &
-         name, mass, charge, energy) result(element)
-      character(len=3), intent(in) :: name
-      real(real32), intent(in), optional :: mass, charge, energy
-      type(element_type) :: element
-    end function init_element_type
+     !! Constructor for the element type.
+     module function init_element_type( &
+          name, mass, charge, energy) result(element)
+       character(len=3), intent(in) :: name
+       real(real32), intent(in), optional :: mass, charge, energy
+       type(element_type) :: element
+     end function init_element_type
   end interface element_type
 
    
   interface element_bond_type
-    !! Constructor for the element bond type.
-    module function init_element_bond_type( &
-         elements, radius) result(bond)
-      character(len=3), dimension(2), intent(in) :: elements
-      real(real32), intent(in), optional :: radius
-      type(element_bond_type) :: bond
-    end function init_element_bond_type
+     !! Constructor for the element bond type.
+     module function init_element_bond_type( &
+          elements, radius) result(bond)
+       character(len=3), dimension(2), intent(in) :: elements
+       real(real32), intent(in), optional :: radius
+       type(element_bond_type) :: bond
+     end function init_element_bond_type
   end interface element_bond_type
 
 
@@ -182,14 +182,21 @@ contains
     if(allocated(element_bond_database))then
        do i = 1, size(element_bond_database)
           if( &
-               (trim(element_bond_database(i)%element(1)) .eq. &
+               ( &
+                    trim(element_bond_database(i)%element(1)) .eq. &
                     trim(element_1) .and. &
-               (trim(element_bond_database(i)%element(2)) .eq. &
-                    trim(element_2)) ) .or. &
-               (trim(element_bond_database(i)%element(1)) .eq. &
+                    ( &
+                         trim(element_bond_database(i)%element(2)) .eq. &
+                         trim(element_2) &
+                    ) &
+               ) .or. ( &
+                    trim(element_bond_database(i)%element(1)) .eq. &
                     trim(element_2) .and. &
-               (trim(element_bond_database(i)%element(2)) .eq. &
-                    trim(element_1) ) ) &
+                    ( &
+                         trim(element_bond_database(i)%element(2)) .eq. &
+                         trim(element_1) &
+                    ) &
+               ) &
           )then
              this%element = element_bond_database(i)%element
              this%radius_covalent = element_bond_database(i)%radius_covalent

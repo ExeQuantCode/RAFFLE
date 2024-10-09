@@ -29,16 +29,19 @@ def check_indentation(file_path):
     specifier_line = False
     inside_derived_type = False
     on_continued_if_line = False
+    inside_procedure_arguments = False
+    inside_associate_arguments = False
 
     expected_indent = 0  # Default expected indentation
     continuation_line = False  # Flag to indicate if the previous line was a continuation
     open_bracket_count = 0  # Count of unbalanced open brackets
     close_bracket_count = 0  # Count of unbalanced close brackets
+    unbalanced_brackets = 0
     continued_indent = 0
 
     with open(file_path, 'r') as file:
         for line_num, line in enumerate(file, start=1):
-            stripped_line = line.strip()
+            stripped_line = line.rstrip()
 
             # Skip empty lines
             if not stripped_line:
@@ -53,25 +56,29 @@ def check_indentation(file_path):
             if re.match(r'^\s*#', stripped_line):
                 continue
 
+            # Replace all numbers at the start of the line with the same number of spaces
+            stripped_line = re.sub(r'^\d+', lambda x: ' ' * len(x.group()), stripped_line)
+
             # Check if line starts with comment
             if re.match(r'^\s*!', stripped_line):
-                actual_indent = len(line) - len(line.lstrip())
+                actual_indent = len(stripped_line) - len(stripped_line.lstrip())
                 if not check_if_match(actual_indent, expected_indent, continued_indent, continuation_line, line_num, file_path):
                     return False
                 continue
 
-            # Count open and close brackets
-            close_bracket_count += stripped_line.count(')')
-            close_bracket_count += stripped_line.count(']')
-            unbalanced_brackets = open_bracket_count - close_bracket_count
-
             # Check if line starts with close bracket, if so, update the indentation
             if re.match(r'^\s*[)\]]', stripped_line):
-                continued_indent = expected_indent + unbalanced_brackets * continuation_indent
+                continued_indent = expected_indent + ( unbalanced_brackets - 1 ) * continuation_indent
 
+            # Count open and close brackets
             open_bracket_count += stripped_line.count('(')
             open_bracket_count += stripped_line.count('[')
-            unbalanced_brackets = open_bracket_count - close_bracket_count
+            close_bracket_count += stripped_line.count(')')
+            close_bracket_count += stripped_line.count(']')
+            if stripped_line.count('(') + stripped_line.count('[') < stripped_line.count(')') + stripped_line.count(']'):
+                unbalanced_brackets -= 1
+            elif stripped_line.count('(') + stripped_line.count('[') > stripped_line.count(')') + stripped_line.count(']'):
+                unbalanced_brackets += 1
 
 
             # Detect end of do loop, if statement, or where statement
@@ -80,6 +87,7 @@ def check_indentation(file_path):
 
             # Detect else statements in if and where blocks, can be "PATTERN", "PATTERN\s*if", or "PATTERN\s*where"
             if inside_loop_conditional and re.match(r'^\s*else\s*(if|where)?\b', stripped_line, re.IGNORECASE):
+                prior_indent = expected_indent
                 expected_indent -= loop_conditional_indent
                 specifier_line = True
 
@@ -98,6 +106,10 @@ def check_indentation(file_path):
                     expected_indent -= loop_conditional_indent - 1
                 else:
                     expected_indent -= module_program_indent
+
+            # Detect end of associate block
+            if re.match(r'^\s*end\s*associate\b', stripped_line, re.IGNORECASE):
+                expected_indent -= loop_conditional_indent
 
             # Detect end of interface block
             if re.match(r'^\s*end\s*interface\b', stripped_line, re.IGNORECASE):
@@ -120,13 +132,13 @@ def check_indentation(file_path):
 
 
             # Check actual indentation
-            actual_indent = len(line) - len(line.lstrip())
+            actual_indent = len(stripped_line) - len(stripped_line.lstrip())
             if not check_if_match(actual_indent, expected_indent, continued_indent, continuation_line, line_num, file_path):
                 return False
             
 
             # strip comments from end of line
-            line = re.sub(r'!.*', '', line)
+            stripped_line = re.sub(r'!.*', '', stripped_line).strip()
 
             if continuation_line:
                 continued_indent = expected_indent + unbalanced_brackets * continuation_indent
@@ -138,13 +150,20 @@ def check_indentation(file_path):
                     # Set expected indentation for next line
                     continued_indent = expected_indent + continuation_indent
                     if unbalanced_brackets == 0:
-                        open_bracket_count += 1
+                        unbalanced_brackets = 1
             else:
                 # If it was a continuation line, reset to normal expected indentation
                 open_bracket_count = 0
                 close_bracket_count = 0
+                unbalanced_brackets = 0
                 if continuation_line:
                     continuation_line = False
+                if inside_procedure_arguments:
+                    inside_procedure_arguments = False
+                    expected_indent += procedure_indent
+                if inside_associate_arguments:
+                    inside_associate_arguments = False
+                    expected_indent += loop_conditional_indent
                     
 
             # Reset from contains line
@@ -161,8 +180,12 @@ def check_indentation(file_path):
             # Detect procedure blocks, can be "module (function|subroutine|procedure)" or "(function|subroutine|procedure)" but not "procedure," or "procedure ::"
             if re.match(r'^\s*(module\s+)?(function|subroutine|procedure)\b', stripped_line, re.IGNORECASE) and \
                 not re.match(r'^\s*(function|subroutine|procedure)\s*(,|::)', stripped_line, re.IGNORECASE):
-                expected_indent += procedure_indent
                 inside_procedure = True
+                if stripped_line.lower().endswith("&"):
+                    inside_procedure_arguments = True
+                else:
+                    expected_indent += procedure_indent
+
 
             # Detect derived type block
             if re.match(r'^\s*type\s*(::|,)', stripped_line, re.IGNORECASE):
@@ -173,27 +196,34 @@ def check_indentation(file_path):
             if re.match(r'^\s*(abstract\s+)?interface\b', stripped_line, re.IGNORECASE):
                 expected_indent += loop_conditional_indent
 
+            # Detect associate block
+            if re.match(r'^\s*associate\b', stripped_line, re.IGNORECASE):
+                if stripped_line.lower().endswith("&"):
+                    inside_associate_arguments = True
+                else:
+                    expected_indent += loop_conditional_indent
+
             # Detect do loop, and where statement with optional "NAME:"
-            if re.match(r'^\s*\w+:\s*(do|where)\b', stripped_line, re.IGNORECASE) or \
+            if re.match(r'^\s*\w+\s*:\s*(do|where)\b', stripped_line, re.IGNORECASE) or \
                re.match(r'^\s*(do|where)\b', stripped_line, re.IGNORECASE):
                 expected_indent += loop_conditional_indent
                 inside_loop_conditional = True
 
             # Detect "if RANDOM then" statement with optional "NAME:"
-            if re.match(r'^\s*\w*:\s*if\s*\(.*\)\s*then\b', stripped_line, re.IGNORECASE) or \
+            if re.match(r'^\s*\w*\s*:\s*if\s*\(.*\)\s*then\b', stripped_line, re.IGNORECASE) or \
                re.match(r'^\s*if\s*\(.*\)\s*then\b', stripped_line, re.IGNORECASE):
                 expected_indent += loop_conditional_indent
                 inside_loop_conditional = True
 
             # Detect line ends with "then" from unfinished if statement 
             if on_continued_if_line and not continuation_line:
-                if line.strip().lower().endswith("then"):
+                if stripped_line.lower().endswith("then"):
                     expected_indent += loop_conditional_indent
                 on_continued_if_line = False
 
             # Detect if linebreak statement with optional "NAME:"
             if continuation_line and \
-               ( re.match(r'^\s*\w+:\s*(if)\b', stripped_line, re.IGNORECASE) or \
+               ( re.match(r'^\s*\w+\s*:\s*(if)\b', stripped_line, re.IGNORECASE) or \
                  re.match(r'^\s*(if)\b', stripped_line, re.IGNORECASE) ):
                 on_continued_if_line = True
 

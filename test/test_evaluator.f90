@@ -147,7 +147,12 @@ program test_evaluator
   ! call evaluator
   !-----------------------------------------------------------------------------
   allocate(suitability_grid(size(gridpoints,2)))
-  do ia = 1, size(atom_ignore_list,1)
+  open(newunit=unit, file='viability.dat')
+  do ia = 1, 8
+     write(unit,*) basis_host%spec(1)%atom(ia,:3)
+  end do
+  write(unit,*)
+  do ia = 1, 1!size(atom_ignore_list,1)
      suitability_grid(:) = 0._real12
      do i = 1, size(gridpoints,dim=2)
         suitability_grid(i) = evaluate_point( generator%distributions, &
@@ -155,6 +160,7 @@ program test_evaluator
              atom_ignore_list(ia:,:), &
              [ generator%distributions%bond_info(:)%radius_covalent ] &
         )
+        write(unit,*) gridpoints(1:3,i), suitability_grid(i)
      end do
      best_loc = maxloc(suitability_grid,dim=1)
      ! Check point is correct
@@ -173,6 +179,7 @@ program test_evaluator
           is = 1, ia = atom_ignore_list(ia,2) &
      )
   end do
+  close(unit)
 
 
   !-----------------------------------------------------------------------------

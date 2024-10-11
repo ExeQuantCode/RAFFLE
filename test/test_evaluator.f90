@@ -112,7 +112,7 @@ program test_evaluator
 
   generator%distributions%kbt = 0.2
   call generator%host%copy(basis_host)
-  call generator%set_grid( grid_spacing = 0.2, grid_offset = [0.0, 0.0, 0.0] )
+  call generator%set_grid( grid_spacing = 0.05, grid_offset = [0.0, 0.0, 0.0] )
   generator%distributions%radius_distance_tol = [1.5, 2.5, 3.0, 6.0]
 
 
@@ -148,6 +148,7 @@ program test_evaluator
   !-----------------------------------------------------------------------------
   allocate(suitability_grid(size(gridpoints,2)))
   open(newunit=unit, file='viability.dat')
+  write(unit,'("#",3(1X,I0),3(1X,F0.3))') generator%grid, generator%grid_offset 
   do ia = 1, 8
      write(unit,*) basis_host%spec(1)%atom(ia,:3)
   end do

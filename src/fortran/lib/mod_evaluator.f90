@@ -223,7 +223,6 @@ contains
        viability_2body = 0.5_real12
     else
        viability_2body = viability_2body / real( num_2body, real12 )
-      !  viability_2body = viability_2body ** (1._real12 / num_2body)
     end if
 
 
@@ -246,7 +245,7 @@ contains
                position_1 => matmul(position, basis%lat), &
                position_2 => [neighbour_basis%spec(is)%atom(ia,1:3)] &
           )
-             num_3body = num_3body + 1
+             num_3body = num_3body + 2
              viability_3body = viability_3body * &
                    evaluate_3body_contributions( gvector_container, &
                       position_1, &
@@ -254,10 +253,11 @@ contains
                       neighbour_basis, species, [is, ia], num_3body &
                    )
              do js = is, neighbour_basis%nspec
+            !  do js = 1, neighbour_basis%nspec
                 do ja = 1, neighbour_basis%spec(js)%num
                    if(js.eq.is .and. ja.le.ia) cycle
                    if(all(neighbour_basis%image_spec(:)%num.eq.0))cycle
-                   num_4body = num_4body + 1
+                   num_4body = num_4body + 2
                    ! 4-body map
                    ! check improperdihedral angle between test point and all
                    ! other atoms
@@ -277,15 +277,17 @@ contains
     ! Normalise the viability map
     if(num_3body.eq.0)then
        viability_3body = gvector_container%viability_3body_default
-      !  viability_3body = 1.5_real12
     else
-       viability_3body = viability_3body ** (1._real12 / real(num_3body,real12))
+       viability_3body = ( 2._real12 * viability_3body ) ** ( &
+            1._real12 / real(num_3body,real12) &
+       )
     end if
     if(num_4body.eq.0)then
        viability_4body = gvector_container%viability_4body_default
-      !  viability_4body = 1.5_real12
     else
-       viability_4body = viability_4body ** (1._real12 / real(num_4body,real12))
+       viability_4body = ( 2._real12 * viability_4body ) ** ( &
+            1._real12 / real(num_4body,real12) &
+       )
     end if
     
     ! Combine the 2-, 3- and 4-body maps
@@ -332,7 +334,7 @@ contains
     species_loop: do js = current_idx(1), basis%nspec, 1
        atom_loop: do ja = 1, basis%spec(js)%num
           if(all([js,ja].eq.current_idx))cycle
-          num_3body_local = num_3body_local + 1
+          num_3body_local = num_3body_local + 2
           associate( position_store => [ basis%spec(js)%atom(ja,1:3) ] )
              bin = gvector_container%get_bin( &
                   get_angle( position_2, &
@@ -355,7 +357,9 @@ contains
        output = 1._real12
        num_3body = num_3body - 1
     else
-       output = output ** (1._real12 / real( num_3body_local, real12 ) )
+       output = ( 2._real12 * output ) ** ( &
+            1._real12 / real( num_3body_local, real12 ) &
+       )
     end if
 
   end function evaluate_3body_contributions

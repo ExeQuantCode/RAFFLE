@@ -1,6 +1,7 @@
 # %%
 import numpy as np
 from scipy.interpolate import griddata
+from scipy.spatial import cKDTree
 from mayavi import mlab
 # from mayavi.api import Engine
 
@@ -17,7 +18,8 @@ n_z = 0
 # Read the data from the file
 data = []
 atoms = []
-with open('../viability.dat', 'r') as file:
+species_list = []
+with open('../viability_BTO.dat', 'r') as file:
     for line in file:
         # if line starts with #grid, read the three values as n_x, n_y, n_z
         if line.startswith("#grid"):
@@ -36,20 +38,10 @@ with open('../viability.dat', 'r') as file:
         values = line.strip().split()
         if len(values) == 3:
             atoms.append([float(values[0]), float(values[1]), float(values[2])])
-        if len(values) == 4:
+        if len(values) >= 4:
             data.append([float(values[0]), float(values[1]), float(values[2]), float(values[3])])
-
-
-# Extract the coordinates and values
-x = np.array([row[0] for row in data])
-y = np.array([row[1] for row in data])
-z = np.array([row[2] for row in data])
-values = np.array([row[3] for row in data])
-
-# # scale the data positions
-# x = x * a
-# y = y * b
-# z = z * c
+            if len(values) > 4:
+                species_list.append(int(values[4]))
 
 # scale atom locations
 atoms = np.array(atoms)
@@ -57,16 +49,18 @@ atoms[:,0] = atoms[:,0] * n_x
 atoms[:,1] = atoms[:,1] * n_y
 atoms[:,2] = atoms[:,2] * n_z
 
+# set the min and max values for the grid
+x_min = a * ( 0.0 )
+x_max = a * ( 1.0 - 1.0/n_x )
+y_min = b * ( 0.0 )
+y_max = b * ( 1.0 - 1.0/n_y )
+z_min = c * ( 0.0 )
+z_max = c * ( 1.0 - 1.0/n_z )
 
-# %%
 # Create a 3D grid
-grid_x, grid_y, grid_z = np.mgrid[x.min():x.max():complex(n_x), y.min():y.max():complex(n_y), z.min():z.max():complex(n_z)]
+grid_x, grid_y, grid_z = np.mgrid[x_min:x_max:complex(n_x), y_min:y_max:complex(n_y), z_min:z_max:complex(n_z)]
+grid_points = np.vstack((grid_x.ravel(), grid_y.ravel(), grid_z.ravel())).T
 
-
-# %%
-# Interpolate data onto the 3D grid
-grid_values = griddata((x, y, z), values, (grid_x, grid_y, grid_z), method='nearest')
-grid_values = np.nan_to_num(grid_values)
 
 # %%
 # Function to plot atoms as spheres
@@ -117,13 +111,6 @@ def plot_atoms(atoms, bonds, radius=0.1, color=(1, 0, 0)):
 
 
 # # Draw the lattice bounding box
-# def draw_bounding_box():
-#     mlab.plot3d([0, n_x, n_x, 0, 0, 0, n_x, n_x, 0, 0, 0, 0, 0, n_x],
-#                  [0, 0, n_y, n_y, 0, 0, 0, 0, 0, n_y, n_y, 0, 0, 0],
-#                  [0, 0, 0, 0, 0, n_z, n_z, n_z, n_z, n_z, n_z, n_z, 0, 0],
-#                  tube_radius=0.01, color=(0, 0, 0))  # Change the color as needed
-    
-    # Draw the lattice bounding box
 def draw_bounding_box(a, b, c):
     # Define the vertices of the bounding box
     vertices = np.array([[0.0, 0.0, 0.0], [a, 0.0, 0.1], [a, b, 0.0], [0.0, b, 0.0],
@@ -153,16 +140,39 @@ def draw_bounding_box(a, b, c):
     # for edge in edges:
     #     mlab.plot3d(*zip(*edge), tube_radius=0.01, color=(0, 0, 0))
 
-
 # %%
-print(f"X: {x.min()} - {x.max()}")
-print(f"Y: {y.min()} - {y.max()}")
-print(f"Z: {z.min()} - {z.max()}")
-print(f"gX: {grid_x.min()} - {grid_x.max()}")
 
+grid_values = []
+distance_threshold = 1e-3
+for spec in sorted(set(species_list)):
+    print("Plotting species: ", spec)
+    # Extract the coordinates and values
+    x = np.array([row[0] for row, species in zip(data, species_list) if species == spec])
+    y = np.array([row[1] for row, species in zip(data, species_list) if species == spec])
+    z = np.array([row[2] for row, species in zip(data, species_list) if species == spec])
+    values = np.array([row[3] for row, species in zip(data, species_list) if species == spec])
 
-cont3d = mlab.contour3d(grid_values, contours=10, transparent=True)
-# ax1 = mlab.axes( color=(1,1,1), nb_labels=4 )
+    # scale the data positions
+    x = x * a
+    y = y * b
+    z = z * c
+
+    # Calculate distances to the nearest known data point
+    tree = cKDTree(np.c_[x, y, z])
+    distances, _ = tree.query(grid_points, k=1)
+
+    # Interpolate data onto the 3D grid
+    grid_values.append(griddata((x, y, z), values, (grid_x, grid_y, grid_z), method='nearest', fill_value=0.0))
+    # grid_values[spec] = np.nan_to_num(grid_values)
+
+    # Reshape distances to match the grid shape
+    distances = distances.reshape(grid_values[spec-1].shape)
+
+    # Set threshold for distance (e.g., 1 unit)
+    grid_values[spec-1][distances > distance_threshold] = 0  # Set to zero for points beyond the threshold
+
+    mlab.contour3d(grid_values[spec-1], contours=10, transparent=True)
+    # ax1 = mlab.axes( color=(1,1,1), nb_labels=4 )
 
 # Call the function to plot atoms
 bonds = get_bonds(atoms, [n_x, n_y, n_z], [a, b, c], radius=2.5)

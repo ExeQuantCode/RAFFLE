@@ -148,7 +148,11 @@ program test_evaluator
   !-----------------------------------------------------------------------------
   allocate(suitability_grid(size(gridpoints,2)))
   open(newunit=unit, file='viability.dat')
-  write(unit,'("#",3(1X,I0),3(1X,F0.3))') generator%grid, generator%grid_offset 
+  write(unit,'("#grid",3(1X,I0),3(1X,F0.3))') generator%grid, generator%grid_offset
+  write(unit,'("#lat",3(1X,F0.3))') &
+       modu(basis_host%lat(1,:)), &
+       modu(basis_host%lat(2,:)), &
+       modu(basis_host%lat(3,:))
   do ia = 1, 8
      write(unit,*) basis_host%spec(1)%atom(ia,:3)
   end do

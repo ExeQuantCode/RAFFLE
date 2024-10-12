@@ -1,6 +1,7 @@
 program test_evaluator
   use error_handling
   use constants, only: real12
+  use misc_linalg, only: modu
   use rw_geom, only: basis_type, geom_write
   use extended_geom, only: extended_basis_type
   use evaluator, only: evaluate_point

@@ -149,7 +149,7 @@ contains
     ! Arguments
     class(raffle_generator_type), intent(inout) :: this
     !! Instance of the raffle generator.
-    type(basis_type), intent(in) :: host
+    class(basis_type), intent(in) :: host
     !! Basis of the host structure.
 
     ! Local variables

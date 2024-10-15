@@ -329,11 +329,10 @@ contains
 
 
     output = 1._real12
-    num_3body_local = 0
+    num_3body_local = sum(basis%spec(current_idx(1):)%num) - current_idx(2)
     species_loop: do js = current_idx(1), basis%nspec, 1
        atom_loop: do ja = 1, basis%spec(js)%num
-          if(all([js,ja].eq.current_idx))cycle
-          num_3body_local = num_3body_local + 1
+          if(js.eq.current_idx(1) .and. ja.le.current_idx(2))cycle
           associate( position_store => [ basis%spec(js)%atom(ja,1:3) ] )
              bin = gvector_container%get_bin( &
                   get_angle( position_2, &

@@ -253,7 +253,6 @@ contains
                       neighbour_basis, species, [is, ia], num_3body &
                    )
              do js = is, neighbour_basis%nspec
-            !  do js = 1, neighbour_basis%nspec
                 do ja = 1, neighbour_basis%spec(js)%num
                    if(js.eq.is .and. ja.le.ia) cycle
                    if(all(neighbour_basis%image_spec(:)%num.eq.0))cycle

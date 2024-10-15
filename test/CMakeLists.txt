@@ -9,7 +9,8 @@ foreach(execid
     extended_geom
     atom_adder
     evolver
-    evaluator
+    evaluator_C
+    evaluator_BTO
     generator
   )
   add_executable(test_${execid} test_${execid}.f90)

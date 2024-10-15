@@ -19,6 +19,7 @@ n_z = 0
 data = []
 atoms = []
 species_list = []
+species_name_list = []
 with open('../viability_BTO.dat', 'r') as file:
     for line in file:
         # if line starts with #grid, read the three values as n_x, n_y, n_z
@@ -27,13 +28,16 @@ with open('../viability_BTO.dat', 'r') as file:
             n_x = int(values[1])
             n_y = int(values[2])
             n_z = int(values[3])
-            continue
         # if line starts with #lat, read the three values as a, b, c
         if line.startswith("#lat"):
             values = line.strip().split()
             a = float(values[1])
             b = float(values[2])
             c = float(values[3])
+        if line.startswith("#species"):
+            values = line.strip().split()
+            species_name_list = values[1:]
+        if line.startswith("#"):
             continue
         values = line.strip().split()
         if len(values) == 3:

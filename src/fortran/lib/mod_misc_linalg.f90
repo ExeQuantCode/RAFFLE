@@ -107,10 +107,15 @@ contains
     real(real12) :: angle
     !! Output angle.
 
-    angle = acos( dot_product(vector1,vector2)/&
-         ( modu(vector1) * modu(vector2) ))
-    if (isnan(angle)) angle = 0._real12
-
+    angle =  dot_product(vector1,vector2) / &
+         ( modu(vector1) * modu(vector2) )
+    if(angle .ge. 1._real12)then
+       angle = 0._real12
+    elseif(angle .le. -1._real12)then
+       angle = pi
+    else
+       angle = acos(angle)
+    end if
   end function get_angle_from_vectors
 !###############################################################################
 
@@ -128,9 +133,15 @@ contains
     real(real12) :: angle
     !! Output angle.
 
-    angle = acos( ( dot_product( point1 - point2, point3 - point2 ) ) / &
-         ( modu( point1 - point2 ) * modu( point3 - point2 ) ) )
-    if(isnan(angle)) angle = 0._real12
+    angle = dot_product( point1 - point2, point3 - point2 ) / &
+         ( modu( point1 - point2 ) * modu( point3 - point2 ) )
+    if(angle .ge. 1._real12)then
+       angle = 0._real12
+    elseif(angle .le. -1._real12)then
+       angle = pi
+    else
+       angle = acos(angle)
+    end if
   end function get_angle_from_points
 !###############################################################################
 

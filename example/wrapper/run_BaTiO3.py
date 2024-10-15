@@ -27,7 +27,7 @@ generator = raffle_generator()
 
 # read the host structure from a POSCAR file
 print("Reading host")
-host = read("../example_files/POSCAR_host_diamond")
+host = read("../example_files/POSCAR_host_BaTiO3")
 host.calc = calculator
 print("host energy: ", host.get_potential_energy())
 
@@ -137,11 +137,11 @@ stoich_dict = { 'Ba': 1, 'Ti': 1, 'O': 3 }
 # generate structures
 num_structures_old = 0
 optimise_structure = False
-for iter in range(3):
+for iter in range(1):
     print(f"Iteration {iter}")
     print("Generating...")
     # this is the main function to generate structures
-    generator.generate(num_structures=1, stoichiometry=stoich_dict, seed=4+iter, verbose=1, method_probab={"void":0.001, "walk":0.0, "min":1.0})
+    generator.generate(num_structures=1, stoichiometry=stoich_dict, seed=0+iter, verbose=1, method_probab={"void":0.001, "walk":0.0, "min":1.0})
     print("Generated")
 
     print("Getting structures")

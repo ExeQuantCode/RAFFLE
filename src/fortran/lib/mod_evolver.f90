@@ -75,11 +75,16 @@ module evolver
      type(basis_type) :: basis
      !! Host structure.
      integer, dimension(:,:), allocatable :: pair_index
+     !! Index for the 2-body distribution function.
+     integer, dimension(:), allocatable :: element_map
+     !! Mapping of host elements to distribution function elements.
    contains
      procedure, pass(this) :: calculate_interface_energy
      !! Calculate the interface formation energy of the host.
      procedure, pass(this) :: set => set_host
      !! Set the host structure for the distribution functions.
+     procedure, pass(this) :: set_element_map => set_host_element_map
+     !! Set the mapping of host elements to distribution function elements.
   end type gvector_host_type
 
   type :: gvector_container_type
@@ -97,6 +102,8 @@ module evolver
      !! Boolean whether to weight the distribution functions by the energy
      !! above the hull. If false, the formation energy from the element
      !! reference energies is used.
+     integer, dimension(:), allocatable :: host_to_df_species_map
+     !! Mapping of host species to distribution function species.
      real(real12) :: &
           viability_3body_default = 0.1_real12, &
           viability_4body_default = 0.1_real12
@@ -222,6 +229,8 @@ module evolver
      !! Write the learned 4-body distribution function to a file.
      procedure, pass(this) :: get_pair_index
      !! Return the index for bond_info given two elements.
+     procedure, pass(this) :: get_element_index
+     !! Return the index for element_info given one element.
      procedure, pass(this) :: get_bin
      !! Return the bin index for a given distance.
   end type gvector_container_type
@@ -551,6 +560,8 @@ module evolver
     call this%set_bond_info()
     call this%evolve()
     if(deallocate_systems_) call this%deallocate_systems()
+    if(this%host_system%defined) &
+         call this%host_system%set_element_map(this%element_info)
     
   end subroutine create
 !###############################################################################
@@ -673,6 +684,8 @@ module evolver
 
     call this%evolve()
     if(deallocate_systems_) call this%deallocate_systems()
+    if(this%host_system%defined) &
+         call this%host_system%set_element_map(this%element_info)
     
   end subroutine update
 !###############################################################################
@@ -1798,6 +1811,61 @@ module evolver
           ( min( is, js ) - 1._real12 ) + max( is, js ) )
 
   end function get_pair_index
+!###############################################################################
+
+
+!###############################################################################
+  pure function get_element_index(this, species) result(idx)
+    !! Get the index of an element in the container.
+    implicit none
+
+    ! Arguments
+    class(gvector_container_type), intent(in) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
+    character(len=3), intent(in) :: species
+    !! Element name.
+    integer :: idx
+    !! Index of the element in the element_info array.
+
+    ! Local variables
+    integer :: is, js
+    !! Index of the elements in the element_info array.
+
+    idx = findloc([ this%element_info(:)%name ], species, dim=1)
+
+  end function get_element_index
+!###############################################################################
+
+
+!###############################################################################
+  subroutine set_host_element_map(this, element_info)
+    !! Set the host element map for the container.
+    implicit none
+
+    ! Arguments
+    class(gvector_host_type), intent(inout) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
+    type(element_type), dimension(:), intent(in) :: element_info
+    !! Element information.
+
+    ! Local variables
+    integer :: is, js
+    !! Index of the elements in the element_info array.
+
+    if(.not.this%defined)then
+       call stop_program( "Host not defined" )
+       return
+    end if
+    if(allocated(this%element_map)) deallocate(this%element_map)
+    allocate(this%element_map(this%basis%nspec))
+    do is = 1, this%basis%nspec
+       this%element_map(is) = findloc(&
+            [ element_info(:)%name ], &
+            this%basis%spec(is)%name, dim=1 &
+       )
+    end do
+
+  end subroutine set_host_element_map
 !###############################################################################
 
 

@@ -347,17 +347,17 @@ contains
                 write(0,*) "Error: bin = 0, IF NOT TRIGGERED, WE CAN REMOVE THIS IF"
                 stop 1
              end if
-             output = output * gvector_container%total%df_3body(bin,species)
+             output = output * &
+                  gvector_container%total%df_3body( &
+                       bin, &
+                       gvector_container%host_system%element_map(species) &
+                  ) ** ( 1._real12 / real( num_3body_local, real12 ) )
           end associate
        end do atom_loop
     end do species_loop
     if(num_3body_local.eq.0)then
        output = 1._real12
        num_3body = num_3body - 1
-    else
-       output = output ** ( &
-            1._real12 / real( num_3body_local, real12 ) &
-       )
     end if
 
   end function evaluate_3body_contributions
@@ -416,9 +416,10 @@ contains
                 stop 1
              end if
              output = output * &
-                  gvector_container%total%df_4body(bin,species) ** ( &
-                       1._real12 / real( num_4body_local, real12 ) &
-                  )
+                  gvector_container%total%df_4body( &
+                       bin, &
+                       gvector_container%host_system%element_map(species) &
+                  ) ** ( 1._real12 / real( num_4body_local, real12 ) )
           end associate
        end do atom_loop
     end do species_loop

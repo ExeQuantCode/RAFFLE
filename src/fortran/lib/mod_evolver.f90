@@ -440,6 +440,12 @@ module evolver
    if(allocated(this%df_3body)) deallocate(this%df_3body)
    if(allocated(this%df_4body)) deallocate(this%df_4body)
 
+   !! Run set_element_map if total dfs have already been calculated
+   !! else, this will be run in the create() procedure
+   if(allocated(this%total%df_2body))then
+      call this%set_element_map(this%element_info)
+   end if
+
   end subroutine set_host
 !###############################################################################
 

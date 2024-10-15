@@ -162,9 +162,10 @@ program test_evaluator
 
 
   generator%distributions%kbt = 0.2
-  call generator%host%copy(basis_host)
+  call generator%set_host(basis_host)
   call generator%set_grid( grid_spacing = 0.05, grid_offset = [0.0, 0.0, 0.0] )
   generator%distributions%radius_distance_tol = [1.5, 2.5, 3.0, 6.0]
+  call generator%distributions%set_width([0.025, pi/200.0, pi/200.0])
 
 
   !-----------------------------------------------------------------------------
@@ -198,7 +199,8 @@ program test_evaluator
   ! print viability data to file
   !-----------------------------------------------------------------------------
   if(viability_printing)then
-     write(*,*) "Printing viability data to file: ", viability_printing_file
+     write(*,*) "Printing viability data to file: ", &
+          trim(viability_printing_file)
      open(newunit=unit, file=viability_printing_file)
      write(unit,'("#grid",3(1X,I0),3(1X,F0.3))') &
           generator%grid, generator%grid_offset

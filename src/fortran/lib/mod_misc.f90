@@ -440,6 +440,11 @@ subroutine sort_str(list, lcase)
 !###############################################################################
   subroutine cset(arr,lcase,lkeep_size)
     !! Reduce a character array to its unique elements.
+    !!
+    !! This subroutine reduces a character array to its unique elements.
+    !! i.e. each string in the array is compared with the rest of the strings
+    !! in the array and if a match is found, the string is removed.
+    !! This results in only the unique strings being preserved.
     implicit none
 
     ! Arguments

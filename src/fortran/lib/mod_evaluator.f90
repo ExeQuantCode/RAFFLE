@@ -10,7 +10,7 @@ module evaluator
        get_improper_dihedral_angle
   use raffle__rw_geom, only: basis_type
   use extended_geom, only: extended_basis_type
-  use edit_geom, only: get_min_dist_between_point_and_atom
+  use raffle__dist_calcs, only: get_min_dist_between_point_and_atom
   use raffle__distribs_container, only: distribs_container_type
   implicit none
 

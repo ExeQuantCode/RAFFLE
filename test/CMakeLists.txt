@@ -4,8 +4,9 @@ foreach(execid
     misc_maths
     misc_linalg
     elements
-    edit_geom
     rw_geom
+    geom_utils
+    dist_calcs
     extended_geom
     atom_adder
     distribs_container

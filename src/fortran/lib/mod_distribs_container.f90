@@ -14,7 +14,7 @@ module raffle__distribs_container
   use raffle__misc, only: set, icount, strip_null, sort_str
   use raffle__misc_maths, only: triangular_number, set_difference
   use raffle__geom_rw, only: basis_type, get_element_properties
-  use elements, only: &
+  use raffle__element_utils, only: &
        element_type, element_bond_type, &
        element_database, element_bond_database
   use raffle__distribs, only: distribs_base_type, distribs_type, get_distrib

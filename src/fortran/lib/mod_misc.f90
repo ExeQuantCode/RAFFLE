@@ -502,54 +502,6 @@ subroutine sort_str(list, lcase)
 
 
 !###############################################################################
-  subroutine sort_col(arr1,col,reverse)
-    !! Sort a 2D array along a specified column.
-    implicit none
-    
-    ! Arguments
-    real(real32), dimension(:,:), intent(inout) :: arr1
-    !! Array to be sorted.
-    integer, intent(in) :: col
-    !! Column to sort along.
-    logical, optional, intent(in) :: reverse
-    !! Optional. Boolean whether to sort in reverse order.
-
-    ! Local variables
-    integer :: i,dim,loc
-    !! Loop index.
-    logical :: reverse_
-    !! Boolean whether to sort in reverse order.
-    real(real32), allocatable, dimension(:) :: dbuff
-    !! Buffer for swapping elements.
-
-
-    if(present(reverse))then
-       reverse_=reverse
-    else
-       reverse_=.false.
-    end if
-
-    allocate(dbuff(size(arr1,dim=2)))
-
-    dim=size(arr1,dim=1)
-    do i=1,dim
-       if(reverse_)then
-          loc=maxloc(arr1(i:dim,col),dim=1)+i-1          
-       else
-          loc=minloc(arr1(i:dim,col),dim=1)+i-1
-       end if
-       dbuff=arr1(i,:)
-       arr1(i,:)=arr1(loc,:)
-       arr1(loc,:)=dbuff
-
-    end do
-
-    return
-  end subroutine sort_col
-!###############################################################################
-
-
-!###############################################################################
   subroutine iswap(value1,value2)
     !! Swap two integers.
     implicit none

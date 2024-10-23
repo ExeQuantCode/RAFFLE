@@ -15,7 +15,7 @@ module generator
 
   use raffle__constants, only: verbose_global => verbose
   use raffle__misc, only: shuffle
-  use edit_geom, only: basis_merge
+  use raffle__geom_utils, only: basis_merge
   use add_atom, only: &
        add_atom_void, add_atom_rand, &
        add_atom_growth, add_atom_walk, &

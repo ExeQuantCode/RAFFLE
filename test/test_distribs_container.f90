@@ -99,9 +99,9 @@ program test_distribs_container
   !-----------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
-     write(*,*) 'test_evolver passed all tests'
+     write(*,*) 'test_distribs_container passed all tests'
   else
-     write(0,*) 'test_evolver failed one or more tests'
+     write(0,*) 'test_distribs_container failed one or more tests'
      stop 1
   end if
 

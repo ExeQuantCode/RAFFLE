@@ -78,19 +78,12 @@ class CMakeExtension(Extension):
         Extension.__init__(self, name, sources=[])
         self.sourcedir = os.path.abspath(sourcedir)
 
-minimum_requirements = [
-    "f90wrap>=0.2.14,<0.2.15",
-    "numpy>=1.26,<2.0.0",
-    "ase>=3.23.0",
-]
-
 setup(
     name='raffle',
     version=get_version(),
     author='Ned Thaddeus Taylor',
     author_email='n.t.taylor@exeter.ac.uk',
     description='A Python project with a Fortran library',
-    install_requires=minimum_requirements,
     python_requires='>=3.11, <3.12',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',

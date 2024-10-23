@@ -94,7 +94,7 @@ generator.distributions.set_element_energies(
 )
 
 # set energy scale
-generator.distributions.set_kbT(0.2)
+generator.distributions.set_kBT(0.2)
 # set the distribution function widths (2-body, 3-body, 4-body)
 generator.distributions.set_width([0.025, np.pi/200.0, np.pi/200.0])
 

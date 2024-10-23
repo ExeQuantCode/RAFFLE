@@ -16,7 +16,10 @@ module generator
   use constants, only: verbose_global => verbose
   use misc_raffle, only: shuffle
   use edit_geom, only: basis_merge
-  use add_atom, only: add_atom_void, add_atom_walk, add_atom_min, &
+  use add_atom, only: &
+       add_atom_void, add_atom_rand, &
+       add_atom_growth, add_atom_walk, &
+       add_atom_min, &
        get_gridpoints_and_viability, update_gridpoints_and_viability
 
 #ifdef ENABLE_ATHENA
@@ -59,7 +62,9 @@ module generator
     !! Spacing of the gridpoints.
     type(gvector_container_type) :: distributions
     !! Distribution function container for the 2-, 3-, and 4-body interactions.
-    real(real12), dimension(3) :: method_probab
+    integer :: max_attempts = 10000
+    !! Limit for the number of attempts to place an atom.
+    real(real12), dimension(5) :: method_probab
     !! Probability of each placement method.
     type(basis_type), dimension(:), allocatable :: structures
     !! Generated structures.
@@ -240,7 +245,7 @@ contains
     !! Number of structures to generate.
     type(stoichiometry_type), dimension(:), intent(in) :: stoichiometry
     !! Stoichiometry of the structures to generate.
-    real(real12), dimension(:), intent(in), optional :: method_probab
+    real(real12), dimension(5), intent(in), optional :: method_probab
     !! Probability of each placement method.
     integer, intent(in), optional :: seed
     !! Seed for the random number generator.
@@ -262,8 +267,9 @@ contains
     !! Verbosity level.
     type(basis_type) :: basis_template
     !! Basis of the structure to generate (i.e. allocated species and atoms).
-    real(real12), dimension(3) :: &
-         method_probab_ = [1.0_real12, 1.0_real12, 1.0_real12]
+    real(real12), dimension(5) :: &
+         method_probab_ = &
+         [1.0_real12, 0.1_real12, 0.5_real12, 0.5_real12, 1.0_real12]
     !! Default probability of each placement method.
 
     integer, dimension(:), allocatable :: seed_arr
@@ -290,9 +296,11 @@ contains
     if(present(method_probab)) method_probab_ = method_probab
     total_probab = real(sum(method_probab_), real12)
     method_probab_ = method_probab_ / total_probab
-    method_probab_(2) = method_probab_(2) + method_probab_(1)
-    method_probab_(3) = method_probab_(3) + method_probab_(2)
-    if(verbose_.gt.0) write(*,*) "Method probabilities (void, walk, min): ", &
+    do i = 2, 5, 1
+       method_probab_(i) = method_probab_(i) + method_probab_(i-1)
+    end do
+    if(verbose_.gt.0) write(*,*) &
+         "Method probabilities (void, rand, walk, grow, min): ", &
          method_probab_
 
 
@@ -398,8 +406,6 @@ contains
     structure_loop: do istructure = num_structures_old + 1, num_structures_new
     
        if(verbose_.gt.0) write(*,*) "Generating structure", istructure
-      !  this%structures(istructure) = this%generate_structure( basis_template, &
-      !       placement_list, method_probab_, verbose_ )
        call this%structures(istructure)%copy( basis = &
             this%generate_structure( basis_template, &
             placement_list, method_probab_, verbose_ ) &
@@ -436,7 +442,7 @@ contains
     !! Initial basis to build upon.
     integer, dimension(:,:), intent(in) :: placement_list
     !! List of possible placements.
-    real(real12), dimension(3) :: method_probab
+    real(real12), dimension(5) :: method_probab
     !! Probability of each placement method.
     type(extended_basis_type) :: basis
     !! Generated basis.
@@ -457,7 +463,7 @@ contains
     !! Shuffled placement list.
     real(real12), dimension(3) :: point
     !! Coordinate of the atom to place.
-    real(real12), dimension(3) :: method_probab_
+    real(real12), dimension(5) :: method_probab_
     !! Temporary probability of each placement method.
     !! This is used to update the probability of the global minimum method if
     !! no viable gridpoints are found.
@@ -500,7 +506,7 @@ contains
     ! check for viable gridpoints
     !---------------------------------------------------------------------------
     method_probab_ = method_probab
-    if(abs( method_probab_(3) - method_probab_(2) ) .gt. 1.E-3)then
+    if(abs( method_probab_(5) - method_probab_(4) ) .gt. 1.E-3)then
        gridpoint_viability = get_gridpoints_and_viability( &
             this%distributions, &
             this%grid, &
@@ -532,44 +538,87 @@ contains
                     placement_list_shuffled(iplaced+1:,:) &
                )
           if(.not.allocated(gridpoint_viability))then
-             if(abs(method_probab_(2)).lt.1.E-6)then
+             if(abs(method_probab_(4)).lt.1.E-6)then
                 call stop_program( &
                      "No viable gridpoints" // &
                      achar(13) // achar(10) // &
                      "No placement methods available" &
                 )
                 return
-             else if(abs( method_probab_(3) - method_probab_(2) ) .gt. 1.E-6) then
+             else if(abs( method_probab_(5) - method_probab_(4) ) .gt. 1.E-6) then
                 write(*,*) "WARNING: No more viable gridpoints"
                 write(*,*) "Suppressing global minimum method"
-                method_probab_ = method_probab_ / method_probab_(2)
-                method_probab_(3) = method_probab_(2)
+                method_probab_ = method_probab_ / method_probab_(4)
+                method_probab_(5) = method_probab_(4)
              end if
           end if
        end if
+       viable = .false.
        call random_number(rtmp1)
-       if(rtmp1.le.method_probab_(1)) then 
+       if(rtmp1.le.method_probab_(1)) then
           if(verbose.gt.0) write(*,*) "Add Atom Void"
           point = add_atom_void( this%grid, &
                 this%grid_offset, &
                 basis, &
-                placement_list_shuffled(iplaced+1:,:), viable )
-       else if(rtmp1.le.method_probab_(2)) then 
+                placement_list_shuffled(iplaced+1:,:), viable &
+          )
+                          
+       else if(rtmp1.le.method_probab_(2)) then
+          if(verbose.gt.0) write(*,*) "Add Atom Random"
+          point = add_atom_rand( &
+               basis, &
+               placement_list_shuffled(iplaced+1:,:), &
+               [ this%distributions%bond_info(:)%radius_covalent ], &
+               this%max_attempts, &
+               viable &
+          )
+          if(.not. viable) cycle placement_loop
+
+       else if(rtmp1.le.method_probab_(3)) then
           if(verbose.gt.0) write(*,*) "Add Atom Walk"
           point = add_atom_walk( &
                 this%distributions, &
                 basis, &
                 placement_list_shuffled(iplaced+1:,:), &
                 [ this%distributions%bond_info(:)%radius_covalent ], &
-                viable )
+                this%max_attempts, &
+                viable &
+          )
           if(.not. viable) void_ticker = void_ticker + 1
-       else if(rtmp1.le.method_probab_(3)) then
-          if(verbose.gt.0) write(*,*) "Add Atom Min"
+       else if(rtmp1.le.method_probab_(4)) then
+          if(iplaced.eq.0)then
+             if(verbose.gt.0) write(*,*) "Add Atom Random (growth seed)"
+             point = add_atom_rand( &
+                  basis, &
+                  placement_list_shuffled(iplaced+1:,:), &
+                  [ this%distributions%bond_info(:)%radius_covalent ], &
+                   this%max_attempts, &
+                  viable &
+             )
+          else
+             if(verbose.gt.0) write(*,*) "Add Atom Growth"
+             point = add_atom_growth( &
+                   this%distributions, &
+                   basis%spec(placement_list_shuffled(iplaced,1))%atom( &
+                        placement_list_shuffled(iplaced,2),:3 &
+                   ), &
+                   placement_list_shuffled(iplaced,1), &
+                   basis, &
+                   placement_list_shuffled(iplaced+1:,:), &
+                   [ this%distributions%bond_info(:)%radius_covalent ], &
+                   this%max_attempts, &
+                   viable &
+             )
+          end if
+          if(.not. viable) void_ticker = void_ticker + 1
+       else if(rtmp1.le.method_probab_(5)) then
+          if(verbose.gt.0) write(*,*) "Add Atom Minimum"
           point = add_atom_min( gridpoint_viability, &
                 placement_list_shuffled(iplaced+1,1), &
                 species_index_list, &
-                viable )
-          if(.not. viable .and. abs(method_probab_(2)).lt.1.E-6)then
+                viable &
+          )
+          if(.not. viable .and. abs(method_probab_(4)).lt.1.E-6)then
              write(stop_msg,*) &
                   "No viable gridpoints" // &
                   achar(13) // achar(10) // &
@@ -584,8 +633,8 @@ contains
              deallocate(gridpoint_viability)
              write(*,*) "WARNING: No more viable gridpoints"
              write(*,*) "Suppressing global minimum method"
-             method_probab_ = method_probab_ / method_probab_(2)
-             method_probab_(3) = method_probab_(2)
+             method_probab_ = method_probab_ / method_probab_(4)
+             method_probab_(5) = method_probab_(4)
           end if
        end if
        if(.not. viable) then

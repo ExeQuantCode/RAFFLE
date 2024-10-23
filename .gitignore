@@ -30,3 +30,4 @@ fort.*
 *.agr
 *.pdf
 *.eps
+*.pyc

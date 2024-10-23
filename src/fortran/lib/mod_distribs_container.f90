@@ -9,11 +9,11 @@ module raffle__distribs_container
   !! from the distribution functions of the individual systems.
   !! The generalised distribution functions are used to evaluate the viability
   !! of a new structure.
-  use constants, only: real12, pi
-  use error_handling, only: stop_program
-  use misc_raffle, only: set, icount, strip_null, sort_str
-  use misc_maths, only: triangular_number, set_difference
-  use rw_geom, only: basis_type, get_element_properties
+  use raffle__constants, only: real12, pi
+  use raffle__error_handling, only: stop_program
+  use raffle__misc, only: set, icount, strip_null, sort_str
+  use raffle__misc_maths, only: triangular_number, set_difference
+  use raffle__rw_geom, only: basis_type, get_element_properties
   use elements, only: &
        element_type, element_bond_type, &
        element_database, element_bond_database

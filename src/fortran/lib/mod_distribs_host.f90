@@ -5,9 +5,9 @@ module raffle__distribs_host
   !! distribution function. Procedures are also provided to calculate the
   !! interface energy of the host and to set the mapping of host elements to
   !! the element database.
-  use constants, only: real12
-  use error_handling, only: stop_program
-  use rw_geom, only: basis_type
+  use raffle__constants, only: real12
+  use raffle__error_handling, only: stop_program
+  use raffle__rw_geom, only: basis_type
   use elements, only: element_type
   use raffle__distribs, only: distribs_type
   implicit none

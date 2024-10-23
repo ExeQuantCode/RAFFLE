@@ -1,6 +1,6 @@
-module misc_linalg
+module raffle__misc_linalg
   !! Module contains various linear algebra functions and subroutines.
-  use constants, only: real12, pi
+  use raffle__constants, only: real12, pi
   implicit none
 
 
@@ -314,4 +314,4 @@ contains
   end function inverse_3x3
 !###############################################################################
 
-end module misc_linalg
+end module raffle__misc_linalg

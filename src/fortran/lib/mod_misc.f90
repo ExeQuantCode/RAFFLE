@@ -1,7 +1,7 @@
-module misc_raffle
+module raffle__misc
   !! Module contains various miscellaneous functions and subroutines.
-  use constants, only: real12
-  use error_handling, only: stop_program
+  use raffle__constants, only: real12
+  use raffle__error_handling, only: stop_program
   implicit none
 
 
@@ -1098,4 +1098,4 @@ subroutine sort_str(list, lcase)
   end function strip_null
 !###############################################################################
 
-end module misc_raffle
+end module raffle__misc

@@ -1,7 +1,7 @@
 program test_generator
-  use error_handling
-  use constants, only: real12
-  use rw_geom, only: basis_type
+  use raffle__error_handling
+  use raffle__constants, only: real12
+  use raffle__rw_geom, only: basis_type
   use generator, only: raffle_generator_type, stoichiometry_type
   implicit none
 

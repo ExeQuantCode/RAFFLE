@@ -1,8 +1,8 @@
 program test_evaluator
-  use error_handling
-  use constants, only: real12, pi
-  use misc_linalg, only: modu
-  use rw_geom, only: basis_type, geom_write
+  use raffle__error_handling
+  use raffle__constants, only: real12, pi
+  use raffle__misc_linalg, only: modu
+  use raffle__rw_geom, only: basis_type, geom_write
   use extended_geom, only: extended_basis_type
   use evaluator, only: evaluate_point
   use generator, only: raffle_generator_type

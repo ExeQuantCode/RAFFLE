@@ -1,7 +1,7 @@
-module misc_maths
+module raffle__misc_maths
   !! Module for miscellaneous mathematical functions.
-  use error_handling, only: stop_program
-  use constants, only: real12
+  use raffle__error_handling, only: stop_program
+  use raffle__constants, only: real12
   implicit none
 
 
@@ -95,4 +95,4 @@ contains
   end function set_difference
 !###############################################################################
 
-end module misc_maths
+end module raffle__misc_maths

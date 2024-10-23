@@ -9,9 +9,9 @@ module add_atom
   !! - growth: place the atom using a random walk, with last placement point
   !!        as the starting point
   !! - min:  place the atom at the gridpoint with the highest suitability
-  use constants, only: real12, pi
-  use misc_linalg, only: modu, inverse_3x3
-  use rw_geom, only: basis_type
+  use raffle__constants, only: real12, pi
+  use raffle__misc_linalg, only: modu, inverse_3x3
+  use raffle__rw_geom, only: basis_type
   use extended_geom, only: extended_basis_type
   use edit_geom, only: &
        get_min_dist, &

@@ -1,12 +1,12 @@
 program raffle_program
   !! Main program for the interface-based random structure search
-  use constants, only: real12
-  use error_handling, only: stop_program
-  use misc_raffle, only: touch
+  use raffle__constants, only: real12
+  use raffle__error_handling, only: stop_program
+  use raffle__misc, only: touch
   use inputs
   use read_structures, only: get_evolved_gvectors_from_data
   use raffle, only: raffle_generator_type, distribs_container_type
-  use rw_geom, only: geom_read, geom_write
+  use raffle__rw_geom, only: geom_read, geom_write
   implicit none
 
   ! Local variables

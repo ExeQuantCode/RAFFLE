@@ -1,9 +1,9 @@
 program test_distribs_container
-  use error_handling, only: test_error_handling
+  use raffle__error_handling, only: test_error_handling
   use raffle__distribs_container, only: &
        distribs_container_type
-  use constants, only: real12, pi
-  use rw_geom, only: basis_type
+  use raffle__constants, only: real12, pi
+  use raffle__rw_geom, only: basis_type
   implicit none
 
   logical :: success = .true.

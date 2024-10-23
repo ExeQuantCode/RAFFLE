@@ -6,7 +6,7 @@ module elements
   !! of the elements and bonds in the system, respectively.
   !! The element and bond types are used by other modules to store the
   !! properties relevant to an individual system.
-  use constants, only: real12
+  use raffle__constants, only: real12
   implicit none
 
   private

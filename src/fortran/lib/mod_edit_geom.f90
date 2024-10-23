@@ -3,9 +3,9 @@ module edit_geom
   !!
   !! This module contains procedures that are used to manipulate the geometry
   !! of the system. The geometry type used is defined in the rw_geom module.
-  use constants, only: pi,real12
-  use rw_geom, only: basis_type
-  use misc_linalg, only: modu, get_angle
+  use raffle__constants, only: pi,real12
+  use raffle__rw_geom, only: basis_type
+  use raffle__misc_linalg, only: modu, get_angle
   implicit none
 
 

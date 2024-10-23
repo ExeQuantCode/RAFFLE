@@ -1,7 +1,7 @@
 program test_extended_geom
   !! Test program for the module extended_geom.
-  use error_handling
-  use constants, only: real12
+  use raffle__error_handling
+  use raffle__constants, only: real12
   use extended_geom
   implicit none
 

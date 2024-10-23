@@ -1,4 +1,4 @@
-module error_handling
+module raffle__error_handling
   implicit none
   logical :: test_error_handling = .false.
   
@@ -30,4 +30,4 @@ contains
     end if
   end subroutine stop_program
 
-end module error_handling
+end module raffle__error_handling

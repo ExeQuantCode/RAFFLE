@@ -1,7 +1,7 @@
 program test_misc_linalg
-  use error_handling
-  use misc_linalg
-  use constants, only: real12, pi
+  use raffle__error_handling
+  use raffle__misc_linalg
+  use raffle__constants, only: real12, pi
   implicit none
 
   logical :: success = .true.

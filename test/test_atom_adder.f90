@@ -1,9 +1,9 @@
 program test_atom_adder
-  use error_handling
+  use raffle__error_handling
   use add_atom
   use raffle__distribs_container, only: distribs_container_type
-  use constants, only: real12
-  use rw_geom, only: basis_type
+  use raffle__constants, only: real12
+  use raffle__rw_geom, only: basis_type
   use extended_geom, only: extended_basis_type
   implicit none
 

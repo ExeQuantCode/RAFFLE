@@ -5,7 +5,7 @@ module evaluator
   !! the system with each point in the map representing the suitability of
   !! that point for a new atom. The map is built by checking the bond lengths,
   !! bond angles and dihedral angles between the test point and all atoms.
-  use raffle__constants, only: real12
+  use raffle__constants, only: real32
   use raffle__misc_linalg, only: modu, get_distance, get_angle, get_dihedral_angle, &
        get_improper_dihedral_angle
   use raffle__rw_geom, only: basis_type
@@ -40,13 +40,13 @@ contains
     !! Distribution function (gvector) container.
     type(extended_basis_type), intent(in) :: basis
     !! Basis of the system.
-    real(real12), dimension(3), intent(in) :: position
+    real(real32), dimension(3), intent(in) :: position
     !! Position of the test point.
     integer, dimension(:,:), intent(in) :: atom_ignore_list
     !! List of atoms to ignore (i.e. indices of atoms not yet placed).
-    real(real12), dimension(:), intent(in) :: radius_list
+    real(real32), dimension(:), intent(in) :: radius_list
     !! List of radii for each pair of elements.
-    real(real12) :: output
+    real(real32) :: output
     !! Suitability of the test point.
     
     ! Local variables
@@ -54,11 +54,11 @@ contains
     !! Loop counters.
     integer :: num_2body, num_3body, num_4body
     !! Number of 2-, 3- and 4-body interactions.
-    real(real12) :: viability_2body
+    real(real32) :: viability_2body
     !! Viability of the test point for 2-body interactions.
-    real(real12) :: viability_3body, viability_4body
+    real(real32) :: viability_3body, viability_4body
     !! Viability of the test point for 3- and 4-body interactions.
-    real(real12) :: bondlength
+    real(real32) :: bondlength
     integer, dimension(:,:), allocatable :: pair_index
     !! Index of element pairs.
     type(extended_basis_type) :: neighbour_basis
@@ -66,8 +66,8 @@ contains
  
     
     ! Initialisation
-    output = 0._real12
-    viability_2body = 0._real12
+    output = 0._real32
+    viability_2body = 0._real32
 
 
     !---------------------------------------------------------------------------
@@ -232,9 +232,9 @@ contains
        ! This does not matter as, if there are no 2-body bonds, the point is
        ! not meant to be included in the viability set.
        ! The evaluator cannot comment on the viability of the point.
-       viability_2body = 0.5_real12
+       viability_2body = 0.5_real32
     else
-       viability_2body = viability_2body / real( num_2body, real12 )
+       viability_2body = viability_2body / real( num_2body, real32 )
     end if
 
 
@@ -246,8 +246,8 @@ contains
     ! and neighbour_basis%image_spec for the third atom
     num_3body = 0
     num_4body = 0
-    viability_3body = 1._real12
-    viability_4body = 1._real12
+    viability_3body = 1._real32
+    viability_4body = 1._real32
     do is = 1, neighbour_basis%nspec
        do ia = 1, neighbour_basis%spec(is)%num
           !---------------------------------------------------------------------
@@ -296,14 +296,14 @@ contains
        viability_3body = distribs_container%viability_3body_default
     else
        viability_3body = viability_3body ** ( &
-            1._real12 / real(num_3body,real12) &
+            1._real32 / real(num_3body,real32) &
        )
     end if
     if(num_4body.eq.0)then
        viability_4body = distribs_container%viability_4body_default
     else
        viability_4body = viability_4body ** ( &
-            1._real12 / real(num_4body,real12) &
+            1._real32 / real(num_4body,real32) &
        )
     end if
 
@@ -327,11 +327,11 @@ contains
     ! Arguments
     type(distribs_container_type), intent(in) :: distribs_container
     !! Distribution function (gvector) container.
-    real(real12), intent(in) :: bondlength
+    real(real32), intent(in) :: bondlength
     !! Bond length.
     integer, intent(in) :: pair_index
     !! Index of the element pair.
-    real(real12) :: output
+    real(real32) :: output
     !! Contribution to the viability.
 
 
@@ -354,7 +354,7 @@ contains
     ! Arguments
     type(distribs_container_type), intent(in) :: distribs_container
     !! Distribution function (gvector) container.
-    real(real12), dimension(3), intent(in) :: position_1, position_2
+    real(real32), dimension(3), intent(in) :: position_1, position_2
     !! Positions of the atoms.
     type(extended_basis_type), intent(in) :: basis
     !! Basis of the system.
@@ -364,7 +364,7 @@ contains
     !! Index of the 1st-atom query element.
     integer, intent(inout) :: num_3body
     !! Number of 3-body interactions.
-    real(real12) :: output
+    real(real32) :: output
     !! Contribution to the viability.
 
     ! Local variables
@@ -376,7 +376,7 @@ contains
     !! Number of 3-body interactions local to the current atom pair.
 
 
-    output = 1._real12
+    output = 1._real32
     num_3body_local = sum(basis%spec(current_idx(1):)%num) - current_idx(2)
     species_loop: do js = current_idx(1), basis%nspec, 1
        atom_loop: do ja = 1, basis%spec(js)%num
@@ -392,12 +392,12 @@ contains
                   distribs_container%total%df_3body( &
                        bin, &
                        distribs_container%host_system%element_map(species) &
-                  ) ** ( 1._real12 / real( num_3body_local, real12 ) )
+                  ) ** ( 1._real32 / real( num_3body_local, real32 ) )
           end associate
        end do atom_loop
     end do species_loop
     if(num_3body_local.eq.0)then
-       output = 1._real12
+       output = 1._real32
        num_3body = num_3body - 1
     end if
 
@@ -414,13 +414,13 @@ contains
     ! Arguments
     type(distribs_container_type), intent(in) :: distribs_container
     !! Distribution function (gvector) container.
-    real(real12), dimension(3), intent(in) :: position_1, position_2, position_3
+    real(real32), dimension(3), intent(in) :: position_1, position_2, position_3
     !! Positions of the atoms.
     type(extended_basis_type), intent(in) :: basis
     !! Basis of the system.
     integer, intent(in) :: species
     !! Index of the query element.
-    real(real12) :: output
+    real(real32) :: output
     !! Contribution to the viability.
 
     ! Local variables
@@ -432,7 +432,7 @@ contains
     !! Number of 4-body interactions local to the current atom triplet.
 
 
-    output = 1._real12
+    output = 1._real32
     num_4body_local = sum(basis%image_spec(:)%num)
     if(num_4body_local.eq.0) return
     species_loop: do ks = 1, basis%nspec, 1
@@ -451,7 +451,7 @@ contains
                   distribs_container%total%df_4body( &
                        bin, &
                        distribs_container%host_system%element_map(species) &
-                  ) ** ( 1._real12 / real( num_4body_local, real12 ) )
+                  ) ** ( 1._real32 / real( num_4body_local, real32 ) )
           end associate
        end do atom_loop
     end do species_loop

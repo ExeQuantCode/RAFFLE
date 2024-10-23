@@ -2,7 +2,7 @@ module inputs
   !! Module for reading input files and setting global variables.
   use raffle__misc, only: file_check,flagmaker, icount, to_lower
   use generator, only: stoichiometry_type
-  use raffle__constants, only: real12, verbose, pi
+  use raffle__constants, only: real32, verbose, pi
   implicit none
   
 
@@ -32,18 +32,18 @@ module inputs
 
   integer :: vdW, volvar
 
-  real(real12), dimension(3) :: cutoff_min_list, cutoff_max_list
-  real(real12), dimension(3) :: width_list, sigma_list
+  real(real32), dimension(3) :: cutoff_min_list, cutoff_max_list
+  real(real32), dimension(3) :: width_list, sigma_list
 
-  real(real12), dimension(:), allocatable :: element_energies
-  real(real12), dimension(:), allocatable :: pair_radii
+  real(real32), dimension(:), allocatable :: element_energies
+  real(real32), dimension(:), allocatable :: pair_radii
   character(3), dimension(:), allocatable :: element_symbols
   character(3), dimension(:,:), allocatable :: bond_pairs
 
   integer, dimension(3) :: grid = [0, 0, 0]
-  real(real12) :: grid_spacing = 0._real12
-  real(real12), dimension(5) :: method_probab = &
-       [1._real12, 0.1_real12, 0.5_real12, 0.5_real12, 1._real12]
+  real(real32) :: grid_spacing = 0._real32
+  real(real32), dimension(5) :: method_probab = &
+       [1._real32, 0.1_real32, 0.5_real32, 0.5_real32, 1._real32]
 
   character(1024), dimension(:), allocatable :: database_list ! list of directories containing input database
   character(1024) :: database_format !format of input file (POSCAR, XYZ, etc.
@@ -182,9 +182,9 @@ contains
     character(1024) :: stoichiometry, database, buffer, energies, &
          bond_radii
     !! Strings buffers to hold input values (usually derived types).
-    real(real12), dimension(3) :: width, sigma
+    real(real32), dimension(3) :: width, sigma
     !! Width and sigma values for distribution functions.
-    real(real12) :: void, rand, walk, grow, min
+    real(real32) :: void, rand, walk, grow, min
     !! Placement method probabilities.
     character(50), dimension(3) :: cutoff_min, cutoff_max
     !! Cutoff values for distribution functions.
@@ -213,12 +213,12 @@ contains
     output_dir = "iteration1"
     cutoff_min = "-1.0"
     cutoff_max = "-1.0"
-    width = -1._real12
-    sigma = -1._real12
+    width = -1._real32
+    sigma = -1._real32
     database_format = "vasprun.xml"
-    void = 0._real12; rand = 0._real12
-    walk = 0._real12; grow = 0._real12
-    min = 0._real12
+    void = 0._real32; rand = 0._real32
+    walk = 0._real32; grow = 0._real32
+    min = 0._real32
     !---------------------------------------------------------------------------
     ! read namelists from input file
     !---------------------------------------------------------------------------
@@ -263,7 +263,7 @@ contains
     method_probab = [void, rand, walk, grow, min]
     if(all(abs(method_probab).lt.1.E-6))then
        method_probab = &
-            [1._real12, 0.1_real12, 0.5_real12, 0.5_real12, 1._real12]
+            [1._real32, 0.1_real32, 0.5_real32, 0.5_real32, 1._real32]
       end if
 
     if(trim(stoichiometry).ne."")then
@@ -349,13 +349,13 @@ contains
     ! Arguments
     character(*), intent(in) :: string
     !! Input string.
-    real(real12) :: output
+    real(real32) :: output
     !! Output value.
 
     ! Local variables
     integer :: k, pos
     !! Loop index, position.
-    real(real12) :: variable, power
+    real(real32) :: variable, power
     !! Variable and power values.
     character(:), allocatable :: string_
     !! Copy of input string.
@@ -363,9 +363,9 @@ contains
     !! Numeric set.
 
     pos = 1
-    output = 1._real12
-    variable = 0._real12
-    power = 1._real12
+    output = 1._real32
+    variable = 0._real32
+    power = 1._real32
     string_ = trim(to_lower(string))
     loop: do
        !! read until first non-numeric character
@@ -382,20 +382,20 @@ contains
 
        pos = pos + k - 1
        !! identify what the next character is (*, /, pi)
-       !! if *, then change power factor to 1._real12
-       !! if /, then change power factor to -1._real12
-       !! if pi, then change power factor to 1._real12 and variable = pi
+       !! if *, then change power factor to 1._real32
+       !! if /, then change power factor to -1._real32
+       !! if pi, then change power factor to 1._real32 and variable = pi
        !! if blank space, move pos to next non-space character and cycle
        !! if end of string, exit loop
 
        if (string_(pos:pos).eq."*")then
-          power = 1._real12
+          power = 1._real32
           pos = pos + 1
        elseif(string_(pos:pos).eq."/")then
-          power = -1._real12
+          power = -1._real32
           pos = pos + 1
        elseif(string_(pos:pos+1).eq."pi")then
-          power = 1._real12
+          power = 1._real32
           output = output * pi ** power
           pos = pos + 2
        end if

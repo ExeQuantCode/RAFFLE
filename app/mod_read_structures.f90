@@ -4,7 +4,7 @@ module read_structures
   !! This module takes a list of directories and reads in the structures from
   !! the contained files. The structures are then converted to a set of
   !! generalised vectors (gvectors, aka distribution functions).
-  use raffle__constants, only: real12
+  use raffle__constants, only: real32
   use raffle__misc, only: grep
   use raffle__misc_linalg, only: modu
   use raffle__rw_geom, only: basis_type, geom_read, geom_write, igeom_input
@@ -51,7 +51,7 @@ contains
     !! The format of the input files.
     integer :: num_structures
     !! The number of structures read.
-    real(real12) :: energy
+    real(real32) :: energy
     !! The energy of the structure.
     character(50) :: buffer
     !! A buffer for reading strings.
@@ -71,10 +71,10 @@ contains
 #ifdef ENABLE_ATHENA
     type(graph_type), dimension(:), allocatable :: graphs
     !! Graph representations of the structures.
-    real(real12), dimension(:), allocatable :: &
+    real(real32), dimension(:), allocatable :: &
          labels, labels_train, labels_validate
     !! The labels for the structures.
-    real(real12), dimension(:,:), allocatable :: &
+    real(real32), dimension(:,:), allocatable :: &
          dataset, data_train, data_validate
     !! The dataset for the structures.
 #endif

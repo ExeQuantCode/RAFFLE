@@ -1,5 +1,5 @@
 module machine_learning
-  use raffle__constants, only: real12
+  use raffle__constants, only: real32
   use raffle__misc_linalg, only: modu
   use raffle__rw_geom, only: basis_type
 #ifdef ENABLE_ATHENA
@@ -52,11 +52,11 @@ contains
     !      activation_function = 'tanh' &
     !      ))
     ! call network%compile( &
-    !      optimiser = sgd_optimiser_type(learning_rate=1.E-3_real12, momentum=0.99_real12,&
-    !                                     clip_dict=clip_type(clip_min=0._real12, &
-    !                                                         clip_max=1.E-4_real12), &
-    !                                     regulariser=l1l2_regulariser_type(l1=1.E-3_real12, &
-    !                                                                       l2=1.E-3_real12) &
+    !      optimiser = sgd_optimiser_type(learning_rate=1.E-3_real32, momentum=0.99_real32,&
+    !                                     clip_dict=clip_type(clip_min=0._real32, &
+    !                                                         clip_max=1.E-4_real32), &
+    !                                     regulariser=l1l2_regulariser_type(l1=1.E-3_real32, &
+    !                                                                       l2=1.E-3_real32) &
     !                                     ), &
     !      loss_method = 'hubber', accuracy_method = 'rmse', verbose=1, &
     !      metrics = ['accuracy'] &
@@ -81,30 +81,30 @@ contains
     metric_dict%active = .false.
     metric_dict(1)%key = "loss"
     metric_dict(2)%key = "accuracy"
-    metric_dict%threshold = 1.E-1_real12
+    metric_dict%threshold = 1.E-1_real32
     call network%compile(optimiser=sgd_optimiser_type(), &
          loss_method="mse", metrics=metric_dict, &
          batch_size = 1, verbose = 0)
     call network%set_batch_size(1)
 
-    network%metrics%threshold = 1.E-3_real12
+    network%metrics%threshold = 1.E-3_real32
 
   end subroutine network_setup
 
   subroutine network_train(x, y, num_epochs)
     implicit none
-    real(real12), dimension(:,:), intent(in) :: x
-    real(real12), dimension(:), intent(in) :: y
+    real(real32), dimension(:,:), intent(in) :: x
+    real(real32), dimension(:), intent(in) :: y
     integer, intent(in) :: num_epochs
-    real(real12), dimension(:,:), allocatable :: y_renorm
+    real(real32), dimension(:,:), allocatable :: y_renorm
 
 
     allocate(y_renorm(1,size(y,1)))
-    y_renorm(1,:) = -1._real12 * y
+    y_renorm(1,:) = -1._real32 * y
 
     call renormalise_norm(y_renorm(1,:))
     write(*,*) y_renorm(1,:)
-    call network%train(x, y_renorm, num_epochs=num_epochs, plateau_threshold=1.E-3_real12)
+    call network%train(x, y_renorm, num_epochs=num_epochs, plateau_threshold=1.E-3_real32)
     !write(*,*) y_renorm
 
 
@@ -113,7 +113,7 @@ contains
   subroutine network_train_graph(graphs, labels, num_epochs)
     implicit none
     type(graph_type), dimension(:), intent(in) :: graphs
-    real(real12), dimension(:), intent(in) :: labels
+    real(real32), dimension(:), intent(in) :: labels
     integer, intent(in) :: num_epochs
 
     integer :: n, s
@@ -129,7 +129,7 @@ contains
          type is (conv_mpnn_layer_type)
             call layer%set_graph(graphs(sample_list(s):sample_list(s)))
          end select
-         call network%forward(reshape([1._real12], [1,1]))
+         call network%forward(reshape([1._real32], [1,1]))
          call network%backward(reshape([labels(sample_list(s))], [1,1]))
          !call network%model(size(network%model,1))%layer%get_output(output_tmp)
          !write(*,*) "predicted",output_tmp(1,1), labels(sample_list(s))
@@ -144,8 +144,8 @@ contains
 
   function network_predict(x) result(y)
     implicit none
-    real(real12), dimension(:,:), intent(in) :: x
-    real(real12), dimension(1,size(x,2)) :: y
+    real(real32), dimension(:,:), intent(in) :: x
+    real(real32), dimension(1,size(x,2)) :: y
 
     y = network%predict(x)
 
@@ -154,17 +154,17 @@ contains
   function network_predict_graph(graphs) result(y)
     implicit none
     type(graph_type), dimension(:), intent(in) :: graphs
-    real(real12), dimension(size(graphs)) :: y
+    real(real32), dimension(size(graphs)) :: y
 
     integer :: s
-    real(real12), dimension(:,:), allocatable :: output_tmp
+    real(real32), dimension(:,:), allocatable :: output_tmp
 
     do s = 1, size(graphs)
        select type(layer => network%model(2)%layer)
        type is (conv_mpnn_layer_type)
           call layer%set_graph(graphs(s:s))
        end select
-       call network%forward(reshape([1._real12], [1,1]))
+       call network%forward(reshape([1._real32], [1,1]))
        call network%model(size(network%model,1))%layer%get_output(output_tmp)
        y(s) = output_tmp(1,1)
    end do
@@ -190,11 +190,11 @@ contains
     !! Maximum number of lattice translations.
     type(edge_type) :: edge
     !! An edge in the graph.
-    real(real12) :: rtmp1
+    real(real32) :: rtmp1
     !! Temporary real.
-    real(real12) :: cutoff_min, cutoff_max
+    real(real32) :: cutoff_min, cutoff_max
     !! Cutoff radii.
-    real(real12), dimension(3) :: diff, vtmp1
+    real(real32), dimension(3) :: diff, vtmp1
     !! Difference vector and temporary vector.
 
     
@@ -209,13 +209,13 @@ contains
        do ia = 1, basis%spec(is)%num
           iatom = iatom + 1
           allocate(graph%vertex(iatom)%feature(graph%num_vertex_features))
-          graph%vertex(iatom)%feature = [ basis%spec(is)%charge / 100._real12, &
-               basis%spec(is)%mass / 52._real12 ]
+          graph%vertex(iatom)%feature = [ basis%spec(is)%charge / 100._real32, &
+               basis%spec(is)%mass / 52._real32 ]
        end do
     end do
 
-    cutoff_min = 0.5_real12
-    cutoff_max = 6.0_real12
+    cutoff_min = 0.5_real32
+    cutoff_max = 6.0_real32
     amax = ceiling(cutoff_max/modu(basis%lat(1,:)))
     bmax = ceiling(cutoff_max/modu(basis%lat(2,:)))
     cmax = ceiling(cutoff_max/modu(basis%lat(3,:)))
@@ -231,13 +231,13 @@ contains
                 jatom = jatom + 1
                 if(is.eq.js.and.ja.lt.ia) cycle atom_loop2
                 diff = basis%spec(is)%atom(ia,:3) -  basis%spec(js)%atom(ja,:3)
-                diff = diff - ceiling(diff - 0.5_real12)
+                diff = diff - ceiling(diff - 0.5_real32)
                 do i=-amax,amax+1,1
-                   vtmp1(1) = diff(1) + real(i, real12)
+                   vtmp1(1) = diff(1) + real(i, real32)
                    do j=-bmax,bmax+1,1
-                      vtmp1(2) = diff(2) + real(j, real12)
+                      vtmp1(2) = diff(2) + real(j, real32)
                       do k=-cmax,cmax+1,1
-                         vtmp1(3) = diff(3) + real(k, real12)
+                         vtmp1(3) = diff(3) + real(k, real32)
                          rtmp1 = modu(matmul(vtmp1,basis%lat))
                          if( rtmp1 .gt. cutoff_min .and. &
                              rtmp1 .lt. cutoff_max )then

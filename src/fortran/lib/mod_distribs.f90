@@ -5,7 +5,7 @@ module raffle__distribs
   !! fucntions for individual materials.
   !! The distribution functions are used as fingerprints for atomic structures
   !! to identify similarities and differences between structures.
-  use raffle__constants, only: real12, pi
+  use raffle__constants, only: real32, pi
   use raffle__error_handling, only: stop_program
   use raffle__misc, only: strip_null, sort_str
   use raffle__misc_maths, only: triangular_number
@@ -25,11 +25,11 @@ module raffle__distribs
   
   type :: distribs_base_type
      !! Base type for distribution functions.
-     real(real12), dimension(:,:), allocatable :: df_2body
+     real(real32), dimension(:,:), allocatable :: df_2body
      !! 2-body distribution function.
-     real(real12), dimension(:,:), allocatable :: df_3body
+     real(real32), dimension(:,:), allocatable :: df_3body
      !! 3-body distribution function.
-     real(real12), dimension(:,:), allocatable :: df_4body
+     real(real32), dimension(:,:), allocatable :: df_4body
      !! 4-body distribution function.
   end type distribs_base_type
 
@@ -44,9 +44,9 @@ module raffle__distribs
      !! - number of atoms
      integer :: num_atoms = 0
      !! Number of atoms in the structure.
-     real(real12) :: energy = 0.0_real12
+     real(real32) :: energy = 0.0_real32
      !! Energy of the structure.
-     real(real12) :: energy_above_hull = 0.0_real12
+     real(real32) :: energy_above_hull = 0.0_real32
      !! Energy above the hull of the structure.
      logical :: from_host = .false.
      !! Boolean whether the structure is derived from the host.
@@ -56,7 +56,7 @@ module raffle__distribs
      !! Elements contained within the structure.
      integer, dimension(:), allocatable :: num_pairs, num_per_species
      !! Number of pairs and number of pairs per species.
-     real(real12), dimension(:), allocatable :: weight_pair, weight_per_species
+     real(real32), dimension(:), allocatable :: weight_pair, weight_per_species
      !! Weights for the 2-body and species distribution functions.
    contains
      procedure, pass(this) :: calculate
@@ -79,7 +79,7 @@ module raffle__distribs
     ! Local variables
     integer :: idx1, idx2
     !! Index of the elements in the element database.
-    real(real12) :: radius, radius1, radius2
+    real(real32) :: radius, radius1, radius2
     !! Average of covalent radii.
 
 
@@ -105,7 +105,7 @@ module raffle__distribs
         idx2 = size(element_database)
      end if
     radius = ( element_database(idx1)%radius + &
-         element_database(idx2)%radius ) / 2._real12
+         element_database(idx2)%radius ) / 2._real32
     if(.not.allocated(element_bond_database)) &
          allocate(element_bond_database(0))
     element_bond_database = [ element_bond_database, &
@@ -138,27 +138,27 @@ module raffle__distribs
     !! Atomic structure.
     integer, dimension(3), intent(in), optional :: nbins
     !! Optional. Number of bins for the distribution functions.
-    real(real12), dimension(3), intent(in), optional :: width, sigma
+    real(real32), dimension(3), intent(in), optional :: width, sigma
     !! Optional. Width and sigma for the distribution functions.
-    real(real12), dimension(3), intent(in), optional :: cutoff_min, cutoff_max
+    real(real32), dimension(3), intent(in), optional :: cutoff_min, cutoff_max
     !! Optional. Cutoff minimum and maximum for the distribution functions.
-    real(real12), dimension(4), intent(in), optional :: radius_distance_tol
+    real(real32), dimension(4), intent(in), optional :: radius_distance_tol
     !! Tolerance for the distance between atoms for 3- and 4-body.
 
     ! Local variables
     integer, dimension(3) :: nbins_
     !! Number of bins for the distribution functions.
-    real(real12), dimension(3) :: sigma_
+    real(real32), dimension(3) :: sigma_
     !! Sigma for the distribution functions.
-    real(real12), dimension(3) :: width_
+    real(real32), dimension(3) :: width_
     !! Width of the bins for the distribution functions.
-    real(real12), dimension(3) :: cutoff_min_
+    real(real32), dimension(3) :: cutoff_min_
     !! Cutoff minimum for the distribution functions.
-    real(real12), dimension(3) :: cutoff_max_
+    real(real32), dimension(3) :: cutoff_max_
     !! Cutoff maximum for the distribution functions.
     type(element_bond_type), dimension(:), allocatable :: bond_info
     !! Bond information for radii.
-    real(real12), dimension(4) :: radius_distance_tol_
+    real(real32), dimension(4) :: radius_distance_tol_
     !! Tolerance for the distance between atoms for 3- and 4-body.
 
 
@@ -168,7 +168,7 @@ module raffle__distribs
     !! Loop index.
     integer :: num_pairs
     !! Number of pairs and angles.
-    real(real12) :: bondlength
+    real(real32) :: bondlength
     !! Temporary real variables.
     logical :: success
     !! Boolean for success.
@@ -176,9 +176,9 @@ module raffle__distribs
     !! Extended basis of the system.
     type(extended_basis_type) :: neighbour_basis
     !! Basis for storing neighbour data.
-    real(real12), dimension(3) :: eta
+    real(real32), dimension(3) :: eta
     !! Parameters for the distribution functions.
-    real(real12), allocatable, dimension(:) :: angle_list, bondlength_list, &
+    real(real32), allocatable, dimension(:) :: angle_list, bondlength_list, &
          distance
     !! Temporary real arrays.
     integer, allocatable, dimension(:,:) :: pair_index
@@ -191,33 +191,33 @@ module raffle__distribs
     if(present(cutoff_min))then
        cutoff_min_ = cutoff_min
     else
-       cutoff_min_ = [0.5_real12, 0._real12, 0._real12]
+       cutoff_min_ = [0.5_real32, 0._real32, 0._real32]
     end if
     if(present(cutoff_max))then
        cutoff_max_ = cutoff_max
     else
-       cutoff_max_ = [6._real12, pi, pi]
+       cutoff_max_ = [6._real32, pi, pi]
     end if
     if(present(width))then
        width_ = width
     else
-       width_ = [0.25_real12, pi/64._real12, pi/64._real12]
+       width_ = [0.25_real32, pi/64._real32, pi/64._real32]
     end if
     if(present(sigma))then
        sigma_ = sigma
     else
-       sigma_ = [0.1_real12, 0.1_real12, 0.1_real12]
+       sigma_ = [0.1_real32, 0.1_real32, 0.1_real32]
     end if
     if(present(nbins))then
        nbins_ = nbins
-       width_ = ( cutoff_max_ - cutoff_min_ )/real( nbins_ - 1, real12 )
+       width_ = ( cutoff_max_ - cutoff_min_ )/real( nbins_ - 1, real32 )
     else
        nbins_ = 1 + nint( (cutoff_max_ - cutoff_min_)/width_ )
     end if
     if(present(radius_distance_tol))then
        radius_distance_tol_ = radius_distance_tol
     else
-       radius_distance_tol_ = [1.5_real12, 2.5_real12, 3._real12, 6._real12]
+       radius_distance_tol_ = [1.5_real32, 2.5_real32, 3._real32, 6._real32]
     end if
        
 
@@ -226,8 +226,8 @@ module raffle__distribs
     ! get the number of pairs of species
     ! (this uses a combination calculator with repetition)
     !---------------------------------------------------------------------------
-    num_pairs = nint(gamma(real(basis%nspec + 2, real12)) / &
-                ( gamma(real(basis%nspec, real12)) * gamma( 3._real12 ) ))
+    num_pairs = nint(gamma(real(basis%nspec + 2, real32)) / &
+                ( gamma(real(basis%nspec, real32)) * gamma( 3._real32 ) ))
     allocate(this%element_symbols(basis%nspec))
     do is = 1, basis%nspec
        this%element_symbols(is) = strip_null(basis%spec(is)%name)
@@ -266,14 +266,14 @@ module raffle__distribs
     !---------------------------------------------------------------------------
     ! calculate the gaussian width and allocate the distribution functions
     !---------------------------------------------------------------------------
-    eta = 1._real12 / ( 2._real12 * sigma_**2._real12 )
+    eta = 1._real32 / ( 2._real32 * sigma_**2._real32 )
     allocate(this%num_pairs(num_pairs), source = 0)
     allocate(this%num_per_species(basis%nspec), source = 0)
-    allocate(this%weight_pair(num_pairs), source = 0._real12)
-    allocate(this%weight_per_species(basis%nspec), source = 0._real12)
-    allocate(this%df_2body(nbins_(1), num_pairs), source = 0._real12)
-    allocate(this%df_3body(nbins_(2), basis%nspec), source = 0._real12)
-    allocate(this%df_4body(nbins_(3), basis%nspec), source = 0._real12)
+    allocate(this%weight_pair(num_pairs), source = 0._real32)
+    allocate(this%weight_per_species(basis%nspec), source = 0._real32)
+    allocate(this%df_2body(nbins_(1), num_pairs), source = 0._real32)
+    allocate(this%df_3body(nbins_(2), basis%nspec), source = 0._real32)
+    allocate(this%df_4body(nbins_(3), basis%nspec), source = 0._real32)
 
 
     !---------------------------------------------------------------------------
@@ -357,7 +357,7 @@ module raffle__distribs
                    !if(js.lt.js.or.(is.eq.js.and.ja.le.ia)) cycle
                    itmp1 = itmp1 + 1
                    bondlength_list(itmp1) = bondlength
-                   distance(itmp1) = 1._real12
+                   distance(itmp1) = 1._real32
                 
                 end associate
              end do atom_loop
@@ -413,7 +413,7 @@ module raffle__distribs
 
                    itmp1 = itmp1 + 1
                    bondlength_list(itmp1) = bondlength
-                   distance(itmp1) = 1._real12
+                   distance(itmp1) = 1._real32
                 
                 end associate
              end do image_loop
@@ -433,7 +433,7 @@ module raffle__distribs
                      )
                 this%weight_pair(pair_index(is, js)) = &
                      this%weight_pair(pair_index(is, js)) + &
-                     4._real12 * sum( &
+                     4._real32 * sum( &
                           ( &
                                bond_info(pair_index(is, js))%radius_covalent / &
                                bondlength_list(:itmp1) ) ** 2 &
@@ -442,7 +442,7 @@ module raffle__distribs
                      this%num_pairs(pair_index(is, js)) + itmp1
                 this%weight_per_species(is) = &
                      this%weight_per_species(is) + &
-                     4._real12 * sum( &
+                     4._real32 * sum( &
                           ( &
                                bond_info(pair_index(is, js))%radius_covalent / &
                                bondlength_list(:itmp1) ) ** 2 &
@@ -539,7 +539,7 @@ module raffle__distribs
     !---------------------------------------------------------------------------
     do b = 1, nbins_(1)
        this%df_2body(b,:) = this%df_2body(b,:) / ( cutoff_min_(1) + &
-            width_(1) * real(b-1, real12) ) ** 2
+            width_(1) * real(b-1, real32) ) ** 2
     end do
 
 
@@ -573,13 +573,13 @@ module raffle__distribs
     ! Arguments
     integer, intent(in) :: nbins
     !! Number of bins for the distribution functions.
-    real(real12), intent(in) :: eta, width, cutoff_min
+    real(real32), intent(in) :: eta, width, cutoff_min
     !! Parameters for the distribution functions.
-    real(real12), dimension(:), intent(in) :: value_list
+    real(real32), dimension(:), intent(in) :: value_list
     !! List of angles.
-    real(real12), dimension(:), intent(in) :: scale_list
+    real(real32), dimension(:), intent(in) :: scale_list
     !! List of scaling for each angle (distance**3 or distance**4)
-    real(real12), dimension(nbins) :: output
+    real(real32), dimension(nbins) :: output
     !! Distribution function for the list of values.
 
     ! Local variables
@@ -591,8 +591,8 @@ module raffle__distribs
     !! Loop limits for the 3-body distribution function.
 
 
-    max_num_steps = ceiling( sqrt(16._real12/eta) / width )
-    output = 0._real12
+    max_num_steps = ceiling( sqrt(16._real32/eta) / width )
+    output = 0._real32
 
     !---------------------------------------------------------------------------
     ! calculate the distribution function for a list of values
@@ -622,13 +622,13 @@ module raffle__distribs
                  b = loop_limits(1,j):loop_limits(2,j):loop_limits(3,j) )
              output(b) = output(b) + &
                   exp( -eta * ( value_list(i) - &
-                                   ( width * real(b-1, real12) + &
-                                     cutoff_min ) ) ** 2._real12 &
+                                   ( width * real(b-1, real32) + &
+                                     cutoff_min ) ) ** 2._real32 &
                   ) / scale_list(i)
           end do
        end do
     end do
-    output = output * sqrt( eta / pi ) / real(size(value_list,1),real12)
+    output = output * sqrt( eta / pi ) / real(size(value_list,1),real32)
 
   end function get_distrib
 !###############################################################################

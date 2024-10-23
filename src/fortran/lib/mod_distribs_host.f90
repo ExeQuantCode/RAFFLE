@@ -5,7 +5,7 @@ module raffle__distribs_host
   !! distribution function. Procedures are also provided to calculate the
   !! interface energy of the host and to set the mapping of host elements to
   !! the element database.
-  use raffle__constants, only: real12
+  use raffle__constants, only: real32
   use raffle__error_handling, only: stop_program
   use raffle__rw_geom, only: basis_type
   use elements, only: element_type
@@ -25,7 +25,7 @@ module raffle__distribs_host
      !! will be used in the grandparent generator type.
      logical :: defined = .false.
      !! Boolean whether the host structure has been set.
-     real(real12) :: interface_energy = 0.0_real12
+     real(real32) :: interface_energy = 0.0_real32
      !! Energy associated with the formation of the interface in the host.
      type(basis_type) :: basis
      !! Host structure.

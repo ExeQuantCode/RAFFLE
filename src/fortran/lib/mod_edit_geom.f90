@@ -3,7 +3,7 @@ module edit_geom
   !!
   !! This module contains procedures that are used to manipulate the geometry
   !! of the system. The geometry type used is defined in the rw_geom module.
-  use raffle__constants, only: pi,real12
+  use raffle__constants, only: pi,real32
   use raffle__rw_geom, only: basis_type
   use raffle__misc_linalg, only: modu, get_angle
   implicit none
@@ -35,19 +35,19 @@ contains
     !! If true, ignore atoms that are really close to the point.
     class(basis_type), intent(in) :: basis
     !! The basis of the cell.
-    real(real12), dimension(3), intent(in) :: loc
+    real(real32), dimension(3), intent(in) :: loc
     !! The location of the point (in crystal coordinates).
 
     integer, intent(in), optional :: axis
     !! The axis along which to calculate the distance (if undefined, the
     !! distance is calculated in all directions).
-    real(real12), intent(in), optional :: tol
+    real(real32), intent(in), optional :: tol
     !! The tolerance for the distance.
     logical, intent(in), optional :: labove, lreal
     !! If true, return the real distance, otherwise return the vector.
     integer, dimension(:,:), intent(in), optional :: ignore_list
     !! List of atoms to ignore.
-    real(real12), dimension(3) :: output
+    real(real32), dimension(3) :: output
     !! The minimum distance between the point and the nearest atom.
 
 
@@ -56,20 +56,20 @@ contains
     !! Loop counters.
     integer :: axis_ = 0
     !! Axis along which to calculate the distance.
-    real(real12) :: dtmp1
+    real(real32) :: dtmp1
     !! Temporary variables.
-    real(real12) :: min_bond
+    real(real32) :: min_bond
     !! Minimum bond length.
-    real(real12) :: tol_
+    real(real32) :: tol_
     !! Tolerance for the distance.
     logical :: labove_, lreal_
     !! Booleans for above and real distance arguments
-    real(real12), dimension(3) :: vdtmp1, vdtmp2
+    real(real32), dimension(3) :: vdtmp1, vdtmp2
     !! Vectors for distance calculations.
 
 
     ! CORRECT tol TO ACCOUNT FOR LATTICE SIZE
-    tol_ = 1.E-5_real12
+    tol_ = 1.E-5_real32
     labove_ = .false.
     lreal_ = .true.
     if(present(tol)) tol_ = tol
@@ -80,8 +80,8 @@ contains
 
     if(present(axis)) axis_=axis
 
-    min_bond=huge(0._real12)
-    output = 0._real12
+    min_bond=huge(0._real32)
+    output = 0._real32
     do js = 1, basis%nspec
        atmloop: do ja=1,basis%spec(js)%num
           if(present(ignore_list))then
@@ -94,12 +94,12 @@ contains
           if(axis_.gt.0)then
              if(abs(vdtmp1(axis_)).lt.tol_) cycle atmloop
              if(labove_)then
-                vdtmp1(axis_) = 1._real12 + vdtmp1(axis_)
+                vdtmp1(axis_) = 1._real32 + vdtmp1(axis_)
              else
-                vdtmp1(axis_) = vdtmp1(axis_) - 1._real12
+                vdtmp1(axis_) = vdtmp1(axis_) - 1._real32
              end if
           else
-             vdtmp1 = vdtmp1 - ceiling(vdtmp1 - 0.5_real12)
+             vdtmp1 = vdtmp1 - ceiling(vdtmp1 - 0.5_real32)
           end if
           vdtmp2 = matmul(vdtmp1,basis%lat)
           dtmp1 = modu(vdtmp2)
@@ -132,17 +132,17 @@ contains
     !! The basis of the cell.
     integer, dimension(2), intent(in) :: atom
     !! The index of the atom in the cell (species, atom).
-    real(real12), dimension(3), intent(in) :: loc
+    real(real32), dimension(3), intent(in) :: loc
     !! The location of the point (in crystal coordinates).
-    real(real12) :: dist
+    real(real32) :: dist
     !! The minimum distance between the point and the atom.
 
     ! Local variables
-    real(real12), dimension(3) :: vec
+    real(real32), dimension(3) :: vec
     !! Vector between the point and the atom.
 
     vec = loc - basis%spec(atom(1))%atom(atom(2),:3)
-    vec = vec - ceiling(vec - 0.5_real12)
+    vec = vec - ceiling(vec - 0.5_real32)
     vec = matmul(vec,basis%lat)
     dist = modu(vec)
 
@@ -164,23 +164,23 @@ contains
     !! The basis of the cell.
     integer, intent(in) :: species
     !! The index of the species in the cell.
-    real(real12), dimension(3), intent(in) :: loc
+    real(real32), dimension(3), intent(in) :: loc
     !! The location of the point (in crystal coordinates).
     integer, dimension(:,:), intent(in), optional :: ignore_list
     !! List of atoms to ignore.
-    real(real12) :: dist
+    real(real32) :: dist
     !! The minimum distance between the point and the species.
 
     ! Local variables
     integer :: ia, i
     !! Loop indices.
-    real(real12) :: rtmp1
+    real(real32) :: rtmp1
     !! Temporary variable.
-    real(real12), dimension(3) :: vec
+    real(real32), dimension(3) :: vec
     !! Vector between the point and the atom.
 
 
-    dist = huge(0._real12)
+    dist = huge(0._real32)
     atom_loop: do ia = 1,basis%spec(species)%num
        if(present(ignore_list))then
           do i = 1, size(ignore_list,1), 1
@@ -188,7 +188,7 @@ contains
           end do
        end if
        vec = loc - basis%spec(species)%atom(ia,:3)
-       vec = vec - ceiling(vec - 0.5_real12)
+       vec = vec - ceiling(vec - 0.5_real32)
        vec = matmul(vec, basis%lat)
        rtmp1 = modu(vec)
        if( rtmp1 .lt. dist ) dist = rtmp1
@@ -210,13 +210,13 @@ contains
     !! The basis of the cell.
     integer, dimension(2), intent(in) :: atom
     !! The index of the atom in the cell (species, atom).
-    real(real12), dimension(3), intent(in) :: loc
+    real(real32), dimension(3), intent(in) :: loc
     !! The location of the point (in crystal coordinates).
-    real(real12) :: dist
+    real(real32) :: dist
     !! The minimum distance between the point and the atom.
 
     ! Local variables
-    real(real12), dimension(3) :: vec
+    real(real32), dimension(3) :: vec
     !! Vector between the point and the atom.
 
     vec = loc - basis%spec(atom(1))%atom(atom(2),:3)
@@ -312,14 +312,14 @@ contains
     !---------------------------------------------------------------------------
     do i=1,basis1%nspec
        allocate(output%spec(i)%atom(output%spec(i)%num,dim))
-       output%spec(i)%atom(:,:)=0._real12
+       output%spec(i)%atom(:,:)=0._real32
        output%spec(i)%atom(1:basis1%spec(i)%num,:3)=basis1%spec(i)%atom(:,:3)
        if(lmap) new_map(i,:basis1%spec(i)%num,:)=map1(i,:basis1%spec(i)%num,:)
     end do
     do i=1,basis2%nspec
        if(match(i).gt.basis1%nspec)then
           allocate(output%spec(match(i))%atom(output%spec(match(i))%num,dim))
-          output%spec(match(i))%atom(:,:)=0._real12
+          output%spec(match(i))%atom(:,:)=0._real32
           output%spec(match(i))%atom(:,:3)=basis2%spec(i)%atom(:,:3)
           if(lmap) new_map(match(i),:basis2%spec(i)%num,:) = &
                map2(i,:basis2%spec(i)%num,:)

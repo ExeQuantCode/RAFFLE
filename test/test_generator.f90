@@ -1,6 +1,6 @@
 program test_generator
   use raffle__error_handling
-  use raffle__constants, only: real12
+  use raffle__constants, only: real32
   use raffle__rw_geom, only: basis_type
   use generator, only: raffle_generator_type, stoichiometry_type
   implicit none
@@ -11,8 +11,8 @@ program test_generator
   type(basis_type) :: basis_host, basis_host_expected
   type(basis_type), dimension(1) :: database
   character(3), dimension(1) :: element_symbols
-  real(real12), dimension(1) :: element_energies
-  real(real12), dimension(3) :: tolerance
+  real(real32), dimension(1) :: element_energies
+  real(real32), dimension(3) :: tolerance
 
   logical :: success = .true.
 
@@ -214,7 +214,7 @@ program test_generator
             abs( &
                  generator%grid_offset - &
                  [0.1, 0.2, 0.3] &
-            ) .lt. 1.E-6_real12 &
+            ) .lt. 1.E-6_real32 &
        ), &
        'Generator failed to handle grid_offset', &
        success &
@@ -230,7 +230,7 @@ program test_generator
   call generator%set_grid( grid_spacing = 0.2, grid_offset = [0.0, 0.0, 0.0] )
   generator%distributions%radius_distance_tol = [1.5, 2.5, 3.0, 6.0]
   do i = 1, 3
-     tolerance(i) = 1._real12 / real(generator%grid(i),real12) / 2._real12
+     tolerance(i) = 1._real32 / real(generator%grid(i),real32) / 2._real32
   end do
 
 
@@ -329,7 +329,7 @@ contains
                    abs( &
                         bas1%spec(is)%atom(ia,:3) - &
                         bas2%spec(is)%atom(ia,:3) &
-                   ) .ge. 2._real12 * tolerance + 1.E-6_real12 &
+                   ) .ge. 2._real32 * tolerance + 1.E-6_real32 &
               ) &
          ) then
             write(0,*) 'Generator failed to produce expected atom: ', is, ia

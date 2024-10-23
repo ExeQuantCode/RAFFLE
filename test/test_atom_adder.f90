@@ -2,7 +2,7 @@ program test_atom_adder
   use raffle__error_handling
   use add_atom
   use raffle__distribs_container, only: distribs_container_type
-  use raffle__constants, only: real12
+  use raffle__constants, only: real32
   use raffle__rw_geom, only: basis_type
   use extended_geom, only: extended_basis_type
   implicit none
@@ -18,12 +18,12 @@ program test_atom_adder
   basis%spec(1)%name = 'C'
   basis%spec(1)%num = 2
   allocate(basis%spec(1)%atom(basis%spec(1)%num,3))
-  basis%spec(1)%atom(1,:) = [0.0_real12, 0.0_real12, 0.0_real12]
-  basis%spec(1)%atom(2,:) = [0.5_real12, 0.5_real12, 0.5_real12]
-  basis%lat = 0.0_real12
-  basis%lat(1,1) = 5.0_real12
-  basis%lat(2,2) = 5.0_real12
-  basis%lat(3,3) = 5.0_real12
+  basis%spec(1)%atom(1,:) = [0.0_real32, 0.0_real32, 0.0_real32]
+  basis%spec(1)%atom(2,:) = [0.5_real32, 0.5_real32, 0.5_real32]
+  basis%lat = 0.0_real32
+  basis%lat(1,1) = 5.0_real32
+  basis%lat(2,2) = 5.0_real32
+  basis%lat(3,3) = 5.0_real32
 
 
   call test_get_gridpoints_and_viability(basis, success)
@@ -54,19 +54,19 @@ contains
     type(distribs_container_type) :: distribs_container
     integer, dimension(3) :: grid
     integer, dimension(:,:), allocatable :: atom_ignore_list
-    real(real12), dimension(:), allocatable :: radius_list
-    real(real12) :: lowtol
-    real(real12), dimension(:,:), allocatable :: points
-    real(real12), dimension(3) :: grid_offset
+    real(real32), dimension(:), allocatable :: radius_list
+    real(real32) :: lowtol
+    real(real32), dimension(:,:), allocatable :: points
+    real(real32), dimension(3) :: grid_offset
 
     ! Initialise test data
     grid = [10, 10, 10]
     allocate(atom_ignore_list(1, 2))  ! No atoms to ignore
     atom_ignore_list(1,:) = [1,2]
     allocate(radius_list(1))
-    radius_list = 1.0_real12
-    lowtol = 0.5_real12
-    grid_offset = [0.5_real12, 0.5_real12, 0.5_real12]
+    radius_list = 1.0_real32
+    lowtol = 0.5_real32
+    grid_offset = [0.5_real32, 0.5_real32, 0.5_real32]
 
     ! Initialise basis
     call basis_copy%copy(basis)
@@ -78,7 +78,7 @@ contains
     ! Initialise gvector container
     call distribs_container%set_element_energies( &
          [basis%spec(:)%name], &
-         [ ( 0.0_real12, i = 1, basis%nspec ) ] &
+         [ ( 0.0_real32, i = 1, basis%nspec ) ] &
     )
     call distribs_container%create([basis])
 
@@ -120,19 +120,19 @@ contains
     type(distribs_container_type) :: distribs_container
     integer, dimension(3) :: grid
     integer, dimension(:,:), allocatable :: atom_ignore_list
-    real(real12), dimension(:), allocatable :: radius_list
-    real(real12) :: lowtol
-    real(real12), dimension(:,:), allocatable :: points
-    real(real12), dimension(3) :: grid_offset
+    real(real32), dimension(:), allocatable :: radius_list
+    real(real32) :: lowtol
+    real(real32), dimension(:,:), allocatable :: points
+    real(real32), dimension(3) :: grid_offset
 
     ! Initialise test data
     grid = [10, 10, 10]
     allocate(atom_ignore_list(1, 2))  ! No atoms to ignore
     atom_ignore_list(1,:) = [1,2]
     allocate(radius_list(1))
-    radius_list = 1.0_real12 !!! NO!!! USING CARBON RADIUS
-    lowtol = 0.5_real12
-    grid_offset = [0.5_real12, 0.5_real12, 0.5_real12]
+    radius_list = 1.0_real32 !!! NO!!! USING CARBON RADIUS
+    lowtol = 0.5_real32
+    grid_offset = [0.5_real32, 0.5_real32, 0.5_real32]
 
     ! Initialise basis
     call basis_copy%copy(basis)
@@ -144,7 +144,7 @@ contains
     ! Initialise gvector container
     call distribs_container%set_element_energies( &
          [basis%spec(:)%name], &
-         [ ( 0.0_real12, i = 1, basis%nspec ) ] &
+         [ ( 0.0_real32, i = 1, basis%nspec ) ] &
     )
     call distribs_container%create([basis])
 
@@ -185,7 +185,7 @@ contains
     )
 
     ! Call the update subroutine
-    distribs_container%radius_distance_tol(1) = 100._real12
+    distribs_container%radius_distance_tol(1) = 100._real32
     call update_gridpoints_and_viability( &
          points, distribs_container, basis_copy, &
          [1], &
@@ -208,16 +208,16 @@ contains
     type(extended_basis_type) :: basis_copy
     logical :: viable
     integer, dimension(3) :: grid
-    real(real12), dimension(3) :: grid_offset
-    real(real12), dimension(3) :: point
+    real(real32), dimension(3) :: grid_offset
+    real(real32), dimension(3) :: point
     integer, dimension(:,:), allocatable :: atom_ignore_list
-    real(real12), dimension(3) :: tolerance
+    real(real32), dimension(3) :: tolerance
 
     ! Initialise test data
     grid = [10, 10, 10]
     allocate(atom_ignore_list(1, 2))  ! No atoms to ignore
     atom_ignore_list(1,:) = [1,2]
-    grid_offset = [0.5_real12, 0.5_real12, 0.5_real12]
+    grid_offset = [0.5_real32, 0.5_real32, 0.5_real32]
 
     ! Initialise basis
     call basis_copy%copy(basis)
@@ -233,11 +233,11 @@ contains
     call assert(viable, "No viable gridpoints found.", success)
 
     do i = 1, 3
-       tolerance(i) = 1._real12 / real(grid(i),real12) / 2._real12
+       tolerance(i) = 1._real32 / real(grid(i),real32) / 2._real32
     end do
     ! Check point is correct
     call assert( &
-         all( abs( point - 0.5_real12) .lt. tolerance + 1.E-6_real12 ), &
+         all( abs( point - 0.5_real32) .lt. tolerance + 1.E-6_real32 ), &
          "Incorrect gridpoint found.", &
          success &
     )

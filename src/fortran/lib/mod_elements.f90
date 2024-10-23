@@ -6,7 +6,7 @@ module elements
   !! of the elements and bonds in the system, respectively.
   !! The element and bond types are used by other modules to store the
   !! properties relevant to an individual system.
-  use raffle__constants, only: real12
+  use raffle__constants, only: real32
   implicit none
 
   private
@@ -17,10 +17,10 @@ module elements
 
   type :: element_type
      character(len=3) :: name
-     real(real12) :: mass = 0._real12
-     real(real12) :: charge = 0._real12
-     real(real12) :: radius = 0._real12
-     real(real12) :: energy = 0._real12
+     real(real32) :: mass = 0._real32
+     real(real32) :: charge = 0._real32
+     real(real32) :: radius = 0._real32
+     real(real32) :: energy = 0._real32
    contains
      procedure, pass(this) :: set => set_element
   end type element_type
@@ -28,8 +28,8 @@ module elements
 
 
   type :: element_bond_type
-     real(real12) :: radius_covalent
-    !  real(real12) :: radius_vdw
+     real(real32) :: radius_covalent
+    !  real(real32) :: radius_vdw
     !  integer, dimension(2) :: coordination
      character(3), dimension(2) :: element
     contains
@@ -43,7 +43,7 @@ module elements
     module function init_element_type( &
          name, mass, charge, energy) result(element)
       character(len=3), intent(in) :: name
-      real(real12), intent(in), optional :: mass, charge, energy
+      real(real32), intent(in), optional :: mass, charge, energy
       type(element_type) :: element
     end function init_element_type
   end interface element_type
@@ -54,7 +54,7 @@ module elements
     module function init_element_bond_type( &
          elements, radius) result(bond)
       character(len=3), dimension(2), intent(in) :: elements
-      real(real12), intent(in), optional :: radius
+      real(real32), intent(in), optional :: radius
       type(element_bond_type) :: bond
     end function init_element_bond_type
   end interface element_bond_type
@@ -70,7 +70,7 @@ contains
     ! Arguments
     character(len=3), intent(in) :: name
     !! Element name.
-    real(real12), intent(in), optional :: mass, charge, energy
+    real(real32), intent(in), optional :: mass, charge, energy
     !! Element mass, charge, and energy.
 
     type(element_type) :: element
@@ -93,7 +93,7 @@ contains
     ! Arguments
     character(len=3), dimension(2), intent(in) :: elements
     !! Element names.
-    real(real12), intent(in), optional :: radius
+    real(real32), intent(in), optional :: radius
     !! Element radius.
 
     type(element_bond_type) :: bond

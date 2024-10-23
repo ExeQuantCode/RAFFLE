@@ -9,7 +9,7 @@ module raffle__distribs_container
   !! from the distribution functions of the individual systems.
   !! The generalised distribution functions are used to evaluate the viability
   !! of a new structure.
-  use raffle__constants, only: real12, pi
+  use raffle__constants, only: real32, pi
   use raffle__error_handling, only: stop_program
   use raffle__misc, only: set, icount, strip_null, sort_str
   use raffle__misc_maths, only: triangular_number, set_difference
@@ -36,7 +36,7 @@ module raffle__distribs_container
      !! Number of evaluated systems.
      integer :: num_evaluated_allocated = 0
      !! Number of evaluated systems still allocated.
-     real(real12) :: kBT = 0.2_real12
+     real(real32) :: kBT = 0.2_real32
      !! Boltzmann constant times temperature.
      logical :: weight_by_hull = .false.
      !! Boolean whether to weight the distribution functions by the energy
@@ -44,41 +44,41 @@ module raffle__distribs_container
      !! reference energies is used.
      integer, dimension(:), allocatable :: host_to_df_species_map
      !! Mapping of host species to distribution function species.
-     real(real12) :: &
-          viability_3body_default = 0.1_real12, &
-          viability_4body_default = 0.1_real12
+     real(real32) :: &
+          viability_3body_default = 0.1_real32, &
+          viability_4body_default = 0.1_real32
      !! Default viability for the 3- and 4-body distribution functions.
      logical, dimension(:), allocatable :: &
           in_dataset_2body, in_dataset_3body, in_dataset_4body
      !! Whether the 2-, 3-, and 4-body distribution functions are in 
      !! the dataset.
-     real(real12), dimension(:), allocatable :: &
+     real(real32), dimension(:), allocatable :: &
           best_energy_pair, &
           best_energy_per_species
      !! Best energy for the 2-body and species distribution functions.
      integer, dimension(3) :: nbins = -1
      !! Number of bins for the 2-, 3-, and 4-body distribution functions.
-     real(real12), dimension(3) :: &
-          sigma = [ 0.1_real12, 0.1_real12, 0.1_real12 ]
+     real(real32), dimension(3) :: &
+          sigma = [ 0.1_real32, 0.1_real32, 0.1_real32 ]
      !! Sigma of the gaussians used in the 2-, 3-, and 4-body 
      !! distribution functions.
-     real(real12), dimension(3) :: &
-          width = [ 0.025_real12, pi/64._real12, pi/64._real12 ]
+     real(real32), dimension(3) :: &
+          width = [ 0.025_real32, pi/64._real32, pi/64._real32 ]
      !! Width of the bins used in the 2-, 3-, and 4-body distribution functions.
-     real(real12), dimension(3) :: &
-          cutoff_min = [ 0.5_real12, 0._real12, 0._real12 ]
+     real(real32), dimension(3) :: &
+          cutoff_min = [ 0.5_real32, 0._real32, 0._real32 ]
      !! Minimum cutoff for the 2-, 3-, and 4-body distribution functions.
-     real(real12), dimension(3) :: &
-          cutoff_max = [ 6._real12, pi, pi ]
+     real(real32), dimension(3) :: &
+          cutoff_max = [ 6._real32, pi, pi ]
      !! Maximum cutoff for the 2-, 3-, and 4-body distribution functions.
-     real(real12), dimension(4) :: &
-          radius_distance_tol = [ 1.5_real12, 2.5_real12, 3._real12, 6._real12 ]
+     real(real32), dimension(4) :: &
+          radius_distance_tol = [ 1.5_real32, 2.5_real32, 3._real32, 6._real32 ]
      !! Tolerance for the distance between atoms for 3- and 4-body.
      !! index 1 = lower bound for 3-body
      !! index 2 = upper bound for 3-body
      !! index 3 = lower bound for 4-body
      !! index 4 = upper bound for 4-body
-     real(real12), dimension(:), allocatable :: &
+     real(real32), dimension(:), allocatable :: &
           norm_2body, norm_3body, norm_4body
      !! Normalisation factors for the 2-, 3-, and 4-body distribution functions.
      type(distribs_base_type) :: total !! name it best instead?
@@ -184,10 +184,10 @@ module raffle__distribs_container
          integer, dimension(3), intent(in), optional :: nbins
          !! Optional. Number of bins for the 2-, 3-, and 4-body distribution
          !! functions.
-         real(real12), dimension(3), intent(in), optional :: width, sigma
+         real(real32), dimension(3), intent(in), optional :: width, sigma
          !! Optional. Width and sigma of the gaussians used in the 2-, 3-, and 
          !! 4-body.
-         real(real12), dimension(3), intent(in), optional :: &
+         real(real32), dimension(3), intent(in), optional :: &
               cutoff_min, cutoff_max
          !! Optional. Minimum and maximum cutoff for the 2-, 3-, and 4-body.
          type(distribs_container_type) :: distribs_container
@@ -210,10 +210,10 @@ module raffle__distribs_container
     integer, dimension(3), intent(in), optional :: nbins
     !! Optional. Number of bins for the 2-, 3-, and 4-body distribution 
     !! functions.
-    real(real12), dimension(3), intent(in), optional :: width, sigma
+    real(real32), dimension(3), intent(in), optional :: width, sigma
     !! Optional. Width and sigma of the gaussians used in the 2-, 3-, and 
     !! 4-body.
-    real(real12), dimension(3), intent(in), optional :: cutoff_min, cutoff_max
+    real(real32), dimension(3), intent(in), optional :: cutoff_min, cutoff_max
     !! Optional. Minimum and maximum cutoff for the 2-, 3-, and 4-body.
     type(distribs_container_type) :: distribs_container
     !! Instance of the distribution functions container.
@@ -228,19 +228,19 @@ module raffle__distribs_container
     end if
 
     if(present(width))then
-       if(all(width.ge.0._real12)) distribs_container%width = width
+       if(all(width.ge.0._real32)) distribs_container%width = width
     end if
 
     if(present(sigma))then
-       if(all(sigma.ge.0._real12)) distribs_container%sigma = sigma
+       if(all(sigma.ge.0._real32)) distribs_container%sigma = sigma
     end if
 
     if(present(cutoff_min))then
-       if(any(cutoff_min.ge.0._real12)) &
+       if(any(cutoff_min.ge.0._real32)) &
             distribs_container%cutoff_min = cutoff_min
     end if
     if(present(cutoff_max))then
-       if(all(cutoff_max.ge.0._real12)) &
+       if(all(cutoff_max.ge.0._real32)) &
             distribs_container%cutoff_max = cutoff_max
     end if
     if( &
@@ -269,7 +269,7 @@ module raffle__distribs_container
     ! Arguments
     class(distribs_container_type), intent(inout) :: this
     !! Parent. Instance of distribution functions container.
-    real(real12), dimension(3), intent(in) :: width
+    real(real32), dimension(3), intent(in) :: width
     !! Width of the gaussians used in the 2-, 3-, and 4-body
     !! distribution functions.
 
@@ -288,7 +288,7 @@ module raffle__distribs_container
     ! Arguments
     class(distribs_container_type), intent(inout) :: this
     !! Parent. Instance of distribution functions container.
-    real(real12), dimension(3), intent(in) :: sigma
+    real(real32), dimension(3), intent(in) :: sigma
     !! Sigma of the gaussians used in the 2-, 3-, and 4-body distribution
     !! functions.
 
@@ -306,7 +306,7 @@ module raffle__distribs_container
     ! Arguments
     class(distribs_container_type), intent(inout) :: this
     !! Parent. Instance of distribution functions container.
-    real(real12), dimension(3), intent(in) :: cutoff_min
+    real(real32), dimension(3), intent(in) :: cutoff_min
     !! Minimum cutoff for the 2-, 3-, and 4-body distribution functions.
 
      this%cutoff_min = cutoff_min
@@ -323,7 +323,7 @@ module raffle__distribs_container
     ! Arguments
     class(distribs_container_type), intent(inout) :: this
     !! Parent. Instance of distribution functions container.
-    real(real12), dimension(3), intent(in) :: cutoff_max
+    real(real32), dimension(3), intent(in) :: cutoff_max
     !! Maximum cutoff for the 2-, 3-, and 4-body distribution functions.
    
     this%cutoff_max = cutoff_max
@@ -340,7 +340,7 @@ module raffle__distribs_container
     ! Arguments
     class(distribs_container_type), intent(inout) :: this
     !! Parent. Instance of distribution functions container.
-    real(real12), dimension(4), intent(in) :: radius_distance_tol
+    real(real32), dimension(4), intent(in) :: radius_distance_tol
     !! Tolerance for the distance between atoms for 3- and 4-body.
 
     this%radius_distance_tol = radius_distance_tol
@@ -360,7 +360,7 @@ module raffle__distribs_container
     !! Parent. Instance of distribution functions container.
     type(basis_type), dimension(:), intent(in) :: basis_list
     !! List of basis structures.
-    real(real12), dimension(:), intent(in), optional :: energy_above_hull_list
+    real(real32), dimension(:), intent(in), optional :: energy_above_hull_list
     !! List of energies above the hull for the structures.
     logical, intent(in), optional :: deallocate_systems
     !! Optional. Boolean whether to deallocate the systems after the 
@@ -452,7 +452,7 @@ module raffle__distribs_container
     !! Parent. Instance of distribution functions container.
     type(basis_type), dimension(:), intent(in) :: basis_list
     !! List of basis structures.
-    real(real12), dimension(:), intent(in), optional :: energy_above_hull_list
+    real(real32), dimension(:), intent(in), optional :: energy_above_hull_list
     !! List of energies above the hull for the structures.
     logical, intent(in), optional :: from_host
     !! Optional. Boolean whether structures are derived from the host.
@@ -686,8 +686,8 @@ module raffle__distribs_container
        read(buffer, *) system%element_symbols
        read(unit, *) system%stoichiometry
        system%num_atoms = sum(system%stoichiometry)
-       num_pairs = nint( gamma(real(num_species + 2, real12)) / &
-                   ( gamma(real(num_species, real12)) * gamma( 3._real12 ) ) )
+       num_pairs = nint( gamma(real(num_species + 2, real32)) / &
+                   ( gamma(real(num_species, real32)) * gamma( 3._real32 ) ) )
        allocate(system%df_2body(this%nbins(1),num_pairs))
        do j = 1, this%nbins(1)
           read(unit, *) system%df_2body(j,:)
@@ -733,9 +733,9 @@ module raffle__distribs_container
     !! Pair indices.
 
 
-    num_pairs = nint( gamma(real(size(this%element_info) + 2, real12)) / &
-                ( gamma(real(size(this%element_info), real12)) * &
-                  gamma( 3._real12 ) ) )
+    num_pairs = nint( gamma(real(size(this%element_info) + 2, real32)) / &
+                ( gamma(real(size(this%element_info), real32)) * &
+                  gamma( 3._real32 ) ) )
     allocate(idx(2,num_pairs))
     i = 0 
     do is = 1, size(this%element_info)
@@ -934,7 +934,7 @@ module raffle__distribs_container
     ! Local variables
     integer :: i
     !! Loop index.
-    real(real12) :: radius
+    real(real32) :: radius
     !! Element radii.
     character(len=3), dimension(:), allocatable :: element_list
     !! List of elements in the container.
@@ -980,7 +980,7 @@ module raffle__distribs_container
     ! Local variables
     integer :: i
     !! Loop index.
-    real(real12) :: radius
+    real(real32) :: radius
     !! Element radii.
     character(len=3), dimension(:), allocatable :: element_list
     !! List of elements in the container.
@@ -1048,13 +1048,13 @@ module raffle__distribs_container
     !! Parent of the procedure. Instance of distribution functions container.
     character(len=3), intent(in) :: element
     !! Element name.
-    real(real12), intent(in) :: energy
+    real(real32), intent(in) :: energy
     !! Energy of the element.
 
     ! Local variables
     integer :: idx, idx_db
     !! Index of the element in the element_info array.
-    real(real12) :: radius
+    real(real32) :: radius
     !! Element radius.
     character(len=3) :: element_
     !! Element name without null characters.
@@ -1104,7 +1104,7 @@ module raffle__distribs_container
     !! Parent of the procedure. Instance of distribution functions container.
     character(len=3), dimension(:), intent(in) :: elements
     !! Element names.
-    real(real12), dimension(:), intent(in) :: energies
+    real(real32), dimension(:), intent(in) :: energies
     !! Energies of the elements.
 
     ! Local variables
@@ -1128,7 +1128,7 @@ module raffle__distribs_container
    !! Parent of the procedure. Instance of distribution functions container.
    character(len=3), dimension(:), allocatable, intent(out) :: elements
    !! Element names.
-   real(real12), dimension(:), allocatable, intent(out) :: energies
+   real(real32), dimension(:), allocatable, intent(out) :: energies
    !! Energies of the elements.
 
    ! Local variables
@@ -1161,7 +1161,7 @@ module raffle__distribs_container
     character(len=3), dimension(size(this%element_info,1)), intent(out) :: &
          elements
     !! Element names.
-    real(real12), dimension(size(this%element_info,1)), intent(out) :: energies
+    real(real32), dimension(size(this%element_info,1)), intent(out) :: energies
     !! Energies of the elements.
 
     ! Local variables
@@ -1200,8 +1200,8 @@ module raffle__distribs_container
     ! allocate the bond information array
     !---------------------------------------------------------------------------
     num_elements = size(this%element_info)
-    num_pairs = nint(gamma(real(num_elements + 2, real12)) / &
-         ( gamma(real(num_elements, real12)) * gamma( 3._real12 ) ) )
+    num_pairs = nint(gamma(real(num_elements + 2, real32)) / &
+         ( gamma(real(num_elements, real32)) * gamma( 3._real32 ) ) )
     if(allocated(this%bond_info)) deallocate(this%bond_info)
     allocate(this%bond_info(num_pairs))
 
@@ -1249,7 +1249,7 @@ module raffle__distribs_container
     ! Local variables
     integer :: idx1, idx2
     !! Index of the elements in the element database.
-    real(real12) :: radius, radius1, radius2
+    real(real32) :: radius, radius1, radius2
     !! Average of covalent radii.
 
 
@@ -1275,7 +1275,7 @@ module raffle__distribs_container
         idx2 = size(element_database)
      end if
     radius = ( element_database(idx1)%radius + &
-         element_database(idx2)%radius ) / 2._real12
+         element_database(idx2)%radius ) / 2._real32
     if(.not.allocated(element_bond_database)) &
          allocate(element_bond_database(0))
     element_bond_database = [ element_bond_database, &
@@ -1304,7 +1304,7 @@ module raffle__distribs_container
    ! Local variables
    integer :: i, j, k, is, js
    !! Loop index.
-   real(real12) :: radius, radius1, radius2
+   real(real32) :: radius, radius1, radius2
    !! Average of covalent radii.
    character(len=3), dimension(:), allocatable :: element_list
    !! List of elements in the container.
@@ -1364,7 +1364,7 @@ module raffle__distribs_container
       radius2 = this%element_info(js)%radius
       if(radius2.le.1.E-6) &
            call get_element_properties(pair_list(i,2), radius = radius2)
-      radius = ( radius1 + radius2 ) / 2._real12
+      radius = ( radius1 + radius2 ) / 2._real32
       element_bond_database = [ element_bond_database, &
            element_bond_type(elements=[pair_list(i,:)], radius=radius) ]
       call sort_str(element_bond_database(size(element_bond_database))%element)
@@ -1405,7 +1405,7 @@ module raffle__distribs_container
     !! Parent of the procedure. Instance of distribution functions container.
     character(len=3), dimension(2), intent(in) :: elements
     !! Element name.
-    real(real12), intent(in) :: radius
+    real(real32), intent(in) :: radius
     !! Bond radius.
 
     ! Local variables
@@ -1470,7 +1470,7 @@ module raffle__distribs_container
     !! Parent of the procedure. Instance of distribution functions container.
     character(len=3), dimension(:,:), intent(in) :: elements
     !! Element names.
-    real(real12), dimension(:), intent(in) :: radii
+    real(real32), dimension(:), intent(in) :: radii
     !! Bond radii.
 
     ! Local variables
@@ -1496,7 +1496,7 @@ module raffle__distribs_container
    !! Parent of the procedure. Instance of distribution functions container.
    character(len=3), dimension(:,:), allocatable, intent(out) :: elements
    !! Element pair names.
-   real(real12), dimension(:), allocatable, intent(out) :: radii
+   real(real32), dimension(:), allocatable, intent(out) :: radii
    !! Radii of the bond pairs.
 
    ! Local variables
@@ -1529,7 +1529,7 @@ module raffle__distribs_container
     character(len=3), dimension(size(this%bond_info,1),2), intent(out) :: &
          elements
     !! Element pair names.
-    real(real12), dimension(size(this%bond_info,1)), intent(out) :: radii
+    real(real32), dimension(size(this%bond_info,1)), intent(out) :: radii
     !! Radii of the bond pairs.
  
     ! Local variables
@@ -1558,7 +1558,7 @@ module raffle__distribs_container
     ! Local variables
     integer :: i, j, is, js, idx1, idx2
     !! Loop index.
-    real(real12) :: energy, energy_per_species, energy_pair
+    real(real32) :: energy, energy_per_species, energy_pair
     !! Energy of the system.
     integer, dimension(:,:), allocatable :: idx_list
     !! Index list for pairs of elements.
@@ -1566,26 +1566,26 @@ module raffle__distribs_container
     if(.not.allocated(this%best_energy_pair))then
        allocate( &
             this%best_energy_pair(size(this%bond_info,1)), &
-            source = 0._real12 &
+            source = 0._real32 &
        )
     elseif(size(this%best_energy_pair).ne.size(this%bond_info))then
        deallocate(this%best_energy_pair)
        allocate( &
             this%best_energy_pair(size(this%bond_info,1)), &
-            source = 0._real12 &
+            source = 0._real32 &
        )
     end if
 
     if(.not.allocated(this%best_energy_per_species))then
        allocate( &
             this%best_energy_per_species(size(this%element_info,1)), &
-            source = 0._real12 &
+            source = 0._real32 &
        )
     elseif(size(this%best_energy_per_species).ne.size(this%element_info))then
        deallocate(this%best_energy_per_species)
        allocate( &
             this%best_energy_per_species(size(this%element_info,1)), &
-            source = 0._real12 &
+            source = 0._real32 &
        )
     end if
 
@@ -1619,7 +1619,7 @@ module raffle__distribs_container
                            this%system(i)%element_symbols(is), dim=1 )
           energy_per_species = &
                energy * this%system(i)%weight_per_species(is) / &
-               real( sum( this%system(i)%num_per_species(:) ), real12 )
+               real( sum( this%system(i)%num_per_species(:) ), real32 )
           
           if( energy_per_species .lt. this%best_energy_per_species(idx1) )then
              this%best_energy_per_species(idx1) = energy_per_species
@@ -1628,12 +1628,12 @@ module raffle__distribs_container
              idx2 = findloc( [ this%element_info(:)%name ], &
                              this%system(i)%element_symbols(js), dim=1)
              j = nint( ( size(this%element_info) - &
-                         min( idx1, idx2 ) / 2._real12 ) * &
-                         ( min( idx1, idx2 ) - 1._real12 ) + max( idx1, idx2 ) ) 
+                         min( idx1, idx2 ) / 2._real32 ) * &
+                         ( min( idx1, idx2 ) - 1._real32 ) + max( idx1, idx2 ) ) 
 
              energy_pair = &
                   energy * this%system(i)%weight_pair(idx_list(is,js)) / &
-                  real( sum( this%system(i)%num_per_species(:) ), real12 )
+                  real( sum( this%system(i)%num_per_species(:) ), real32 )
 
              if( energy_pair .lt. this%best_energy_pair(j) )then
                 this%best_energy_pair(j) = energy_pair
@@ -1676,10 +1676,10 @@ module raffle__distribs_container
     !! nth triangular number: N_n = n(n+1)/2 = ( n^2 + n ) / 2
     !! idx = N_n - N_{n-is+1} + ( js - is + 1)
     !! idx = ( n - is/2 ) * ( is - 1 ) + js
-    !idx = nint( ( size(this%element_info) - min( is, js ) / 2._real12 ) * &
-    !      ( is - 1._real12 ) + js )
-    idx = nint( ( size(this%element_info) - min( is, js ) / 2._real12 ) * &
-          ( min( is, js ) - 1._real12 ) + max( is, js ) )
+    !idx = nint( ( size(this%element_info) - min( is, js ) / 2._real32 ) * &
+    !      ( is - 1._real32 ) + js )
+    idx = nint( ( size(this%element_info) - min( is, js ) / 2._real32 ) * &
+          ( min( is, js ) - 1._real32 ) + max( is, js ) )
 
   end function get_pair_index
 !###############################################################################
@@ -1716,7 +1716,7 @@ module raffle__distribs_container
     ! Arguments
     class(distribs_container_type), intent(in) :: this
     !! Parent of the procedure. Instance of distribution functions container.
-    real(real12), intent(in) :: value
+    real(real32), intent(in) :: value
     !! Value to get the bin index for.
     integer, intent(in) :: dim
     !! Dimension to get the bin index for.
@@ -1750,14 +1750,14 @@ module raffle__distribs_container
     !! Number of pairs.
 
 
-    num_pairs = nint( gamma(real(size(this%element_info) + 2, real12)) / &
-         ( gamma(real(size(this%element_info), real12)) * gamma( 3._real12 ) ) )
+    num_pairs = nint( gamma(real(size(this%element_info) + 2, real32)) / &
+         ( gamma(real(size(this%element_info), real32)) * gamma( 3._real32 ) ) )
     allocate(this%total%df_2body(this%nbins(1),num_pairs), &
-         source = 0._real12 )
+         source = 0._real32 )
     allocate(this%total%df_3body(this%nbins(2),size(this%element_info)), &
-         source = 0._real12 )
+         source = 0._real32 )
     allocate(this%total%df_4body(this%nbins(3),size(this%element_info)), &
-         source = 0._real12 )
+         source = 0._real32 )
     allocate(this%in_dataset_2body(num_pairs), source = .false. )
     allocate(this%in_dataset_3body(size(this%element_info)), source = .false. )
     allocate(this%in_dataset_4body(size(this%element_info)), source = .false. )
@@ -1780,22 +1780,22 @@ module raffle__distribs_container
     !! Index of the pair in the bond_info array.
 
     ! Local variables
-    real(real12) :: eta, weight, height
+    real(real32) :: eta, weight, height
     !! Parameters for the g-vectors.
-    real(real12), dimension(1) :: bonds
+    real(real32), dimension(1) :: bonds
 
 
     if( body .eq. 2 )then
-       weight = exp( -4._real12 )
-       height = 1._real12 / this%nbins(1)
-       eta = 1._real12 / ( 2._real12 * ( this%sigma(1) )**2._real12 )
+       weight = exp( -4._real32 )
+       height = 1._real32 / this%nbins(1)
+       eta = 1._real32 / ( 2._real32 * ( this%sigma(1) )**2._real32 )
        if(size(this%bond_info).eq.0)then
           call set_bond_radius_to_default( [ &
                this%bond_info(index)%element(1), &
                this%bond_info(index)%element(2) ] &
           )
        end if
-       bonds = [ 2._real12 * this%bond_info(index)%radius_covalent ]
+       bonds = [ 2._real32 * this%bond_info(index)%radius_covalent ]
        if(abs(bonds(1)).lt.1.E-6)then
           call stop_program( "Bond radius is zero" )
        end if
@@ -1803,12 +1803,12 @@ module raffle__distribs_container
                           bonds , &
                           this%nbins(1), eta, this%width(1), &
                           this%cutoff_min(1), &
-                          scale_list = [ 1._real12 ] &
+                          scale_list = [ 1._real32 ] &
        )
     elseif( body .eq. 3 )then
-       this%total%df_3body(:,index) = 1._real12/this%nbins(2)
+       this%total%df_3body(:,index) = 1._real32/this%nbins(2)
     elseif( body .eq. 4 )then
-       this%total%df_4body(:,index) = 1._real12/this%nbins(3)
+       this%total%df_4body(:,index) = 1._real32/this%nbins(3)
     end if
 
   end subroutine set_distribs_to_default
@@ -1833,22 +1833,22 @@ module raffle__distribs_container
     !! Index of the element in the element_info array.
     integer :: num_evaluated
     !! Number of systems evaluated this iteration.
-    real(real12) :: weight, energy
+    real(real32) :: weight, energy
     !! Energy and weight variables for a system.
-    real(real12), dimension(:), allocatable :: &
+    real(real32), dimension(:), allocatable :: &
          best_energy_pair_old, &
          best_energy_per_species_old
     !! Old best energies.
     integer, dimension(:,:), allocatable :: idx_list
     !! Index list for the element pairs in a system.
-    real(real12), dimension(:,:), allocatable :: tmp_df
+    real(real32), dimension(:,:), allocatable :: tmp_df
     !! Temporary array for the g-vectors.
     logical, dimension(:), allocatable :: tmp_in_dataset
 
     integer, dimension(:), allocatable :: host_idx_list
 
 
-    weight = 1._real12
+    weight = 1._real32
 
     !---------------------------------------------------------------------------
     ! if present, add the system to the container
@@ -1893,7 +1893,7 @@ module raffle__distribs_container
        end do
        if(size(this%total%df_2body,2).ne.size(this%bond_info))then
           allocate(tmp_df(this%nbins(1),size(this%bond_info)), &
-               source = 0._real12 )
+               source = 0._real32 )
           tmp_df(:,1:size(this%total%df_2body,2)) = this%total%df_2body
           deallocate(this%total%df_2body)
           call move_alloc( tmp_df, this%total%df_2body )
@@ -1904,7 +1904,7 @@ module raffle__distribs_container
        end if
        if(size(this%total%df_3body,2).ne.size(this%element_info))then
           allocate(tmp_df(this%nbins(2),size(this%element_info)), &
-               source = 0._real12 )
+               source = 0._real32 )
           tmp_df(:,1:size(this%total%df_3body,2)) = this%total%df_3body
           deallocate(this%total%df_3body)
           call move_alloc( tmp_df, this%total%df_3body )
@@ -1915,7 +1915,7 @@ module raffle__distribs_container
        end if
        if(size(this%total%df_4body,2).ne.size(this%element_info))then
           allocate(tmp_df(this%nbins(3),size(this%element_info)), &
-               source = 0._real12 )
+               source = 0._real32 )
           tmp_df(:,1:size(this%total%df_4body,2)) = this%total%df_4body
           deallocate(this%total%df_4body)
           call move_alloc( tmp_df, this%total%df_4body )
@@ -1926,7 +1926,7 @@ module raffle__distribs_container
        end if
        do j = 1, size(this%total%df_2body,2)
           if(.not.this%in_dataset_2body(j))then
-             this%total%df_2body(:,j) = 0._real12
+             this%total%df_2body(:,j) = 0._real32
           else
              this%total%df_2body(:,j) = &
                   this%total%df_2body(:,j) * this%norm_2body(j)
@@ -1934,13 +1934,13 @@ module raffle__distribs_container
        end do
        do is = 1, size(this%element_info)
           if(.not.this%in_dataset_3body(is))then
-             this%total%df_3body(:,is) = 0._real12
+             this%total%df_3body(:,is) = 0._real32
           else
              this%total%df_3body(:,is) = &
                   this%total%df_3body(:,is) * this%norm_3body(is)
           end if
           if(.not.this%in_dataset_4body(is))then
-             this%total%df_4body(:,is) = 0._real12
+             this%total%df_4body(:,is) = 0._real32
           else
              this%total%df_4body(:,is) = &
                   this%total%df_4body(:,is) * this%norm_4body(is)
@@ -2026,7 +2026,7 @@ module raffle__distribs_container
                             this%system(i)%weight_per_species(is) / &
                             real( &
                                  sum( this%system(i)%num_per_species(:) ), &
-                                 real12 &
+                                 real32 &
                             ) &
                        ) &
                   ) / this%kBT &
@@ -2050,8 +2050,8 @@ module raffle__distribs_container
              idx2 = findloc( [ this%element_info(:)%name ], &
                              this%system(i)%element_symbols(js), dim=1)
              j = nint( ( size(this%element_info) - &
-                         min( idx1, idx2 ) / 2._real12 ) * &
-                         ( min( idx1, idx2 ) - 1._real12 ) + max( idx1, idx2 ) )
+                         min( idx1, idx2 ) / 2._real32 ) * &
+                         ( min( idx1, idx2 ) - 1._real32 ) + max( idx1, idx2 ) )
 
              if(.not.this%weight_by_hull)then
                 weight = exp( &
@@ -2061,7 +2061,7 @@ module raffle__distribs_container
                                this%system(i)%weight_pair(idx_list(is,js)) / &
                                real( &
                                     sum( this%system(i)%num_per_species(:) ), &
-                                    real12 &
+                                    real32 &
                                ) &
                           ) &
                      ) / this%kBT &
@@ -2137,9 +2137,9 @@ module raffle__distribs_container
    this%num_evaluated = this%num_evaluated + num_evaluated
 
    this%viability_3body_default = sum( this%total%df_3body ) / &
-        real( size( this%total%df_3body ), real12 )
+        real( size( this%total%df_3body ), real32 )
    this%viability_4body_default = sum( this%total%df_4body ) / &
-        real( size( this%total%df_4body ), real12 )
+        real( size( this%total%df_4body ), real32 )
 
   end subroutine evolve
 !###############################################################################

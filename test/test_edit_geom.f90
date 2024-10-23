@@ -1,6 +1,6 @@
 program test_edit_geom
   !! Test program for the module edit_geom.
-  use raffle__constants, only: real12
+  use raffle__constants, only: real32
   use raffle__rw_geom, only: basis_type
   use raffle__misc_linalg, only: modu
   use edit_geom, only: &
@@ -11,8 +11,8 @@ program test_edit_geom
   implicit none
 
   type(basis_type) :: bas, bas2, basis_merged
-  real(real12) :: rtmp1, rtmp2
-  real(real12), dimension(3) :: loc
+  real(real32) :: rtmp1, rtmp2
+  real(real32), dimension(3) :: loc
 
   logical :: success = .true.
 

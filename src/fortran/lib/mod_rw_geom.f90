@@ -3,7 +3,7 @@ module raffle__rw_geom
   !!
   !! This module contains the procedures to read and write geometry files.
   !! It also contains the derived types used to store the geometry data.
-  use raffle__constants, only: pi,real12
+  use raffle__constants, only: pi,real32
   use raffle__misc, only: to_upper, to_lower, jump, icount
   use raffle__misc_linalg, only: modu, inverse_3x3
   implicit none
@@ -30,13 +30,13 @@ module raffle__rw_geom
 
   type species_type
      !! Derived type to store information about a species/element.
-     real(real12), allocatable ,dimension(:,:) :: atom
+     real(real32), allocatable ,dimension(:,:) :: atom
      !! The atomic positions of the species.
-     real(real12) :: mass
+     real(real32) :: mass
      !! The mass of the species.
-     real(real12) :: charge
+     real(real32) :: charge
      !! The charge of the species.
-     real(real12) :: radius
+     real(real32) :: radius
      !! The radius of the species.
      character(len=3) :: name
      !! The name of the species.
@@ -51,9 +51,9 @@ module raffle__rw_geom
      !! The number of species in the basis.
      integer :: natom = 0
      !! The number of atoms in the basis.
-     real(real12) :: energy = 0._real12
+     real(real32) :: energy = 0._real32
      !! The energy of the basis.
-     real(real12) :: lat(3,3) = 0._real12
+     real(real32) :: lat(3,3) = 0._real32
      !! The lattice vectors of the basis.
      logical :: lcart = .false.
      !! Boolean whether the basis is in cartesian coordinates.
@@ -120,7 +120,7 @@ contains
     !! Optional. The symbols of the species.
     integer, dimension(:), intent(in), optional :: species_count
     !! Optional. The number of atoms of each species.
-    real(real12), dimension(:,:), intent(in), optional :: atoms
+    real(real32), dimension(:,:), intent(in), optional :: atoms
     !! Optional. The atomic positions of the species.
     
     ! Local variables
@@ -214,7 +214,7 @@ contains
     end if
     if(length_.eq.4)then
        do i=1,basis%nspec
-         basis%spec(i)%atom(:,4)=1._real12
+         basis%spec(i)%atom(:,4)=1._real32
        end do
     end if
     do i = 1, basis%nspec
@@ -282,7 +282,7 @@ contains
     !! The I/O status of the read.
     integer :: pos, count
     !! Temporary integer variables.
-    real(real12) :: scal
+    real(real32) :: scal
     !! The scaling factor of the lattice.
     character(len=100) :: lspec
     !! The species names and number of each atomic species.
@@ -370,7 +370,7 @@ contains
     !---------------------------------------------------------------------------
     do i=1,basis%nspec
        allocate(basis%spec(i)%atom(basis%spec(i)%num,length_))
-       basis%spec(i)%atom(:,:)=0._real12
+       basis%spec(i)%atom(:,:)=0._real32
        do j=1,basis%spec(i)%num
           read(UNIT,*) (basis%spec(i)%atom(j,k),k=1,3)
        end do
@@ -430,7 +430,7 @@ contains
     end if
 
     write(UNIT,'(A)') trim(adjustl(basis%sysname))
-    write(UNIT,'(F15.9)') 1._real12
+    write(UNIT,'(F15.9)') 1._real32
     do i=1,3
        write(UNIT,'(3(F15.9))') basis%lat(i,:)
     end do
@@ -471,7 +471,7 @@ contains
     !! The dimension of the basis atom positions.
     integer, dimension(1000) :: tmp_natom
     !! Temporary array to store the number of atoms of each species.
-    real(real12), dimension(3) :: tmpvec
+    real(real32), dimension(3) :: tmpvec
     !! Temporary array to store the atomic positions.
     character(len=3) :: ctmp
     !! Temporary character variable.
@@ -678,7 +678,7 @@ contains
     !! cartesian coordinates.
     integer, dimension(1000) :: tmp_natom
     !! Temporary array to store the number of atoms of each species.
-    real(real12), dimension(3) :: abc, angle, dvtmp1
+    real(real32), dimension(3) :: abc, angle, dvtmp1
     !! Temporary arrays to store the lattice vectors.
     character(len=3), dimension(1000) :: tmp_spec
     !! Temporary array to store the species names.
@@ -834,7 +834,7 @@ contains
     ! Local variables
     integer :: i, j
     !! Loop index.
-    real(real12), dimension(2,3) :: abc_angle
+    real(real32), dimension(2,3) :: abc_angle
     !! Temporary arrays to store the lattice vectors.
     character(4) :: string_lat, string_bas
     !! Strings specifying lattice and basis format
@@ -907,9 +907,9 @@ contains
     !! Loop index.
     integer, allocatable, dimension(:) :: tmp_num
     !! Temporary array to store the number of atoms of each species.
-    real(real12), dimension(3) :: vec
+    real(real32), dimension(3) :: vec
     !! Temporary array to store the atomic positions.
-    real(real12), allocatable, dimension(:,:,:) :: tmp_bas
+    real(real32), allocatable, dimension(:,:,:) :: tmp_bas
     !! Temporary array to store the atomic positions.
     character(len=3) :: ctmp
     !! Temporary character variable.
@@ -1037,9 +1037,9 @@ contains
     !! Index variables.
     integer, allocatable, dimension(:) :: tmp_num
     !! Temporary array to store the number of atoms of each species.
-    real(real12), dimension(3) :: vec
+    real(real32), dimension(3) :: vec
     !! Temporary array to store the atomic positions.
-    real(real12), allocatable, dimension(:,:,:) :: tmp_bas
+    real(real32), allocatable, dimension(:,:,:) :: tmp_bas
     !! Temporary array to store the atomic positions.
     character(len=3) :: ctmp
     !! Temporary character variable.
@@ -1189,7 +1189,7 @@ contains
    ! Local variables
    integer :: is, ia
    !! Loop index.
-   real(real12), dimension(3,3) :: lattice
+   real(real32), dimension(3,3) :: lattice
    !! The reciprocal lattice vectors.
 
    
@@ -1217,25 +1217,25 @@ contains
    implicit none
 
    ! Arguments
-   real(real12), dimension(3), intent(in) :: abc, angle
+   real(real32), dimension(3), intent(in) :: abc, angle
    !! lattice constants
    logical, intent(in), optional :: radians
    !! Optional. Boolean whether angles are in radians.
-   real(real12), dimension(3,3) :: lattice
+   real(real32), dimension(3,3) :: lattice
    !! The lattice matrix.
 
    ! Local variables
-   real(real12), dimension(3) :: in_angle
+   real(real32), dimension(3) :: in_angle
    !! The lattice angles in radians.
 
 
 
    in_angle = angle
    if(present(radians))then
-      if(.not.radians) in_angle = angle*pi/180._real12
+      if(.not.radians) in_angle = angle*pi/180._real32
    end if
 
-   lattice=0._real12
+   lattice=0._real32
 
    lattice(1,1)=abc(1)
    lattice(2,:2)=(/abc(2)*cos(in_angle(3)),abc(2)*sin(in_angle(3))/)
@@ -1243,9 +1243,9 @@ contains
    lattice(3,1) = abc(3)*cos(in_angle(2))
    lattice(3,2) = abc(3)*(cos(in_angle(1)) - cos(in_angle(2))*&
         cos(in_angle(3)))/sin(in_angle(3))
-   lattice(3,3) = sqrt(abc(3)**2._real12 - &
-        lattice(3,1)**2._real12 - &
-        lattice(3,2)**2._real12)
+   lattice(3,3) = sqrt(abc(3)**2._real32 - &
+        lattice(3,1)**2._real32 - &
+        lattice(3,2)**2._real32)
 
  end function convert_abc_to_lat
 !###############################################################################
@@ -1257,11 +1257,11 @@ contains
    implicit none
 
    ! Arguments
-   real(real12), dimension(3,3), intent(in) :: lattice
+   real(real32), dimension(3,3), intent(in) :: lattice
    !! The lattice matrix.
    logical, intent(in), optional :: radians
    !! Optional. Boolean whether to return angles in radians.
-   real(real12), dimension(2,3) :: abc_angle
+   real(real32), dimension(2,3) :: abc_angle
    !! The lattice constants and angles.
 
    ! Local variables
@@ -1282,7 +1282,7 @@ contains
         (abc_angle(1,1)*abc_angle(1,2)))
 
    if(present(radians))then
-      if(.not.radians) abc_angle(2,:)=abc_angle(2,:)*180._real12/pi
+      if(.not.radians) abc_angle(2,:)=abc_angle(2,:)*180._real32/pi
    end if
 
  end function convert_lat_to_abc
@@ -1299,7 +1299,7 @@ contains
    !! Parent. The basis.
    logical, intent(in), optional :: radians
    !! Optional. Boolean whether to return angles in radians.
-   real(real12), dimension(2,3) :: output
+   real(real32), dimension(2,3) :: output
    !! The lattice constants and angles.
 
    ! Local variables
@@ -1374,7 +1374,7 @@ contains
           this%spec(i)%atom(:,:3) = basis%spec(i)%atom(:,:3)
        elseif(length_input.lt.length_)then
           this%spec(i)%atom(:,:3) = basis%spec(i)%atom(:,:3)
-          this%spec(i)%atom(:,4) = 1._real12
+          this%spec(i)%atom(:,4) = 1._real32
        end if
        this%spec(i)%num = basis%spec(i)%num
        this%spec(i)%name = basis%spec(i)%name
@@ -1404,495 +1404,495 @@ contains
     ! Arguments
     character(len=3), intent(in) :: element
     !! Element name.
-    real(real12), intent(out), optional :: charge
+    real(real32), intent(out), optional :: charge
     !! Charge of the element.
-    real(real12), intent(out), optional :: mass
+    real(real32), intent(out), optional :: mass
     !! Mass of the element.
-    real(real12), intent(out), optional :: radius
+    real(real32), intent(out), optional :: radius
     !! Radius of the element.
 
     ! Local variables
-    real(real12) :: mass_, charge_, radius_
+    real(real32) :: mass_, charge_, radius_
     !! Mass, charge and radius of the element.
 
     select case(element)
     case('H')
-       mass_ = 1.00784_real12
-       charge_ = 1.0_real12
-       radius_ = 0.31_real12
+       mass_ = 1.00784_real32
+       charge_ = 1.0_real32
+       radius_ = 0.31_real32
     case('He')
-       mass_ = 4.0026_real12
-       charge_ = 2.0_real12
-       radius_ = 0.28_real12
+       mass_ = 4.0026_real32
+       charge_ = 2.0_real32
+       radius_ = 0.28_real32
     case('Li')
-       mass_ = 6.94_real12
-       charge_ = 3.0_real12
-       radius_ = 1.28_real12
+       mass_ = 6.94_real32
+       charge_ = 3.0_real32
+       radius_ = 1.28_real32
     case('Be')
-       mass_ = 9.0122_real12
-       charge_ = 4.0_real12
-       radius_ = 0.96_real12
+       mass_ = 9.0122_real32
+       charge_ = 4.0_real32
+       radius_ = 0.96_real32
     case('B')
-       mass_ = 10.81_real12
-       charge_ = 5.0_real12
-       radius_ = 0.84_real12
+       mass_ = 10.81_real32
+       charge_ = 5.0_real32
+       radius_ = 0.84_real32
     case('C')
-       mass_ = 12.011_real12
-       charge_ = 6.0_real12
-       radius_ = 0.76_real12
+       mass_ = 12.011_real32
+       charge_ = 6.0_real32
+       radius_ = 0.76_real32
     case('N')
-       mass_ = 14.007_real12
-       charge_ = 7.0_real12
-       radius_ = 0.71_real12
+       mass_ = 14.007_real32
+       charge_ = 7.0_real32
+       radius_ = 0.71_real32
     case('O')
-       mass_ = 15.999_real12
-       charge_ = 8.0_real12
-       radius_ = 0.66_real12
+       mass_ = 15.999_real32
+       charge_ = 8.0_real32
+       radius_ = 0.66_real32
     case('F')
-       mass_ = 18.998_real12
-       charge_ = 9.0_real12
-       radius_ = 0.57_real12
+       mass_ = 18.998_real32
+       charge_ = 9.0_real32
+       radius_ = 0.57_real32
     case('Ne')
-       mass_ = 20.180_real12
-       charge_ = 10.0_real12
-       radius_ = 0.58_real12
+       mass_ = 20.180_real32
+       charge_ = 10.0_real32
+       radius_ = 0.58_real32
     case('Na')
-       mass_ = 22.989_real12
-       charge_ = 11.0_real12
-       radius_ = 1.66_real12
+       mass_ = 22.989_real32
+       charge_ = 11.0_real32
+       radius_ = 1.66_real32
     case('Mg')
-       mass_ = 24.305_real12
-       charge_ = 12.0_real12
-       radius_ = 1.41_real12
+       mass_ = 24.305_real32
+       charge_ = 12.0_real32
+       radius_ = 1.41_real32
     case('Al')
-       mass_ = 26.982_real12
-       charge_ = 13.0_real12
-       radius_ = 1.21_real12
+       mass_ = 26.982_real32
+       charge_ = 13.0_real32
+       radius_ = 1.21_real32
     case('Si')
-       mass_ = 28.085_real12
-       charge_ = 14.0_real12
-       radius_ = 1.11_real12
+       mass_ = 28.085_real32
+       charge_ = 14.0_real32
+       radius_ = 1.11_real32
     case('P')
-       mass_ = 30.974_real12
-       charge_ = 15.0_real12
-       radius_ = 1.07_real12
+       mass_ = 30.974_real32
+       charge_ = 15.0_real32
+       radius_ = 1.07_real32
     case('S')  
-       mass_ = 32.06_real12
-       charge_ = 16.0_real12
-       radius_ = 1.05_real12
+       mass_ = 32.06_real32
+       charge_ = 16.0_real32
+       radius_ = 1.05_real32
     case('Cl')
-       mass_ = 35.453_real12
-       charge_ = 17.0_real12
-       radius_ = 1.02_real12
+       mass_ = 35.453_real32
+       charge_ = 17.0_real32
+       radius_ = 1.02_real32
     case('Ar')
-       mass_ = 39.948_real12
-       charge_ = 18.0_real12
-       radius_ = 1.06_real12
+       mass_ = 39.948_real32
+       charge_ = 18.0_real32
+       radius_ = 1.06_real32
     case('K')
-       mass_ = 39.098_real12
-       charge_ = 19.0_real12
-       radius_ = 2.03_real12
+       mass_ = 39.098_real32
+       charge_ = 19.0_real32
+       radius_ = 2.03_real32
     case('Ca')
-       mass_ = 40.078_real12
-       charge_ = 20.0_real12
-       radius_ = 1.74_real12
+       mass_ = 40.078_real32
+       charge_ = 20.0_real32
+       radius_ = 1.74_real32
     case('Sc')
-       mass_ = 44.956_real12
-       charge_ = 21.0_real12
-       radius_ = 1.44_real12
+       mass_ = 44.956_real32
+       charge_ = 21.0_real32
+       radius_ = 1.44_real32
     case('Ti')
-       mass_ = 47.867_real12
-       charge_ = 22.0_real12
-       radius_ = 1.32_real12
+       mass_ = 47.867_real32
+       charge_ = 22.0_real32
+       radius_ = 1.32_real32
     case('V')
-       mass_ = 50.942_real12
-       charge_ = 23.0_real12
-       radius_ = 1.22_real12
+       mass_ = 50.942_real32
+       charge_ = 23.0_real32
+       radius_ = 1.22_real32
     case('Cr')
-       mass_ = 51.996_real12
-       charge_ = 24.0_real12
-       radius_ = 1.18_real12
+       mass_ = 51.996_real32
+       charge_ = 24.0_real32
+       radius_ = 1.18_real32
     case('Mn')
-       mass_ = 54.938_real12
-       charge_ = 25.0_real12
-       radius_ = 1.17_real12
+       mass_ = 54.938_real32
+       charge_ = 25.0_real32
+       radius_ = 1.17_real32
     case('Fe')
-       mass_ = 55.845_real12
-       charge_ = 26.0_real12
-       radius_ = 1.17_real12
+       mass_ = 55.845_real32
+       charge_ = 26.0_real32
+       radius_ = 1.17_real32
     case('Co')
-       mass_ = 58.933_real12
-       charge_ = 27.0_real12
-       radius_ = 1.16_real12
+       mass_ = 58.933_real32
+       charge_ = 27.0_real32
+       radius_ = 1.16_real32
     case('Ni')
-       mass_ = 58.693_real12
-       charge_ = 28.0_real12
-       radius_ = 1.15_real12
+       mass_ = 58.693_real32
+       charge_ = 28.0_real32
+       radius_ = 1.15_real32
     case('Cu')
-       mass_ = 63.546_real12
-       charge_ = 29.0_real12
-       radius_ = 1.17_real12
+       mass_ = 63.546_real32
+       charge_ = 29.0_real32
+       radius_ = 1.17_real32
     case('Zn')
-       mass_ = 65.38_real12
-       charge_ = 30.0_real12
-       radius_ = 1.25_real12
+       mass_ = 65.38_real32
+       charge_ = 30.0_real32
+       radius_ = 1.25_real32
     case('Ga')
-       mass_ = 69.723_real12
-       charge_ = 31.0_real12
-       radius_ = 1.26_real12
+       mass_ = 69.723_real32
+       charge_ = 31.0_real32
+       radius_ = 1.26_real32
     case('Ge')
-       mass_ = 72.63_real12
-       charge_ = 32.0_real12
-       radius_ = 1.22_real12
+       mass_ = 72.63_real32
+       charge_ = 32.0_real32
+       radius_ = 1.22_real32
     case('As')
-       mass_ = 74.922_real12
-       charge_ = 33.0_real12
-       radius_ = 1.19_real12
+       mass_ = 74.922_real32
+       charge_ = 33.0_real32
+       radius_ = 1.19_real32
     case('Se')
-       mass_ = 78.971_real12
-       charge_ = 34.0_real12
-       radius_ = 1.16_real12
+       mass_ = 78.971_real32
+       charge_ = 34.0_real32
+       radius_ = 1.16_real32
     case('Br')
-       mass_ = 79.904_real12
-       charge_ = 35.0_real12
-       radius_ = 1.14_real12
+       mass_ = 79.904_real32
+       charge_ = 35.0_real32
+       radius_ = 1.14_real32
     case('Kr')
-       mass_ = 83.798_real12
-       charge_ = 36.0_real12
-       radius_ = 1.12_real12
+       mass_ = 83.798_real32
+       charge_ = 36.0_real32
+       radius_ = 1.12_real32
     case('Rb')
-       mass_ = 85.468_real12
-       charge_ = 37.0_real12
-       radius_ = 2.16_real12
+       mass_ = 85.468_real32
+       charge_ = 37.0_real32
+       radius_ = 2.16_real32
     case('Sr')
-       mass_ = 87.62_real12
-       charge_ = 38.0_real12
-       radius_ = 1.91_real12
+       mass_ = 87.62_real32
+       charge_ = 38.0_real32
+       radius_ = 1.91_real32
     case('Y')
-       mass_ = 88.906_real12
-       charge_ = 39.0_real12
-       radius_ = 1.62_real12
+       mass_ = 88.906_real32
+       charge_ = 39.0_real32
+       radius_ = 1.62_real32
     case('Zr')
-       mass_ = 91.224_real12
-       charge_ = 40.0_real12
-       radius_ = 1.45_real12
+       mass_ = 91.224_real32
+       charge_ = 40.0_real32
+       radius_ = 1.45_real32
     case('Nb')
-       mass_ = 92.906_real12
-       charge_ = 41.0_real12
-       radius_ = 1.34_real12
+       mass_ = 92.906_real32
+       charge_ = 41.0_real32
+       radius_ = 1.34_real32
     case('Mo')
-       mass_ = 95.95_real12
-       charge_ = 42.0_real12
-       radius_ = 1.3_real12
+       mass_ = 95.95_real32
+       charge_ = 42.0_real32
+       radius_ = 1.3_real32
     case('Tc')
-       mass_ = 98.0_real12
-       charge_ = 43.0_real12
-       radius_ = 1.27_real12
+       mass_ = 98.0_real32
+       charge_ = 43.0_real32
+       radius_ = 1.27_real32
     case('Ru')
-       mass_ = 101.07_real12
-       charge_ = 44.0_real12
-       radius_ = 1.25_real12
+       mass_ = 101.07_real32
+       charge_ = 44.0_real32
+       radius_ = 1.25_real32
     case('Rh')
-       mass_ = 102.91_real12
-       charge_ = 45.0_real12
-       radius_ = 1.25_real12
+       mass_ = 102.91_real32
+       charge_ = 45.0_real32
+       radius_ = 1.25_real32
     case('Pd')
-       mass_ = 106.42_real12
-       charge_ = 46.0_real12
-       radius_ = 1.28_real12
+       mass_ = 106.42_real32
+       charge_ = 46.0_real32
+       radius_ = 1.28_real32
     case('Ag')
-       mass_ = 107.87_real12
-       charge_ = 47.0_real12
-       radius_ = 1.34_real12
+       mass_ = 107.87_real32
+       charge_ = 47.0_real32
+       radius_ = 1.34_real32
     case('Cd')
-       mass_ = 112.41_real12
-       charge_ = 48.0_real12
-       radius_ = 1.48_real12
+       mass_ = 112.41_real32
+       charge_ = 48.0_real32
+       radius_ = 1.48_real32
     case('In')
-       mass_ = 114.82_real12
-       charge_ = 49.0_real12
-       radius_ = 1.44_real12
+       mass_ = 114.82_real32
+       charge_ = 49.0_real32
+       radius_ = 1.44_real32
     case('Sn')
-       mass_ = 118.71_real12
-       charge_ = 50.0_real12
-       radius_ = 1.41_real12
+       mass_ = 118.71_real32
+       charge_ = 50.0_real32
+       radius_ = 1.41_real32
     case('Sb')
-       mass_ = 121.76_real12
-       charge_ = 51.0_real12
-       radius_ = 1.38_real12
+       mass_ = 121.76_real32
+       charge_ = 51.0_real32
+       radius_ = 1.38_real32
     case('Te')
-       mass_ = 127.6_real12
-       charge_ = 52.0_real12
-       radius_ = 1.35_real12
+       mass_ = 127.6_real32
+       charge_ = 52.0_real32
+       radius_ = 1.35_real32
     case('I')
-       mass_ = 126.9_real12
-       charge_ = 53.0_real12
-       radius_ = 1.33_real12
+       mass_ = 126.9_real32
+       charge_ = 53.0_real32
+       radius_ = 1.33_real32
     case('Xe')
-       mass_ = 131.29_real12
-       charge_ = 54.0_real12
-       radius_ = 1.31_real12
+       mass_ = 131.29_real32
+       charge_ = 54.0_real32
+       radius_ = 1.31_real32
     case('Cs')
-       mass_ = 132.91_real12
-       charge_ = 55.0_real12
-       radius_ = 2.35_real12
+       mass_ = 132.91_real32
+       charge_ = 55.0_real32
+       radius_ = 2.35_real32
     case('Ba')
-       mass_ = 137.33_real12
-       charge_ = 56.0_real12
-       radius_ = 1.98_real12
+       mass_ = 137.33_real32
+       charge_ = 56.0_real32
+       radius_ = 1.98_real32
     case('La')
-       mass_ = 138.91_real12
-       charge_ = 57.0_real12
-       radius_ = 1.69_real12
+       mass_ = 138.91_real32
+       charge_ = 57.0_real32
+       radius_ = 1.69_real32
     case('Ce')
-       mass_ = 140.12_real12
-       charge_ = 58.0_real12
-       radius_ = 1.65_real12
+       mass_ = 140.12_real32
+       charge_ = 58.0_real32
+       radius_ = 1.65_real32
     case('Pr')
-       mass_ = 140.91_real12
-       charge_ = 59.0_real12
-       radius_ = 1.65_real12
+       mass_ = 140.91_real32
+       charge_ = 59.0_real32
+       radius_ = 1.65_real32
     case('Nd')
-       mass_ = 144.24_real12
-       charge_ = 60.0_real12
-       radius_ = 1.64_real12
+       mass_ = 144.24_real32
+       charge_ = 60.0_real32
+       radius_ = 1.64_real32
     case('Pm')
-       mass_ = 145.0_real12
-       charge_ = 61.0_real12
-       radius_ = 1.63_real12
+       mass_ = 145.0_real32
+       charge_ = 61.0_real32
+       radius_ = 1.63_real32
     case('Sm')
-       mass_ = 150.36_real12
-       charge_ = 62.0_real12
-       radius_ = 1.62_real12
+       mass_ = 150.36_real32
+       charge_ = 62.0_real32
+       radius_ = 1.62_real32
     case('Eu')
-       mass_ = 152.0_real12
-       charge_ = 63.0_real12
-       radius_ = 1.85_real12
+       mass_ = 152.0_real32
+       charge_ = 63.0_real32
+       radius_ = 1.85_real32
     case('Gd')
-       mass_ = 157.25_real12
-       charge_ = 64.0_real12
-       radius_ = 1.61_real12
+       mass_ = 157.25_real32
+       charge_ = 64.0_real32
+       radius_ = 1.61_real32
     case('Tb')
-       mass_ = 158.93_real12
-       charge_ = 65.0_real12
-       radius_ = 1.59_real12
+       mass_ = 158.93_real32
+       charge_ = 65.0_real32
+       radius_ = 1.59_real32
     case('Dy')
-       mass_ = 162.5_real12
-       charge_ = 66.0_real12
-       radius_ = 1.59_real12
+       mass_ = 162.5_real32
+       charge_ = 66.0_real32
+       radius_ = 1.59_real32
     case('Ho')
-       mass_ = 164.93_real12
-       charge_ = 67.0_real12
-       radius_ = 1.58_real12
+       mass_ = 164.93_real32
+       charge_ = 67.0_real32
+       radius_ = 1.58_real32
     case('Er')
-       mass_ = 167.26_real12
-       charge_ = 68.0_real12
-       radius_ = 1.57_real12
+       mass_ = 167.26_real32
+       charge_ = 68.0_real32
+       radius_ = 1.57_real32
     case('Tm')
-       mass_ = 168.93_real12
-       charge_ = 69.0_real12
-       radius_ = 1.56_real12
+       mass_ = 168.93_real32
+       charge_ = 69.0_real32
+       radius_ = 1.56_real32
     case('Yb')
-       mass_ = 173.05_real12
-       charge_ = 70.0_real12
-       radius_ = 1.74_real12
+       mass_ = 173.05_real32
+       charge_ = 70.0_real32
+       radius_ = 1.74_real32
     case('Lu')
-       mass_ = 174.97_real12
-       charge_ = 71.0_real12
-       radius_ = 1.56_real12
+       mass_ = 174.97_real32
+       charge_ = 71.0_real32
+       radius_ = 1.56_real32
     case('Hf')
-       mass_ = 178.49_real12
-       charge_ = 72.0_real12
-       radius_ = 1.44_real12
+       mass_ = 178.49_real32
+       charge_ = 72.0_real32
+       radius_ = 1.44_real32
     case('Ta')
-       mass_ = 180.95_real12
-       charge_ = 73.0_real12
-       radius_ = 1.34_real12
+       mass_ = 180.95_real32
+       charge_ = 73.0_real32
+       radius_ = 1.34_real32
     case('W')
-       mass_ = 183.84_real12
-       charge_ = 74.0_real12
-       radius_ = 1.3_real12
+       mass_ = 183.84_real32
+       charge_ = 74.0_real32
+       radius_ = 1.3_real32
     case('Re')
-       mass_ = 186.21_real12
-       charge_ = 75.0_real12
-       radius_ = 1.28_real12
+       mass_ = 186.21_real32
+       charge_ = 75.0_real32
+       radius_ = 1.28_real32
     case('Os')
-       mass_ = 190.23_real12
-       charge_ = 76.0_real12
-       radius_ = 1.26_real12
+       mass_ = 190.23_real32
+       charge_ = 76.0_real32
+       radius_ = 1.26_real32
     case('Ir')
-       mass_ = 192.22_real12
-       charge_ = 77.0_real12
-       radius_ = 1.27_real12
+       mass_ = 192.22_real32
+       charge_ = 77.0_real32
+       radius_ = 1.27_real32
     case('Pt')
-       mass_ = 195.08_real12
-       charge_ = 78.0_real12
-       radius_ = 1.3_real12
+       mass_ = 195.08_real32
+       charge_ = 78.0_real32
+       radius_ = 1.3_real32
     case('Au')
-       mass_ = 196.97_real12
-       charge_ = 79.0_real12
-       radius_ = 1.34_real12
+       mass_ = 196.97_real32
+       charge_ = 79.0_real32
+       radius_ = 1.34_real32
     case('Hg')
-       mass_ = 200.59_real12
-       charge_ = 80.0_real12
-       radius_ = 1.49_real12
+       mass_ = 200.59_real32
+       charge_ = 80.0_real32
+       radius_ = 1.49_real32
     case('Tl')
-       mass_ = 204.38_real12
-       charge_ = 81.0_real12
-       radius_ = 1.48_real12
+       mass_ = 204.38_real32
+       charge_ = 81.0_real32
+       radius_ = 1.48_real32
     case('Pb')
-       mass_ = 207.2_real12
-       charge_ = 82.0_real12
-       radius_ = 1.47_real12
+       mass_ = 207.2_real32
+       charge_ = 82.0_real32
+       radius_ = 1.47_real32
     case('Bi')
-       mass_ = 208.98_real12
-       charge_ = 83.0_real12
-       radius_ = 1.46_real12
+       mass_ = 208.98_real32
+       charge_ = 83.0_real32
+       radius_ = 1.46_real32
     case('Po')
-       mass_ = 209.0_real12
-       charge_ = 84.0_real12
-       radius_ = 1.45_real12
+       mass_ = 209.0_real32
+       charge_ = 84.0_real32
+       radius_ = 1.45_real32
     case('At')
-       mass_ = 210.0_real12
-       charge_ = 85.0_real12
-       radius_ = 1.44_real12
+       mass_ = 210.0_real32
+       charge_ = 85.0_real32
+       radius_ = 1.44_real32
     case('Rn')
-       mass_ = 222.0_real12
-       charge_ = 86.0_real12
-       radius_ = 1.43_real12
+       mass_ = 222.0_real32
+       charge_ = 86.0_real32
+       radius_ = 1.43_real32
     case('Fr')
-       mass_ = 223.0_real12
-       charge_ = 87.0_real12
-       radius_ = 2.6_real12
+       mass_ = 223.0_real32
+       charge_ = 87.0_real32
+       radius_ = 2.6_real32
     case('Ra')
-       mass_ = 226.0_real12
-       charge_ = 88.0_real12
-       radius_ = 2.21_real12
+       mass_ = 226.0_real32
+       charge_ = 88.0_real32
+       radius_ = 2.21_real32
     case('Ac')
-       mass_ = 227.0_real12
-       charge_ = 89.0_real12
-       radius_ = 1.86_real12
+       mass_ = 227.0_real32
+       charge_ = 89.0_real32
+       radius_ = 1.86_real32
     case('Th')
-       mass_ = 232.04_real12
-       charge_ = 90.0_real12
-       radius_ = 1.75_real12
+       mass_ = 232.04_real32
+       charge_ = 90.0_real32
+       radius_ = 1.75_real32
     case('Pa')
-       mass_ = 231.04_real12
-       charge_ = 91.0_real12
-       radius_ = 1.61_real12
+       mass_ = 231.04_real32
+       charge_ = 91.0_real32
+       radius_ = 1.61_real32
     case('U')
-       mass_ = 238.03_real12
-       charge_ = 92.0_real12
-       radius_ = 1.58_real12
+       mass_ = 238.03_real32
+       charge_ = 92.0_real32
+       radius_ = 1.58_real32
     case('Np')
-       mass_ = 237.0_real12
-       charge_ = 93.0_real12
-       radius_ = 1.55_real12
+       mass_ = 237.0_real32
+       charge_ = 93.0_real32
+       radius_ = 1.55_real32
     case('Pu')
-       mass_ = 244.0_real12
-       charge_ = 94.0_real12
-       radius_ = 1.53_real12
+       mass_ = 244.0_real32
+       charge_ = 94.0_real32
+       radius_ = 1.53_real32
     case('Am')
-       mass_ = 243.0_real12
-       charge_ = 95.0_real12
-       radius_ = 1.51_real12
+       mass_ = 243.0_real32
+       charge_ = 95.0_real32
+       radius_ = 1.51_real32
     case('Cm')
-       mass_ = 247.0_real12
-       charge_ = 96.0_real12
-       radius_ = 1.69_real12
+       mass_ = 247.0_real32
+       charge_ = 96.0_real32
+       radius_ = 1.69_real32
     case('Bk')
-       mass_ = 247.0_real12
-       charge_ = 97.0_real12
-       radius_ = 1.48_real12
+       mass_ = 247.0_real32
+       charge_ = 97.0_real32
+       radius_ = 1.48_real32
     case('Cf')
-       mass_ = 251.0_real12
-       charge_ = 98.0_real12
-       radius_ = 1.47_real12
+       mass_ = 251.0_real32
+       charge_ = 98.0_real32
+       radius_ = 1.47_real32
     case('Es')
-       mass_ = 252.0_real12
-       charge_ = 99.0_real12
-       radius_ = 1.46_real12
+       mass_ = 252.0_real32
+       charge_ = 99.0_real32
+       radius_ = 1.46_real32
     case('Fm')
-       mass_ = 257.0_real12
-       charge_ = 100.0_real12
-       radius_ = 1.45_real12
+       mass_ = 257.0_real32
+       charge_ = 100.0_real32
+       radius_ = 1.45_real32
     case('Md')
-       mass_ = 258.0_real12
-       charge_ = 101.0_real12
-       radius_ = 1.44_real12
+       mass_ = 258.0_real32
+       charge_ = 101.0_real32
+       radius_ = 1.44_real32
     case('No')
-       mass_ = 259.0_real12
-       charge_ = 102.0_real12
-       radius_ = 1.43_real12
+       mass_ = 259.0_real32
+       charge_ = 102.0_real32
+       radius_ = 1.43_real32
     case('Lr')
-       mass_ = 262.0_real12
-       charge_ = 103.0_real12
-       radius_ = 1.62_real12
+       mass_ = 262.0_real32
+       charge_ = 103.0_real32
+       radius_ = 1.62_real32
     case('Rf')
-       mass_ = 267.0_real12
-       charge_ = 104.0_real12
-       radius_ = 1.57_real12
+       mass_ = 267.0_real32
+       charge_ = 104.0_real32
+       radius_ = 1.57_real32
     case('Db')
-       mass_ = 270.0_real12
-       charge_ = 105.0_real12
-       radius_ = 1.49_real12
+       mass_ = 270.0_real32
+       charge_ = 105.0_real32
+       radius_ = 1.49_real32
     case('Sg')
-       mass_ = 271.0_real12
-       charge_ = 106.0_real12
-       radius_ = 1.43_real12
+       mass_ = 271.0_real32
+       charge_ = 106.0_real32
+       radius_ = 1.43_real32
     case('Bh')
-       mass_ = 270.0_real12
-       charge_ = 107.0_real12
-       radius_ = 1.41_real12
+       mass_ = 270.0_real32
+       charge_ = 107.0_real32
+       radius_ = 1.41_real32
     case('Hs')
-       mass_ = 277.0_real12
-       charge_ = 108.0_real12
-       radius_ = 1.34_real12
+       mass_ = 277.0_real32
+       charge_ = 108.0_real32
+       radius_ = 1.34_real32
     case('Mt')
-       mass_ = 276.0_real12
-       charge_ = 109.0_real12
-       radius_ = 1.29_real12
+       mass_ = 276.0_real32
+       charge_ = 109.0_real32
+       radius_ = 1.29_real32
     case('Ds')
-       mass_ = 281.0_real12
-       charge_ = 110.0_real12
-       radius_ = 1.28_real12
+       mass_ = 281.0_real32
+       charge_ = 110.0_real32
+       radius_ = 1.28_real32
     case('Rg')
-       mass_ = 280.0_real12
-       charge_ = 111.0_real12
-       radius_ = 1.21_real12
+       mass_ = 280.0_real32
+       charge_ = 111.0_real32
+       radius_ = 1.21_real32
     case('Cn')
-       mass_ = 285.0_real12
-       charge_ = 112.0_real12
-       radius_ = 1.22_real12
+       mass_ = 285.0_real32
+       charge_ = 112.0_real32
+       radius_ = 1.22_real32
     case('Nh')
-       mass_ = 284.0_real12
-       charge_ = 113.0_real12
-       radius_ = 1.21_real12
+       mass_ = 284.0_real32
+       charge_ = 113.0_real32
+       radius_ = 1.21_real32
     case('Fl')
-       mass_ = 289.0_real12
-       charge_ = 114.0_real12
-       radius_ = 1.21_real12
+       mass_ = 289.0_real32
+       charge_ = 114.0_real32
+       radius_ = 1.21_real32
     case('Mc')
-       mass_ = 288.0_real12
-       charge_ = 115.0_real12
-       radius_ = 1.21_real12
+       mass_ = 288.0_real32
+       charge_ = 115.0_real32
+       radius_ = 1.21_real32
     case('Lv')
-       mass_ = 293.0_real12
-       charge_ = 116.0_real12
-       radius_ = 1.21_real12
+       mass_ = 293.0_real32
+       charge_ = 116.0_real32
+       radius_ = 1.21_real32
     case('Ts')
-       mass_ = 294.0_real12
-       charge_ = 117.0_real12
-       radius_ = 1.21_real12
+       mass_ = 294.0_real32
+       charge_ = 117.0_real32
+       radius_ = 1.21_real32
     case('Og')
-       mass_ = 294.0_real12
-       charge_ = 118.0_real12
-       radius_ = 1.21_real12
+       mass_ = 294.0_real32
+       charge_ = 118.0_real32
+       radius_ = 1.21_real32
     case default
        ! handle unknown element
-       mass_ = 0.0_real12
-       charge_ = 0.0_real12
-       radius_ = 0.0_real12
+       mass_ = 0.0_real32
+       charge_ = 0.0_real32
+       radius_ = 0.0_real32
     end select
 
     !---------------------------------------------------------------------------

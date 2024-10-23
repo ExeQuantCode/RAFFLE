@@ -4,7 +4,7 @@ module extended_geom
   !! This module is designed to extend the basis set to include images of atoms
   !! within a specified distance of the unit cell. This is useful for
   !! calculating interactions between atoms that are not within the unit cell.
-  use raffle__constants, only: real12, pi
+  use raffle__constants, only: real32, pi
   use raffle__misc_linalg, only: modu, cross, inverse_3x3
   use raffle__rw_geom, only: basis_type, species_type
   implicit none
@@ -17,7 +17,7 @@ module extended_geom
 
   type, extends(basis_type) :: extended_basis_type
      !! Extended basis set type
-     real(real12) :: max_extension
+     real(real32) :: max_extension
      !! Maximum distance to extend the basis set
      integer :: num_images
      !! Number of images in the extended basis set
@@ -40,7 +40,7 @@ contains
     ! Arguments
     class(extended_basis_type), intent(inout) :: this
     !! Parent of the procedure. Instance of the extended basis.
-    real(real12), intent(in) :: max_bondlength
+    real(real32), intent(in) :: max_bondlength
     !! Maximum distance to extend the basis set.
     integer, dimension(:,:), intent(in), optional :: atom_ignore_list
     !! List of atoms to ignore when creating images.
@@ -50,7 +50,7 @@ contains
     !! Loop indices.
     integer :: amax, bmax, cmax
     !! Maximum number of lattice vectors to consider.
-    real(real12), dimension(3) :: vtmp1
+    real(real32), dimension(3) :: vtmp1
     !! Temporary vector for storing atom positions.
     type(species_type), dimension(this%nspec) :: image_species
     !! Temporary store for the images.
@@ -94,12 +94,12 @@ contains
              if(all(atom_ignore_list_(i,:).eq.[is,ia])) cycle atom_loop
           end do
           do i=-amax,amax+1,1
-             vtmp1(1) = this%spec(is)%atom(ia,1) + real(i, real12)
+             vtmp1(1) = this%spec(is)%atom(ia,1) + real(i, real32)
              do j=-bmax,bmax+1,1
-                vtmp1(2) = this%spec(is)%atom(ia,2) + real(j, real12)
+                vtmp1(2) = this%spec(is)%atom(ia,2) + real(j, real32)
                 do k=-cmax,cmax+1,1
                    if( i .eq. 0 .and. j .eq. 0 .and. k .eq. 0 ) cycle
-                   vtmp1(3) = this%spec(is)%atom(ia,3) + real(k, real12)
+                   vtmp1(3) = this%spec(is)%atom(ia,3) + real(k, real32)
                    if( get_distance_from_unit_cell(vtmp1, this%lat) .le. &
                         max_bondlength ) then
                       ! add the image to the list
@@ -143,7 +143,7 @@ contains
     ! Arguments
     class(extended_basis_type), intent(inout) :: this
     !! Parent of the procedure. Instance of the extended basis.
-    real(real12), intent(in) :: max_bondlength
+    real(real32), intent(in) :: max_bondlength
     !! Maximum distance to extend the basis set.
     integer, intent(in) :: is, ia
     !! Species and atom index to update.
@@ -156,7 +156,7 @@ contains
     !! Maximum number of lattice vectors to consider.
     type(species_type) :: image_species
     !! Temporary store for the images.
-    real(real12), dimension(3) :: vtmp1
+    real(real32), dimension(3) :: vtmp1
     !! Temporary vector for storing atom positions.
 
 
@@ -186,12 +186,12 @@ contains
 
 
     do i=-amax,amax+1,1
-       vtmp1(1) = this%spec(is)%atom(ia,1) + real(i, real12)
+       vtmp1(1) = this%spec(is)%atom(ia,1) + real(i, real32)
        do j=-bmax,bmax+1,1
-          vtmp1(2) = this%spec(is)%atom(ia,2) + real(j, real12)
+          vtmp1(2) = this%spec(is)%atom(ia,2) + real(j, real32)
           do k=-cmax,cmax+1,1
              if( i .eq. 0 .and. j .eq. 0 .and. k .eq. 0 ) cycle
-             vtmp1(3) = this%spec(is)%atom(ia,3) + real(k, real12)
+             vtmp1(3) = this%spec(is)%atom(ia,3) + real(k, real32)
              if( get_distance_from_unit_cell(vtmp1, this%lat) .le. &
                   max_bondlength ) then
                 ! add the image to the list
@@ -227,33 +227,33 @@ contains
     implicit none
 
     ! Arguments
-    real(real12), intent(in) :: point(3)
+    real(real32), intent(in) :: point(3)
     !! Query point.
-    real(real12), intent(in) :: lattice(3,3)
+    real(real32), intent(in) :: lattice(3,3)
     !! Lattice vectors.
-    real(real12), intent(out), optional :: closest_point(3)
+    real(real32), intent(out), optional :: closest_point(3)
     !! Closest point on the unit cell surface.
     logical, optional, intent(in) :: is_cartesian
     !! Boolean whether the point is in cartesian coordinates.
-    real(real12) :: distance
+    real(real32) :: distance
     !! Distance of the point from the unit cell.
 
     ! Local variables
     integer :: i, j, k
     !! Loop indices.
-    real(real12), dimension(3) :: point_
+    real(real32), dimension(3) :: point_
     !! Point in cartesian coordinates.
-    real(real12), dimension(3,3) :: inverse_lattice
+    real(real32), dimension(3,3) :: inverse_lattice
     !! Inverse of the lattice vectors.
-    real(real12), dimension(3) :: normal
+    real(real32), dimension(3) :: normal
     !! Normal vector to the plane.
-    real(real12), dimension(3) :: plane_point
+    real(real32), dimension(3) :: plane_point
     !! Point on the plane.
-    real(real12), dimension(3) :: projection, closest_point_
+    real(real32), dimension(3) :: projection, closest_point_
     !! Projection of the point onto the plane.
-    real(real12), dimension(3) :: inverse_projection
+    real(real32), dimension(3) :: inverse_projection
     !! Inverse projection of the point onto the plane.
-    real(real12) :: min_distance
+    real(real32) :: min_distance
     !! Minimum distance to the unit cell.
     logical :: is_outside
     !! Boolean whether the point is outside the unit cell.
@@ -279,7 +279,7 @@ contains
         point_ = matmul(point, lattice)
     end if
 
-    min_distance = huge(1._real12)
+    min_distance = huge(1._real32)
 
     ! get projection of point onto each face of the lattice
     ! get the length of the projection vector
@@ -289,9 +289,9 @@ contains
     ! distances
     face_loop: do i = 1, 3
        index_list = cshift(index_list, 1)
-       plane_point = 0._real12
+       plane_point = 0._real32
        direction_loop: do j = 1, 2
-          normal = (-1._real12)**j * cross( &
+          normal = (-1._real32)**j * cross( &
                [ lattice(index_list(2),:3) ], &
                [ lattice(index_list(3),:3) ] &
           )
@@ -300,7 +300,7 @@ contains
 
           ! check if point minus projection is negative
           ! if so, it is on the wrong side of the plane and should be ignored
-          if( dot_product(point_ - projection, normal) .lt. 0._real12 )then
+          if( dot_product(point_ - projection, normal) .lt. 0._real32 )then
              plane_point = plane_point + lattice(index_list(1),:)
             cycle direction_loop
           end if
@@ -309,17 +309,17 @@ contains
           ! check if projection is outside the surface
           
           inverse_projection = matmul(projection, inverse_lattice)
-          if( any( inverse_projection .lt. 0._real12 ) .or. &
-              any( inverse_projection .gt. 1._real12 ) ) then
+          if( any( inverse_projection .lt. 0._real32 ) .or. &
+              any( inverse_projection .gt. 1._real32 ) ) then
              ! projection is outside the surface
              ! check if the projection is outside the edges
              ! if it is, then the closest point is the edge or corner
              ! if it is not, then the closest point is the projection
              do k = 1, 3
-                if( inverse_projection(k) .lt. 0._real12 ) then
-                   inverse_projection(k) = 0._real12
-                else if( inverse_projection(k) .gt. 1._real12 ) then
-                   inverse_projection(k) = 1._real12
+                if( inverse_projection(k) .lt. 0._real32 ) then
+                   inverse_projection(k) = 0._real32
+                else if( inverse_projection(k) .gt. 1._real32 ) then
+                   inverse_projection(k) = 1._real32
                 end if
              end do
           end if
@@ -338,7 +338,7 @@ contains
     if( is_outside ) then
        distance = min_distance
     else
-       distance = 0._real12
+       distance = 0._real32
     end if
 
     if( present(closest_point) ) then
@@ -359,19 +359,19 @@ contains
     implicit none
 
     ! Arguments
-    real(real12), dimension(3), intent(in) :: point
+    real(real32), dimension(3), intent(in) :: point
     !! Point to project.
-    real(real12), dimension(3), intent(in) :: plane_point
+    real(real32), dimension(3), intent(in) :: plane_point
     !! Point on the plane.
-    real(real12), dimension(3), intent(in) :: normal
+    real(real32), dimension(3), intent(in) :: normal
     !! Normal vector to the plane.
-    real(real12), dimension(3) :: output
+    real(real32), dimension(3) :: output
     !! Projected point.
 
     ! Local variables
-    real(real12) :: distance
+    real(real32) :: distance
     !! Distance of the point from the plane.
-    real(real12), dimension(3) :: vector_to_plane
+    real(real32), dimension(3) :: vector_to_plane
     !! Vector from the point to the plane.
     
     vector_to_plane = point - plane_point

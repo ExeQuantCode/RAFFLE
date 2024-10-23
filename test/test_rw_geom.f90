@@ -1,6 +1,6 @@
 program test_rw_geom
   !! Test program for the module rw_geom.
-  use raffle__constants, only: pi,real12
+  use raffle__constants, only: pi,real32
   use raffle__rw_geom, only: &
        basis_type, &
        geom_read, geom_write, &
@@ -9,16 +9,16 @@ program test_rw_geom
   implicit none
 
   integer :: unit, iostat, i
-  real(real12) :: mass, charge, radius
+  real(real32) :: mass, charge, radius
   type(basis_type) :: bas1, bas2
   class(basis_type), allocatable :: bas
-  real(real12), dimension(3,3) :: atoms
+  real(real32), dimension(3,3) :: atoms
 
   character(len=256) :: cwd, filename = 'test/data/POSCAR_Si'
   logical :: exist, check
   logical :: success = .true.
   character(len=3), dimension(118) :: element_list
-  real(real12), dimension(:,:), allocatable :: positions
+  real(real32), dimension(:,:), allocatable :: positions
 
 
   ! Read the geometry

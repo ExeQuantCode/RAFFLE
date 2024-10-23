@@ -1,6 +1,6 @@
 program test_evaluator
   use raffle__error_handling
-  use raffle__constants, only: real12, pi
+  use raffle__constants, only: real32, pi
   use raffle__misc_linalg, only: modu
   use raffle__rw_geom, only: basis_type, geom_write
   use extended_geom, only: extended_basis_type
@@ -13,20 +13,20 @@ program test_evaluator
   integer :: unit
   integer :: i, is, ia, ja, num_points
   integer :: best_loc
-  real(real12) :: max_bondlength
+  real(real32) :: max_bondlength
   type(extended_basis_type) :: basis_host
   logical :: ltmp1
   type(basis_type), dimension(1) :: database
   character(3), dimension(1) :: element_symbols
-  real(real12), dimension(1) :: element_energies
-  real(real12), dimension(3) :: tolerance
+  real(real32), dimension(1) :: element_energies
+  real(real32), dimension(3) :: tolerance
   integer, dimension(:,:), allocatable :: atom_ignore_list
 
   integer :: iostat
   logical :: viability_printing
   character(len=256) :: arg, arg_prev, viability_printing_file, fmt
 
-  real(real12), dimension(:,:), allocatable :: gridpoints, viability_grid
+  real(real32), dimension(:,:), allocatable :: gridpoints, viability_grid
 
   type(raffle_generator_type) :: generator
 
@@ -82,7 +82,7 @@ program test_evaluator
   end if
 
 
-  max_bondlength = 6._real12
+  max_bondlength = 6._real32
   !-----------------------------------------------------------------------------
   ! set up database
   !-----------------------------------------------------------------------------
@@ -192,7 +192,7 @@ program test_evaluator
        grid_offset = generator%grid_offset &
   )
   do i = 1, 3
-     tolerance(i) = 1._real12 / real(generator%grid(i),real12) / 2._real12
+     tolerance(i) = 1._real32 / real(generator%grid(i),real32) / 2._real32
   end do
 
 
@@ -235,7 +235,7 @@ program test_evaluator
   !-----------------------------------------------------------------------------
   allocate(viability_grid(basis_host%nspec,size(gridpoints,2)))
   do ia = 1, size(atom_ignore_list,1)
-     viability_grid(:,:) = 0._real12
+     viability_grid(:,:) = 0._real32
      do i = 1, size(gridpoints,dim=2)
         viability_grid(1,i) = evaluate_point( generator%distributions, &
              gridpoints(1:3,i), atom_ignore_list(ia,1), basis_host, &
@@ -252,7 +252,7 @@ program test_evaluator
                   abs( &
                        gridpoints(1:3,best_loc) - &
                        basis_host%spec(1)%atom(atom_ignore_list(ja,2),:3) &
-                  ) .lt. tolerance + 1.E-6_real12 &
+                  ) .lt. tolerance + 1.E-6_real32 &
              ) &
         ) ltmp1 = .true.
      end do

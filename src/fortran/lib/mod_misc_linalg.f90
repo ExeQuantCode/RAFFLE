@@ -1,6 +1,6 @@
 module raffle__misc_linalg
   !! Module contains various linear algebra functions and subroutines.
-  use raffle__constants, only: real12, pi
+  use raffle__constants, only: real32, pi
   implicit none
 
 
@@ -33,9 +33,9 @@ contains
     implicit none
 
     ! Arguments
-    real(real12),dimension(:), intent(in)::vector
+    real(real32),dimension(:), intent(in)::vector
     !! Input vector.
-    real(real12),allocatable,dimension(:)::uvec
+    real(real32),allocatable,dimension(:)::uvec
     !! Output unit vector.
 
     uvec = vector / modu(vector)
@@ -49,9 +49,9 @@ contains
     implicit none
 
     ! Arguments
-    real(real12),dimension(:), intent(in)::vector
+    real(real32),dimension(:), intent(in)::vector
     !! Input vector.
-    real(real12)::modu
+    real(real32)::modu
     !! Output magnitude.
 
     modu = abs( sqrt( sum(vector(:)**2) ) )
@@ -65,9 +65,9 @@ contains
     implicit none
 
     ! Arguments
-    real(real12), dimension(3), intent(in) :: a,b
+    real(real32), dimension(3), intent(in) :: a,b
     !! Input vectors.
-    real(real12), dimension(3) :: cross
+    real(real32), dimension(3) :: cross
     !! Output cross product.
 
     cross(1) = a(2) * b(3) - a(3) * b(2)
@@ -84,9 +84,9 @@ contains
     implicit none
 
     ! Arguments
-    real(real12), dimension(3), intent(in) :: point1,point2
+    real(real32), dimension(3), intent(in) :: point1,point2
     !! Input points.
-    real(real12) :: distance
+    real(real32) :: distance
     !! Output distance.
 
     distance = modu( point1 - point2 )
@@ -102,16 +102,16 @@ contains
     implicit none
 
     ! Arguments
-    real(real12), dimension(3), intent(in) :: vector1,vector2
+    real(real32), dimension(3), intent(in) :: vector1,vector2
     !! Input vectors.
-    real(real12) :: angle
+    real(real32) :: angle
     !! Output angle.
 
     angle =  dot_product(vector1,vector2) / &
          ( modu(vector1) * modu(vector2) )
-    if(angle .ge. 1._real12)then
-       angle = 0._real12
-    elseif(angle .le. -1._real12)then
+    if(angle .ge. 1._real32)then
+       angle = 0._real32
+    elseif(angle .le. -1._real32)then
        angle = pi
     else
        angle = acos(angle)
@@ -128,16 +128,16 @@ contains
     implicit none
 
     ! Arguments
-    real(real12), dimension(3), intent(in) :: point1, point2, point3
+    real(real32), dimension(3), intent(in) :: point1, point2, point3
     !! Input points.
-    real(real12) :: angle
+    real(real32) :: angle
     !! Output angle.
 
     angle = dot_product( point1 - point2, point3 - point2 ) / &
          ( modu( point1 - point2 ) * modu( point3 - point2 ) )
-    if(angle .ge. 1._real12)then
-       angle = 0._real12
-    elseif(angle .le. -1._real12)then
+    if(angle .ge. 1._real32)then
+       angle = 0._real32
+    elseif(angle .le. -1._real32)then
        angle = pi
     else
        angle = acos(angle)
@@ -157,9 +157,9 @@ contains
     implicit none
 
     ! Arguments
-    real(real12), dimension(3), intent(in) :: vector1,vector2,vector3
+    real(real32), dimension(3), intent(in) :: vector1,vector2,vector3
     !! Input vectors.
-    real(real12) :: angle
+    real(real32) :: angle
     !! Output angle.
 
     angle = get_angle(cross(vector1, vector2), vector3)
@@ -177,8 +177,8 @@ contains
     !! i.e. ( point2 - point1 ) x ( point3 - point2 ) . ( point4 - point2 )
     !! alt. angle between plane point1point2point3 and vector point2point4
     implicit none
-    real(real12), dimension(3), intent(in) :: point1, point2, point3, point4
-    real(real12) :: angle
+    real(real32), dimension(3), intent(in) :: point1, point2, point3, point4
+    real(real32) :: angle
   
     angle = get_angle(cross(point2 - point1, point3 - point2), point4 - point2)
   
@@ -197,15 +197,15 @@ contains
     !! i.e. ( vector1 x vector2 ) . ( vector2 x vector3 )
        !! alt. angle between plane vector1vector2 and vector2vector3
        implicit none
-    real(real12), dimension(3), intent(in) :: vector1, vector2, vector3
-    real(real12) :: angle
+    real(real32), dimension(3), intent(in) :: vector1, vector2, vector3
+    real(real32) :: angle
 
     angle = get_angle( &
          cross(vector1, vector2), &
          cross(vector2, vector3) &
     )
     !! map angle back into the range [0, pi]
-    if(angle .gt. pi) angle = 2._real12 * pi - angle
+    if(angle .gt. pi) angle = 2._real32 * pi - angle
 
 
   end function get_improper_dihedral_angle_from_vectors
@@ -223,8 +223,8 @@ contains
     !! ( point4 - point2 ) x ( point3 - point1 )
     !! alt. angle between plane point1point2point3 and point1point3point4
     implicit none
-    real(real12), dimension(3), intent(in) :: point1, point2, point3, point4
-    real(real12) :: angle
+    real(real32), dimension(3), intent(in) :: point1, point2, point3, point4
+    real(real32) :: angle
 
     angle = get_angle( &
          cross(point2 - point1, point3 - point1), &
@@ -241,11 +241,11 @@ contains
     implicit none
 
     ! Arguments
-    real(real12), dimension(3), intent(in) :: a,b
+    real(real32), dimension(3), intent(in) :: a,b
     !! Input vectors.
-    real(real12) :: area
+    real(real32) :: area
     !! Output area.
-    real(real12), dimension(3) :: vec
+    real(real32), dimension(3) :: vec
     !! Cross product of a and b.
 
     vec = cross(a,b)
@@ -261,29 +261,29 @@ contains
     implicit none
 
     ! Arguments
-    real(real12), dimension(3,3), intent(in) :: matrix
+    real(real32), dimension(3,3), intent(in) :: matrix
     !! Input matrix.
 
     ! Local variables
     integer :: n,i,j,k,l
     !! Loop indices.
-    real(real12) :: vol,scale
+    real(real32) :: vol,scale
     !! Volume and scale factor.
-    real(real12), dimension(3) :: a,b,c
+    real(real32), dimension(3) :: a,b,c
     !! Vectors of the matrix.
 
 
     a=matrix(1,:)
     b=matrix(2,:)
     c=matrix(3,:)
-    vol = 0._real12;scale = 1._real12
+    vol = 0._real32;scale = 1._real32
     i=1;j=2;k=3
 1   do n=1,3
        vol = vol+scale*a(i)*b(j)*c(k)
        l=i;i=j;j=k;k=l
     end do
     i=2;j=1;k=3;scale=-scale
-    if(scale<0._real12) goto 1
+    if(scale<0._real32) goto 1
 
   end function get_vol
 !###############################################################################
@@ -292,24 +292,24 @@ contains
 !###############################################################################
   pure function inverse_3x3(mat) result(output)
     implicit none
-    real(real12) :: det
-    real(real12), dimension(3,3) :: output
-    real(real12), dimension(3,3), intent(in) :: mat
+    real(real32) :: det
+    real(real32), dimension(3,3) :: output
+    real(real32), dimension(3,3), intent(in) :: mat
 
     det = &
          mat(1,1) * mat(2,2) * mat(3,3) - mat(1,1) * mat(2,3) * mat(3,2) - &
          mat(1,2) * mat(2,1) * mat(3,3) + mat(1,2) * mat(2,3) * mat(3,1) + &
          mat(1,3) * mat(2,1) * mat(3,2) - mat(1,3) * mat(2,2) * mat(3,1)
 
-    output(1,1) = +1._real12 / det * (mat(2,2) * mat(3,3) - mat(2,3) * mat(3,2))
-    output(2,1) = -1._real12 / det * (mat(2,1) * mat(3,3) - mat(2,3) * mat(3,1))
-    output(3,1) = +1._real12 / det * (mat(2,1) * mat(3,2) - mat(2,2) * mat(3,1))
-    output(1,2) = -1._real12 / det * (mat(1,2) * mat(3,3) - mat(1,3) * mat(3,2))
-    output(2,2) = +1._real12 / det * (mat(1,1) * mat(3,3) - mat(1,3) * mat(3,1))
-    output(3,2) = -1._real12 / det * (mat(1,1) * mat(3,2) - mat(1,2) * mat(3,1))
-    output(1,3) = +1._real12 / det * (mat(1,2) * mat(2,3) - mat(1,3) * mat(2,2))
-    output(2,3) = -1._real12 / det * (mat(1,1) * mat(2,3) - mat(1,3) * mat(2,1))
-    output(3,3) = +1._real12 / det * (mat(1,1) * mat(2,2) - mat(1,2) * mat(2,1))
+    output(1,1) = +1._real32 / det * (mat(2,2) * mat(3,3) - mat(2,3) * mat(3,2))
+    output(2,1) = -1._real32 / det * (mat(2,1) * mat(3,3) - mat(2,3) * mat(3,1))
+    output(3,1) = +1._real32 / det * (mat(2,1) * mat(3,2) - mat(2,2) * mat(3,1))
+    output(1,2) = -1._real32 / det * (mat(1,2) * mat(3,3) - mat(1,3) * mat(3,2))
+    output(2,2) = +1._real32 / det * (mat(1,1) * mat(3,3) - mat(1,3) * mat(3,1))
+    output(3,2) = -1._real32 / det * (mat(1,1) * mat(3,2) - mat(1,2) * mat(3,1))
+    output(1,3) = +1._real32 / det * (mat(1,2) * mat(2,3) - mat(1,3) * mat(2,2))
+    output(2,3) = -1._real32 / det * (mat(1,1) * mat(2,3) - mat(1,3) * mat(2,1))
+    output(3,3) = +1._real32 / det * (mat(1,1) * mat(2,2) - mat(1,2) * mat(2,1))
 
   end function inverse_3x3
 !###############################################################################

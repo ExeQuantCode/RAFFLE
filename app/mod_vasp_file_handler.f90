@@ -1,5 +1,5 @@
 module vasp_file_handler
-  use raffle__constants, only: real12
+  use raffle__constants, only: real32
   use raffle__misc, only: touch, icount
   implicit none
 

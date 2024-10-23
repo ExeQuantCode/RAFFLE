@@ -1,5 +1,5 @@
 module rw_vasprun
-  use raffle__constants, only: real12
+  use raffle__constants, only: real32
   use raffle__rw_geom, only: basis_type
   implicit none
 
@@ -82,14 +82,14 @@ contains
   function get_energy_from_vasprun(unit, found, rewind_file) result(energy)
     implicit none
     integer, intent(in) :: unit
-    real(real12) :: energy
+    real(real32) :: energy
     character(len=100) :: line, buffer
     logical, intent(out) :: found
     logical, intent(in), optional :: rewind_file
 
     integer :: ierror
     logical :: found_ = .false.
-    real(real12), dimension(:), allocatable :: energy_list
+    real(real32), dimension(:), allocatable :: energy_list
     character(len=32), dimension(3) :: section_list
 
 
@@ -166,11 +166,11 @@ contains
 
     integer :: number
     character(len=3) :: element
-    real(real12) :: mass, valency
+    real(real32) :: mass, valency
     character(len=40) :: pseudo
     integer, dimension(:), allocatable :: number_list
     character(len=3), dimension(:), allocatable :: element_list
-    real(real12), dimension(:), allocatable :: mass_list, valency_list
+    real(real32), dimension(:), allocatable :: mass_list, valency_list
     character(len=40), dimension(:), allocatable :: pseudo_list
     
     

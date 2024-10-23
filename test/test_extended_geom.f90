@@ -1,7 +1,7 @@
 program test_extended_geom
   !! Test program for the module extended_geom.
   use raffle__error_handling
-  use raffle__constants, only: real12
+  use raffle__constants, only: real32
   use extended_geom
   implicit none
 
@@ -58,7 +58,7 @@ contains
     call basis_copy%copy(basis)
 
     ! Create images
-    call basis_copy%create_images( max_bondlength = 0._real12 )
+    call basis_copy%create_images( max_bondlength = 0._real32 )
 
     ! Check if the number of images is correct
     call assert( &
@@ -74,7 +74,7 @@ contains
     call assert( &
          all( &
               basis_copy%image_spec(1)%atom(:, :) - &
-              1._real12 .lt. 1.E-6_real12 &
+              1._real32 .lt. 1.E-6_real32 &
          ), &
          'Atoms outside of max bondlength', &
          success &
@@ -95,7 +95,7 @@ contains
 
     ! Create images
     call basis_copy%create_images( &
-         max_bondlength = 0._real12, &
+         max_bondlength = 0._real32, &
          atom_ignore_list = atom_ignore_list &
     )
 
@@ -112,7 +112,7 @@ contains
     )
 
     ! Update images
-    call basis_copy%update_images( max_bondlength = 0._real12, is = 1, ia = 1 )
+    call basis_copy%update_images( max_bondlength = 0._real32, is = 1, ia = 1 )
 
     ! Check if the number of images is correct
     call assert( &
@@ -128,7 +128,7 @@ contains
     call assert( &
          all( &
               basis_copy%image_spec(1)%atom(:, :) - &
-              1._real12 .lt. 1.E-6_real12 &
+              1._real32 .lt. 1.E-6_real32 &
          ), &
          'Atoms outside of max bondlength', &
          success &

@@ -9,7 +9,7 @@ module generator
   use raffle__constants, only: real32
   use raffle__misc_linalg, only: modu
   use raffle__misc, only: strip_null, set
-  use raffle__rw_geom, only: basis_type
+  use raffle__geom_rw, only: basis_type
   use extended_geom, only: extended_basis_type
   use raffle__distribs_container, only: distribs_container_type
 

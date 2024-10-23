@@ -475,7 +475,7 @@ end subroutine f90wrap_raffle__dc__set_radius_distance_tol__binding__dc_type
 subroutine f90wrap_raffle__dc__create__binding__dc_type( &
      this, basis_list, deallocate_systems, energy_above_hull_list, n0 &
 )
-    use raffle__rw_geom, only: basis_type
+    use raffle__geom_rw, only: basis_type
     use raffle__distribs_container, only: distribs_container_type
     implicit none
     
@@ -512,7 +512,7 @@ subroutine f90wrap_raffle__dc__update__binding__dc_type( &
        this, basis_list, &
          from_host, deallocate_systems, energy_above_hull_list, n0 &
 )
-    use raffle__rw_geom, only: basis_type
+    use raffle__geom_rw, only: basis_type
     use raffle__distribs_container, only: distribs_container_type
     implicit none
     
@@ -575,7 +575,7 @@ end subroutine f90wrap_raffle__dc__deallocate_systems__binding__dc_type
 subroutine f90wrap_raffle__dc__add_basis__binding__dc_type( &
      this, basis &
 )
-    use raffle__rw_geom, only: basis_type
+    use raffle__geom_rw, only: basis_type
     use raffle__distribs_container, only: distribs_container_type
     implicit none
     

@@ -6,7 +6,7 @@ program raffle_program
   use inputs
   use read_structures, only: get_evolved_gvectors_from_data
   use raffle, only: raffle_generator_type, distribs_container_type
-  use raffle__rw_geom, only: geom_read, geom_write
+  use raffle__geom_rw, only: geom_read, geom_write
   implicit none
 
   ! Local variables

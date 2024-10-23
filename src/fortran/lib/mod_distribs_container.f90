@@ -13,7 +13,7 @@ module raffle__distribs_container
   use raffle__error_handling, only: stop_program
   use raffle__misc, only: set, icount, strip_null, sort_str
   use raffle__misc_maths, only: triangular_number, set_difference
-  use raffle__rw_geom, only: basis_type, get_element_properties
+  use raffle__geom_rw, only: basis_type, get_element_properties
   use elements, only: &
        element_type, element_bond_type, &
        element_database, element_bond_database

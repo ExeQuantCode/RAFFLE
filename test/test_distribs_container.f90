@@ -3,7 +3,7 @@ program test_distribs_container
   use raffle__distribs_container, only: &
        distribs_container_type
   use raffle__constants, only: real32, pi
-  use raffle__rw_geom, only: basis_type
+  use raffle__geom_rw, only: basis_type
   implicit none
 
   logical :: success = .true.

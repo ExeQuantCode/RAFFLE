@@ -1,4 +1,4 @@
-module raffle__rw_geom
+module raffle__geom_rw
   !! Module to store, read and write geometry files
   !!
   !! This module contains the procedures to read and write geometry files.
@@ -1905,4 +1905,4 @@ contains
   end subroutine get_element_properties
 !###############################################################################
 
-end module raffle__rw_geom
+end module raffle__geom_rw

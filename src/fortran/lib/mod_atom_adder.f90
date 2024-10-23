@@ -11,7 +11,7 @@ module add_atom
   !! - min:  place the atom at the gridpoint with the highest suitability
   use raffle__constants, only: real32, pi
   use raffle__misc_linalg, only: modu, inverse_3x3
-  use raffle__rw_geom, only: basis_type
+  use raffle__geom_rw, only: basis_type
   use extended_geom, only: extended_basis_type
   use raffle__dist_calcs, only: &
        get_min_dist, &

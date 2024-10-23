@@ -1,6 +1,6 @@
 module rw_vasprun
   use raffle__constants, only: real32
-  use raffle__rw_geom, only: basis_type
+  use raffle__geom_rw, only: basis_type
   implicit none
 
   private

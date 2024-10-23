@@ -12,7 +12,7 @@ except PackageNotFoundError:
     __version__ = "unknown"
 
 from .raffle import generator as _generator_class
-from .raffle import rw_geom as _rw_geom_class
+from .raffle import geom_rw as _geom_rw_class
 # from .raffle import generator
 
 
@@ -26,8 +26,8 @@ generator.raffle_generator = _generator_class.raffle_generator
 generator.stoichiometry_array = _generator_class.stoichiometry_array
 
 # Assign the class to the simulated 'geom' module
-geom.basis_array = _rw_geom_class.basis_array
-geom.basis = _rw_geom_class.basis
+geom.basis_array = _geom_rw_class.basis_array
+geom.basis = _geom_rw_class.basis
 
 
 # Add the simulated 'generator' module to the current package
@@ -37,7 +37,7 @@ sys.modules['raffle.geom'] = geom
 
 # Clean up internal imports (remove access to the direct classes)
 del _generator_class
-del _rw_geom_class
+del _geom_rw_class
 del PackageNotFoundError
 del version
 del sys

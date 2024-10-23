@@ -89,7 +89,7 @@ set(LIB_FILES
 )
 
 set(SPECIAL_LIB_FILES
-  mod_rw_geom.f90
+  mod_geom_rw.f90
   mod_distribs_container.f90
   mod_generator.f90
   # mod_generator_sub.f90

@@ -1,11 +1,11 @@
-module generator
+module raffle__generator
   !! Module for generating random structures from host structures.
   !!
   !! This module contains the raffle generator type, which is used to generate
   !! random structures from a host structure. The raffle generator uses
   !! distribution functions to determine the placement of atoms in the
   !! provided host structure.
-  use raffle__error_handling, only: stop_program
+  use raffle__io_utils, only: stop_program
   use raffle__constants, only: real32
   use raffle__misc_linalg, only: modu
   use raffle__misc, only: strip_null, set
@@ -13,7 +13,6 @@ module generator
   use raffle__geom_extd, only: extended_basis_type
   use raffle__distribs_container, only: distribs_container_type
 
-  use raffle__constants, only: verbose_global => verbose
   use raffle__misc, only: shuffle
   use raffle__geom_utils, only: basis_merge
   use raffle__place_methods, only: &
@@ -747,4 +746,4 @@ contains
   end subroutine allocate_structures
 !###############################################################################
 
-end module generator
+end module raffle__generator

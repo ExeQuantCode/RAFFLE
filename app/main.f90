@@ -1,7 +1,7 @@
 program raffle_program
   !! Main program for the interface-based random structure search
   use raffle__constants, only: real32
-  use raffle__error_handling, only: stop_program
+  use raffle__io_utils, only: stop_program
   use raffle__misc, only: touch
   use inputs
   use read_structures, only: get_evolved_gvectors_from_data

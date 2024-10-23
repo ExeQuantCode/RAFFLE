@@ -1,6 +1,6 @@
 program test_geom_extd
   !! Test program for the module geom_extd.
-  use raffle__error_handling
+  use raffle__io_utils
   use raffle__constants, only: real32
   use raffle__geom_extd
   implicit none

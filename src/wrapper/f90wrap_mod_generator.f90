@@ -4,7 +4,7 @@
 ! stoichiometry derived type
 !###############################################################################
 subroutine f90wrap_stoichiometry_type__get__element(this, f90wrap_element)
-    use generator, only: stoichiometry_type
+    use raffle__generator, only: stoichiometry_type
     implicit none
     type stoichiometry_type_ptr_type
         type(stoichiometry_type), pointer :: p => NULL()
@@ -18,7 +18,7 @@ subroutine f90wrap_stoichiometry_type__get__element(this, f90wrap_element)
 end subroutine f90wrap_stoichiometry_type__get__element
 
 subroutine f90wrap_stoichiometry_type__set__element(this, f90wrap_element)
-    use generator, only: stoichiometry_type
+    use raffle__generator, only: stoichiometry_type
     implicit none
     type stoichiometry_type_ptr_type
         type(stoichiometry_type), pointer :: p => NULL()
@@ -32,7 +32,7 @@ subroutine f90wrap_stoichiometry_type__set__element(this, f90wrap_element)
 end subroutine f90wrap_stoichiometry_type__set__element
 
 subroutine f90wrap_stoichiometry_type__get__num(this, f90wrap_num)
-    use generator, only: stoichiometry_type
+    use raffle__generator, only: stoichiometry_type
     implicit none
     type stoichiometry_type_ptr_type
         type(stoichiometry_type), pointer :: p => NULL()
@@ -46,7 +46,7 @@ subroutine f90wrap_stoichiometry_type__get__num(this, f90wrap_num)
 end subroutine f90wrap_stoichiometry_type__get__num
 
 subroutine f90wrap_stoichiometry_type__set__num(this, f90wrap_num)
-    use generator, only: stoichiometry_type
+    use raffle__generator, only: stoichiometry_type
     implicit none
     type stoichiometry_type_ptr_type
         type(stoichiometry_type), pointer :: p => NULL()
@@ -60,7 +60,7 @@ subroutine f90wrap_stoichiometry_type__set__num(this, f90wrap_num)
 end subroutine f90wrap_stoichiometry_type__set__num
 
 subroutine f90wrap_stoichiometry_type_initialise(this)
-    use generator, only: stoichiometry_type
+    use raffle__generator, only: stoichiometry_type
     implicit none
     
     type stoichiometry_type_ptr_type
@@ -73,7 +73,7 @@ subroutine f90wrap_stoichiometry_type_initialise(this)
 end subroutine f90wrap_stoichiometry_type_initialise
 
 subroutine f90wrap_stoichiometry_type_finalise(this)
-    use generator, only: stoichiometry_type
+    use raffle__generator, only: stoichiometry_type
     implicit none
     
     type stoichiometry_type_ptr_type
@@ -88,7 +88,7 @@ end subroutine f90wrap_stoichiometry_type_finalise
 
 subroutine f90wrap_stoich_type_xnum_array__array_getitem__items( &
        this, f90wrap_i, itemsitem)
-    use generator, only: stoichiometry_type
+    use raffle__generator, only: stoichiometry_type
     implicit none
 
     type stoichiometry_type_xnum_array
@@ -117,7 +117,7 @@ subroutine f90wrap_stoich_type_xnum_array__array_getitem__items( &
 end subroutine f90wrap_stoich_type_xnum_array__array_getitem__items
 
 subroutine f90wrap_stoich_type_xnum_array__array_setitem__items(this, f90wrap_i, itemsitem)
-    use generator, only: stoichiometry_type
+    use raffle__generator, only: stoichiometry_type
     implicit none
 
     type stoichiometry_type_xnum_array
@@ -146,7 +146,7 @@ subroutine f90wrap_stoich_type_xnum_array__array_setitem__items(this, f90wrap_i,
 end subroutine f90wrap_stoich_type_xnum_array__array_setitem__items
 
 subroutine f90wrap_stoich_type_xnum_array__array_len__items(this, f90wrap_n)
-    use generator, only: stoichiometry_type
+    use raffle__generator, only: stoichiometry_type
     implicit none
 
     type stoichiometry_type_xnum_array
@@ -164,7 +164,7 @@ subroutine f90wrap_stoich_type_xnum_array__array_len__items(this, f90wrap_n)
 end subroutine f90wrap_stoich_type_xnum_array__array_len__items
 
 subroutine f90wrap_stoich_type_xnum_array__array_alloc__items(this, num)
-    use generator, only: stoichiometry_type
+    use raffle__generator, only: stoichiometry_type
     implicit none
 
     type stoichiometry_type_xnum_array
@@ -184,7 +184,7 @@ subroutine f90wrap_stoich_type_xnum_array__array_alloc__items(this, num)
 end subroutine f90wrap_stoich_type_xnum_array__array_alloc__items
 
 subroutine f90wrap_stoich_type_xnum_array__array_dealloc__items(this)
-    use generator, only: stoichiometry_type
+    use raffle__generator, only: stoichiometry_type
     implicit none
 
     type stoichiometry_type_xnum_array
@@ -208,7 +208,7 @@ end subroutine f90wrap_stoich_type_xnum_array__array_dealloc__items
 ! generator contained stoichiometry
 !###############################################################################
 subroutine f90wrap_generator__stoich_type_xnum_array_initialise(this)
-    use generator, only: stoichiometry_type
+    use raffle__generator, only: stoichiometry_type
     implicit none
 
     type stoichiometry_type_xnum_array
@@ -225,7 +225,7 @@ subroutine f90wrap_generator__stoich_type_xnum_array_initialise(this)
 end subroutine f90wrap_generator__stoich_type_xnum_array_initialise
 
 subroutine f90wrap_generator__stoich_type_xnum_array_finalise(this)
-    use generator, only: stoichiometry_type
+    use raffle__generator, only: stoichiometry_type
     implicit none
 
     type stoichiometry_type_xnum_array
@@ -249,7 +249,7 @@ end subroutine f90wrap_generator__stoich_type_xnum_array_finalise
 subroutine f90wrap_raffle_generator_type__get__num_structures( &
      this, f90wrap_num_structures &
 )
-    use generator, only: raffle_generator_type
+    use raffle__generator, only: raffle_generator_type
     implicit none
     type raffle_generator_type_ptr_type
         type(raffle_generator_type), pointer :: p => NULL()
@@ -265,7 +265,7 @@ end subroutine f90wrap_raffle_generator_type__get__num_structures
 subroutine f90wrap_raffle_generator_type__set__num_structures( &
      this, f90wrap_num_structures &
 )
-    use generator, only: raffle_generator_type
+    use raffle__generator, only: raffle_generator_type
     implicit none
     type raffle_generator_type_ptr_type
         type(raffle_generator_type), pointer :: p => NULL()
@@ -284,7 +284,7 @@ end subroutine f90wrap_raffle_generator_type__set__num_structures
 ! host handling
 !###############################################################################
 subroutine f90wrap_raffle_generator_type__get__host(this, f90wrap_host)
-    use generator, only: raffle_generator_type
+    use raffle__generator, only: raffle_generator_type
     use raffle__geom_rw, only: basis_type
     implicit none
     type raffle_generator_type_ptr_type
@@ -304,7 +304,7 @@ subroutine f90wrap_raffle_generator_type__get__host(this, f90wrap_host)
 end subroutine f90wrap_raffle_generator_type__get__host
 
 subroutine f90wrap_raffle_generator_type__set__host(this, f90wrap_host)
-    use generator, only: raffle_generator_type
+    use raffle__generator, only: raffle_generator_type
     use raffle__geom_rw, only: basis_type
     implicit none
     type raffle_generator_type_ptr_type
@@ -331,7 +331,7 @@ end subroutine f90wrap_raffle_generator_type__set__host
 subroutine f90wrap_raffle_generator_type__array__grid( &
      this, nd, dtype, dshape, dloc &
 )
-    use generator, only: raffle_generator_type
+    use raffle__generator, only: raffle_generator_type
     use, intrinsic :: iso_c_binding, only : c_int
     implicit none
     type raffle_generator_type_ptr_type
@@ -354,7 +354,7 @@ end subroutine f90wrap_raffle_generator_type__array__grid
 subroutine f90wrap_raffle_generator_type__array__grid_offset( &
      this, nd, dtype, dshape, dloc &
 )
-    use generator, only: raffle_generator_type
+    use raffle__generator, only: raffle_generator_type
     use, intrinsic :: iso_c_binding, only : c_int
     implicit none
     type raffle_generator_type_ptr_type
@@ -377,7 +377,7 @@ end subroutine f90wrap_raffle_generator_type__array__grid_offset
 subroutine f90wrap_raffle_generator_type__get__grid_spacing( &
      this, f90wrap_grid_spacing &
 )
-    use generator, only: raffle_generator_type
+    use raffle__generator, only: raffle_generator_type
     implicit none
     type raffle_generator_type_ptr_type
         type(raffle_generator_type), pointer :: p => NULL()
@@ -393,7 +393,7 @@ end subroutine f90wrap_raffle_generator_type__get__grid_spacing
 subroutine f90wrap_raffle_generator_type__set__grid_spacing( &
      this, f90wrap_grid_spacing &
 )
-    use generator, only: raffle_generator_type
+    use raffle__generator, only: raffle_generator_type
     implicit none
     type raffle_generator_type_ptr_type
         type(raffle_generator_type), pointer :: p => NULL()
@@ -414,7 +414,7 @@ end subroutine f90wrap_raffle_generator_type__set__grid_spacing
 subroutine f90wrap_raffle_generator_type__get__distributions( &
      this, f90wrap_distributions &
 )
-    use generator, only: raffle_generator_type
+    use raffle__generator, only: raffle_generator_type
     use raffle__distribs_container, only: distribs_container_type
     implicit none
     type raffle_generator_type_ptr_type
@@ -436,7 +436,7 @@ end subroutine f90wrap_raffle_generator_type__get__distributions
 subroutine f90wrap_raffle_generator_type__set__distributions( &
      this, f90wrap_distributions &
 )
-    use generator, only: raffle_generator_type
+    use raffle__generator, only: raffle_generator_type
     use raffle__distribs_container, only: distribs_container_type
     implicit none
     type raffle_generator_type_ptr_type
@@ -463,7 +463,7 @@ end subroutine f90wrap_raffle_generator_type__set__distributions
 subroutine f90wrap_raffle_generator_type__get__max_attempts( &
      this, f90wrap_max_attempts &
 )
-    use generator, only: raffle_generator_type
+    use raffle__generator, only: raffle_generator_type
     implicit none
     type raffle_generator_type_ptr_type
         type(raffle_generator_type), pointer :: p => NULL()
@@ -479,7 +479,7 @@ end subroutine f90wrap_raffle_generator_type__get__max_attempts
 subroutine f90wrap_raffle_generator_type__set__max_attempts( &
      this, f90wrap_max_attempts &
 )
-    use generator, only: raffle_generator_type
+    use raffle__generator, only: raffle_generator_type
     implicit none
     type raffle_generator_type_ptr_type
         type(raffle_generator_type), pointer :: p => NULL()
@@ -495,7 +495,7 @@ end subroutine f90wrap_raffle_generator_type__set__max_attempts
 subroutine f90wrap_raffle_generator_type__get__walk_step_size_coarse( &
      this, f90wrap_walk_step_size_coarse &
 )
-    use generator, only: raffle_generator_type
+    use raffle__generator, only: raffle_generator_type
     implicit none
     type raffle_generator_type_ptr_type
         type(raffle_generator_type), pointer :: p => NULL()
@@ -511,7 +511,7 @@ end subroutine f90wrap_raffle_generator_type__get__walk_step_size_coarse
 subroutine f90wrap_raffle_generator_type__set__walk_step_size_coarse( &
      this, f90wrap_walk_step_size_coarse &
 )
-    use generator, only: raffle_generator_type
+    use raffle__generator, only: raffle_generator_type
     implicit none
     type raffle_generator_type_ptr_type
         type(raffle_generator_type), pointer :: p => NULL()
@@ -527,7 +527,7 @@ end subroutine f90wrap_raffle_generator_type__set__walk_step_size_coarse
 subroutine f90wrap_raffle_generator_type__get__walk_step_size_fine( &
      this, f90wrap_walk_step_size_fine &
 )
-    use generator, only: raffle_generator_type
+    use raffle__generator, only: raffle_generator_type
     implicit none
     type raffle_generator_type_ptr_type
         type(raffle_generator_type), pointer :: p => NULL()
@@ -543,7 +543,7 @@ end subroutine f90wrap_raffle_generator_type__get__walk_step_size_fine
 subroutine f90wrap_raffle_generator_type__set__walk_step_size_fine( &
      this, f90wrap_walk_step_size_fine &
 )
-    use generator, only: raffle_generator_type
+    use raffle__generator, only: raffle_generator_type
     implicit none
     type raffle_generator_type_ptr_type
         type(raffle_generator_type), pointer :: p => NULL()
@@ -564,7 +564,7 @@ end subroutine f90wrap_raffle_generator_type__set__walk_step_size_fine
 subroutine f90wrap_raffle_generator_type__array__method_probab( &
      this, nd, dtype, dshape, dloc &
 )
-    use generator, only: raffle_generator_type
+    use raffle__generator, only: raffle_generator_type
     use, intrinsic :: iso_c_binding, only : c_int
     implicit none
     type raffle_generator_type_ptr_type
@@ -593,7 +593,7 @@ subroutine f90wrap_raffle_generator_type__array_getitem__structures( &
      f90wrap_this, f90wrap_i, structuresitem &
 )
     
-    use generator, only: raffle_generator_type
+    use raffle__generator, only: raffle_generator_type
     use raffle__geom_rw, only: basis_type
     implicit none
     
@@ -626,7 +626,7 @@ subroutine f90wrap_raffle_generator_type__array_setitem__structures( &
      f90wrap_this, f90wrap_i, structuresitem &
 )
     
-    use generator, only: raffle_generator_type
+    use raffle__generator, only: raffle_generator_type
     use raffle__geom_rw, only: basis_type
     implicit none
     
@@ -659,7 +659,7 @@ subroutine f90wrap_raffle_generator_type__array_len__structures( &
      f90wrap_this, f90wrap_n &
 )
     
-    use generator, only: raffle_generator_type
+    use raffle__generator, only: raffle_generator_type
     use raffle__geom_rw, only: basis_type
     implicit none
     
@@ -684,7 +684,7 @@ end subroutine f90wrap_raffle_generator_type__array_len__structures
 ! generator derived type initialisation and finalisation
 !###############################################################################
 subroutine f90wrap_generator__raffle_generator_type_initialise(this)
-    use generator, only: raffle_generator_type
+    use raffle__generator, only: raffle_generator_type
     implicit none
     
     type raffle_generator_type_ptr_type
@@ -697,7 +697,7 @@ subroutine f90wrap_generator__raffle_generator_type_initialise(this)
 end subroutine f90wrap_generator__raffle_generator_type_initialise
 
 subroutine f90wrap_generator__raffle_generator_type_finalise(this)
-    use generator, only: raffle_generator_type
+    use raffle__generator, only: raffle_generator_type
     implicit none
     
     type raffle_generator_type_ptr_type
@@ -716,7 +716,7 @@ end subroutine f90wrap_generator__raffle_generator_type_finalise
 !###############################################################################
 subroutine f90wrap_generator__set_host__binding__rgt(this, host)
     use raffle__geom_rw, only: basis_type
-    use generator, only: raffle_generator_type
+    use raffle__generator, only: raffle_generator_type
     implicit none
     
     type raffle_generator_type_ptr_type
@@ -737,7 +737,7 @@ end subroutine f90wrap_generator__set_host__binding__rgt
 subroutine f90wrap_generator__set_grid__binding__raffle_generator_type( &
      this, grid, grid_spacing, grid_offset &
 )
-    use generator, only: raffle_generator_type
+    use raffle__generator, only: raffle_generator_type
     implicit none
     
     type raffle_generator_type_ptr_type
@@ -757,7 +757,7 @@ subroutine f90wrap_generator__set_grid__binding__raffle_generator_type( &
 end subroutine f90wrap_generator__set_grid__binding__raffle_generator_type
 
 subroutine f90wrap_generator__reset_grid__binding__raffle_generator_type(this)
-    use generator, only: raffle_generator_type
+    use raffle__generator, only: raffle_generator_type
     implicit none
     
     type raffle_generator_type_ptr_type
@@ -772,7 +772,7 @@ end subroutine f90wrap_generator__reset_grid__binding__raffle_generator_type
 subroutine f90wrap_generator__generate__binding__rgt( &
        this, num_structures, stoichiometry, &
     method_probab, seed, verbose)
-    use generator, only: raffle_generator_type, stoichiometry_type
+    use raffle__generator, only: raffle_generator_type, stoichiometry_type
     implicit none
     
     type raffle_generator_type_ptr_type
@@ -809,7 +809,7 @@ end subroutine f90wrap_generator__generate__binding__rgt
 
 subroutine f90wrap_generator__evaluate__binding__rgt(this, ret_viability, basis)
     use raffle__geom_rw, only: basis_type
-    use generator, only: raffle_generator_type
+    use raffle__generator, only: raffle_generator_type
     implicit none
     
     type raffle_generator_type_ptr_type
@@ -830,7 +830,7 @@ end subroutine f90wrap_generator__evaluate__binding__rgt
 
 subroutine f90wrap_generator__get_structures__binding__rgt(this, ret_structures)
     use raffle__geom_rw, only: basis_type
-    use generator, only: raffle_generator_type
+    use raffle__generator, only: raffle_generator_type
     implicit none
 
     type raffle_generator_type_ptr_type

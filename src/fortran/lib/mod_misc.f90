@@ -1,7 +1,7 @@
 module raffle__misc
   !! Module contains various miscellaneous functions and subroutines.
   use raffle__constants, only: real32
-  use raffle__error_handling, only: stop_program
+  use raffle__io_utils, only: stop_program
   implicit none
 
 

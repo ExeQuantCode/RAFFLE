@@ -1,5 +1,5 @@
 program test_distribs_container
-  use raffle__error_handling, only: test_error_handling
+  use raffle__io_utils, only: test_error_handling
   use raffle__distribs_container, only: &
        distribs_container_type
   use raffle__constants, only: real32, pi

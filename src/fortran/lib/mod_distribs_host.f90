@@ -6,7 +6,7 @@ module raffle__distribs_host
   !! interface energy of the host and to set the mapping of host elements to
   !! the element database.
   use raffle__constants, only: real32
-  use raffle__error_handling, only: stop_program
+  use raffle__io_utils, only: stop_program
   use raffle__geom_rw, only: basis_type
   use raffle__element_utils, only: element_type
   use raffle__distribs, only: distribs_type

@@ -7,7 +7,7 @@ module raffle__viability
   use raffle__misc_linalg, only: modu
   use raffle__geom_extd, only: extended_basis_type
   use raffle__dist_calcs, only: get_min_dist_between_point_and_atom
-  use evaluator, only: evaluate_point
+  use raffle__evaluator, only: evaluate_point
   use raffle__distribs_container, only: distribs_container_type
   implicit none
 

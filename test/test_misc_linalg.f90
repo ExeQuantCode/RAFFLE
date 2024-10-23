@@ -1,5 +1,5 @@
 program test_misc_linalg
-  use raffle__error_handling
+  use raffle__io_utils
   use raffle__misc_linalg
   use raffle__constants, only: real32, pi
   implicit none

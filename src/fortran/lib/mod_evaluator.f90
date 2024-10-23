@@ -338,13 +338,6 @@ contains
                              position_store ), &
                   dim = 2 &
              )
-             !!! THIS IS A TEMPORARY CHECK
-             !!! IF IT IS NEVER ENCOUNTERED, WE CAN REMOVE IT
-             !!! AND WHEN REMOVING, WE CAN MAKE ALL PROCEDURES HERE PURE
-             if(bin.eq.0)then
-                write(0,*) "Error: bin = 0, IF NOT TRIGGERED, WE CAN REMOVE THIS IF"
-                stop 1
-             end if
              output = output * &
                   gvector_container%total%df_3body( &
                        bin, &
@@ -404,13 +397,6 @@ contains
                   ), &
                   dim = 3 &
              )
-             !!! THIS IS A TEMPORARY CHECK
-             !!! IF IT IS NEVER ENCOUNTERED, WE CAN REMOVE IT
-             !!! AND WHEN REMOVING, WE CAN MAKE ALL PROCEDURES HERE PURE
-             if(bin.eq.0)then
-                write(0,*) "Error: bin = 0, IF NOT TRIGGERED, WE CAN REMOVE THIS IF"
-                stop 1
-             end if
              output = output * &
                   gvector_container%total%df_4body( &
                        bin, &

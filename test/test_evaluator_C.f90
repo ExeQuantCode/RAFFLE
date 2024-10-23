@@ -11,7 +11,7 @@ program test_evaluator
 
 
   integer :: unit
-  integer :: i, is, ia, num_points
+  integer :: i, is, ia, ja, num_points
   integer :: best_loc
   real(real12) :: max_bondlength
   type(extended_basis_type) :: basis_host

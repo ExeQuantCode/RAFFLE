@@ -308,7 +308,8 @@ contains
     type(basis_type), intent(in) :: bas1, bas2
     logical :: output
 
-    integer :: is, ia
+    integer :: is, ia, ja
+    logical :: ltmp1
     output = .true.
 
   ! Compare the geometries
@@ -324,16 +325,26 @@ contains
 
    do is = 1, bas1%nspec
       do ia = 1, bas1%spec(is)%num
-         if( &
-              any( &
-                   abs( &
-                        bas1%spec(is)%atom(ia,:3) - &
-                        bas2%spec(is)%atom(ia,:3) &
-                   ) .ge. 2._real32 * tolerance + 1.E-6_real32 &
-              ) &
-         ) then
+         ltmp1 = .false.
+         do ja = 1, bas2%spec(is)%num
+            if( &
+                 all( &
+                      abs( &
+                           bas1%spec(is)%atom(ia,:3) - &
+                           bas2%spec(is)%atom(ja,:3) - &
+                           ceiling( &
+                                bas1%spec(is)%atom(ia,:3) - &
+                                bas2%spec(is)%atom(ja,:3) - &
+                                0.5_real32 &
+                           ) &
+                      ) .lt. 2._real32 * tolerance + 1.E-6_real32 &
+                 ) &
+            ) ltmp1 = .true.
+         end do
+         if(.not. ltmp1) then
             write(0,*) 'Generator failed to produce expected atom: ', is, ia
             write(0,*) bas1%spec(is)%atom(ia,:3), bas2%spec(is)%atom(ia,:3)
+            output = .false.
          end if
       end do
    end do

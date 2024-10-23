@@ -337,7 +337,7 @@ contains
                [ basis_list(i)%spec(1)%name ], [ -9.027_real32 ] &
           )
           species_tmp = basis_list(i)%spec(j)%name(1:3)
-          if(.not.allocated(elements)) then
+          if(.not.allocated(elements).or.size(elements,1).eq.0) then
              elements = [ species_tmp ]
              cycle species_loop
           end if

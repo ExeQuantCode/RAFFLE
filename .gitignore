@@ -28,3 +28,5 @@ fort.*
 *.e
 *.log
 *.agr
+*.pdf
+*.eps

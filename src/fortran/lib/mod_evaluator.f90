@@ -221,7 +221,6 @@ contains
        viability_2body = 0.5_real12
     else
        viability_2body = viability_2body / real( num_2body, real12 )
-      !  viability_2body = viability_2body ** (1._real12 / num_2body)
     end if
 
 
@@ -275,15 +274,17 @@ contains
     ! Normalise the viability map
     if(num_3body.eq.0)then
        viability_3body = gvector_container%viability_3body_default
-      !  viability_3body = 1.5_real12
     else
-       viability_3body = viability_3body ** (1._real12 / real(num_3body,real12))
+       viability_3body = viability_3body ** ( &
+            1._real12 / real(num_3body,real12) &
+       )
     end if
     if(num_4body.eq.0)then
        viability_4body = gvector_container%viability_4body_default
-      !  viability_4body = 1.5_real12
     else
-       viability_4body = viability_4body ** (1._real12 / real(num_4body,real12))
+       viability_4body = viability_4body ** ( &
+            1._real12 / real(num_4body,real12) &
+       )
     end if
     
     ! Combine the 2-, 3- and 4-body maps
@@ -326,11 +327,10 @@ contains
 
 
     output = 1._real12
-    num_3body_local = 0
+    num_3body_local = sum(basis%spec(current_idx(1):)%num) - current_idx(2)
     species_loop: do js = current_idx(1), basis%nspec, 1
        atom_loop: do ja = 1, basis%spec(js)%num
-          if(all([js,ja].eq.current_idx))cycle
-          num_3body_local = num_3body_local + 1
+          if(js.eq.current_idx(1) .and. ja.le.current_idx(2))cycle
           associate( position_store => [ basis%spec(js)%atom(ja,1:3) ] )
              bin = gvector_container%get_bin( &
                   get_angle( position_2, &
@@ -345,15 +345,17 @@ contains
                 write(0,*) "Error: bin = 0, IF NOT TRIGGERED, WE CAN REMOVE THIS IF"
                 stop 1
              end if
-             output = output * gvector_container%total%df_3body(bin,species)
+             output = output * &
+                  gvector_container%total%df_3body( &
+                       bin, &
+                       gvector_container%host_system%element_map(species) &
+                  ) ** ( 1._real12 / real( num_3body_local, real12 ) )
           end associate
        end do atom_loop
     end do species_loop
     if(num_3body_local.eq.0)then
        output = 1._real12
        num_3body = num_3body - 1
-    else
-       output = output ** (1._real12 / real( num_3body_local, real12 ) )
     end if
 
   end function evaluate_3body_contributions
@@ -410,9 +412,10 @@ contains
                 stop 1
              end if
              output = output * &
-                  gvector_container%total%df_4body(bin,species) ** ( &
-                       1._real12 / real( num_4body_local, real12 ) &
-                  )
+                  gvector_container%total%df_4body( &
+                       bin, &
+                       gvector_container%host_system%element_map(species) &
+                  ) ** ( 1._real12 / real( num_4body_local, real12 ) )
           end associate
        end do atom_loop
     end do species_loop

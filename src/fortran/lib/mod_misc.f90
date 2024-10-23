@@ -1069,6 +1069,11 @@ subroutine sort_str(list, lcase)
 !###############################################################################
   function strip_null(buffer) result(stripped)
     !! Strip null characters from a string.
+    !!
+    !! This is meant for handling strings passed from Python, which gain
+    !! null characters at the end. The procedure finds the first null
+    !! character and truncates the string at that point.
+    !! Null characters are represented by ASCII code 0.
     implicit none
 
     ! Arguments

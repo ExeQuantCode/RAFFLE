@@ -1,6 +1,7 @@
 program test_evaluator
   use error_handling
-  use constants, only: real12
+  use constants, only: real12, pi
+  use misc_linalg, only: modu
   use rw_geom, only: basis_type, geom_write
   use extended_geom, only: extended_basis_type
   use evaluator, only: evaluate_point
@@ -9,7 +10,8 @@ program test_evaluator
   implicit none
 
 
-  integer :: i, ia, ja, num_points
+  integer :: unit
+  integer :: i, is, ia, num_points
   integer :: best_loc
   real(real12) :: max_bondlength
   type(extended_basis_type) :: basis_host
@@ -20,14 +22,64 @@ program test_evaluator
   real(real12), dimension(3) :: tolerance
   integer, dimension(:,:), allocatable :: atom_ignore_list
 
-  real(real12), dimension(:), allocatable :: suitability_grid
-  real(real12), dimension(:,:), allocatable :: gridpoints
+  integer :: iostat
+  logical :: viability_printing
+  character(len=256) :: arg, arg_prev, viability_printing_file, fmt
+
+  real(real12), dimension(:,:), allocatable :: gridpoints, viability_grid
 
   type(raffle_generator_type) :: generator
 
   logical :: success = .true.
 
   test_error_handling = .true.
+
+
+  !-----------------------------------------------------------------------------
+  ! check for input argument flags
+  !-----------------------------------------------------------------------------
+  viability_printing = .false.
+  viability_printing_file = 'viability_C.dat'
+  if( command_argument_count() .ne. 0 ) then
+     i = 1
+     do
+        call get_command_argument(i, arg, status=iostat)
+        if( iostat .ne. 0 ) exit
+        if(index(arg,'-').eq.1) then
+           if( arg == '-h' .or. arg == '--help' ) then
+              ! print description of unit test and associated flags
+              write(*,*) "This unit test evaluates the evaluator module using &
+                   &the BaTiO3 structure."
+              write(*,*) "Flags:"
+              write(*,*) "-h, --help: Print this help message"
+              write(*,*) "-p, --print [filename]: Print the gridpoints and &
+                   &their viability values to a file. If no filename is &
+                   &given. Default filename = 'viability_C.dat'."
+              stop 0
+           elseif( index(arg,'-p').eq.1 .or. index(arg,'--print').eq.1 ) then
+              viability_printing = .true.
+              if( index(arg,'-p').eq.1 .and. trim(arg).ne.'-p' )then
+                 viability_printing_file = trim(adjustl(arg(3:)))
+              elseif( index(arg,'--print').eq.1 .and. &
+                   trim(arg).ne.'--print' )then
+                 viability_printing_file = trim(adjustl(arg(8:)))
+              end if
+           else
+              write(0,*) "Unknown flag: ", arg
+              stop 1
+           end if
+        else
+           call get_command_argument(i-1, arg_prev, status=iostat)
+           if( index(arg,'-p').eq.1 .or. index(arg,'--print').eq.1 ) then
+               viability_printing_file = trim(adjustl(arg))
+           else
+               write(0,*) "Unknown argument: ", arg
+               stop 1
+           end if
+        end if
+        i = i + 1
+     end do
+  end if
 
 
   max_bondlength = 6._real12
@@ -114,6 +166,7 @@ program test_evaluator
   call generator%host%copy(basis_host)
   call generator%set_grid( grid_spacing = 0.2, grid_offset = [0.0, 0.0, 0.0] )
   generator%distributions%radius_distance_tol = [1.5, 2.5, 3.0, 6.0]
+  call generator%distributions%set_width([0.025, pi/200.0, pi/200.0])
 
 
   !-----------------------------------------------------------------------------
@@ -144,19 +197,53 @@ program test_evaluator
 
 
   !-----------------------------------------------------------------------------
+  ! print viability data to file
+  !-----------------------------------------------------------------------------
+  if(viability_printing)then
+     write(*,*) "Printing viability data to file: ", &
+          trim(viability_printing_file)
+     open(newunit=unit, file=viability_printing_file)
+     write(unit,'("#grid",3(1X,I0),3(1X,F0.3))') &
+          generator%grid, generator%grid_offset
+     write(unit,'("#lat",3(1X,F0.3))') &
+          modu(basis_host%lat(1,:)), &
+          modu(basis_host%lat(2,:)), &
+          modu(basis_host%lat(3,:))
+     write(fmt,'("(""#species"",",I0,"(1X,A3))")') basis_host%nspec
+     write(unit,fmt) basis_host%spec(:)%name
+     do is = 1, basis_host%nspec
+        atom_loop: do ia = 1, basis_host%spec(is)%num
+           do i = 1, size(atom_ignore_list,1)
+              if( all(atom_ignore_list(i,:).eq.[is,ia]) ) cycle atom_loop
+           end do
+           write(unit,*) basis_host%spec(is)%atom(ia,:3)
+        end do atom_loop
+     end do
+     write(unit,*)
+     do is = 1, basis_host%nspec
+        do i = 1, size(gridpoints,dim=2)
+           write(unit,*) gridpoints(1:3,i), gridpoints(3+is,i), is
+        end do
+     end do
+     close(unit)
+     stop 0
+  end if
+  
+
+  !-----------------------------------------------------------------------------
   ! call evaluator
   !-----------------------------------------------------------------------------
-  allocate(suitability_grid(size(gridpoints,2)))
+  allocate(viability_grid(basis_host%nspec,size(gridpoints,2)))
   do ia = 1, size(atom_ignore_list,1)
-     suitability_grid(:) = 0._real12
+     viability_grid(:,:) = 0._real12
      do i = 1, size(gridpoints,dim=2)
-        suitability_grid(i) = evaluate_point( generator%distributions, &
+        viability_grid(1,i) = evaluate_point( generator%distributions, &
              gridpoints(1:3,i), atom_ignore_list(ia,1), basis_host, &
              atom_ignore_list(ia:,:), &
              [ generator%distributions%bond_info(:)%radius_covalent ] &
         )
      end do
-     best_loc = maxloc(suitability_grid,dim=1)
+     best_loc = maxloc(viability_grid(atom_ignore_list(ia,1),:),dim=1)
      ! Check point is correct
      ltmp1 = .false.
      do ja = ia, size(atom_ignore_list,1), 1

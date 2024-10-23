@@ -366,6 +366,14 @@ contains
 
 
     !---------------------------------------------------------------------------
+    ! ensure host element map is set
+    !---------------------------------------------------------------------------
+    call this%distributions%host_system%set_element_map( &
+         this%distributions%element_info &
+    )
+
+
+    !---------------------------------------------------------------------------
     ! generate the placement list
     ! placement list is the list of number of atoms of each species that can be
     ! placed in the structure

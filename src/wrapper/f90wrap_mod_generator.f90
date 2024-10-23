@@ -247,7 +247,7 @@ end subroutine f90wrap_generator__stoich_type_xnum_array_finalise
 ! number of generated structures
 !###############################################################################
 subroutine f90wrap_raffle_generator_type__get__num_structures( &
-     this, f90wrap_num_structures
+     this, f90wrap_num_structures &
 )
     use generator, only: raffle_generator_type
     implicit none
@@ -263,7 +263,7 @@ subroutine f90wrap_raffle_generator_type__get__num_structures( &
 end subroutine f90wrap_raffle_generator_type__get__num_structures
 
 subroutine f90wrap_raffle_generator_type__set__num_structures( &
-     this, f90wrap_num_structures
+     this, f90wrap_num_structures &
 )
     use generator, only: raffle_generator_type
     implicit none
@@ -329,7 +329,7 @@ end subroutine f90wrap_raffle_generator_type__set__host
 ! viability grid parameters
 !###############################################################################
 subroutine f90wrap_raffle_generator_type__array__grid( &
-     this, nd, dtype, dshape, dloc
+     this, nd, dtype, dshape, dloc &
 )
     use generator, only: raffle_generator_type
     use, intrinsic :: iso_c_binding, only : c_int
@@ -352,7 +352,7 @@ subroutine f90wrap_raffle_generator_type__array__grid( &
 end subroutine f90wrap_raffle_generator_type__array__grid
 
 subroutine f90wrap_raffle_generator_type__array__grid_offset( &
-     this, nd, dtype, dshape, dloc
+     this, nd, dtype, dshape, dloc &
 )
     use generator, only: raffle_generator_type
     use, intrinsic :: iso_c_binding, only : c_int
@@ -375,7 +375,7 @@ subroutine f90wrap_raffle_generator_type__array__grid_offset( &
 end subroutine f90wrap_raffle_generator_type__array__grid_offset
 
 subroutine f90wrap_raffle_generator_type__get__grid_spacing( &
-     this, f90wrap_grid_spacing
+     this, f90wrap_grid_spacing &
 )
     use generator, only: raffle_generator_type
     implicit none
@@ -391,7 +391,7 @@ subroutine f90wrap_raffle_generator_type__get__grid_spacing( &
 end subroutine f90wrap_raffle_generator_type__get__grid_spacing
 
 subroutine f90wrap_raffle_generator_type__set__grid_spacing( &
-     this, f90wrap_grid_spacing
+     this, f90wrap_grid_spacing &
 )
     use generator, only: raffle_generator_type
     implicit none
@@ -412,7 +412,7 @@ end subroutine f90wrap_raffle_generator_type__set__grid_spacing
 ! distribution function handling
 !###############################################################################
 subroutine f90wrap_raffle_generator_type__get__distributions( &
-     this, f90wrap_distributions
+     this, f90wrap_distributions &
 )
     use generator, only: raffle_generator_type
     use raffle__distribs_container, only: distribs_container_type
@@ -434,7 +434,7 @@ subroutine f90wrap_raffle_generator_type__get__distributions( &
 end subroutine f90wrap_raffle_generator_type__get__distributions
 
 subroutine f90wrap_raffle_generator_type__set__distributions( &
-     this, f90wrap_distributions
+     this, f90wrap_distributions &
 )
     use generator, only: raffle_generator_type
     use raffle__distribs_container, only: distribs_container_type
@@ -461,7 +461,7 @@ end subroutine f90wrap_raffle_generator_type__set__distributions
 ! random walk parameters
 !###############################################################################
 subroutine f90wrap_raffle_generator_type__get__max_attempts( &
-     this, f90wrap_max_attempts
+     this, f90wrap_max_attempts &
 )
     use generator, only: raffle_generator_type
     implicit none
@@ -477,7 +477,7 @@ subroutine f90wrap_raffle_generator_type__get__max_attempts( &
 end subroutine f90wrap_raffle_generator_type__get__max_attempts
 
 subroutine f90wrap_raffle_generator_type__set__max_attempts( &
-     this, f90wrap_max_attempts
+     this, f90wrap_max_attempts &
 )
     use generator, only: raffle_generator_type
     implicit none
@@ -493,7 +493,7 @@ subroutine f90wrap_raffle_generator_type__set__max_attempts( &
 end subroutine f90wrap_raffle_generator_type__set__max_attempts
 
 subroutine f90wrap_raffle_generator_type__get__walk_step_size_coarse( &
-     this, f90wrap_walk_step_size_coarse
+     this, f90wrap_walk_step_size_coarse &
 )
     use generator, only: raffle_generator_type
     implicit none
@@ -509,7 +509,7 @@ subroutine f90wrap_raffle_generator_type__get__walk_step_size_coarse( &
 end subroutine f90wrap_raffle_generator_type__get__walk_step_size_coarse
 
 subroutine f90wrap_raffle_generator_type__set__walk_step_size_coarse( &
-     this, f90wrap_walk_step_size_coarse
+     this, f90wrap_walk_step_size_coarse &
 )
     use generator, only: raffle_generator_type
     implicit none
@@ -525,7 +525,7 @@ subroutine f90wrap_raffle_generator_type__set__walk_step_size_coarse( &
 end subroutine f90wrap_raffle_generator_type__set__walk_step_size_coarse
 
 subroutine f90wrap_raffle_generator_type__get__walk_step_size_fine( &
-     this, f90wrap_walk_step_size_fine
+     this, f90wrap_walk_step_size_fine &
 )
     use generator, only: raffle_generator_type
     implicit none
@@ -541,7 +541,7 @@ subroutine f90wrap_raffle_generator_type__get__walk_step_size_fine( &
 end subroutine f90wrap_raffle_generator_type__get__walk_step_size_fine
 
 subroutine f90wrap_raffle_generator_type__set__walk_step_size_fine( &
-     this, f90wrap_walk_step_size_fine
+     this, f90wrap_walk_step_size_fine &
 )
     use generator, only: raffle_generator_type
     implicit none
@@ -562,7 +562,7 @@ end subroutine f90wrap_raffle_generator_type__set__walk_step_size_fine
 ! placement method ratio
 !###############################################################################
 subroutine f90wrap_raffle_generator_type__array__method_probab( &
-     this, nd, dtype, dshape, dloc
+     this, nd, dtype, dshape, dloc &
 )
     use generator, only: raffle_generator_type
     use, intrinsic :: iso_c_binding, only : c_int
@@ -590,7 +590,8 @@ end subroutine f90wrap_raffle_generator_type__array__method_probab
 ! generated structures handling
 !###############################################################################
 subroutine f90wrap_raffle_generator_type__array_getitem__structures( &
-     f90wrap_this, f90wrap_i, structuresitem)
+     f90wrap_this, f90wrap_i, structuresitem &
+)
     
     use generator, only: raffle_generator_type
     use raffle__geom_rw, only: basis_type
@@ -621,7 +622,9 @@ subroutine f90wrap_raffle_generator_type__array_getitem__structures( &
     end if
 end subroutine f90wrap_raffle_generator_type__array_getitem__structures
 
-subroutine f90wrap_raffle_generator_type__array_setitem__structures(f90wrap_this, f90wrap_i, structuresitem)
+subroutine f90wrap_raffle_generator_type__array_setitem__structures( &
+     f90wrap_this, f90wrap_i, structuresitem &
+)
     
     use generator, only: raffle_generator_type
     use raffle__geom_rw, only: basis_type
@@ -652,7 +655,9 @@ subroutine f90wrap_raffle_generator_type__array_setitem__structures(f90wrap_this
     end if
 end subroutine f90wrap_raffle_generator_type__array_setitem__structures
 
-subroutine f90wrap_raffle_generator_type__array_len__structures(f90wrap_this, f90wrap_n)
+subroutine f90wrap_raffle_generator_type__array_len__structures( &
+     f90wrap_this, f90wrap_n &
+)
     
     use generator, only: raffle_generator_type
     use raffle__geom_rw, only: basis_type
@@ -729,7 +734,9 @@ subroutine f90wrap_generator__set_host__binding__rgt(this, host)
     call this_ptr%p%set_host(host=host_ptr%p)
 end subroutine f90wrap_generator__set_host__binding__rgt
 
-subroutine f90wrap_generator__set_grid__binding__raffle_generator_type(this, grid, grid_spacing, grid_offset)
+subroutine f90wrap_generator__set_grid__binding__raffle_generator_type( &
+     this, grid, grid_spacing, grid_offset &
+)
     use generator, only: raffle_generator_type
     implicit none
     
@@ -742,7 +749,11 @@ subroutine f90wrap_generator__set_grid__binding__raffle_generator_type(this, gri
     real(4), intent(in), optional :: grid_spacing
     real(4), dimension(3), intent(in), optional :: grid_offset
     this_ptr = transfer(this, this_ptr)
-    call this_ptr%p%set_grid(grid=grid, grid_spacing=grid_spacing, grid_offset=grid_offset)
+    call this_ptr%p%set_grid( &
+         grid = grid, &
+         grid_spacing = grid_spacing, &
+         grid_offset = grid_offset &
+    )
 end subroutine f90wrap_generator__set_grid__binding__raffle_generator_type
 
 subroutine f90wrap_generator__reset_grid__binding__raffle_generator_type(this)

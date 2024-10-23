@@ -64,6 +64,10 @@ module generator
     !! Distribution function container for the 2-, 3-, and 4-body interactions.
     integer :: max_attempts = 10000
     !! Limit for the number of attempts to place an atom.
+    real(real12) :: &
+         walk_step_size_coarse = 1._real12, &
+         walk_step_size_fine = 0.1_real12
+    !! Step size for the walk and grow methods.
     real(real12), dimension(5) :: method_probab
     !! Probability of each placement method.
     type(basis_type), dimension(:), allocatable :: structures

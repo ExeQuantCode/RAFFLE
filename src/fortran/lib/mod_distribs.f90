@@ -12,7 +12,7 @@ module raffle__distribs
   use raffle__misc_linalg, only: get_angle, get_improper_dihedral_angle, modu
   use raffle__geom_rw, only: basis_type, get_element_properties
   use extended_geom, only: extended_basis_type
-  use elements, only: &
+  use raffle__element_utils, only: &
        element_type, element_bond_type, &
        element_database, element_bond_database
   implicit none

@@ -1,5 +1,5 @@
-program test_mod_elements
-  use elements
+program test_mod_element_utils
+  use raffle__element_utils
   use raffle__geom_rw, only: get_element_properties
   use raffle__constants, only: real32
   implicit none
@@ -132,4 +132,4 @@ contains
     end if
   end subroutine assert
 
-end program test_mod_elements
+end program test_mod_element_utils

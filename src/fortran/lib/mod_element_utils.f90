@@ -1,4 +1,4 @@
-module elements
+module raffle__element_utils
   !! Module for storing and handling element and bond data.
   !!
   !! This module contains the element and bond types, and the element and bond
@@ -191,4 +191,4 @@ contains
   end subroutine set_bond
 !###############################################################################
 
-end module elements
+end module raffle__element_utils

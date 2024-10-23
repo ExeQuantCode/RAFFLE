@@ -8,7 +8,7 @@ module raffle__distribs_host
   use raffle__constants, only: real32
   use raffle__error_handling, only: stop_program
   use raffle__geom_rw, only: basis_type
-  use elements, only: element_type
+  use raffle__element_utils, only: element_type
   use raffle__distribs, only: distribs_type
   implicit none
 

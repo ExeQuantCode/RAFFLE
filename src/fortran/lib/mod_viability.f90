@@ -5,7 +5,7 @@ module raffle__viability
   !! points and update the viability based on new atoms being added to the cell.
   use raffle__constants, only: real32
   use raffle__misc_linalg, only: modu
-  use extended_geom, only: extended_basis_type
+  use raffle__geom_extd, only: extended_basis_type
   use raffle__dist_calcs, only: get_min_dist_between_point_and_atom
   use evaluator, only: evaluate_point
   use raffle__distribs_container, only: distribs_container_type

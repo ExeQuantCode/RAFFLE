@@ -1,4 +1,4 @@
-module extended_geom
+module raffle__geom_extd
   !! Module to extend the basis set to include images of atoms.
   !!
   !! This module is designed to extend the basis set to include images of atoms
@@ -383,4 +383,4 @@ contains
   end function project_point_onto_plane
 !###############################################################################
 
-end module extended_geom
+end module raffle__geom_extd

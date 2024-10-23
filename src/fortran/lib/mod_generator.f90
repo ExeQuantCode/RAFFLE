@@ -10,7 +10,7 @@ module generator
   use raffle__misc_linalg, only: modu
   use raffle__misc, only: strip_null, set
   use raffle__geom_rw, only: basis_type
-  use extended_geom, only: extended_basis_type
+  use raffle__geom_extd, only: extended_basis_type
   use raffle__distribs_container, only: distribs_container_type
 
   use raffle__constants, only: verbose_global => verbose

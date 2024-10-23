@@ -172,7 +172,9 @@ contains
 !###############################################################################
   function add_atom_walk( distribs_container, &
        basis, atom_ignore_list, &
-       radius_list, max_attempts, viable &
+       radius_list, max_attempts, &
+       step_size_coarse, step_size_fine, &
+       viable &
   ) result(point)
     !! Random walk placement method.
     !!
@@ -192,6 +194,8 @@ contains
     !! Structure to add atom to.
     integer, intent(in) :: max_attempts
     !! Limit on number of attempts.
+    real(real32), intent(in) :: step_size_coarse, step_size_fine
+    !! Step sizes for random walk.
     logical, intent(out) :: viable
     !! Boolean to indicate if point is viable.
     integer, dimension(:,:), intent(in) :: atom_ignore_list
@@ -252,10 +256,10 @@ contains
        call random_number(rtmp1)
        if(nattempt.ge.10) then 
           test_vector = site_vector + &
-               ( rvec1 * 2._real32 - 1._real32 ) * 0.1_real32 / abc
+               ( rvec1 * 2._real32 - 1._real32 ) * step_size_fine / abc
        else
           test_vector = site_vector + &
-          ( rvec1 * 2._real32 - 1._real32 ) / abc
+          ( rvec1 * 2._real32 - 1._real32 ) * step_size_coarse / abc
        end if
        test_vector = test_vector - floor(test_vector)
 
@@ -300,7 +304,9 @@ contains
   function add_atom_growth( distribs_container, &
        prior_point, prior_species, &
        basis, atom_ignore_list, &
-       radius_list, max_attempts, viable &
+       radius_list, max_attempts, &
+       step_size_coarse, step_size_fine, &
+       viable &
   ) result(point)
     !! Random walk placement method.
     !!
@@ -324,6 +330,8 @@ contains
     !! Structure to add atom to.
     integer, intent(in) :: max_attempts
     !! Limit on number of attempts.
+    real(real32), intent(in) :: step_size_coarse, step_size_fine
+    !! Step sizes for random walk.
     logical, intent(out) :: viable
     !! Boolean to indicate if point is viable.
     integer, dimension(:,:), intent(in) :: atom_ignore_list
@@ -420,10 +428,10 @@ contains
        call random_number(rtmp1)
        if(nattempt.ge.10) then 
           test_vector = site_vector + &
-               ( rvec1 * 2._real32 - 1._real32 ) * 0.1_real32 / abc
+               ( rvec1 * 2._real32 - 1._real32 ) * step_size_fine / abc
        else
           test_vector = site_vector + &
-          ( rvec1 * 2._real32 - 1._real32 ) / abc
+          ( rvec1 * 2._real32 - 1._real32 ) * step_size_coarse / abc
        end if 
        test_vector = test_vector - floor(test_vector)
 

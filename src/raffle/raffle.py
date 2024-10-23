@@ -1745,6 +1745,20 @@ class Generator(f90wrap.runtime.FortranModule):
             """
             self.max_attempts = max_attempts
 
+        def set_walk_step_size(self, coarse=None, fine=None):
+            """
+            Parameters
+            ----------
+            this : unknown
+            coarse : float
+            fine: float
+             
+            """
+            if coarse is not None:
+                self.walk_step_size_coarse = coarse
+            if fine is not None:
+                self.walk_step_size_fine = fine
+        
         def set_host(self, host):
             """
             set_host__binding__raffle_generator(self, host)
@@ -2028,6 +2042,44 @@ class Generator(f90wrap.runtime.FortranModule):
             _raffle.f90wrap_raffle_generator_type__set__max_attempts(self._handle, \
                 max_attempts)
 
+        @property
+        def walk_step_size_coarse(self):
+            """
+            Element walk_step_size_coarse ftype=real(real12) pytype=float
+            
+            
+            Defined at \
+                /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_generator.f90 line \
+                60
+            
+            """
+            return \
+                _raffle.f90wrap_raffle_generator_type__get__walk_step_size_coarse(self._handle)
+        
+        @walk_step_size_coarse.setter
+        def walk_step_size_coarse(self, walk_step_size_coarse):
+            _raffle.f90wrap_raffle_generator_type__set__walk_step_size_coarse(self._handle, \
+                walk_step_size_coarse)
+        
+        @property
+        def walk_step_size_fine(self):
+            """
+            Element walk_step_size_fine ftype=real(real12) pytype=float
+            
+            
+            Defined at \
+                /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_generator.f90 line \
+                60
+            
+            """
+            return \
+                _raffle.f90wrap_raffle_generator_type__get__walk_step_size_fine(self._handle)
+        
+        @walk_step_size_fine.setter
+        def walk_step_size_fine(self, walk_step_size_fine):
+            _raffle.f90wrap_raffle_generator_type__set__walk_step_size_fine(self._handle, \
+                walk_step_size_fine)
+        
         @property
         def method_probab(self):
             """

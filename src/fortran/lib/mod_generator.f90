@@ -604,6 +604,7 @@ contains
                 basis, &
                 placement_list_shuffled(iplaced+1:,:), &
                 [ this%distributions%bond_info(:)%radius_covalent ], &
+                this%walk_step_size_coarse, this%walk_step_size_fine, &
                 this%max_attempts, &
                 viable &
           )
@@ -629,6 +630,7 @@ contains
                    basis, &
                    placement_list_shuffled(iplaced+1:,:), &
                    [ this%distributions%bond_info(:)%radius_covalent ], &
+                   this%walk_step_size_coarse, this%walk_step_size_fine, &
                    this%max_attempts, &
                    viable &
              )

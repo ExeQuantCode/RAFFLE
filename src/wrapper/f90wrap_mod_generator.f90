@@ -1,5 +1,8 @@
 ! Module generator defined in file ../src/lib/mod_generator.f90
 
+!###############################################################################
+! stoichiometry derived type
+!###############################################################################
 subroutine f90wrap_stoichiometry_type__get__element(this, f90wrap_element)
     use generator, only: stoichiometry_type
     implicit none
@@ -198,7 +201,12 @@ subroutine f90wrap_stoich_type_xnum_array__array_dealloc__items(this)
     deallocate(this_ptr%p%items)
     this = transfer(this_ptr, this)
 end subroutine f90wrap_stoich_type_xnum_array__array_dealloc__items
+!###############################################################################
 
+
+!###############################################################################
+! generator contained stoichiometry
+!###############################################################################
 subroutine f90wrap_generator__stoich_type_xnum_array_initialise(this)
     use generator, only: stoichiometry_type
     implicit none
@@ -232,11 +240,15 @@ subroutine f90wrap_generator__stoich_type_xnum_array_finalise(this)
     this_ptr = transfer(this, this_ptr)
     deallocate(this_ptr%p)
 end subroutine f90wrap_generator__stoich_type_xnum_array_finalise
+!###############################################################################
 
 
-
-
-subroutine f90wrap_raffle_generator_type__get__num_structures(this, f90wrap_num_structures)
+!###############################################################################
+! number of generated structures
+!###############################################################################
+subroutine f90wrap_raffle_generator_type__get__num_structures( &
+     this, f90wrap_num_structures
+)
     use generator, only: raffle_generator_type
     implicit none
     type raffle_generator_type_ptr_type
@@ -250,7 +262,9 @@ subroutine f90wrap_raffle_generator_type__get__num_structures(this, f90wrap_num_
     f90wrap_num_structures = this_ptr%p%num_structures
 end subroutine f90wrap_raffle_generator_type__get__num_structures
 
-subroutine f90wrap_raffle_generator_type__set__num_structures(this, f90wrap_num_structures)
+subroutine f90wrap_raffle_generator_type__set__num_structures( &
+     this, f90wrap_num_structures
+)
     use generator, only: raffle_generator_type
     implicit none
     type raffle_generator_type_ptr_type
@@ -263,7 +277,12 @@ subroutine f90wrap_raffle_generator_type__set__num_structures(this, f90wrap_num_
     this_ptr = transfer(this, this_ptr)
     this_ptr%p%num_structures = f90wrap_num_structures
 end subroutine f90wrap_raffle_generator_type__set__num_structures
+!###############################################################################
 
+
+!###############################################################################
+! host handling
+!###############################################################################
 subroutine f90wrap_raffle_generator_type__get__host(this, f90wrap_host)
     use generator, only: raffle_generator_type
     use raffle__geom_rw, only: basis_type
@@ -303,8 +322,15 @@ subroutine f90wrap_raffle_generator_type__set__host(this, f90wrap_host)
     host_ptr = transfer(f90wrap_host, host_ptr)
     this_ptr%p%host = host_ptr%p
 end subroutine f90wrap_raffle_generator_type__set__host
+!###############################################################################
 
-subroutine f90wrap_raffle_generator_type__array__grid(this, nd, dtype, dshape, dloc)
+
+!###############################################################################
+! viability grid parameters
+!###############################################################################
+subroutine f90wrap_raffle_generator_type__array__grid( &
+     this, nd, dtype, dshape, dloc
+)
     use generator, only: raffle_generator_type
     use, intrinsic :: iso_c_binding, only : c_int
     implicit none
@@ -325,7 +351,9 @@ subroutine f90wrap_raffle_generator_type__array__grid(this, nd, dtype, dshape, d
     dloc = loc(this_ptr%p%grid)
 end subroutine f90wrap_raffle_generator_type__array__grid
 
-subroutine f90wrap_raffle_generator_type__array__grid_offset(this, nd, dtype, dshape, dloc)
+subroutine f90wrap_raffle_generator_type__array__grid_offset( &
+     this, nd, dtype, dshape, dloc
+)
     use generator, only: raffle_generator_type
     use, intrinsic :: iso_c_binding, only : c_int
     implicit none
@@ -346,7 +374,9 @@ subroutine f90wrap_raffle_generator_type__array__grid_offset(this, nd, dtype, ds
     dloc = loc(this_ptr%p%grid_offset)
 end subroutine f90wrap_raffle_generator_type__array__grid_offset
 
-subroutine f90wrap_raffle_generator_type__get__grid_spacing(this, f90wrap_grid_spacing)
+subroutine f90wrap_raffle_generator_type__get__grid_spacing( &
+     this, f90wrap_grid_spacing
+)
     use generator, only: raffle_generator_type
     implicit none
     type raffle_generator_type_ptr_type
@@ -360,7 +390,9 @@ subroutine f90wrap_raffle_generator_type__get__grid_spacing(this, f90wrap_grid_s
     f90wrap_grid_spacing = this_ptr%p%grid_spacing
 end subroutine f90wrap_raffle_generator_type__get__grid_spacing
 
-subroutine f90wrap_raffle_generator_type__set__grid_spacing(this, f90wrap_grid_spacing)
+subroutine f90wrap_raffle_generator_type__set__grid_spacing( &
+     this, f90wrap_grid_spacing
+)
     use generator, only: raffle_generator_type
     implicit none
     type raffle_generator_type_ptr_type
@@ -373,8 +405,15 @@ subroutine f90wrap_raffle_generator_type__set__grid_spacing(this, f90wrap_grid_s
     this_ptr = transfer(this, this_ptr)
     this_ptr%p%grid_spacing = f90wrap_grid_spacing
 end subroutine f90wrap_raffle_generator_type__set__grid_spacing
+!###############################################################################
 
-subroutine f90wrap_raffle_generator_type__get__distributions(this, f90wrap_distributions)
+
+!###############################################################################
+! distribution function handling
+!###############################################################################
+subroutine f90wrap_raffle_generator_type__get__distributions( &
+     this, f90wrap_distributions
+)
     use generator, only: raffle_generator_type
     use raffle__distribs_container, only: distribs_container_type
     implicit none
@@ -394,7 +433,9 @@ subroutine f90wrap_raffle_generator_type__get__distributions(this, f90wrap_distr
     f90wrap_distributions = transfer(distributions_ptr,f90wrap_distributions)
 end subroutine f90wrap_raffle_generator_type__get__distributions
 
-subroutine f90wrap_raffle_generator_type__set__distributions(this, f90wrap_distributions)
+subroutine f90wrap_raffle_generator_type__set__distributions( &
+     this, f90wrap_distributions
+)
     use generator, only: raffle_generator_type
     use raffle__distribs_container, only: distribs_container_type
     implicit none
@@ -413,8 +454,15 @@ subroutine f90wrap_raffle_generator_type__set__distributions(this, f90wrap_distr
     distributions_ptr = transfer(f90wrap_distributions,distributions_ptr)
     this_ptr%p%distributions = distributions_ptr%p
 end subroutine f90wrap_raffle_generator_type__set__distributions
+!###############################################################################
 
-subroutine f90wrap_raffle_generator_type__get__max_attempts(this, f90wrap_max_attempts)
+
+!###############################################################################
+! random walk parameters
+!###############################################################################
+subroutine f90wrap_raffle_generator_type__get__max_attempts( &
+     this, f90wrap_max_attempts
+)
     use generator, only: raffle_generator_type
     implicit none
     type raffle_generator_type_ptr_type
@@ -428,7 +476,9 @@ subroutine f90wrap_raffle_generator_type__get__max_attempts(this, f90wrap_max_at
     f90wrap_max_attempts = this_ptr%p%max_attempts
 end subroutine f90wrap_raffle_generator_type__get__max_attempts
 
-subroutine f90wrap_raffle_generator_type__set__max_attempts(this, f90wrap_max_attempts)
+subroutine f90wrap_raffle_generator_type__set__max_attempts( &
+     this, f90wrap_max_attempts
+)
     use generator, only: raffle_generator_type
     implicit none
     type raffle_generator_type_ptr_type
@@ -442,7 +492,78 @@ subroutine f90wrap_raffle_generator_type__set__max_attempts(this, f90wrap_max_at
     this_ptr%p%max_attempts = f90wrap_max_attempts
 end subroutine f90wrap_raffle_generator_type__set__max_attempts
 
-subroutine f90wrap_raffle_generator_type__array__method_probab(this, nd, dtype, dshape, dloc)
+subroutine f90wrap_raffle_generator_type__get__walk_step_size_coarse( &
+     this, f90wrap_walk_step_size_coarse
+)
+    use generator, only: raffle_generator_type
+    implicit none
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    real(4), intent(out) :: f90wrap_walk_step_size_coarse
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_walk_step_size_coarse = this_ptr%p%walk_step_size_coarse
+end subroutine f90wrap_raffle_generator_type__get__walk_step_size_coarse
+
+subroutine f90wrap_raffle_generator_type__set__walk_step_size_coarse( &
+     this, f90wrap_walk_step_size_coarse
+)
+    use generator, only: raffle_generator_type
+    implicit none
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    real(4), intent(in) :: f90wrap_walk_step_size_coarse
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%walk_step_size_coarse = f90wrap_walk_step_size_coarse
+end subroutine f90wrap_raffle_generator_type__set__walk_step_size_coarse
+
+subroutine f90wrap_raffle_generator_type__get__walk_step_size_fine( &
+     this, f90wrap_walk_step_size_fine
+)
+    use generator, only: raffle_generator_type
+    implicit none
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    real(4), intent(out) :: f90wrap_walk_step_size_fine
+    
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_walk_step_size_fine = this_ptr%p%walk_step_size_fine
+end subroutine f90wrap_raffle_generator_type__get__walk_step_size_fine
+
+subroutine f90wrap_raffle_generator_type__set__walk_step_size_fine( &
+     this, f90wrap_walk_step_size_fine
+)
+    use generator, only: raffle_generator_type
+    implicit none
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    real(4), intent(in) :: f90wrap_walk_step_size_fine
+    
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%walk_step_size_fine = f90wrap_walk_step_size_fine
+end subroutine f90wrap_raffle_generator_type__set__walk_step_size_fine
+!###############################################################################
+
+
+!###############################################################################
+! placement method ratio
+!###############################################################################
+subroutine f90wrap_raffle_generator_type__array__method_probab( &
+     this, nd, dtype, dshape, dloc
+)
     use generator, only: raffle_generator_type
     use, intrinsic :: iso_c_binding, only : c_int
     implicit none
@@ -462,8 +583,14 @@ subroutine f90wrap_raffle_generator_type__array__method_probab(this, nd, dtype, 
     dshape(1:1) = shape(this_ptr%p%method_probab)
     dloc = loc(this_ptr%p%method_probab)
 end subroutine f90wrap_raffle_generator_type__array__method_probab
+!###############################################################################
 
-subroutine f90wrap_raffle_generator_type__array_getitem__structures(f90wrap_this, f90wrap_i, structuresitem)
+
+!###############################################################################
+! generated structures handling
+!###############################################################################
+subroutine f90wrap_raffle_generator_type__array_getitem__structures( &
+     f90wrap_this, f90wrap_i, structuresitem)
     
     use generator, only: raffle_generator_type
     use raffle__geom_rw, only: basis_type
@@ -545,7 +672,12 @@ subroutine f90wrap_raffle_generator_type__array_len__structures(f90wrap_this, f9
         f90wrap_n = 0
     end if
 end subroutine f90wrap_raffle_generator_type__array_len__structures
+!###############################################################################
 
+
+!###############################################################################
+! generator derived type initialisation and finalisation
+!###############################################################################
 subroutine f90wrap_generator__raffle_generator_type_initialise(this)
     use generator, only: raffle_generator_type
     implicit none
@@ -571,7 +703,12 @@ subroutine f90wrap_generator__raffle_generator_type_finalise(this)
     this_ptr = transfer(this, this_ptr)
     deallocate(this_ptr%p)
 end subroutine f90wrap_generator__raffle_generator_type_finalise
+!###############################################################################
 
+
+!###############################################################################
+! generator type procedure bindings
+!###############################################################################
 subroutine f90wrap_generator__set_host__binding__rgt(this, host)
     use raffle__geom_rw, only: basis_type
     use generator, only: raffle_generator_type
@@ -705,6 +842,7 @@ subroutine f90wrap_generator__get_structures__binding__rgt(this, ret_structures)
     ret_structures_ptr%p%items = this_ptr%p%get_structures()
     ret_structures = transfer(ret_structures_ptr,ret_structures)
 end subroutine f90wrap_generator__get_structures__binding__rgt
+!###############################################################################
 
 ! End of module generator defined in file ../src/lib/mod_generator.f90
 

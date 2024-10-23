@@ -5,7 +5,7 @@ module evaluator
   !! the system with each point in the map representing the suitability of
   !! that point for a new atom. The map is built by checking the bond lengths,
   !! bond angles and dihedral angles between the test point and all atoms.
-  use constants, only: real12, pi
+  use constants, only: real12
   use misc_linalg, only: modu, get_distance, get_angle, get_dihedral_angle, &
        get_improper_dihedral_angle
   use rw_geom, only: basis_type

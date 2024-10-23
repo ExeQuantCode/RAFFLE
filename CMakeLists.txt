@@ -80,7 +80,7 @@ set(LIB_FILES
 	mod_dist_calcs.f90
     mod_geom_utils.f90
     mod_geom_extd.f90
-	mod_elements.f90
+	mod_element_utils.f90
 	mod_evaluator.f90
 	mod_place_methods.f90
     mod_viability.f90

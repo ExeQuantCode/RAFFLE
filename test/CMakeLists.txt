@@ -3,7 +3,7 @@ foreach(execid
     misc
     misc_maths
     misc_linalg
-    elements
+    element_utils
     geom_rw
     geom_utils
     geom_extd

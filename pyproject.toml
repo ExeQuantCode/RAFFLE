@@ -1,6 +1,6 @@
 [project]
 name = "raffle"
-version = "0.2"
+dynamic = ["version"]
 dependencies = [
     "f90wrap>=0.2.14,<0.2.15",
     "numpy>=1.26,<2.0.0",
@@ -36,3 +36,6 @@ requires = [
     "cmake>=3.17.5",
 ]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = {attr = "raffle.__version__"}

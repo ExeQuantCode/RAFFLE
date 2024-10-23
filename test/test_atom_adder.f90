@@ -3,7 +3,7 @@ program test_atom_adder
   use add_atom
   use raffle__distribs_container, only: distribs_container_type
   use raffle__constants, only: real32
-  use raffle__rw_geom, only: basis_type
+  use raffle__geom_rw, only: basis_type
   use extended_geom, only: extended_basis_type
   implicit none
 

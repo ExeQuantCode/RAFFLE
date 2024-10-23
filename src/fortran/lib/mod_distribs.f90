@@ -10,7 +10,7 @@ module raffle__distribs
   use raffle__misc, only: strip_null, sort_str
   use raffle__misc_maths, only: triangular_number
   use raffle__misc_linalg, only: get_angle, get_improper_dihedral_angle, modu
-  use raffle__rw_geom, only: basis_type, get_element_properties
+  use raffle__geom_rw, only: basis_type, get_element_properties
   use extended_geom, only: extended_basis_type
   use elements, only: &
        element_type, element_bond_type, &

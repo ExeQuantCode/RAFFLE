@@ -1,7 +1,7 @@
 program test_geom_utils
   !! Test program for the module edit_geom.
   use raffle__constants, only: real32
-  use raffle__rw_geom, only: basis_type
+  use raffle__geom_rw, only: basis_type
   use raffle__misc_linalg, only: modu
   use raffle__geom_utils, only: basis_merge
 

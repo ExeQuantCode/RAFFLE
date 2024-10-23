@@ -1,6 +1,6 @@
 program test_mod_elements
   use elements
-  use raffle__rw_geom, only: get_element_properties
+  use raffle__geom_rw, only: get_element_properties
   use raffle__constants, only: real32
   implicit none
 

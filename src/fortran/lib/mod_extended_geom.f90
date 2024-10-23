@@ -6,7 +6,7 @@ module extended_geom
   !! calculating interactions between atoms that are not within the unit cell.
   use raffle__constants, only: real32, pi
   use raffle__misc_linalg, only: modu, cross, inverse_3x3
-  use raffle__rw_geom, only: basis_type, species_type
+  use raffle__geom_rw, only: basis_type, species_type
   implicit none
 
 

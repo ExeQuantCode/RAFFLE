@@ -5,8 +5,8 @@ module generator
   !! random structures from a host structure. The raffle generator uses
   !! distribution functions to determine the placement of atoms in the
   !! provided host structure.
-   use error_handling, only: stop_program
-   use constants, only: real12
+  use error_handling, only: stop_program
+  use constants, only: real12
   use misc_linalg, only: modu
   use misc_raffle, only: strip_null, set
   use rw_geom, only: basis_type
@@ -431,8 +431,15 @@ contains
   module function generate_structure( &
        this, &
        basis_initial, &
-       placement_list, method_probab, verbose ) result(basis)
+       placement_list, method_probab, verbose &
+  ) result(basis)
     !! Generate a single random structure.
+    !!
+    !! This function generates a single random structure from a host structure
+    !! by placing atoms according to the ratio of placement methods.
+    !! The input host structure will already have all host and insert species
+    !! and atoms allocated. The placement list specifies the atoms in the
+    !! host structure to be replaced by insert atoms.
     implicit none
 
     ! Arguments
@@ -491,9 +498,7 @@ contains
     !---------------------------------------------------------------------------
     placement_list_shuffled = placement_list
     call shuffle(placement_list_shuffled,1)
-    !! @note
-    !! NEED TO SORT OUT RANDOM SEED
-    !! @endnote
+
 
     !---------------------------------------------------------------------------
     ! generate species index list to add
@@ -520,12 +525,15 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! place the atoms
+    ! place the atoms according to the method probabilities
     !---------------------------------------------------------------------------
     iplaced = 0
     void_ticker = 0
     viable = .false.
     placement_loop: do while (iplaced.lt.num_insert_atoms)
+       !------------------------------------------------------------------------
+       ! check if there are any viable gridpoints remaining
+       !------------------------------------------------------------------------
        if(viable)then
           if(allocated(gridpoint_viability)) &
                call update_gridpoints_and_viability( &
@@ -554,6 +562,10 @@ contains
           end if
        end if
        viable = .false.
+       !------------------------------------------------------------------------
+       ! choose a placement method
+       ! call a random number and query the method probabilities
+       !------------------------------------------------------------------------
        call random_number(rtmp1)
        if(rtmp1.le.method_probab_(1)) then
           if(verbose.gt.0) write(*,*) "Add Atom Void"
@@ -573,7 +585,6 @@ contains
                viable &
           )
           if(.not. viable) cycle placement_loop
-
        else if(rtmp1.le.method_probab_(3)) then
           if(verbose.gt.0) write(*,*) "Add Atom Walk"
           point = add_atom_walk( &
@@ -637,6 +648,10 @@ contains
              method_probab_(5) = method_probab_(4)
           end if
        end if
+       !------------------------------------------------------------------------
+       ! check if the placement method returned a viable point
+       ! if not, cycle the loop
+       !------------------------------------------------------------------------
        if(.not. viable) then
           if(void_ticker.gt.10) &
                point = add_atom_void( this%grid, this%grid_offset, basis, &
@@ -644,6 +659,9 @@ contains
           void_ticker = 0
           if(.not.viable) cycle placement_loop
        end if
+       !------------------------------------------------------------------------
+       ! place the atom and update the image atoms in the basis
+       !------------------------------------------------------------------------
        iplaced = iplaced + 1
        basis%spec(placement_list_shuffled(iplaced,1))%atom( &
             placement_list_shuffled(iplaced,2),:3) = point(:3)

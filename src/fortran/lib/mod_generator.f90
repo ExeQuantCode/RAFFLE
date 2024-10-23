@@ -722,7 +722,8 @@ contains
     !! Viability of the generated structures.
 
     viability = 0.0_real12
-    stop "Not yet set up"
+    call stop_program("Evaluate procedure not yet set up")
+    return
   end function evaluate
 !###############################################################################
 

@@ -1,93 +1,33 @@
-module evolver
-  !! Module for handling distribution functions.
+module raffle__distribs_container
+  !! Module for handling the distribution function container.
   !!
-  !! This module contains the types and subroutines for handling distribution
-  !! distributions. The distribution functions are used as fingerprints for
-  !! atomic structures to identify similarities and differences between
-  !! structures.
+  !! This module defines the distribution function container and associated
+  !! procedures.
+  !! The container holds the distribution functions for a set of atomic
+  !! structures, alongside parameters for initialising the distributions.
+  !! The container also holds the generalised distribution functions, built
+  !! from the distribution functions of the individual systems.
+  !! The generalised distribution functions are used to evaluate the viability
+  !! of a new structure.
   use constants, only: real12, pi
   use error_handling, only: stop_program
   use misc_raffle, only: set, icount, strip_null, sort_str
   use misc_maths, only: triangular_number, set_difference
-  use misc_linalg, only: get_angle, get_vol, get_improper_dihedral_angle, &
-       cross, modu
   use rw_geom, only: basis_type, get_element_properties
-  use extended_geom, only: extended_basis_type
   use elements, only: &
        element_type, element_bond_type, &
        element_database, element_bond_database
+  use raffle__distribs, only: distribs_base_type, distribs_type, get_distrib
+  use raffle__distribs_host, only: distribs_host_type
   implicit none
 
   
   private
 
-  public :: gvector_container_type, gvector_base_type, gvector_type
-  
-  
-  type :: gvector_base_type
-     !! Base type for distribution functions.
-     real(real12), dimension(:,:), allocatable :: df_2body
-     !! 2-body distribution function.
-     real(real12), dimension(:,:), allocatable :: df_3body
-     !! 3-body distribution function.
-     real(real12), dimension(:,:), allocatable :: df_4body
-     !! 4-body distribution function.
-  end type gvector_base_type
+  public :: distribs_container_type
 
-  type, extends(gvector_base_type) :: gvector_type
-     !! Type for distribution functions.
-     !!
-     !! This type contains the distribution functions for a single atomic
-     !! structure. It also contains other structure properties, including:
-     !! - energy
-     !! - stoichiometry
-     !! - elements
-     !! - number of atoms
-     integer :: num_atoms = 0
-     !! Number of atoms in the structure.
-     real(real12) :: energy = 0.0_real12
-     !! Energy of the structure.
-     real(real12) :: energy_above_hull = 0.0_real12
-     !! Energy above the hull of the structure.
-     logical :: from_host = .false.
-     !! Boolean whether the structure is derived from the host.
-     integer, dimension(:), allocatable :: stoichiometry
-     !! Stoichiometry of the structure.
-     character(len=3), dimension(:), allocatable :: element_symbols
-     !! Elements contained within the structure.
-     integer, dimension(:), allocatable :: num_pairs, num_per_species
-     !! Number of pairs and number of pairs per species.
-     real(real12), dimension(:), allocatable :: weight_pair, weight_per_species
-     !! Weights for the 2-body and species distribution functions.
-   contains
-     procedure, pass(this) :: calculate
-  end type gvector_type
 
-  type, extends(gvector_type) :: gvector_host_type
-     !! Type for host information.
-     !!
-     !! This type contains the information regarding the host structure that
-     !! will be used in the grandparent generator type.
-     logical :: defined = .false.
-     !! Boolean whether the host structure has been set.
-     real(real12) :: interface_energy = 0.0_real12
-     !! Energy associated with the formation of the interface in the host.
-     type(basis_type) :: basis
-     !! Host structure.
-     integer, dimension(:,:), allocatable :: pair_index
-     !! Index for the 2-body distribution function.
-     integer, dimension(:), allocatable :: element_map
-     !! Mapping of host elements to distribution function elements.
-   contains
-     procedure, pass(this) :: calculate_interface_energy
-     !! Calculate the interface formation energy of the host.
-     procedure, pass(this) :: set => set_host
-     !! Set the host structure for the distribution functions.
-     procedure, pass(this) :: set_element_map => set_host_element_map
-     !! Set the mapping of host elements to distribution function elements.
-  end type gvector_host_type
-
-  type :: gvector_container_type
+  type :: distribs_container_type
      !! Container for distribution functions.
      !!
      !! This type contains the distribution functions for a set of atomic
@@ -141,13 +81,13 @@ module evolver
      real(real12), dimension(:), allocatable :: &
           norm_2body, norm_3body, norm_4body
      !! Normalisation factors for the 2-, 3-, and 4-body distribution functions.
-     type(gvector_base_type) :: total !! name it best instead?
+     type(distribs_base_type) :: total !! name it best instead?
      !! Total distribution functions for all systems.
      !! Generated from combining the energy-weighted distribution functions
      !! of all systems
-     type(gvector_host_type) :: host_system
+     type(distribs_host_type) :: host_system
      !! Host structure for the distribution functions.
-     type(gvector_type), dimension(:), allocatable :: system
+     type(distribs_type), dimension(:), allocatable :: system
      !! Distribution functions for each system.
      type(element_type), dimension(:), allocatable :: element_info
      !! Information about the elements in the container.
@@ -211,9 +151,9 @@ module evolver
      
      procedure, pass(this) :: set_best_energy
      !! Set the best energy and system in the container.
-     procedure, pass(this) :: initialise_gvectors
+     procedure, pass(this) :: initialise_distribs
      !! Initialise the distribution functions in the container.
-     procedure, pass(this) :: set_gvector_to_default
+     procedure, pass(this) :: set_distribs_to_default
      !! Set the total distribution function to the default value.
      procedure, pass(this) :: evolve
      !! Evolve the learned distribution function.
@@ -233,13 +173,13 @@ module evolver
      !! Return the index for element_info given one element.
      procedure, pass(this) :: get_bin
      !! Return the bin index for a given distance.
-  end type gvector_container_type
+  end type distribs_container_type
 
-  interface gvector_container_type
+  interface distribs_container_type
     !! Interface for the distribution functions container.
-    module function init_gvector_container( &
+    module function init_distribs_container( &
          nbins, width, sigma, cutoff_min, cutoff_max &
-         ) result(gvector_container)
+         ) result(distribs_container)
          !! Initialise the distribution functions container.
          integer, dimension(3), intent(in), optional :: nbins
          !! Optional. Number of bins for the 2-, 3-, and 4-body distribution
@@ -250,19 +190,19 @@ module evolver
          real(real12), dimension(3), intent(in), optional :: &
               cutoff_min, cutoff_max
          !! Optional. Minimum and maximum cutoff for the 2-, 3-, and 4-body.
-         type(gvector_container_type) :: gvector_container
+         type(distribs_container_type) :: distribs_container
          !! Instance of the distribution functions container.
-    end function init_gvector_container
-  end interface gvector_container_type
+    end function init_distribs_container
+  end interface distribs_container_type
 
 
   contains
   
 !###############################################################################
-  module function init_gvector_container( &
+  module function init_distribs_container( &
        nbins, width, sigma, &
        cutoff_min, cutoff_max ) &
-       result(gvector_container)
+       result(distribs_container)
     !! Initialise the distribution functions container.
     implicit none
 
@@ -275,7 +215,7 @@ module evolver
     !! 4-body.
     real(real12), dimension(3), intent(in), optional :: cutoff_min, cutoff_max
     !! Optional. Minimum and maximum cutoff for the 2-, 3-, and 4-body.
-    type(gvector_container_type) :: gvector_container
+    type(distribs_container_type) :: distribs_container
     !! Instance of the distribution functions container.
 
     ! Local variables
@@ -284,37 +224,39 @@ module evolver
 
 
     if(present(nbins))then
-       if(all(nbins .gt. 0)) gvector_container%nbins = nbins
+       if(all(nbins .gt. 0)) distribs_container%nbins = nbins
     end if
 
     if(present(width))then
-       if(all(width.ge.0._real12)) gvector_container%width = width
+       if(all(width.ge.0._real12)) distribs_container%width = width
     end if
 
     if(present(sigma))then
-       if(all(sigma.ge.0._real12)) gvector_container%sigma = sigma
+       if(all(sigma.ge.0._real12)) distribs_container%sigma = sigma
     end if
 
     if(present(cutoff_min))then
        if(any(cutoff_min.ge.0._real12)) &
-            gvector_container%cutoff_min = cutoff_min
+            distribs_container%cutoff_min = cutoff_min
     end if
     if(present(cutoff_max))then
        if(all(cutoff_max.ge.0._real12)) &
-            gvector_container%cutoff_max = cutoff_max
+            distribs_container%cutoff_max = cutoff_max
     end if
-    if(any(gvector_container%cutoff_max .le. gvector_container%cutoff_min))then
+    if( &
+         any(distribs_container%cutoff_max .le. distribs_container%cutoff_min) &
+    )then
        write(stop_msg,*) &
             "cutoff_max <= cutoff_min" // &
             achar(13) // achar(10) // &
-            "cutoff min: ", gvector_container%cutoff_min, &
+            "cutoff min: ", distribs_container%cutoff_min, &
             achar(13) // achar(10) // &
-            "cutoff max: ", gvector_container%cutoff_max
+            "cutoff max: ", distribs_container%cutoff_max
        call stop_program( stop_msg )
        return
     end if
 
-  end function init_gvector_container
+  end function init_distribs_container
 !###############################################################################
 
 
@@ -325,7 +267,7 @@ module evolver
     implicit none
 
     ! Arguments
-    class(gvector_container_type), intent(inout) :: this
+    class(distribs_container_type), intent(inout) :: this
     !! Parent. Instance of distribution functions container.
     real(real12), dimension(3), intent(in) :: width
     !! Width of the gaussians used in the 2-, 3-, and 4-body
@@ -344,7 +286,7 @@ module evolver
     implicit none
 
     ! Arguments
-    class(gvector_container_type), intent(inout) :: this
+    class(distribs_container_type), intent(inout) :: this
     !! Parent. Instance of distribution functions container.
     real(real12), dimension(3), intent(in) :: sigma
     !! Sigma of the gaussians used in the 2-, 3-, and 4-body distribution
@@ -362,7 +304,7 @@ module evolver
     implicit none
 
     ! Arguments
-    class(gvector_container_type), intent(inout) :: this
+    class(distribs_container_type), intent(inout) :: this
     !! Parent. Instance of distribution functions container.
     real(real12), dimension(3), intent(in) :: cutoff_min
     !! Minimum cutoff for the 2-, 3-, and 4-body distribution functions.
@@ -379,7 +321,7 @@ module evolver
     implicit none
    
     ! Arguments
-    class(gvector_container_type), intent(inout) :: this
+    class(distribs_container_type), intent(inout) :: this
     !! Parent. Instance of distribution functions container.
     real(real12), dimension(3), intent(in) :: cutoff_max
     !! Maximum cutoff for the 2-, 3-, and 4-body distribution functions.
@@ -396,7 +338,7 @@ module evolver
     implicit none
 
     ! Arguments
-    class(gvector_container_type), intent(inout) :: this
+    class(distribs_container_type), intent(inout) :: this
     !! Parent. Instance of distribution functions container.
     real(real12), dimension(4), intent(in) :: radius_distance_tol
     !! Tolerance for the distance between atoms for 3- and 4-body.
@@ -408,80 +350,13 @@ module evolver
 
 
 !###############################################################################
-  subroutine set_host(this, host)
-    !! Set the host structure for the distribution functions.
-    !!
-    !! distribution function not needed for host
-    implicit none
-
-    ! Arguments
-    class(gvector_host_type), intent(inout) :: this
-    !! Parent. Instance of distribution functions container.
-    type(basis_type), intent(in) :: host
-    !! Host structure for the distribution functions.
-
-    ! Local variables
-    integer :: i, is, js
-    !! Loop indices.
-
-    call this%basis%copy(host)
-    this%defined = .true.
-    allocate(this%pair_index(this%basis%nspec, this%basis%nspec))
-    i = 0
-    do is = 1, this%basis%nspec
-       do js = is, this%basis%nspec, 1
-          i = i + 1
-          this%pair_index(js,is) = i
-          this%pair_index(is,js) = i
-       end do
-   end do
-   if(allocated(this%df_2body)) deallocate(this%df_2body)
-   if(allocated(this%df_3body)) deallocate(this%df_3body)
-   if(allocated(this%df_4body)) deallocate(this%df_4body)
-
-  end subroutine set_host
-!###############################################################################
-
-
-!###############################################################################
-  subroutine calculate_interface_energy(this, element_info)
-    !! Calculate the interface formation energy of the host.
-    implicit none
-
-    ! Arguments
-    class(gvector_host_type), intent(inout) :: this
-    !! Parent. Instance of host type.
-    type(element_type), dimension(:), intent(in) :: element_info
-    !! List of elements and properties.
-
-    ! Local variables
-    integer :: is, idx1
-    !! Loop indices.
-
-    this%interface_energy = this%energy
-    do is = 1, size(this%element_symbols)
-       idx1 = findloc( [ element_info(:)%name ], &
-                       this%element_symbols(is), dim=1)
-       if(idx1.lt.1)then
-          call stop_program( "Species not found in species list" )
-          return
-       end if
-       this%interface_energy = this%interface_energy - &
-            this%stoichiometry(is) * element_info(idx1)%energy
-    end do
-
-  end subroutine calculate_interface_energy
-!###############################################################################
-
-
-!###############################################################################
   subroutine create( &
        this, basis_list, energy_above_hull_list, deallocate_systems &
   )
     !! create the distribution functions from the input file
     implicit none
     ! Arguments
-    class(gvector_container_type), intent(inout) :: this
+    class(distribs_container_type), intent(inout) :: this
     !! Parent. Instance of distribution functions container.
     type(basis_type), dimension(:), intent(in) :: basis_list
     !! List of basis structures.
@@ -502,7 +377,7 @@ module evolver
        write(stop_msg,*) "element_database not allocated" // &
             achar(13) // achar(10) // &
             "Run the set_element_energies() procedure of " // &
-            "gvector_container_type before calling create()"
+            "distribs_container_type before calling create()"
        call stop_program( stop_msg )
        return
     end if
@@ -573,7 +448,7 @@ module evolver
     !! update the distribution functions from the input file
     implicit none
     ! Arguments
-    class(gvector_container_type), intent(inout) :: this
+    class(distribs_container_type), intent(inout) :: this
     !! Parent. Instance of distribution functions container.
     type(basis_type), dimension(:), intent(in) :: basis_list
     !! List of basis structures.
@@ -656,7 +531,7 @@ module evolver
           write(stop_msg,*) "host not set" // &
                achar(13) // achar(10) // &
                "Run the set_host() procedure of parent of" // &
-               "gvector_container_type before calling create()"
+               "distribs_container_type before calling create()"
           call stop_program( stop_msg )
           return
        else
@@ -696,7 +571,7 @@ module evolver
     implicit none
 
     ! Arguments
-    class(gvector_container_type), intent(inout) :: this
+    class(distribs_container_type), intent(inout) :: this
     !! Parent. Instance of distribution functions container.
 
     deallocate(this%system)
@@ -714,7 +589,7 @@ module evolver
     implicit none
 
     ! Arguments
-    class(gvector_container_type), intent(in) :: this
+    class(distribs_container_type), intent(in) :: this
     !! Parent. Instance of distribution functions container.
     character(*), intent(in) :: file
     !! Filename to write the distribution functions to.
@@ -773,7 +648,7 @@ module evolver
     implicit none
 
     ! Arguments
-    class(gvector_container_type), intent(inout) :: this
+    class(distribs_container_type), intent(inout) :: this
     !! Parent. Instance of distribution functions container.
     character(*), intent(in) :: file
     !! Filename to read the distribution functions from.
@@ -789,7 +664,7 @@ module evolver
     !! Number of species and pairs.
     character(256) :: buffer
     !! Buffer for reading lines.
-    type(gvector_type) :: system
+    type(distribs_type) :: system
     !! System to read distribution functions into.
 
    
@@ -842,7 +717,7 @@ module evolver
     implicit none
 
     ! Arguments
-    class(gvector_container_type), intent(in) :: this
+    class(distribs_container_type), intent(in) :: this
     !! Parent. Instance of distribution functions container.
     character(*), intent(in) :: file
     !! Filename to write the 2-body distribution functions to.
@@ -893,7 +768,7 @@ module evolver
     implicit none
 
     ! Arguments
-    class(gvector_container_type), intent(in) :: this
+    class(distribs_container_type), intent(in) :: this
     !! Parent. Instance of distribution functions container.
     character(*), intent(in) :: file
     !! Filename to write the 3-body distribution functions to.
@@ -926,7 +801,7 @@ module evolver
     implicit none
 
     ! Arguments
-    class(gvector_container_type), intent(in) :: this
+    class(distribs_container_type), intent(in) :: this
     !! Parent. Instance of distribution functions container.
     character(*), intent(in) :: file
     !! Filename to write the 4-body distribution functions to.
@@ -959,7 +834,7 @@ module evolver
     implicit none
 
     ! Arguments
-    class(gvector_container_type), intent(inout) :: this
+    class(distribs_container_type), intent(inout) :: this
     !! Parent. Instance of distribution functions container.
     class(*), dimension(..), intent(in) :: system
     !! System to add to the container.
@@ -975,21 +850,21 @@ module evolver
     select rank(system)
     rank(0)
        select type(system)
-       type is (gvector_type)
+       type is (distribs_type)
           this%system = [ this%system, system ]
        type is (basis_type)
           call this%add_basis(system)
        class default
           write(stop_msg,*) "Invalid type for system" // &
                achar(13) // achar(10) // &
-               "Expected type gvector_type or basis_type"
+               "Expected type distribs_type or basis_type"
           call stop_program( stop_msg )
           return
        end select
     rank(1)
        num_structures_previous = size(this%system)
        select type(system)
-       type is (gvector_type)
+       type is (distribs_type)
           this%system = [ this%system, system ]
        type is (basis_type)
           do i = 1, size(system)
@@ -998,7 +873,7 @@ module evolver
        class default
           write(stop_msg,*) "Invalid type for system" // &
                achar(13) // achar(10) // &
-               "Expected type gvector_type or basis_type"
+               "Expected type distribs_type or basis_type"
           call stop_program( stop_msg )
           return
          end select
@@ -1022,13 +897,13 @@ module evolver
     implicit none
 
     ! Arguments
-    class(gvector_container_type), intent(inout) :: this
+    class(distribs_container_type), intent(inout) :: this
     !! Parent. Instance of distribution functions container.
     type(basis_type), intent(in) :: basis
     !! Basis to add to the container.
 
     ! Local variables
-    type(gvector_type) :: system
+    type(distribs_type) :: system
     !! System to add to the container.
 
     call system%calculate(basis, width = this%width, &
@@ -1053,7 +928,7 @@ module evolver
     implicit none
 
     ! Arguments
-    class(gvector_container_type), intent(inout) :: this
+    class(distribs_container_type), intent(inout) :: this
     !! Parent of the procedure. Instance of distribution functions container.
 
     ! Local variables
@@ -1099,7 +974,7 @@ module evolver
     implicit none
 
     ! Arguments
-    class(gvector_container_type), intent(inout) :: this
+    class(distribs_container_type), intent(inout) :: this
     !! Parent of the procedure. Instance of distribution functions container.
 
     ! Local variables
@@ -1169,7 +1044,7 @@ module evolver
     implicit none
 
     ! Arguments
-    class(gvector_container_type), intent(inout) :: this
+    class(distribs_container_type), intent(inout) :: this
     !! Parent of the procedure. Instance of distribution functions container.
     character(len=3), intent(in) :: element
     !! Element name.
@@ -1225,7 +1100,7 @@ module evolver
     implicit none
 
     ! Arguments
-    class(gvector_container_type), intent(inout) :: this
+    class(distribs_container_type), intent(inout) :: this
     !! Parent of the procedure. Instance of distribution functions container.
     character(len=3), dimension(:), intent(in) :: elements
     !! Element names.
@@ -1249,7 +1124,7 @@ module evolver
    implicit none
 
    ! Arguments
-   class(gvector_container_type), intent(in) :: this
+   class(distribs_container_type), intent(in) :: this
    !! Parent of the procedure. Instance of distribution functions container.
    character(len=3), dimension(:), allocatable, intent(out) :: elements
    !! Element names.
@@ -1281,7 +1156,7 @@ module evolver
     implicit none
 
     ! Arguments
-    class(gvector_container_type), intent(in) :: this
+    class(distribs_container_type), intent(in) :: this
     !! Parent of the procedure. Instance of distribution functions container.
     character(len=3), dimension(size(this%element_info,1)), intent(out) :: &
          elements
@@ -1309,7 +1184,7 @@ module evolver
     implicit none
 
     ! Arguments
-    class(gvector_container_type), intent(inout) :: this
+    class(distribs_container_type), intent(inout) :: this
     !! Parent of the procedure. Instance of distribution functions container.
 
     ! Local variables
@@ -1423,7 +1298,7 @@ module evolver
    implicit none
 
    ! Arguments
-   class(gvector_container_type), intent(inout) :: this
+   class(distribs_container_type), intent(inout) :: this
    !! Parent of the procedure. Instance of distribution functions container.
 
    ! Local variables
@@ -1526,7 +1401,7 @@ module evolver
     implicit none
 
     ! Arguments
-    class(gvector_container_type), intent(inout) :: this
+    class(distribs_container_type), intent(inout) :: this
     !! Parent of the procedure. Instance of distribution functions container.
     character(len=3), dimension(2), intent(in) :: elements
     !! Element name.
@@ -1591,7 +1466,7 @@ module evolver
     implicit none
 
     ! Arguments
-    class(gvector_container_type), intent(inout) :: this
+    class(distribs_container_type), intent(inout) :: this
     !! Parent of the procedure. Instance of distribution functions container.
     character(len=3), dimension(:,:), intent(in) :: elements
     !! Element names.
@@ -1617,7 +1492,7 @@ module evolver
    implicit none
 
    ! Arguments
-   class(gvector_container_type), intent(in) :: this
+   class(distribs_container_type), intent(in) :: this
    !! Parent of the procedure. Instance of distribution functions container.
    character(len=3), dimension(:,:), allocatable, intent(out) :: elements
    !! Element pair names.
@@ -1649,7 +1524,7 @@ module evolver
     implicit none
 
    ! Arguments
-    class(gvector_container_type), intent(in) :: this
+    class(distribs_container_type), intent(in) :: this
     !! Parent of the procedure. Instance of distribution functions container.
     character(len=3), dimension(size(this%bond_info,1),2), intent(out) :: &
          elements
@@ -1677,7 +1552,7 @@ module evolver
     implicit none
 
     ! Arguments
-    class(gvector_container_type), intent(inout) :: this
+    class(distribs_container_type), intent(inout) :: this
     !! Parent of the procedure. Instance of distribution functions container.
 
     ! Local variables
@@ -1784,7 +1659,7 @@ module evolver
     implicit none
 
     ! Arguments
-    class(gvector_container_type), intent(in) :: this
+    class(distribs_container_type), intent(in) :: this
     !! Parent of the procedure. Instance of distribution functions container.
     character(len=3), intent(in) :: species1, species2
     !! Element names.
@@ -1816,7 +1691,7 @@ module evolver
     implicit none
 
     ! Arguments
-    class(gvector_container_type), intent(in) :: this
+    class(distribs_container_type), intent(in) :: this
     !! Parent of the procedure. Instance of distribution functions container.
     character(len=3), intent(in) :: species
     !! Element name.
@@ -1834,44 +1709,12 @@ module evolver
 
 
 !###############################################################################
-  subroutine set_host_element_map(this, element_info)
-    !! Set the host element map for the container.
-    implicit none
-
-    ! Arguments
-    class(gvector_host_type), intent(inout) :: this
-    !! Parent of the procedure. Instance of distribution functions container.
-    type(element_type), dimension(:), intent(in) :: element_info
-    !! Element information.
-
-    ! Local variables
-    integer :: is, js
-    !! Index of the elements in the element_info array.
-
-    if(.not.this%defined)then
-       call stop_program( "Host not defined" )
-       return
-    end if
-    if(allocated(this%element_map)) deallocate(this%element_map)
-    allocate(this%element_map(this%basis%nspec))
-    do is = 1, this%basis%nspec
-       this%element_map(is) = findloc(&
-            [ element_info(:)%name ], &
-            this%basis%spec(is)%name, dim=1 &
-       )
-    end do
-
-  end subroutine set_host_element_map
-!###############################################################################
-
-
-!###############################################################################
   pure function get_bin(this, value, dim) result(bin)
     !! Get the bin index for a value in a dimension.
     implicit none
 
     ! Arguments
-    class(gvector_container_type), intent(in) :: this
+    class(distribs_container_type), intent(in) :: this
     !! Parent of the procedure. Instance of distribution functions container.
     real(real12), intent(in) :: value
     !! Value to get the bin index for.
@@ -1894,12 +1737,12 @@ module evolver
 
 
 !###############################################################################
-  subroutine initialise_gvectors(this)
+  subroutine initialise_distribs(this)
     !! Initialise the g-vectors for the container.
     implicit none
 
     ! Arguments
-    class(gvector_container_type), intent(inout) :: this
+    class(distribs_container_type), intent(inout) :: this
     !! Parent of the procedure. Instance of distribution functions container.
 
     ! Local variables
@@ -1919,17 +1762,17 @@ module evolver
     allocate(this%in_dataset_3body(size(this%element_info)), source = .false. )
     allocate(this%in_dataset_4body(size(this%element_info)), source = .false. )
 
-  end subroutine initialise_gvectors
+  end subroutine initialise_distribs
 !###############################################################################
 
 
 !###############################################################################
-  subroutine set_gvector_to_default(this, body, index)
-    !! Initialise the g-vectors for index of body distribution function.
+  subroutine set_distribs_to_default(this, body, index)
+    !! Initialise the distribs for index of body distribution function.
     implicit none
 
     ! Arguments
-    class(gvector_container_type), intent(inout) :: this
+    class(distribs_container_type), intent(inout) :: this
     !! Parent of the procedure. Instance of distribution functions container.
     integer, intent(in) :: body
     !! Body distribution function to initialise.
@@ -1956,7 +1799,7 @@ module evolver
        if(abs(bonds(1)).lt.1.E-6)then
           call stop_program( "Bond radius is zero" )
        end if
-       this%total%df_2body(:,index) = weight * height * get_gvector( &
+       this%total%df_2body(:,index) = weight * height * get_distrib( &
                           bonds , &
                           this%nbins(1), eta, this%width(1), &
                           this%cutoff_min(1), &
@@ -1968,7 +1811,7 @@ module evolver
        this%total%df_4body(:,index) = 1._real12/this%nbins(3)
     end if
 
-  end subroutine set_gvector_to_default
+  end subroutine set_distribs_to_default
 !###############################################################################
 
 
@@ -1978,9 +1821,9 @@ module evolver
     implicit none
 
     ! Arguments
-    class(gvector_container_type), intent(inout) :: this
+    class(distribs_container_type), intent(inout) :: this
     !! Parent of the procedure. Instance of distribution functions container.
-    type(gvector_type), dimension(..), intent(in), optional :: system
+    type(distribs_type), dimension(..), intent(in), optional :: system
     !! Optional. System to add to the container.
 
     ! Local variables
@@ -2023,12 +1866,12 @@ module evolver
 
 
     !---------------------------------------------------------------------------
-    ! initialise the total gvectors and get best energies from lowest
-    ! formation energy system
+    ! initialise the total distribution functions and get best energies from
+    ! lowest formation energy system
     !---------------------------------------------------------------------------
     if(.not.allocated(this%total%df_2body))then
        call this%set_best_energy()
-       call this%initialise_gvectors()
+       call this%initialise_distribs()
     else
        best_energy_pair_old = this%best_energy_pair
        best_energy_per_species_old = this%best_energy_per_species
@@ -2127,7 +1970,7 @@ module evolver
     end if
 
     !---------------------------------------------------------------------------
-    ! loop over all systems to calculate the total gvectors
+    ! loop over all systems to calculate the generalised distribution functions
     !---------------------------------------------------------------------------
     num_evaluated = 0
     do i = this%num_evaluated_allocated + 1, size(this%system), 1
@@ -2168,7 +2011,7 @@ module evolver
        energy = energy / this%system(i)%num_atoms
        j = 0
        !------------------------------------------------------------------------
-       ! loop over all species in the system to add the gvectors
+       ! loop over all species in the system to add the distributions
        !------------------------------------------------------------------------
        do is = 1, size(this%system(i)%element_symbols)
 
@@ -2243,19 +2086,19 @@ module evolver
    !----------------------------------------------------------------------------
    do j = 1, size(this%total%df_2body,2)
       if(all(abs(this%total%df_2body(:,j)).lt.1.E-6))then
-         call this%set_gvector_to_default(2, j)
+         call this%set_distribs_to_default(2, j)
       else
          this%in_dataset_2body(j) = .true.
       end if
    end do
    do is = 1, size(this%element_info)
       if(all(abs(this%total%df_3body(:,is)).lt.1.E-6))then
-         call this%set_gvector_to_default(3, is)
+         call this%set_distribs_to_default(3, is)
       else
          this%in_dataset_3body(is) = .true.
       end if
       if(all(abs(this%total%df_4body(:,is)).lt.1.E-6))then
-         call this%set_gvector_to_default(4, is)
+         call this%set_distribs_to_default(4, is)
       else
          this%in_dataset_4body(is) = .true.
       end if
@@ -2301,517 +2144,4 @@ module evolver
   end subroutine evolve
 !###############################################################################
 
-
-!###############################################################################
-  subroutine calculate(this, basis, &
-       nbins, width, sigma, cutoff_min, cutoff_max, radius_distance_tol)
-    !! Calculate the distribution functions for the container.
-    !!
-    !! This procedure calculates the 2-, 3-, and 4-body distribution function 
-    !! for a given atomic structure (i.e. basis).
-    implicit none
-
-    ! Arguments
-    class(gvector_type), intent(inout) :: this
-    !! Parent of the procedure. Instance of distribution functions container.
-    type(basis_type), intent(in) :: basis
-    !! Atomic structure.
-    integer, dimension(3), intent(in), optional :: nbins
-    !! Optional. Number of bins for the distribution functions.
-    real(real12), dimension(3), intent(in), optional :: width, sigma
-    !! Optional. Width and sigma for the distribution functions.
-    real(real12), dimension(3), intent(in), optional :: cutoff_min, cutoff_max
-    !! Optional. Cutoff minimum and maximum for the distribution functions.
-    real(real12), dimension(4), intent(in), optional :: radius_distance_tol
-    !! Tolerance for the distance between atoms for 3- and 4-body.
-
-    ! Local variables
-    integer, dimension(3) :: nbins_
-    !! Number of bins for the distribution functions.
-    real(real12), dimension(3) :: sigma_
-    !! Sigma for the distribution functions.
-    real(real12), dimension(3) :: width_
-    !! Width of the bins for the distribution functions.
-    real(real12), dimension(3) :: cutoff_min_
-    !! Cutoff minimum for the distribution functions.
-    real(real12), dimension(3) :: cutoff_max_
-    !! Cutoff maximum for the distribution functions.
-    type(element_bond_type), dimension(:), allocatable :: bond_info
-    !! Bond information for radii.
-    real(real12), dimension(4) :: radius_distance_tol_
-    !! Tolerance for the distance between atoms for 3- and 4-body.
-
-
-    integer :: i, b, itmp1, idx
-    !! Loop index.
-    integer :: is, js, ia, ja, ka, la
-    !! Loop index.
-    integer :: num_pairs
-    !! Number of pairs and angles.
-    real(real12) :: bondlength
-    !! Temporary real variables.
-    logical :: success
-    !! Boolean for success.
-    type(extended_basis_type) :: basis_extd
-    !! Extended basis of the system.
-    type(extended_basis_type) :: neighbour_basis
-    !! Basis for storing neighbour data.
-    real(real12), dimension(3) :: eta
-    !! Parameters for the distribution functions.
-    real(real12), allocatable, dimension(:) :: angle_list, bondlength_list, &
-         distance
-    !! Temporary real arrays.
-    integer, allocatable, dimension(:,:) :: pair_index
-    !! Index of element pairs.
-
-
-    !---------------------------------------------------------------------------
-    ! initialise optional variables
-    !---------------------------------------------------------------------------
-    if(present(cutoff_min))then
-       cutoff_min_ = cutoff_min
-    else
-       cutoff_min_ = [0.5_real12, 0._real12, 0._real12]
-    end if
-    if(present(cutoff_max))then
-       cutoff_max_ = cutoff_max
-    else
-       cutoff_max_ = [6._real12, pi, pi]
-    end if
-    if(present(width))then
-       width_ = width
-    else
-       width_ = [0.25_real12, pi/64._real12, pi/64._real12]
-    end if
-    if(present(sigma))then
-       sigma_ = sigma
-    else
-       sigma_ = [0.1_real12, 0.1_real12, 0.1_real12]
-    end if
-    if(present(nbins))then
-       nbins_ = nbins
-       width_ = ( cutoff_max_ - cutoff_min_ )/real( nbins_ - 1, real12 )
-    else
-       nbins_ = 1 + nint( (cutoff_max_ - cutoff_min_)/width_ )
-    end if
-    if(present(radius_distance_tol))then
-       radius_distance_tol_ = radius_distance_tol
-    else
-       radius_distance_tol_ = [1.5_real12, 2.5_real12, 3._real12, 6._real12]
-    end if
-       
-
-
-    !---------------------------------------------------------------------------
-    ! get the number of pairs of species
-    ! (this uses a combination calculator with repetition)
-    !---------------------------------------------------------------------------
-    num_pairs = nint(gamma(real(basis%nspec + 2, real12)) / &
-                ( gamma(real(basis%nspec, real12)) * gamma( 3._real12 ) ))
-    allocate(this%element_symbols(basis%nspec))
-    do is = 1, basis%nspec
-       this%element_symbols(is) = strip_null(basis%spec(is)%name)
-    end do
-    i = 0
-    allocate(bond_info(num_pairs))
-    allocate(pair_index(basis%nspec,basis%nspec))
-    do is = 1, basis%nspec
-       do js = is, basis%nspec, 1
-          i = i + 1
-          pair_index(js,is) = i
-          pair_index(is,js) = i
-          call bond_info(i)%set( this%element_symbols(is), &
-                                 this%element_symbols(js), success &
-          )
-          if(success) cycle
-          call set_bond_radius_to_default( [ &
-               this%element_symbols(is), &
-               this%element_symbols(js) ] &
-          )
-          call bond_info(i)%set( this%element_symbols(is), &
-                                 this%element_symbols(js), success &
-          )
-       end do
-    end do
-
-
-    !---------------------------------------------------------------------------
-    ! get the stoichiometry, energy, and number of atoms
-    !---------------------------------------------------------------------------
-    this%stoichiometry = basis%spec(:)%num
-    this%energy = basis%energy
-    this%num_atoms = basis%natom
-
-
-    !---------------------------------------------------------------------------
-    ! calculate the gaussian width and allocate the distribution functions
-    !---------------------------------------------------------------------------
-    eta = 1._real12 / ( 2._real12 * sigma_**2._real12 )
-    allocate(this%num_pairs(num_pairs), source = 0)
-    allocate(this%num_per_species(basis%nspec), source = 0)
-    allocate(this%weight_pair(num_pairs), source = 0._real12)
-    allocate(this%weight_per_species(basis%nspec), source = 0._real12)
-    allocate(this%df_2body(nbins_(1), num_pairs), source = 0._real12)
-    allocate(this%df_3body(nbins_(2), basis%nspec), source = 0._real12)
-    allocate(this%df_4body(nbins_(3), basis%nspec), source = 0._real12)
-
-
-    !---------------------------------------------------------------------------
-    ! create the extended basis and neighbour basis
-    !---------------------------------------------------------------------------
-    call basis_extd%copy(basis)
-    call basis_extd%create_images( max_bondlength = cutoff_max_(1) )
-    allocate(bondlength_list(basis_extd%natom+basis_extd%num_images))
-
-    allocate(neighbour_basis%spec(1))
-    allocate(neighbour_basis%image_spec(1))
-    allocate(neighbour_basis%spec(1)%atom( &
-         sum(basis_extd%spec(:)%num)+sum(basis_extd%image_spec(:)%num), 3 &
-    ) )
-    allocate(neighbour_basis%image_spec(1)%atom( &
-         sum(basis_extd%spec(:)%num)+sum(basis_extd%image_spec(:)%num), 3 &
-    ) )
-    neighbour_basis%nspec = basis%nspec
-    neighbour_basis%natom = 0
-    neighbour_basis%num_images = 0
-    neighbour_basis%lat = basis%lat
-
-
-    !---------------------------------------------------------------------------
-    ! calculate the distribution functions
-    !---------------------------------------------------------------------------
-    do is = 1, basis%nspec
-       do ia = 1, basis%spec(is)%num
-          allocate(distance(basis_extd%natom+basis_extd%num_images)) !!! ALLOCATE THIS ONCE AND JUST WRITE OVER ?
-          neighbour_basis%spec(1)%num = 0
-          neighbour_basis%image_spec(1)%num = 0
-          do js = 1, basis%nspec
-             itmp1 = 0
-
-             !------------------------------------------------------------------
-             ! loop over all atoms inside the unit cell
-             !------------------------------------------------------------------
-             atom_loop: do ja = 1, basis_extd%spec(js)%num
-
-                associate( vector =>  matmul( [ &
-                          basis_extd%spec(js)%atom(ja,1:3) - &
-                          basis_extd%spec(is)%atom(ia,1:3) &
-                     ], basis_extd%lat ) &
-                )
-                   bondlength = modu( vector )
-                   
-                   if( bondlength .lt. cutoff_min_(1) .or. &
-                       bondlength .gt. cutoff_max_(1) ) cycle atom_loop
-                  
-                   ! add 2-body bond to store if within tolerances for 3-body
-                   ! distance
-                   if( &
-                        bondlength .ge. &
-                             bond_info(pair_index(is, js))%radius_covalent * &
-                             radius_distance_tol_(1) .and. &
-                        bondlength .le. &
-                             bond_info(pair_index(is, js))%radius_covalent * &
-                             radius_distance_tol_(2) &
-                   ) then
-                      neighbour_basis%spec(1)%num = &
-                           neighbour_basis%spec(1)%num + 1
-                      neighbour_basis%spec(1)%atom( &
-                           neighbour_basis%spec(1)%num,1:3) = vector
-                   end if
-
-                   ! add 2-body bond to store if within tolerances for 4-body
-                   ! distance
-                   if( bondlength .ge. ( & 
-                        bond_info(pair_index(is, js))%radius_covalent * &
-                        radius_distance_tol_(3) ) .and. &
-                       bondlength .le. ( &
-                        bond_info(pair_index(is, js))%radius_covalent * &
-                        radius_distance_tol_(4) ) &
-                   ) then
-                      neighbour_basis%image_spec(1)%num = &
-                           neighbour_basis%image_spec(1)%num + 1
-                      neighbour_basis%image_spec(1)%atom( &
-                           neighbour_basis%image_spec(1)%num,1:3) = vector
-                   end if
-
-                   !if(js.lt.js.or.(is.eq.js.and.ja.le.ia)) cycle
-                   itmp1 = itmp1 + 1
-                   bondlength_list(itmp1) = bondlength
-                   distance(itmp1) = 1._real12
-                
-                end associate
-             end do atom_loop
-
-
-             !------------------------------------------------------------------
-             ! loop over all image atoms outside of the unit cell
-             !------------------------------------------------------------------
-             image_loop: do ja = 1, basis_extd%image_spec(js)%num
-                associate( vector =>  matmul( [ &
-                          basis_extd%image_spec(js)%atom(ja,1:3) - &
-                          basis_extd%spec(is)%atom(ia,1:3) &
-                     ], basis_extd%lat ) &
-                )
-
-                   bondlength = modu( vector )
-                   
-                   if( bondlength .lt. cutoff_min_(1) .or. &
-                       bondlength .gt. cutoff_max_(1) ) cycle image_loop
-                  
-                   ! add 2-body bond to store if within tolerances for 3-body
-                   ! distance
-                   if( &
-                        bondlength .ge. &
-                             bond_info(pair_index(is, js))%radius_covalent * &
-                             radius_distance_tol_(1) .and. &
-                        bondlength .le. &
-                             bond_info(pair_index(is, js))%radius_covalent * &
-                             radius_distance_tol_(2) &
-                   ) then
-                      neighbour_basis%spec(1)%num = &
-                           neighbour_basis%spec(1)%num + 1
-                      neighbour_basis%spec(1)%atom( &
-                           neighbour_basis%spec(1)%num,1:3 &
-                      ) = vector
-                   end if
-
-                   ! add 2-body bond to store if within tolerances for 4-body
-                   ! distance
-                   if( bondlength .ge. ( & 
-                        bond_info(pair_index(is, js))%radius_covalent * &
-                        radius_distance_tol_(3) ) .and. &
-                       bondlength .le. ( &
-                        bond_info(pair_index(is, js))%radius_covalent * &
-                        radius_distance_tol_(4) ) &
-                   ) then
-                      neighbour_basis%image_spec(1)%num = &
-                           neighbour_basis%image_spec(1)%num + 1
-                      neighbour_basis%image_spec(1)%atom( &
-                           neighbour_basis%image_spec(1)%num,1:3 &
-                      ) = vector
-                   end if
-
-                   itmp1 = itmp1 + 1
-                   bondlength_list(itmp1) = bondlength
-                   distance(itmp1) = 1._real12
-                
-                end associate
-             end do image_loop
-
-             !------------------------------------------------------------------
-             ! calculate the 2-body distribution function contributions from
-             ! atom (is,ia) for species pair (is,js)
-             !------------------------------------------------------------------
-             if(itmp1.gt.0)then
-                this%df_2body(:,pair_index(is, js)) = &
-                     this%df_2body(:,pair_index(is, js)) + &
-                     get_gvector( &
-                          bondlength_list(:itmp1), &
-                          nbins_(1), eta(1), width_(1), &
-                          cutoff_min_(1), &
-                          scale_list = distance(:itmp1) &
-                     )
-                this%weight_pair(pair_index(is, js)) = &
-                     this%weight_pair(pair_index(is, js)) + &
-                     4._real12 * sum( &
-                          ( &
-                               bond_info(pair_index(is, js))%radius_covalent / &
-                               bondlength_list(:itmp1) ) ** 2 &
-                     )
-                this%num_pairs(pair_index(is, js)) = &
-                     this%num_pairs(pair_index(is, js)) + itmp1
-                this%weight_per_species(is) = &
-                     this%weight_per_species(is) + &
-                     4._real12 * sum( &
-                          ( &
-                               bond_info(pair_index(is, js))%radius_covalent / &
-                               bondlength_list(:itmp1) ) ** 2 &
-                     )
-                this%num_per_species(is) = this%num_per_species(is) + itmp1
-             end if
-
-          end do
-          deallocate(distance)
-
-
-          !---------------------------------------------------------------------
-          ! calculate the 3-body distribution function for atom (is,ia)
-          !---------------------------------------------------------------------
-          if(neighbour_basis%spec(1)%num.le.1) cycle
-          associate( &
-               num_angles => &
-               triangular_number( neighbour_basis%spec(1)%num - 1 ) &
-          )
-             allocate( angle_list(num_angles), distance(num_angles) )
-          end associate
-          do concurrent ( ja = 1:neighbour_basis%spec(1)%num:1 )
-             do concurrent ( ka = ja + 1:neighbour_basis%spec(1)%num:1 )
-                idx = nint( &
-                     (ja - 1) * (neighbour_basis%spec(1)%num - ja / 2.0) + &
-                     (ka - ja) &
-                )
-                angle_list(idx) = get_angle( &
-                     [ neighbour_basis%spec(1)%atom(ja,:3) ], &
-                     [ neighbour_basis%spec(1)%atom(ka,:3) ] &
-                )
-                distance(idx) = &
-                     ( &
-                          modu(neighbour_basis%spec(1)%atom(ja,:3)) ** 2 * &
-                          modu(neighbour_basis%spec(1)%atom(ka,:3)) ** 2 &
-                     )
-             end do
-          end do
-          this%df_3body(:,is) = this%df_3body(:,is) + &
-               get_gvector( angle_list, &
-                            nbins_(2), eta(2), width_(2), &
-                            cutoff_min_(2), &
-                            scale_list = distance &
-               )
-          deallocate( angle_list, distance )
-
-
-          !---------------------------------------------------------------------
-          ! calculate the 4-body distribution function for atom (is,ia)
-          !---------------------------------------------------------------------
-          if(neighbour_basis%image_spec(1)%num.eq.0) cycle
-          associate( &
-               num_angles => &
-               triangular_number( neighbour_basis%spec(1)%num - 1 ) * &
-               neighbour_basis%image_spec(1)%num &
-          )
-             allocate( angle_list(num_angles), distance(num_angles) )
-          end associate
-          idx = 0
-          do concurrent ( &
-                 ja = 1:neighbour_basis%spec(1)%num:1, &
-                 la = 1:neighbour_basis%image_spec(1)%num:1 &
-          )
-             do concurrent ( ka = ja + 1:neighbour_basis%spec(1)%num:1 )
-                idx = nint( &
-                     (ja - 1) * (neighbour_basis%spec(1)%num - ja / 2.0) + &
-                     (ka - ja - 1) &
-                ) * neighbour_basis%image_spec(1)%num + la
-                angle_list(idx) = &
-                     get_improper_dihedral_angle( &
-                          [ neighbour_basis%spec(1)%atom(ja,:3) ], &
-                          [ neighbour_basis%spec(1)%atom(ka,:3) ], &
-                          [ neighbour_basis%image_spec(1)%atom(la,:3) ] &
-                     )
-                distance(idx) = &
-                    modu(neighbour_basis%spec(1)%atom(ja,:3)) ** 2 * &
-                    modu(neighbour_basis%spec(1)%atom(ka,:3)) ** 2 * &
-                    modu(neighbour_basis%image_spec(1)%atom(la,:3)) ** 2
-             end do
-          end do
-          this%df_4body(:,is) = this%df_4body(:,is) + &
-               get_gvector( angle_list, &
-                            nbins_(3), eta(3), width_(3), &
-                            cutoff_min_(3), &
-                            scale_list = distance &
-               )
-          deallocate( angle_list, distance )
-
-       end do
-    end do
-
-    !---------------------------------------------------------------------------
-    ! apply the cutoff function to the 2-body distribution function
-    !---------------------------------------------------------------------------
-    do b = 1, nbins_(1)
-       this%df_2body(b,:) = this%df_2body(b,:) / ( cutoff_min_(1) + &
-            width_(1) * real(b-1, real12) ) ** 2
-    end do
-
-
-    !---------------------------------------------------------------------------
-    ! renormalise the distribution functions so that area under the curve is 1
-    !---------------------------------------------------------------------------
-    do i = 1, num_pairs
-       if(any(abs(this%df_2body(:,i)).gt.1.E-6))then
-          this%df_2body(:,i) = this%df_2body(:,i) / sum(this%df_2body(:,i))
-       end if
-    end do
-    do is = 1, basis%nspec
-       if(any(abs(this%df_3body(:,is)).gt.1.E-6))then
-          this%df_3body(:,is) = this%df_3body(:,is) / sum(this%df_3body(:,is))
-       end if
-       if(any(abs(this%df_4body(:,is)).gt.1.E-6))then
-          this%df_4body(:,is) = this%df_4body(:,is) / sum(this%df_4body(:,is))
-       end if
-    end do
-
-  end subroutine calculate
-!###############################################################################
-
-
-!###############################################################################
-  function get_gvector(value_list, nbins, eta, width, cutoff_min, &
-       scale_list ) result(gvector)
-    !! Calculate the angular distribution function for a list of values.
-    implicit none
-
-    ! Arguments
-    integer, intent(in) :: nbins
-    !! Number of bins for the distribution functions.
-    real(real12), intent(in) :: eta, width, cutoff_min
-    !! Parameters for the distribution functions.
-    real(real12), dimension(:), intent(in) :: value_list
-    !! List of angles.
-    real(real12), dimension(:), intent(in) :: scale_list
-    !! List of scaling for each angle (distance**3 or distance**4)
-    real(real12), dimension(nbins) :: gvector
-    !! Distribution function for the list of values.
-
-    ! Local variables
-    integer :: i, j, b, bin
-    !! Loop index.
-    integer :: max_num_steps
-    !! Maximum number of steps.
-    integer, dimension(3,2) :: loop_limits
-    !! Loop limits for the 3-body distribution function.
-
-
-    max_num_steps = ceiling( sqrt(16._real12/eta) / width )
-    gvector = 0._real12
-
-    !---------------------------------------------------------------------------
-    ! calculate the gvector for a list of values
-    !---------------------------------------------------------------------------
-    do i = 1, size(value_list), 1
-
-       !------------------------------------------------------------------------
-       ! get the bin closest to the value
-       !------------------------------------------------------------------------
-       bin = nint( ( value_list(i) - cutoff_min ) / width ) + 1
-
-
-       !------------------------------------------------------------------------
-       ! calculate the gaussian for this bond
-       !------------------------------------------------------------------------
-       ! gvector_tmp = 0._real12
-       loop_limits(:,1) = &
-            [ min(nbins, bin), min(nbins, bin + max_num_steps), 1 ]
-       loop_limits(:,2) = &
-            [ max(1, bin - 1), max(1, bin - max_num_steps), -1 ]
-
-
-       !------------------------------------------------------------------------
-       ! do forward and backward loops to add gaussian from its centre
-       !------------------------------------------------------------------------
-       do concurrent ( j = 1:2 )
-          do concurrent ( &
-                 b = loop_limits(1,j):loop_limits(2,j):loop_limits(3,j) )
-             gvector(b) = gvector(b) + &
-                  exp( -eta * ( value_list(i) - &
-                                   ( width * real(b-1, real12) + &
-                                     cutoff_min ) ) ** 2._real12 &
-                  ) / scale_list(i)
-          end do
-       end do
-    end do
-    gvector = gvector * sqrt( eta / pi ) / real(size(value_list,1),real12)
-
-  end function get_gvector
-!###############################################################################
-
-end module evolver
+end module raffle__distribs_container

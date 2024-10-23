@@ -1,7 +1,7 @@
-program test_evolver
+program test_distribs_container
   use error_handling, only: test_error_handling
-  use evolver, only: &
-       gvector_container_type
+  use raffle__distribs_container, only: &
+       distribs_container_type
   use constants, only: real12, pi
   use rw_geom, only: basis_type
   implicit none
@@ -73,7 +73,7 @@ program test_evolver
   basis_mgo%lat(3,:) = [0.0, 0.0, 4.19]
   basis_mgo%energy = -20.0
 
-  call test_init_gvector_container(success)
+  call test_init_distribs_container(success)
   call test_set_width(success)
   call test_set_sigma(success)
   call test_set_cutoff_min(success)
@@ -107,19 +107,19 @@ program test_evolver
 
 contains
 
-  subroutine test_init_gvector_container(success)
+  subroutine test_init_distribs_container(success)
     implicit none
     logical, intent(inout) :: success
 
     integer :: i
-    class(gvector_container_type), allocatable :: gvector_container
+    class(distribs_container_type), allocatable :: distribs_container
     character(len=10) :: test_name
 
     integer, dimension(3) :: nbins
     real(real12), dimension(3) :: width, sigma, cutoff_min, cutoff_max
 
     ! Test case 1: Default initialisation
-    gvector_container = gvector_container_type()
+    distribs_container = distribs_container_type()
     nbins = [-1, -1, -1]
     width = [0.025_real12, pi/64._real12, pi/64._real12]
     sigma = [0.1_real12, 0.1_real12, 0.1_real12]
@@ -129,29 +129,29 @@ contains
 
     do i = 1, 2
        call assert( &
-            all( gvector_container%nbins .eq. nbins ), &
+            all( distribs_container%nbins .eq. nbins ), &
             trim(test_name)//" nbins initialisation failed", &
             success &
        )
        call assert( &
-            all( abs( gvector_container%width - width ) .lt. 1.E-6_real12 ), &
+            all( abs( distribs_container%width - width ) .lt. 1.E-6_real12 ), &
             trim(test_name)//" width initialisation failed", &
             success &
        )
        call assert( &
-            all( abs( gvector_container%sigma - sigma ) .lt. 1.E-6_real12 ), &
+            all( abs( distribs_container%sigma - sigma ) .lt. 1.E-6_real12 ), &
             trim(test_name)//" sigma initialisation failed", &
             success &
        )
        call assert( &
-            all( abs( gvector_container%cutoff_min - cutoff_min ) .lt. &
+            all( abs( distribs_container%cutoff_min - cutoff_min ) .lt. &
                  1.E-6_real12 &
             ), &
             trim(test_name)//" cutoff_min initialisation failed", &
             success &
        )
        call assert( &
-            all( abs( gvector_container%cutoff_max - cutoff_max ) .lt. &
+            all( abs( distribs_container%cutoff_max - cutoff_max ) .lt. &
                  1.E-6_real12 &
             ), &
             trim(test_name)//" cutoff_max initialisation failed", &
@@ -165,7 +165,7 @@ contains
        sigma = [0.2_real12, 0.3_real12, 0.4_real12]
        cutoff_min = [1.0_real12, 2.0_real12, 3.0_real12]
        cutoff_max = [5.0_real12, 6.0_real12, 7.0_real12]
-       gvector_container = gvector_container_type( &
+       distribs_container = distribs_container_type( &
             nbins=nbins,  &
             width=width,  &
             sigma=sigma,  &
@@ -175,33 +175,33 @@ contains
        test_name = "Custom"
     end do
 
-    write(*,*) "Testing gvector_container_type initialisation error handling"
+    write(*,*) "Testing distribs_container_type initialisation error handling"
     cutoff_min = [6.0_real12, 6.0_real12, 6.0_real12]
     cutoff_max = [1.0_real12, 1.0_real12, 1.0_real12]
-    gvector_container = gvector_container_type( &
+    distribs_container = distribs_container_type( &
          cutoff_min=cutoff_min,  &
          cutoff_max=cutoff_max &
     )
     write(*,*) "Handled error: cutoff_min > cutoff_max"
   
-  end subroutine test_init_gvector_container
+  end subroutine test_init_distribs_container
 
   subroutine test_set_width(success)
     implicit none
     logical, intent(inout) :: success
 
-    type(gvector_container_type) :: gvector_container
+    type(distribs_container_type) :: distribs_container
     real(real12), dimension(3) :: width
 
     ! Initialise test data
     width = [0.05_real12, 0.1_real12, 0.15_real12]
 
     ! Call the subroutine to set the width
-    call gvector_container%set_width(width)
+    call distribs_container%set_width(width)
 
     ! Check if the width was set correctly
     call assert( &
-         all( abs( gvector_container%width - width ) .lt. 1.E-6_real12 ), &
+         all( abs( distribs_container%width - width ) .lt. 1.E-6_real12 ), &
          "Width was not set correctly", &
          success &
     )
@@ -212,18 +212,18 @@ contains
     implicit none
     logical, intent(inout) :: success
 
-    type(gvector_container_type) :: gvector_container
+    type(distribs_container_type) :: distribs_container
     real(real12), dimension(3) :: sigma
 
     ! Initialise test data
     sigma = [0.05_real12, 0.1_real12, 0.15_real12]
 
     ! Call the subroutine to set the width
-    call gvector_container%set_sigma(sigma)
+    call distribs_container%set_sigma(sigma)
 
     ! Check if the width was set correctly
     call assert( &
-         all( abs( gvector_container%sigma - sigma ) .lt. 1.E-6_real12 ), &
+         all( abs( distribs_container%sigma - sigma ) .lt. 1.E-6_real12 ), &
          "Sigma was not set correctly", &
          success &
     )
@@ -234,18 +234,18 @@ contains
     implicit none
     logical, intent(inout) :: success
 
-    type(gvector_container_type) :: gvector_container
+    type(distribs_container_type) :: distribs_container
     real(real12), dimension(3) :: cutoff_min
 
     ! Initialise test data
     cutoff_min = [0.5_real12, 0.5_real12, 0.5_real12]
 
     ! Call the subroutine to set the cutoff_min
-    call gvector_container%set_cutoff_min(cutoff_min)
+    call distribs_container%set_cutoff_min(cutoff_min)
 
     ! Check if the cutoff_min was set correctly
     call assert( &
-         all( abs( gvector_container%cutoff_min - cutoff_min ) .lt. &
+         all( abs( distribs_container%cutoff_min - cutoff_min ) .lt. &
               1.E-6_real12 &
          ), &
          "Cutoff_min was not set correctly", &
@@ -258,18 +258,18 @@ contains
     implicit none
     logical, intent(inout) :: success
 
-    type(gvector_container_type) :: gvector_container
+    type(distribs_container_type) :: distribs_container
     real(real12), dimension(3) :: cutoff_max
 
     ! Initialise test data
     cutoff_max = [6.0_real12, 6.0_real12, 6.0_real12]
 
     ! Call the subroutine to set the cutoff_max
-    call gvector_container%set_cutoff_max(cutoff_max)
+    call distribs_container%set_cutoff_max(cutoff_max)
 
     ! Check if the cutoff_max was set correctly
     call assert( &
-         all( abs( gvector_container%cutoff_max - cutoff_max ) .lt. &
+         all( abs( distribs_container%cutoff_max - cutoff_max ) .lt. &
               1.E-6_real12 &
          ), &
          "Cutoff_max was not set correctly", &
@@ -282,20 +282,20 @@ contains
     implicit none
     logical, intent(inout) :: success
 
-    type(gvector_container_type) :: gvector_container
+    type(distribs_container_type) :: distribs_container
     real(real12), dimension(4) :: radius_distance_tol
 
     ! Initialise test data
     radius_distance_tol = [1.5_real12, 2.5_real12, 3.0_real12, 6.0_real12]
 
     ! Call the subroutine to set the radius_distance_tol
-    call gvector_container%set_radius_distance_tol(radius_distance_tol)
+    call distribs_container%set_radius_distance_tol(radius_distance_tol)
 
     ! Check if the radius_distance_tol was set correctly
     call assert( &
          all( &
               abs( &
-                   gvector_container%radius_distance_tol - radius_distance_tol &
+                   distribs_container%radius_distance_tol - radius_distance_tol &
               ) .lt. 1.E-6_real12 &
          ), &
          "Radius_distance_tol was not set correctly", &
@@ -307,7 +307,7 @@ contains
 
 
   subroutine test_create(basis, success)
-    !! Test the create subroutine of gvector_container_type
+    !! Test the create subroutine of distribs_container_type
     implicit none
     logical, intent(inout) :: success
     type(basis_type), dimension(:), intent(in) :: basis
@@ -315,7 +315,7 @@ contains
     integer :: i, j, k
     integer :: num_pairs
     character(len=3) :: species_tmp
-    type(gvector_container_type) :: gvector_container
+    type(distribs_container_type) :: distribs_container
     type(basis_type), dimension(size(basis,1)) :: basis_list
     character(len=3), dimension(:), allocatable :: elements
 
@@ -325,15 +325,15 @@ contains
     end do
 
     ! Test element_database uninitiaised error handling
-    write(*,*) "Testing gvector_container_type create error handling"
-    call gvector_container%create(basis_list, deallocate_systems=.false.)
+    write(*,*) "Testing distribs_container_type create error handling"
+    call distribs_container%create(basis_list, deallocate_systems=.false.)
     write(*,*) "Handled error: element_database not initialised"
 
     ! Set element energies
     allocate(elements(0))
     do i = 1, size(basis_list)
        species_loop: do j = 1, basis_list(i)%nspec
-          call gvector_container%set_element_energies( &
+          call distribs_container%set_element_energies( &
                [ basis_list(i)%spec(1)%name ], [ -9.027_real12 ] &
           )
           species_tmp = basis_list(i)%spec(j)%name(1:3)
@@ -352,32 +352,32 @@ contains
                 ( gamma(real(size(elements), real12)) * gamma( 3._real12 ) ) )
 
     ! Call the create subroutine
-    call gvector_container%create(basis_list, deallocate_systems=.false.)
+    call distribs_container%create(basis_list, deallocate_systems=.false.)
 
     ! Check if the system is allocated
     call assert( &
-         allocated(gvector_container%system),  &
+         allocated(distribs_container%system),  &
          "system not allocated",  &
          success &
     )
 
     ! Check number of elements in element_info is correct
     call assert( &
-         size(gvector_container%element_info, dim=1) .eq. size(elements),  &
+         size(distribs_container%element_info, dim=1) .eq. size(elements),  &
          "Number of elements in element_info is incorrect",  &
          success &
     )
 
     ! Check symbol of the element is correct
     call assert( &
-         any( elements .eq. gvector_container%element_info(1)%name ),  &
+         any( elements .eq. distribs_container%element_info(1)%name ),  &
          "Symbol of the element is incorrect",  &
          success &
     )
 
     ! Check element energies are set correctly
     call assert( &
-         abs( gvector_container%element_info(1)%energy + 9.027_real12 ) .lt. &
+         abs( distribs_container%element_info(1)%energy + 9.027_real12 ) .lt. &
          1.E-6_real12 , &
          "element energies not set correctly",  &
          success &
@@ -386,9 +386,9 @@ contains
     ! Check if the 2-/3-/4-body distribution functions are not allocated
     call assert( &
          ( &
-              allocated(gvector_container%total%df_2body) .or. &
-              allocated(gvector_container%total%df_3body) .or. &
-              allocated(gvector_container%total%df_4body) &
+              allocated(distribs_container%total%df_2body) .or. &
+              allocated(distribs_container%total%df_3body) .or. &
+              allocated(distribs_container%total%df_4body) &
          ),  &
           "2-/3-/4-body distribution functions are allocated",  &
           success &
@@ -396,19 +396,19 @@ contains
 
     ! Check number of species and species pairs are correct
     call assert( &
-         size(gvector_container%total%df_2body, dim=2) .eq. num_pairs,  &
+         size(distribs_container%total%df_2body, dim=2) .eq. num_pairs,  &
          "Number of species pairs in 2-body distribution function &
          &is incorrect",  &
          success &
     )
     call assert( &
-         size(gvector_container%total%df_3body, dim=2) .eq. size(elements),  &
+         size(distribs_container%total%df_3body, dim=2) .eq. size(elements),  &
          "Number of species in 3-body distribution function &
          &is incorrect",  &
          success &
     )
     call assert( &
-         size(gvector_container%total%df_4body, dim=2) .eq. size(elements),  &
+         size(distribs_container%total%df_4body, dim=2) .eq. size(elements),  &
          "Number of species in 4-body distribution function &
          &is incorrect",  &
          success &
@@ -416,53 +416,53 @@ contains
 
     ! Check if the 2-/3-/4-body distribution functions are not zero
     call assert( &
-         any( abs( gvector_container%total%df_2body ) .gt. 1.E-6_real12 ),  &
+         any( abs( distribs_container%total%df_2body ) .gt. 1.E-6_real12 ),  &
          "2-body distribution functions are zero",  &
          success &
     )
     call assert( &
-         any( abs( gvector_container%total%df_3body ) .gt. 1.E-6_real12 ),  &
+         any( abs( distribs_container%total%df_3body ) .gt. 1.E-6_real12 ),  &
          "3-body distribution functions are zero",  &
          success &
     )
     call assert( &
-         any( abs( gvector_container%total%df_4body ) .gt. 1.E-6_real12 ),  &
+         any( abs( distribs_container%total%df_4body ) .gt. 1.E-6_real12 ),  &
          "4-body distribution functions are zero",  &
          success &
     )
 
     ! Check if the 2-/3-/4-body distribution functions are not NaN
     call assert( &
-         all( .not. isnan( gvector_container%total%df_2body ) ),  &
+         all( .not. isnan( distribs_container%total%df_2body ) ),  &
          "2-body distribution functions are NaN",  &
          success &
     )
     call assert( &
-         all( .not. isnan( gvector_container%total%df_3body ) ),  &
+         all( .not. isnan( distribs_container%total%df_3body ) ),  &
          "3-body distribution functions are NaN",  &
          success &
     )
     call assert( &
-         all( .not. isnan( gvector_container%total%df_4body ) ),  &
+         all( .not. isnan( distribs_container%total%df_4body ) ),  &
          "4-body distribution functions are NaN",  &
          success &
     )
 
     ! Check that the maximum value of 2-/3-/4-body distribution functions is 1
-    do i = 1, size(gvector_container%total%df_2body, dim=2)
+    do i = 1, size(distribs_container%total%df_2body, dim=2)
        call assert( &
             abs( &
-                 maxval(gvector_container%total%df_2body(:,i)) - &
+                 maxval(distribs_container%total%df_2body(:,i)) - &
                  1._real12 &
             ) .lt. 1.E-6_real12, &
             "Maximum value of 2-body distribution functions is not 1",  &
             success &
        )
     end do
-    do i = 1, size(gvector_container%total%df_3body, dim=2)
+    do i = 1, size(distribs_container%total%df_3body, dim=2)
        call assert( &
             abs( &
-                 maxval(gvector_container%total%df_3body(:,i)) - &
+                 maxval(distribs_container%total%df_3body(:,i)) - &
                  1._real12 &
             ) .lt. 1.E-6_real12, &
             "Maximum value of 3-body distribution functions is not 1",  &
@@ -470,7 +470,7 @@ contains
        )
        call assert( &
             abs( &
-                 maxval(gvector_container%total%df_4body(:,i)) - &
+                 maxval(distribs_container%total%df_4body(:,i)) - &
                  1._real12 &
             ) .lt. 1.E-6_real12, &
             "Maximum value of 4-body distribution functions is not 1",  &
@@ -480,30 +480,30 @@ contains
 
     ! Check if norm is allocated and not zero
     call assert( &
-         allocated(gvector_container%norm_2body) .and. &
-         all( abs( gvector_container%norm_2body ) .gt. 1.E-6_real12 ),  &
+         allocated(distribs_container%norm_2body) .and. &
+         all( abs( distribs_container%norm_2body ) .gt. 1.E-6_real12 ),  &
          "2-body norm is not allocated or zero",  &
          success &
     )
     call assert( &
-         allocated(gvector_container%norm_3body) .and. &
-         all( abs( gvector_container%norm_3body ) .gt. 1.E-6_real12 ),  &
+         allocated(distribs_container%norm_3body) .and. &
+         all( abs( distribs_container%norm_3body ) .gt. 1.E-6_real12 ),  &
          "3-body norm is not allocated or zero",  &
          success &
     )
     call assert( &
-         allocated(gvector_container%norm_4body) .and. &
-         all( abs( gvector_container%norm_4body ) .gt. 1.E-6_real12 ),  &
+         allocated(distribs_container%norm_4body) .and. &
+         all( abs( distribs_container%norm_4body ) .gt. 1.E-6_real12 ),  &
          "4-body norm is not allocated or zero",  &
          success &
     )
 
     ! Call the create subroutine again
-    call gvector_container%create(basis_list, deallocate_systems=.true.)
+    call distribs_container%create(basis_list, deallocate_systems=.true.)
 
     ! Check if the system is deallocated
     call assert( &
-         .not.allocated(gvector_container%system),  &
+         .not.allocated(distribs_container%system),  &
          "system not correctly deallocated",  &
          success &
     )
@@ -518,7 +518,7 @@ contains
     integer :: i, j, k
     integer :: num_pairs
     character(len=3) :: species_tmp
-    type(gvector_container_type) :: gvector_container
+    type(distribs_container_type) :: distribs_container
     type(basis_type), dimension(size(basis,1)) :: basis_list
     character(len=3), dimension(:), allocatable :: elements
 
@@ -528,12 +528,12 @@ contains
     end do
 
     ! Set host system
-    call gvector_container%host_system%set(basis(1))
+    call distribs_container%host_system%set(basis(1))
 
     ! Set element energies
     do i = 1, size(basis_list)
        species_loop: do j = 1, basis_list(i)%nspec
-          call gvector_container%set_element_energies( &
+          call distribs_container%set_element_energies( &
                [ basis_list(i)%spec(1)%name ], [ -9.027_real12 ] &
           )
           species_tmp = basis_list(i)%spec(j)%name(1:3)
@@ -552,24 +552,24 @@ contains
                 ( gamma(real(size(elements), real12)) * gamma( 3._real12 ) ) )
 
     ! Call the create subroutine
-    call gvector_container%create([basis_list(1)], deallocate_systems=.false.)
+    call distribs_container%create([basis_list(1)], deallocate_systems=.false.)
 
     ! Call the update subroutine
-    call gvector_container%update([basis_list(2)], deallocate_systems=.false.)
+    call distribs_container%update([basis_list(2)], deallocate_systems=.false.)
 
     ! Check if the system is allocated
     call assert( &
-         allocated(gvector_container%system),  &
+         allocated(distribs_container%system),  &
          "system not allocated",  &
          success &
     )
 
     ! Call the create subroutine again
-    call gvector_container%update([basis_list(2)], deallocate_systems=.true.)
+    call distribs_container%update([basis_list(2)], deallocate_systems=.true.)
 
     ! Check if the system is deallocated
     call assert( &
-         .not.allocated(gvector_container%system),  &
+         .not.allocated(distribs_container%system),  &
          "system not correctly deallocated",  &
          success &
     )
@@ -581,67 +581,69 @@ contains
     logical, intent(inout) :: success
     type(basis_type), intent(in) :: basis
 
-    type(gvector_container_type) :: gvector_container
+    type(distribs_container_type) :: distribs_container
     integer, dimension(1,1,1,1) :: test_array = 1
 
     ! Call the add subroutine
-    call gvector_container%add(basis)
+    call distribs_container%add(basis)
 
     ! Check number of systems is correct
     call assert( &
-         size(gvector_container%system, dim=1) .eq. 1,  &
+         size(distribs_container%system, dim=1) .eq. 1,  &
          "Number of systems is incorrect",  &
          success &
     )
 
     ! Check if the system information is correct
     call assert( &
-         abs( gvector_container%system(1)%energy - basis%energy ) .lt. 1.E-6,  &
+         abs( &
+              distribs_container%system(1)%energy - basis%energy &
+         ) .lt. 1.E-6,  &
          "System energy is incorrect",  &
          success &
     )
     call assert( &
-         gvector_container%system(1)%num_atoms .eq. basis%natom,  &
+         distribs_container%system(1)%num_atoms .eq. basis%natom,  &
          "Number of atoms is incorrect",  &
          success &
     )
 
     ! Call the add subroutine
-    call gvector_container%add([basis])
+    call distribs_container%add([basis])
 
     ! Check number of systems is correct
     call assert( &
-         size(gvector_container%system, dim=1) .eq. 2,  &
+         size(distribs_container%system, dim=1) .eq. 2,  &
          "Number of systems is incorrect",  &
          success &
     )
 
     ! Check the add subroutine
-    call gvector_container%add(gvector_container%system(1))
+    call distribs_container%add(distribs_container%system(1))
 
     ! Check number of systems is correct
     call assert( &
-         size(gvector_container%system, dim=1) .eq. 3,  &
+         size(distribs_container%system, dim=1) .eq. 3,  &
          "Number of systems is incorrect",  &
          success &
     )
 
     ! Check the add subroutine
-    call gvector_container%add(gvector_container%system)
+    call distribs_container%add(distribs_container%system)
 
     ! Check number of systems is correct
     call assert( &
-         size(gvector_container%system, dim=1) .eq. 6,  &
+         size(distribs_container%system, dim=1) .eq. 6,  &
          "Number of systems is incorrect",  &
          success &
     )
 
     ! Test unknown type and rank error handling
-    write(*,*) "Testing gvector_container_type add error handling"
-    call gvector_container%add(1)
-    call gvector_container%add([1])
+    write(*,*) "Testing distribs_container_type add error handling"
+    call distribs_container%add(1)
+    call distribs_container%add([1])
     write(*,*) "Handled error: system default type"
-    call gvector_container%add(test_array)
+    call distribs_container%add(test_array)
     write(*,*) "Handled error: system default rank"
 
 
@@ -653,15 +655,15 @@ contains
     logical, intent(inout) :: success
     type(basis_type), intent(in) :: basis
 
-    type(gvector_container_type) :: gvector_container
+    type(distribs_container_type) :: distribs_container
     character(len=3), dimension(:), allocatable :: elements
     real(real12), dimension(:), allocatable :: energies
 
-    call gvector_container%set_element_energies(['C  '], [-9.027_real12])
-    call gvector_container%add(basis)
+    call distribs_container%set_element_energies(['C  '], [-9.027_real12])
+    call distribs_container%add(basis)
 
     ! Call the get_element_energies subroutine
-    call gvector_container%get_element_energies(elements, energies)
+    call distribs_container%get_element_energies(elements, energies)
 
     ! Check if the element energies are retrieved correctly
     call assert( &
@@ -692,15 +694,15 @@ contains
     logical, intent(inout) :: success
     type(basis_type), intent(in) :: basis
 
-    type(gvector_container_type) :: gvector_container
+    type(distribs_container_type) :: distribs_container
     character(len=3), dimension(1) :: elements
     real(real12), dimension(1) :: energies
 
-    call gvector_container%set_element_energies(['C  '], [-9.027_real12])
-    call gvector_container%add(basis)
+    call distribs_container%set_element_energies(['C  '], [-9.027_real12])
+    call distribs_container%add(basis)
 
     ! Call the get_element_energies_staticmem subroutine
-    call gvector_container%get_element_energies_staticmem(elements, energies)
+    call distribs_container%get_element_energies_staticmem(elements, energies)
 
     ! Check if the element energies are retrieved correctly
     call assert( &
@@ -732,7 +734,7 @@ contains
     type(basis_type), intent(in) :: basis
 
     integer :: i
-    type(gvector_container_type) :: gvector_container
+    type(distribs_container_type) :: distribs_container
     real(real12), dimension(1) :: radii
     character(len=3), dimension(1,2) :: elements
     real(real12), dimension(:), allocatable :: radii_get
@@ -743,11 +745,11 @@ contains
     elements(1,:) = ['C  ', 'C  ']
 
     ! Call the subroutine to set the bond radii
-    call gvector_container%set_bond_radii(elements, radii)
-    call gvector_container%add(basis)
+    call distribs_container%set_bond_radii(elements, radii)
+    call distribs_container%add(basis)
 
     ! Get the bond radii
-    call gvector_container%get_bond_radii(elements_get, radii_get)
+    call distribs_container%get_bond_radii(elements_get, radii_get)
 
     ! Check if the number of bond elements is correct
     call assert( &
@@ -773,12 +775,12 @@ contains
        elements_get = '   '
        radii_get = 0.0_real12
        ! Get the bond radii from staticmem
-       call gvector_container%get_bond_radii_staticmem(elements_get, radii_get)
+       call distribs_container%get_bond_radii_staticmem(elements_get, radii_get)
     end do
 
     radii(1) = 14.2_real12
-    call gvector_container%set_bond_radii(elements, radii)
-    call gvector_container%get_bond_radii(elements_get, radii_get)
+    call distribs_container%set_bond_radii(elements, radii)
+    call distribs_container%get_bond_radii(elements_get, radii_get)
 
     ! Check if the bond radius was set correctly
     call assert( &
@@ -797,12 +799,12 @@ contains
     logical, intent(inout) :: success
 
     integer :: bin
-    type(gvector_container_type) :: gvector_container
+    type(distribs_container_type) :: distribs_container
 
-    gvector_container%nbins(1) = 10
+    distribs_container%nbins(1) = 10
 
     ! Check lower bound correct handling
-    bin = gvector_container%get_bin(0._real12, 1)
+    bin = distribs_container%get_bin(0._real12, 1)
     call assert( &
          bin .eq. 0,  &
          "Bin is incorrect",  &
@@ -810,7 +812,7 @@ contains
     )
 
     ! Check upper bound correct handling
-    bin = gvector_container%get_bin(100._real12, 1)
+    bin = distribs_container%get_bin(100._real12, 1)
     call assert( &
          bin .eq. 0,  &
          "Bin is incorrect",  &
@@ -818,9 +820,9 @@ contains
     )
 
     ! Check middle value correct handling
-    bin = gvector_container%get_bin(3._real12, 1)
+    bin = distribs_container%get_bin(3._real12, 1)
     call assert( &
-         bin .eq. 1 + nint( (gvector_container%nbins(1) - 1) * 2.5 / 5.5 ),  &
+         bin .eq. 1 + nint( (distribs_container%nbins(1) - 1) * 2.5 / 5.5 ),  &
          "Bin is incorrect",  &
          success &
     )
@@ -841,4 +843,4 @@ contains
     end if
   end subroutine assert
 
-end program test_evolver
+end program test_distribs_container

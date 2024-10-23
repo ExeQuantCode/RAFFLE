@@ -11,7 +11,7 @@ module evaluator
   use rw_geom, only: basis_type
   use extended_geom, only: extended_basis_type
   use edit_geom, only: get_min_dist_between_point_and_atom
-  use evolver, only: gvector_container_type
+  use raffle__distribs_container, only: distribs_container_type
   implicit none
 
 
@@ -22,7 +22,7 @@ module evaluator
 contains
 
 !###############################################################################
-  function evaluate_point( gvector_container, &
+  function evaluate_point( distribs_container, &
        position, species, basis, atom_ignore_list, &
        radius_list &
   ) result(output)
@@ -36,7 +36,7 @@ contains
     ! Arguments
     integer, intent(in) :: species
     !! Index of the query element.
-    type(gvector_container_type), intent(in) :: gvector_container
+    type(distribs_container_type), intent(in) :: distribs_container
     !! Distribution function (gvector) container.
     type(extended_basis_type), intent(in) :: basis
     !! Basis of the system.
@@ -76,7 +76,7 @@ contains
     allocate(pair_index(basis%nspec, basis%nspec), source = 0)
     do is = 1, basis%nspec
        do js = 1, basis%nspec
-          pair_index(is, js) = gvector_container%get_pair_index( &
+          pair_index(is, js) = distribs_container%get_pair_index( &
                basis%spec(is)%name, basis%spec(js)%name )
        end do
     end do
@@ -113,18 +113,18 @@ contains
           end do
           associate( position_store => [ basis%spec(is)%atom(ia,1:3) ] )
              bondlength = modu( matmul(position - position_store, basis%lat) )
-             if( bondlength .gt. gvector_container%cutoff_max(1) ) &
+             if( bondlength .gt. distribs_container%cutoff_max(1) ) &
                  cycle atom_loop
              if( bondlength .lt. ( &
                   radius_list(pair_index(species,is)) * &
-                  gvector_container%radius_distance_tol(1) ) &
+                  distribs_container%radius_distance_tol(1) ) &
              )then
                 ! If the bond length is less than the minimum allowed bond,
                 ! return 0 (i.e. the point is not viable).
                 return
              elseif( bondlength .le. ( &
                     radius_list(pair_index(species,is)) * &
-                    gvector_container%radius_distance_tol(2) ) &
+                    distribs_container%radius_distance_tol(2) ) &
              )then
                 ! If the bond length is within the tolerance of the covalent
                 ! radius of the pair, add the atom to the list of
@@ -137,13 +137,13 @@ contains
 
              if( bondlength .ge. ( &
                          radius_list(pair_index(species,is)) * &
-                         gvector_container%radius_distance_tol(3) &
+                         distribs_container%radius_distance_tol(3) &
                     ) .and. &
                     bondlength .le. min( &
-                         gvector_container%cutoff_max(1), &
+                         distribs_container%cutoff_max(1), &
                          ( &
                               radius_list(pair_index(species,is)) * &
-                              gvector_container%radius_distance_tol(4) &
+                              distribs_container%radius_distance_tol(4) &
                          ) &
                     ) &
              )then
@@ -161,7 +161,7 @@ contains
              !------------------------------------------------------------------
              viability_2body = viability_2body + &
              evaluate_2body_contributions( &
-                  gvector_container, bondlength, pair_index(species,is) &
+                  distribs_container, bondlength, pair_index(species,is) &
              )
              num_2body = num_2body + 1
           end associate
@@ -175,16 +175,16 @@ contains
        image_loop: do ia = 1, basis%image_spec(is)%num, 1
           associate( position_store => [ basis%image_spec(is)%atom(ia,1:3) ] )
              bondlength = modu( matmul(position - position_store, basis%lat) )
-             if( bondlength .gt. gvector_container%cutoff_max(1) ) &
+             if( bondlength .gt. distribs_container%cutoff_max(1) ) &
                   cycle image_loop
              if( bondlength .lt. ( &
                   radius_list(pair_index(species,is)) * &
-                  gvector_container%radius_distance_tol(1) ) &
+                  distribs_container%radius_distance_tol(1) ) &
              )then
                 return
              elseif( bondlength .le. ( &
                     radius_list(pair_index(species,is)) * &
-                    gvector_container%radius_distance_tol(2) ) &
+                    distribs_container%radius_distance_tol(2) ) &
              )then
                 neighbour_basis%spec(is)%num = neighbour_basis%spec(is)%num + 1
                 neighbour_basis%spec(is)%atom( &
@@ -194,13 +194,13 @@ contains
 
              if( bondlength .ge. ( &
                          radius_list(pair_index(species,is)) * &
-                         gvector_container%radius_distance_tol(3) &
+                         distribs_container%radius_distance_tol(3) &
                     ) .and. &
                     bondlength .le. min( &
-                         gvector_container%cutoff_max(1), &
+                         distribs_container%cutoff_max(1), &
                          ( &
                               radius_list(pair_index(species,is)) * &
-                              gvector_container%radius_distance_tol(4) &
+                              distribs_container%radius_distance_tol(4) &
                          ) &
                     ) &
              )then
@@ -216,7 +216,7 @@ contains
              !------------------------------------------------------------------
              viability_2body = viability_2body + &
                   evaluate_2body_contributions( &
-                       gvector_container, bondlength, pair_index(species,is) &
+                       distribs_container, bondlength, pair_index(species,is) &
                   )
              num_2body = num_2body + 1
           end associate
@@ -260,7 +260,7 @@ contains
           )
              num_3body = num_3body + 1
              viability_3body = viability_3body * &
-                   evaluate_3body_contributions( gvector_container, &
+                   evaluate_3body_contributions( distribs_container, &
                       position_1, &
                       position_2, &
                       neighbour_basis, species, [is, ia], num_3body &
@@ -276,7 +276,7 @@ contains
                    ! other atoms
                    !------------------------------------------------------------
                    viability_4body = viability_4body * &
-                        evaluate_4body_contributions( gvector_container, &
+                        evaluate_4body_contributions( distribs_container, &
                            position_1, &
                            position_2, &
                            [neighbour_basis%spec(js)%atom(ja,1:3)], &
@@ -293,14 +293,14 @@ contains
     ! Normalise the angular viabilities
     !---------------------------------------------------------------------------
     if(num_3body.eq.0)then
-       viability_3body = gvector_container%viability_3body_default
+       viability_3body = distribs_container%viability_3body_default
     else
        viability_3body = viability_3body ** ( &
             1._real12 / real(num_3body,real12) &
        )
     end if
     if(num_4body.eq.0)then
-       viability_4body = gvector_container%viability_4body_default
+       viability_4body = distribs_container%viability_4body_default
     else
        viability_4body = viability_4body ** ( &
             1._real12 / real(num_4body,real12) &
@@ -318,14 +318,14 @@ contains
 
 
 !###############################################################################
-  function evaluate_2body_contributions( gvector_container, &
+  function evaluate_2body_contributions( distribs_container, &
        bondlength, pair_index &
   ) result(output)
     !! Return the contribution to the viability from 2-body interactions
     implicit none
 
     ! Arguments
-    type(gvector_container_type), intent(in) :: gvector_container
+    type(distribs_container_type), intent(in) :: distribs_container
     !! Distribution function (gvector) container.
     real(real12), intent(in) :: bondlength
     !! Bond length.
@@ -335,8 +335,8 @@ contains
     !! Contribution to the viability.
 
 
-   output = gvector_container%total%df_2body( &
-        gvector_container%get_bin(bondlength, dim = 1), &
+   output = distribs_container%total%df_2body( &
+        distribs_container%get_bin(bondlength, dim = 1), &
         pair_index &
    )
 
@@ -345,14 +345,14 @@ contains
 
 
 !###############################################################################
-  function evaluate_3body_contributions( gvector_container, &
+  function evaluate_3body_contributions( distribs_container, &
        position_1, position_2, basis, species, current_idx, num_3body &
   ) result(output)
     !! Return the contribution to the viability from 3-body interactions
     implicit none
 
     ! Arguments
-    type(gvector_container_type), intent(in) :: gvector_container
+    type(distribs_container_type), intent(in) :: distribs_container
     !! Distribution function (gvector) container.
     real(real12), dimension(3), intent(in) :: position_1, position_2
     !! Positions of the atoms.
@@ -382,16 +382,16 @@ contains
        atom_loop: do ja = 1, basis%spec(js)%num
           if(js.eq.current_idx(1) .and. ja.le.current_idx(2))cycle
           associate( position_store => [ basis%spec(js)%atom(ja,1:3) ] )
-             bin = gvector_container%get_bin( &
+             bin = distribs_container%get_bin( &
                   get_angle( position_2, &
                              position_1, &
                              position_store ), &
                   dim = 2 &
              )
              output = output * &
-                  gvector_container%total%df_3body( &
+                  distribs_container%total%df_3body( &
                        bin, &
-                       gvector_container%host_system%element_map(species) &
+                       distribs_container%host_system%element_map(species) &
                   ) ** ( 1._real12 / real( num_3body_local, real12 ) )
           end associate
        end do atom_loop
@@ -406,13 +406,13 @@ contains
 
 
 !###############################################################################
-  function evaluate_4body_contributions( gvector_container, &
+  function evaluate_4body_contributions( distribs_container, &
        position_1, position_2, position_3, basis, species ) result(output)
     !! Return the contribution to the viability from 4-body interactions
     implicit none
 
     ! Arguments
-    type(gvector_container_type), intent(in) :: gvector_container
+    type(distribs_container_type), intent(in) :: distribs_container
     !! Distribution function (gvector) container.
     real(real12), dimension(3), intent(in) :: position_1, position_2, position_3
     !! Positions of the atoms.
@@ -438,7 +438,7 @@ contains
     species_loop: do ks = 1, basis%nspec, 1
        atom_loop: do ka = 1, basis%image_spec(ks)%num
           associate( position_store => [ basis%image_spec(ks)%atom(ka,1:3) ] )
-             bin = gvector_container%get_bin( &
+             bin = distribs_container%get_bin( &
                   get_improper_dihedral_angle( &
                                  position_1, &
                                  position_2, &
@@ -448,9 +448,9 @@ contains
                   dim = 3 &
              )
              output = output * &
-                  gvector_container%total%df_4body( &
+                  distribs_container%total%df_4body( &
                        bin, &
-                       gvector_container%host_system%element_map(species) &
+                       distribs_container%host_system%element_map(species) &
                   ) ** ( 1._real12 / real( num_4body_local, real12 ) )
           end associate
        end do atom_loop

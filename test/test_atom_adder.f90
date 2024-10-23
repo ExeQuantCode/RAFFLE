@@ -1,7 +1,7 @@
 program test_atom_adder
   use error_handling
   use add_atom
-  use evolver, only: gvector_container_type
+  use raffle__distribs_container, only: distribs_container_type
   use constants, only: real12
   use rw_geom, only: basis_type
   use extended_geom, only: extended_basis_type
@@ -51,7 +51,7 @@ contains
 
     integer :: i
     type(extended_basis_type) :: basis_copy
-    type(gvector_container_type) :: gvector_container
+    type(distribs_container_type) :: distribs_container
     integer, dimension(3) :: grid
     integer, dimension(:,:), allocatable :: atom_ignore_list
     real(real12), dimension(:), allocatable :: radius_list
@@ -71,20 +71,20 @@ contains
     ! Initialise basis
     call basis_copy%copy(basis)
     call basis_copy%create_images( &
-         max_bondlength = gvector_container%cutoff_max(1), &
+         max_bondlength = distribs_container%cutoff_max(1), &
          atom_ignore_list = atom_ignore_list &
     )
 
     ! Initialise gvector container
-    call gvector_container%set_element_energies( &
+    call distribs_container%set_element_energies( &
          [basis%spec(:)%name], &
          [ ( 0.0_real12, i = 1, basis%nspec ) ] &
     )
-    call gvector_container%create([basis])
+    call distribs_container%create([basis])
 
     ! Call the function to test
     points = get_gridpoints_and_viability( &
-         gvector_container, &
+         distribs_container, &
          grid, basis_copy, &
          [ 1 ], &
          radius_list, &
@@ -117,7 +117,7 @@ contains
 
     integer :: i
     type(extended_basis_type) :: basis_copy
-    type(gvector_container_type) :: gvector_container
+    type(distribs_container_type) :: distribs_container
     integer, dimension(3) :: grid
     integer, dimension(:,:), allocatable :: atom_ignore_list
     real(real12), dimension(:), allocatable :: radius_list
@@ -137,20 +137,20 @@ contains
     ! Initialise basis
     call basis_copy%copy(basis)
     call basis_copy%create_images( &
-         max_bondlength = gvector_container%cutoff_max(1), &
+         max_bondlength = distribs_container%cutoff_max(1), &
          atom_ignore_list = atom_ignore_list &
     )
 
     ! Initialise gvector container
-    call gvector_container%set_element_energies( &
+    call distribs_container%set_element_energies( &
          [basis%spec(:)%name], &
          [ ( 0.0_real12, i = 1, basis%nspec ) ] &
     )
-    call gvector_container%create([basis])
+    call distribs_container%create([basis])
 
     ! Call the function to test
     points = get_gridpoints_and_viability( &
-         gvector_container, &
+         distribs_container, &
          grid, basis_copy, &
          [ 1 ], &
          radius_list, &
@@ -160,7 +160,7 @@ contains
 
     ! Call the update subroutine
     call update_gridpoints_and_viability( &
-         points, gvector_container, basis_copy, &
+         points, distribs_container, basis_copy, &
          [1], &
          [1,2], &
          radius_list, &
@@ -185,9 +185,9 @@ contains
     )
 
     ! Call the update subroutine
-    gvector_container%radius_distance_tol(1) = 100._real12
+    distribs_container%radius_distance_tol(1) = 100._real12
     call update_gridpoints_and_viability( &
-         points, gvector_container, basis_copy, &
+         points, distribs_container, basis_copy, &
          [1], &
          [1,2], &
          radius_list, &

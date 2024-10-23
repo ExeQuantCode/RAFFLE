@@ -11,7 +11,7 @@ module generator
   use misc_raffle, only: strip_null, set
   use rw_geom, only: basis_type
   use extended_geom, only: extended_basis_type
-  use evolver, only: gvector_container_type
+  use raffle__distribs_container, only: distribs_container_type
 
   use constants, only: verbose_global => verbose
   use misc_raffle, only: shuffle
@@ -60,7 +60,7 @@ module generator
     !! Offset of the gridpoints.
     real(real12) :: grid_spacing = 0.1_real12
     !! Spacing of the gridpoints.
-    type(gvector_container_type) :: distributions
+    type(distribs_container_type) :: distributions
     !! Distribution function container for the 2-, 3-, and 4-body interactions.
     integer :: max_attempts = 10000
     !! Limit for the number of attempts to place an atom.

@@ -9,7 +9,7 @@ module read_structures
   use misc_linalg, only: modu
   use rw_geom, only: basis_type, geom_read, geom_write, igeom_input
   use rw_vasprun, only: get_energy_from_vasprun, get_structure_from_vasprun
-  use evolver, only: gvector_container_type
+  use raffle__distribs_container, only: distribs_container_type
 #ifdef ENABLE_ATHENA
   use machine_learning, only: network_setup, &
        network_train, network_train_graph, &
@@ -28,19 +28,19 @@ contains
 
 !###############################################################################
   function get_evolved_gvectors_from_data(input_dir, &
-       file_format, gvector_container_template) &
-       result(gvector_container)
+       file_format, distribs_container_template) &
+       result(distribs_container)
     !! Read structures from the input directories and evolve them to gvectors.
     implicit none
 
     ! Arguments
     character(*), dimension(..), intent(in) :: input_dir
     !! List of directories containing the structures to be read.
-    type(gvector_container_type), intent(in), optional :: &
-         gvector_container_template
-    !! Optional. A template gvector_container to be used.
-    type(gvector_container_type), allocatable :: gvector_container
-    !! The gvector_container containing the evolved gvectors.
+    type(distribs_container_type), intent(in), optional :: &
+         distribs_container_template
+    !! Optional. A template distribs_container to be used.
+    type(distribs_container_type), allocatable :: distribs_container
+    !! The distribs_container containing the evolved gvectors.
     character(*), intent(in), optional :: file_format
     !! Optional. The format of the input files. Default is vasprun.xml.
 
@@ -80,10 +80,10 @@ contains
 #endif
 
 
-    if(present(gvector_container_template)) then
-       gvector_container = gvector_container_template
+    if(present(distribs_container_template)) then
+       distribs_container = distribs_container_template
     else
-       gvector_container = gvector_container_type()
+       distribs_container = distribs_container_type()
     end if
 
     if(present(file_format)) then
@@ -104,9 +104,9 @@ contains
        ifile_format = 0
     end if
 
-    ! inquire(file='gvector_container.dat', exist=success)
+    ! inquire(file='distribs_container.dat', exist=success)
     ! if(success) then
-    !    call gvector_container%read('gvector_container.dat')
+    !    call distribs_container%read('distribs_container.dat')
     !    goto 100
     ! end if
     ! ! For each new run of the code, it should populate a new directory and ...
@@ -179,7 +179,7 @@ contains
                   basis%energy, &
                   ( trim(basis%spec(j)%name), basis%spec(j)%num, &
                   j=1, basis%nspec )
-             call gvector_container%add(basis)
+             call distribs_container%add(basis)
           end do
           cycle
        end select
@@ -187,7 +187,7 @@ contains
        write(*,*) &
             "Found structure: ", trim(adjustl(structure_list(i))), &
             " with energy: ", basis%energy
-       call gvector_container%add(basis)
+       call distribs_container%add(basis)
        num_structures = num_structures + 1
       
        ! ! STORE THE ENERGY IN AN ARRAY
@@ -198,7 +198,7 @@ contains
 
 
 
-100 call gvector_container%evolve()
+100 call distribs_container%evolve()
 
 
 #ifdef ENABLE_ATHENA

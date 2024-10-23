@@ -18,7 +18,7 @@ module add_atom
        get_min_dist_between_point_and_atom, &
        get_min_dist_between_point_and_species
   use evaluator, only: evaluate_point
-  use evolver, only: gvector_container_type
+  use raffle__distribs_container, only: distribs_container_type
   implicit none
 
 
@@ -170,7 +170,7 @@ contains
 
 
 !###############################################################################
-  function add_atom_walk( gvector_container, &
+  function add_atom_walk( distribs_container, &
        basis, atom_ignore_list, &
        radius_list, max_attempts, viable &
   ) result(point)
@@ -186,7 +186,7 @@ contains
     implicit none
 
     ! Arguments
-    type(gvector_container_type), intent(in) :: gvector_container
+    type(distribs_container_type), intent(in) :: distribs_container
     !! Distribution function (gvector) container.
     type(extended_basis_type), intent(inout) :: basis
     !! Structure to add atom to.
@@ -231,7 +231,7 @@ contains
        i = i + 1      
        call random_number(site_vector)
 
-       site_value = evaluate_point( gvector_container, &
+       site_value = evaluate_point( distribs_container, &
             site_vector, atom_ignore_list(1,1), basis, &
             atom_ignore_list, radius_list &
        )
@@ -259,7 +259,7 @@ contains
        end if
        test_vector = test_vector - floor(test_vector)
 
-       test_value = evaluate_point( gvector_container, &
+       test_value = evaluate_point( distribs_container, &
             test_vector, atom_ignore_list(1,1), basis, &
             atom_ignore_list, radius_list &
        )
@@ -297,7 +297,7 @@ contains
 
 
 !###############################################################################
-  function add_atom_growth( gvector_container, &
+  function add_atom_growth( distribs_container, &
        prior_point, prior_species, &
        basis, atom_ignore_list, &
        radius_list, max_attempts, viable &
@@ -314,7 +314,7 @@ contains
     implicit none
 
     ! Arguments
-    type(gvector_container_type), intent(in) :: gvector_container
+    type(distribs_container_type), intent(in) :: distribs_container
     !! Distribution function (gvector) container.
     real(real12), dimension(3), intent(in) :: prior_point
     !! Point to start walk from.
@@ -375,7 +375,7 @@ contains
               1._real12 &
          ) +  max( prior_species, atom_ignore_list(1,1) ) &
     )
-    min_radius = radius_list(idx) * gvector_container%radius_distance_tol(1)
+    min_radius = radius_list(idx) * distribs_container%radius_distance_tol(1)
 
 
     !---------------------------------------------------------------------------
@@ -399,7 +399,7 @@ contains
        rvec1 = matmul(rvec1, inverse_lattice)
        site_vector = prior_point + rvec1
        ! now evaluate the point and check if it passes the initial criteria
-       site_value = evaluate_point( gvector_container, &
+       site_value = evaluate_point( distribs_container, &
             site_vector, atom_ignore_list(1,1), basis, &
             atom_ignore_list, radius_list &
        )
@@ -427,7 +427,7 @@ contains
        end if 
        test_vector = test_vector - floor(test_vector)
 
-       test_value = evaluate_point( gvector_container, &
+       test_value = evaluate_point( distribs_container, &
             test_vector, atom_ignore_list(1,1), basis, &
             atom_ignore_list, radius_list &
        )
@@ -513,7 +513,7 @@ contains
 
 
 !###############################################################################
-  function get_gridpoints_and_viability(gvector_container, grid, basis, &
+  function get_gridpoints_and_viability(distribs_container, grid, basis, &
        species_index_list, &
        radius_list, atom_ignore_list, grid_offset) result(points)
     !! Return a list of viable gridpoints and their viability for each species.
@@ -522,7 +522,7 @@ contains
     implicit none
 
     ! Arguments
-    type(gvector_container_type), intent(in) :: gvector_container
+    type(distribs_container_type), intent(in) :: distribs_container
     !! Distribution function (gvector) container.
     type(extended_basis_type), intent(in) :: basis
     !! Structure to add atom to.
@@ -555,7 +555,7 @@ contains
     ! ... close to an existing atom. If they are, remove them from the list ...
     ! ... of viable gridpoints
     !---------------------------------------------------------------------------
-    min_radius = minval(radius_list) * gvector_container%radius_distance_tol(1)
+    min_radius = minval(radius_list) * distribs_container%radius_distance_tol(1)
     allocate(points_tmp(3,product(grid)))
     num_points = 0
     grid_loop1: do i = 0, grid(1) - 1, 1
@@ -602,7 +602,7 @@ contains
     do i = 1, size(points,dim=2)
        do is = 1, size(species_index_list,1)
           points(3+is,i) = &
-               evaluate_point( gvector_container, &
+               evaluate_point( distribs_container, &
                     points(1:3,i), species_index_list(is), basis, &
                     atom_ignore_list, radius_list &
                )
@@ -614,7 +614,7 @@ contains
 
 
 !###############################################################################
-  subroutine update_gridpoints_and_viability(points, gvector_container, basis, &
+  subroutine update_gridpoints_and_viability(points, distribs_container, basis, &
        species_index_list, &
        atom, radius_list, atom_ignore_list)
     !! Update the list of viable gridpoints and their viability for each 
@@ -626,7 +626,7 @@ contains
     ! Arguments
     real(real12), dimension(:,:), allocatable, intent(inout) :: points
     !! List of gridpoints.
-    type(gvector_container_type), intent(in) :: gvector_container
+    type(distribs_container_type), intent(in) :: distribs_container
     !! Distribution function (gvector) container.
     type(extended_basis_type), intent(in) :: basis
     !! Structure to add atom to.
@@ -661,7 +661,7 @@ contains
     num_points = size(points,dim=2)
     viable = .true.
     !do concurrent( i = 1:size(gridpoints,dim=2) )
-    min_radius = minval(radius_list) * gvector_container%radius_distance_tol(1)
+    min_radius = minval(radius_list) * distribs_container%radius_distance_tol(1)
     associate( atom_pos => [ basis%spec(atom(1))%atom(atom(2),1:3) ] )
        do i = 1, num_points
           distance = modu( matmul( atom_pos - points(1:3,i), basis%lat ) )
@@ -669,13 +669,13 @@ contains
              points(4:,i) = 0._real12
              viable(i) = .false.
              cycle
-          elseif( distance .gt. gvector_container%cutoff_max(1) )then
+          elseif( distance .gt. distribs_container%cutoff_max(1) )then
              points(4:,i) = 0._real12
              cycle
           end if
           do is = 1, size(species_index_list,1)
              points(3+is,i) = &
-                  evaluate_point( gvector_container, &
+                  evaluate_point( distribs_container, &
                        points(1:3,i), species_index_list(is), basis, &
                        atom_ignore_list, radius_list &
                   )

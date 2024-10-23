@@ -581,507 +581,72 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
             _raffle.f90wrap_basis_type_xnum_array__array_dealloc__items(self._handle)
         
         _dt_array_initialisers = [_init_array_items]
-
-
-    # @staticmethod
-    # def geom_read(unit, lat, bas, length=None):
-    #     """
-    #     geom_read(unit, lat, bas[, length])
-        
-        
-    #     Defined at ../src/lib/mod_rw_geom.f90 lines \
-    #         79-111
-        
-    #     Parameters
-    #     ----------
-    #     unit : int
-    #     lat : float array
-    #     bas : basis
-    #     length : int
-        
-    #     """
-    #     _raffle.f90wrap_rw_geom__geom_read(unit=unit, lat=lat, bas=bas._handle, \
-    #         length=length)
-    
-    # @staticmethod
-    # def geom_write(unit, lat, bas):
-    #     """
-    #     geom_write(unit, lat, bas)
-        
-        
-    #     Defined at ../src/lib/mod_rw_geom.f90 lines \
-    #         117-139
-        
-    #     Parameters
-    #     ----------
-    #     unit : int
-    #     lat : float array
-    #     bas : basis
-        
-    #     """
-    #     _raffle.f90wrap_rw_geom__geom_write(unit=unit, lat=lat, bas=bas._handle)
-    
-    # @staticmethod
-    # def convert_bas(self, latconv):
-    #     """
-    #     outbas = convert_bas(self, latconv)
-        
-        
-    #     Defined at ../src/lib/mod_rw_geom.f90 lines \
-    #         821-840
-        
-    #     Parameters
-    #     ----------
-    #     inbas : basis
-    #     latconv : float array
-        
-    #     Returns
-    #     -------
-    #     outbas : basis
-        
-    #     """
-    #     outbas = _raffle.f90wrap_rw_geom__convert_bas(inbas=self._handle, \
-    #         latconv=latconv)
-    #     outbas = f90wrap.runtime.lookup_class("raffle.basis").from_handle(outbas, \
-    #         alloc=True)
-    #     return outbas
-    
-    # @staticmethod
-    # def clone_bas(self, outbas, inlat=None, outlat=None, trans_dim=None):
-    #     """
-    #     clone_bas(self, outbas[, inlat, outlat, trans_dim])
-        
-        
-    #     Defined at ../src/lib/mod_rw_geom.f90 lines \
-    #         897-967
-        
-    #     Parameters
-    #     ----------
-    #     inbas : basis
-    #     outbas : basis
-    #     inlat : float array
-    #     outlat : float array
-    #     trans_dim : bool
-        
-    #     -----------------------------------------------------------------------------
-    #      determines whether user wants output basis extra translational dimension
-    #     -----------------------------------------------------------------------------
-    #     """
-    #     _raffle.f90wrap_rw_geom__clone_bas(inbas=self._handle, outbas=outbas._handle, \
-    #         inlat=inlat, outlat=outlat, trans_dim=trans_dim)
-    
-    # @property
-    # def igeom_input(self):
-    #     """
-    #     Element igeom_input ftype=integer  pytype=int
-        
-        
-    #     Defined at ../src/lib/mod_rw_geom.f90 line 24
-        
-    #     """
-    #     return _raffle.f90wrap_rw_geom__get__igeom_input()
-    
-    # @igeom_input.setter
-    # def igeom_input(self, igeom_input):
-    #     _raffle.f90wrap_rw_geom__set__igeom_input(igeom_input)
-    
-    # @property
-    # def igeom_output(self):
-    #     """
-    #     Element igeom_output ftype=integer  pytype=int
-        
-        
-    #     Defined at ../src/lib/mod_rw_geom.f90 line 24
-        
-    #     """
-    #     return _raffle.f90wrap_rw_geom__get__igeom_output()
-    
-    # @igeom_output.setter
-    # def igeom_output(self, igeom_output):
-    #     _raffle.f90wrap_rw_geom__set__igeom_output(igeom_output)
-    
-    # def __str__(self):
-    #     ret = ['<rw_geom>{\n']
-    #     ret.append('    igeom_input : ')
-    #     ret.append(repr(self.igeom_input))
-    #     ret.append(',\n    igeom_output : ')
-    #     ret.append(repr(self.igeom_output))
-    #     ret.append('}')
-    #     return ''.join(ret)
     
     _dt_array_initialisers = []
     
 
 rw_geom = Rw_Geom()
 
-class Evolver(f90wrap.runtime.FortranModule):
+class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
     """
-    Module evolver
+    Module raffle__distribs_container
     
     
-    Defined at ../src/lib/mod_evolver.f90 lines \
-        1-1204
+    Defined at ../fortran/lib/mod_distribs_container.f90 \
+        lines 1-1839
     
     """
-    @f90wrap.runtime.register_class("raffle.gvector_base_type")
-    class gvector_base_type(f90wrap.runtime.FortranDerivedType):
+    @f90wrap.runtime.register_class("raffle.distribs_container_type")
+    class distribs_container_type(f90wrap.runtime.FortranDerivedType):
         """
-        Type(name=gvector_base_type)
+        Type(name=distribs_container_type)
         
         
-        Defined at ../src/lib/mod_evolver.f90 lines \
-            14-17
-        
-        """
-        def __init__(self, handle=None):
-            """
-            self = Gvector_Base_Type()
-            
-            
-            Defined at ../src/lib/mod_evolver.f90 lines \
-                14-17
-            
-            
-            Returns
-            -------
-            this : Gvector_Base_Type
-            	Object to be constructed
-            
-            
-            Automatically generated constructor for gvector_base_type
-            """
-            f90wrap.runtime.FortranDerivedType.__init__(self)
-            result = _raffle.f90wrap_evolver__gvector_base_type_initialise()
-            self._handle = result[0] if isinstance(result, tuple) else result
-        
-        def __del__(self):
-            """
-            Destructor for class Gvector_Base_Type
-            
-            
-            Defined at ../src/lib/mod_evolver.f90 lines \
-                14-17
-            
-            Parameters
-            ----------
-            this : Gvector_Base_Type
-            	Object to be destructed
-            
-            
-            Automatically generated destructor for gvector_base_type
-            """
-            if self._alloc:
-                _raffle.f90wrap_evolver__gvector_base_type_finalise(this=self._handle)
-        
-        @property
-        def df_2body(self):
-            """
-            Element df_2body ftype=real(real12) pytype=float
-            
-            
-            Defined at ../src/lib/mod_evolver.f90 line 15
-            
-            """
-            array_ndim, array_type, array_shape, array_handle = \
-                _raffle.f90wrap_gvector_base_type__array__df_2body(self._handle)
-            if array_handle in self._arrays:
-                df_2body = self._arrays[array_handle]
-            else:
-                df_2body = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
-                                        self._handle,
-                                        _raffle.f90wrap_gvector_base_type__array__df_2body)
-                self._arrays[array_handle] = df_2body
-            return df_2body
-        
-        @df_2body.setter
-        def df_2body(self, df_2body):
-            self.df_2body[...] = df_2body
-        
-        @property
-        def df_3body(self):
-            """
-            Element df_3body ftype=real(real12) pytype=float
-            
-            
-            Defined at ../src/lib/mod_evolver.f90 line 16
-            
-            """
-            array_ndim, array_type, array_shape, array_handle = \
-                _raffle.f90wrap_gvector_base_type__array__df_3body(self._handle)
-            if array_handle in self._arrays:
-                df_3body = self._arrays[array_handle]
-            else:
-                df_3body = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
-                                        self._handle,
-                                        _raffle.f90wrap_gvector_base_type__array__df_3body)
-                self._arrays[array_handle] = df_3body
-            return df_3body
-        
-        @df_3body.setter
-        def df_3body(self, df_3body):
-            self.df_3body[...] = df_3body
-        
-        @property
-        def df_4body(self):
-            """
-            Element df_4body ftype=real(real12) pytype=float
-            
-            
-            Defined at ../src/lib/mod_evolver.f90 line 17
-            
-            """
-            array_ndim, array_type, array_shape, array_handle = \
-                _raffle.f90wrap_gvector_base_type__array__df_4body(self._handle)
-            if array_handle in self._arrays:
-                df_4body = self._arrays[array_handle]
-            else:
-                df_4body = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
-                                        self._handle,
-                                        _raffle.f90wrap_gvector_base_type__array__df_4body)
-                self._arrays[array_handle] = df_4body
-            return df_4body
-        
-        @df_4body.setter
-        def df_4body(self, df_4body):
-            self.df_4body[...] = df_4body
-        
-        def __str__(self):
-            ret = ['<gvector_base_type>{\n']
-            ret.append('    df_2body : ')
-            ret.append(repr(self.df_2body))
-            ret.append(',\n    df_3body : ')
-            ret.append(repr(self.df_3body))
-            ret.append(',\n    df_4body : ')
-            ret.append(repr(self.df_4body))
-            ret.append('}')
-            return ''.join(ret)
-        
-        _dt_array_initialisers = []
-        
-    
-    @f90wrap.runtime.register_class("raffle.gvector_type")
-    class gvector_type(f90wrap.runtime.FortranDerivedType):
-        """
-        Type(name=gvector_type)
-        
-        
-        Defined at ../src/lib/mod_evolver.f90 lines \
-            19-25
+        Defined at \
+            ../fortran/lib/mod_distribs_container.f90 \
+            lines 25-162
         
         """
         def __init__(self, handle=None):
             """
-            self = Gvector_Type()
+            self = Distribs_Container_Type()
             
             
-            Defined at ../src/lib/mod_evolver.f90 lines \
-                19-25
-            
-            
-            Returns
-            -------
-            this : Gvector_Type
-            	Object to be constructed
-            
-            
-            Automatically generated constructor for gvector_type
-            """
-            f90wrap.runtime.FortranDerivedType.__init__(self)
-            result = _raffle.f90wrap_evolver__gvector_type_initialise()
-            self._handle = result[0] if isinstance(result, tuple) else result
-        
-        def __del__(self):
-            """
-            Destructor for class Gvector_Type
-            
-            
-            Defined at ../src/lib/mod_evolver.f90 lines \
-                19-25
-            
-            Parameters
-            ----------
-            this : Gvector_Type
-            	Object to be destructed
-            
-            
-            Automatically generated destructor for gvector_type
-            """
-            if self._alloc:
-                _raffle.f90wrap_evolver__gvector_type_finalise(this=self._handle)
-        
-        def calculate(self, lattice, basis, nbins=None, width=None, sigma=None, \
-            cutoff_min=None, cutoff_max=None, radius_distance_tol=None):
-            """
-            calculate__binding__gvector_type(self, lattice, basis[, nbins, width, sigma, \
-                cutoff_min, cutoff_max])
-            
-            
-            Defined at ../src/lib/mod_evolver.f90 lines \
-                747-1135
-            
-            Parameters
-            ----------
-            this : unknown
-            lattice : float array
-            basis : basis
-            nbins : int array
-            width : float array
-            sigma : float array
-            cutoff_min : float array
-            cutoff_max : float array
-            radius_distance_tol : float array
-            
-            --------------------------------------------------------------------------
-             initialise optional variables
-            --------------------------------------------------------------------------
-            """
-            _raffle.f90wrap_evolver__calculate__binding__gvector_type(this=self._handle, \
-                lattice=lattice, basis=basis._handle, nbins=nbins, width=width, sigma=sigma, \
-                cutoff_min=cutoff_min, cutoff_max=cutoff_max, radius_distance_tol=radius_distance_tol)
-        
-        @property
-        def num_atoms(self):
-            """
-            Element num_atoms ftype=integer  pytype=int
-            
-            
-            Defined at ../src/lib/mod_evolver.f90 line 20
-            
-            """
-            return _raffle.f90wrap_gvector_type__get__num_atoms(self._handle)
-        
-        @num_atoms.setter
-        def num_atoms(self, num_atoms):
-            _raffle.f90wrap_gvector_type__set__num_atoms(self._handle, num_atoms)
-        
-        @property
-        def energy(self):
-            """
-            Element energy ftype=real(real12) pytype=float
-            
-            
-            Defined at ../src/lib/mod_evolver.f90 line 21
-            
-            """
-            return _raffle.f90wrap_gvector_type__get__energy(self._handle)
-        
-        @energy.setter
-        def energy(self, energy):
-            _raffle.f90wrap_gvector_type__set__energy(self._handle, energy)
-        
-        @property
-        def stoichiometry(self):
-            """
-            Element stoichiometry ftype=integer pytype=int
-            
-            
-            Defined at ../src/lib/mod_evolver.f90 line 22
-            
-            """
-            array_ndim, array_type, array_shape, array_handle = \
-                _raffle.f90wrap_gvector_type__array__stoichiometry(self._handle)
-            if array_handle in self._arrays:
-                stoichiometry = self._arrays[array_handle]
-            else:
-                stoichiometry = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
-                                        self._handle,
-                                        _raffle.f90wrap_gvector_type__array__stoichiometry)
-                self._arrays[array_handle] = stoichiometry
-            return stoichiometry
-        
-        @stoichiometry.setter
-        def stoichiometry(self, stoichiometry):
-            self.stoichiometry[...] = stoichiometry
-        
-        @property
-        def species(self):
-            """
-            Element species ftype=character(len=3) pytype=str
-            
-            
-            Defined at ../src/lib/mod_evolver.f90 line 23
-            
-            """
-            array_ndim, array_type, array_shape, array_handle = \
-                _raffle.f90wrap_gvector_type__array__species(self._handle)
-            if array_handle in self._arrays:
-                species = self._arrays[array_handle]
-            else:
-                species = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
-                                        self._handle,
-                                        _raffle.f90wrap_gvector_type__array__species)
-                self._arrays[array_handle] = species
-            return species
-        
-        @species.setter
-        def species(self, species):
-            self.species[...] = species
-        
-        def __str__(self):
-            ret = ['<gvector_type>{\n']
-            ret.append('    num_atoms : ')
-            ret.append(repr(self.num_atoms))
-            ret.append(',\n    energy : ')
-            ret.append(repr(self.energy))
-            ret.append(',\n    stoichiometry : ')
-            ret.append(repr(self.stoichiometry))
-            ret.append(',\n    species : ')
-            ret.append(repr(self.species))
-            ret.append('}')
-            return ''.join(ret)
-        
-        _dt_array_initialisers = []
-        
-    
-    @f90wrap.runtime.register_class("raffle.gvector_container_type")
-    class gvector_container_type(f90wrap.runtime.FortranDerivedType):
-        """
-        Type(name=gvector_container_type)
-        
-        
-        Defined at ../src/lib/mod_evolver.f90 lines \
-            30-62
-        
-        """
-        def __init__(self, handle=None):
-            """
-            self = Gvector_Container_Type()
-            
-            
-            Defined at ../src/lib/mod_evolver.f90 lines \
-                30-62
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                lines 25-162
             
             
             Returns
             -------
-            this : Gvector_Container_Type
+            this : Distribs_Container_Type
             	Object to be constructed
             
             
-            Automatically generated constructor for gvector_container_type
+            Automatically generated constructor for distribs_container_type
             """
             f90wrap.runtime.FortranDerivedType.__init__(self)
-            result = _raffle.f90wrap_evolver__gvector_container_type_initialise()
+            result = \
+                _raffle.f90wrap_raffle__dc__dc_type_initialise()
             self._handle = result[0] if isinstance(result, tuple) else result
         
         def __del__(self):
             """
-            Destructor for class Gvector_Container_Type
+            Destructor for class Distribs_Container_Type
             
             
-            Defined at ../src/lib/mod_evolver.f90 lines \
-                30-62
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                lines 25-162
             
             Parameters
             ----------
-            this : Gvector_Container_Type
+            this : Distribs_Container_Type
             	Object to be destructed
             
             
-            Automatically generated destructor for gvector_container_type
+            Automatically generated destructor for distribs_container_type
             """
             if self._alloc:
-                _raffle.f90wrap_evolver__gvector_container_type_finalise(this=self._handle)
+                _raffle.f90wrap_raffle__dc__dc_type_finalise(this=self._handle)
         
         def set_kBT(self, kBT):
             """
@@ -1116,11 +681,11 @@ class Evolver(f90wrap.runtime.FortranModule):
 
         def set_width(self, width):
             """
-            set_width__binding__gvector_container_type(self, width)
+            set_width__binding__dc_type(self, width)
             
             
-            Defined at ../src/lib/mod_evolver.f90 lines \
-                108-118
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                lines 237-247
             
             Parameters
             ----------
@@ -1128,16 +693,16 @@ class Evolver(f90wrap.runtime.FortranModule):
             width : float array
             
             """
-            _raffle.f90wrap_evolver__set_width__binding__gvector_container_type(this=self._handle, \
+            _raffle.f90wrap_raffle__dc__set_width__binding__dc_type(this=self._handle, \
                 width=width)
         
         def set_sigma(self, sigma):
             """
-            set_sigma__binding__gvector_container_type(self, sigma)
+            set_sigma__binding__dc_type(self, sigma)
             
             
-            Defined at ../src/lib/mod_evolver.f90 lines \
-                120-130
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                lines 251-261
             
             Parameters
             ----------
@@ -1145,16 +710,16 @@ class Evolver(f90wrap.runtime.FortranModule):
             sigma : float array
             
             """
-            _raffle.f90wrap_evolver__set_sigma__binding__gvector_container_type(this=self._handle, \
+            _raffle.f90wrap_raffle__dc__set_sigma__binding__dc_type(this=self._handle, \
                 sigma=sigma)
         
         def set_cutoff_min(self, cutoff_min):
             """
-            set_cutoff_min__binding__gvector_container_type(self, cutoff_min)
+            set_cutoff_min__binding__dc_type(self, cutoff_min)
             
             
-            Defined at ../src/lib/mod_evolver.f90 lines \
-                132-140
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                lines 265-273
             
             Parameters
             ----------
@@ -1162,16 +727,16 @@ class Evolver(f90wrap.runtime.FortranModule):
             cutoff_min : float array
             
             """
-            _raffle.f90wrap_evolver__set_cutoff_min__binding__gvector_container7007(this=self._handle, \
+            _raffle.f90wrap_raffle__dc__set_cutoff_min__binding__dc_type(this=self._handle, \
                 cutoff_min=cutoff_min)
         
         def set_cutoff_max(self, cutoff_max):
             """
-            set_cutoff_max__binding__gvector_container_type(self, cutoff_max)
+            set_cutoff_max__binding__dc_type(self, cutoff_max)
             
             
-            Defined at ../src/lib/mod_evolver.f90 lines \
-                142-150
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                lines 277-285
             
             Parameters
             ----------
@@ -1179,32 +744,33 @@ class Evolver(f90wrap.runtime.FortranModule):
             cutoff_max : float array
             
             """
-            _raffle.f90wrap_evolver__set_cutoff_max__binding__gvector_container047c(this=self._handle, \
+            _raffle.f90wrap_raffle__dc__set_cutoff_max__binding__dc_type(this=self._handle, \
                 cutoff_max=cutoff_max)
         
         def set_radius_distance_tol(self, radius_distance_tol):
             """
-            set_radius_distance_tol__binding__gvector_container_type(self, radius_distance_tol)
+            set_radius_distance_tol__binding__dc_type(self, \
+                radius_distance_tol)
             
             
-            Defined at ../src/lib/mod_evolver.f90 lines \
-                142-150
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                lines 289-297
             
             Parameters
             ----------
             this : unknown
-            cutoff_max : float array
+            radius_distance_tol : float array
             
             """
-            _raffle.f90wrap_evolver__set_radius_distance_tol__binding__gvector_1dda(this=self._handle, \
+            _raffle.f90wrap_raffle__dc__set_radius_distance_tol__binding__dc_type(this=self._handle, \
                 radius_distance_tol=radius_distance_tol)
         
         def create(self, basis_list, energy_above_hull_list=None, deallocate_systems=True):
             """
-            create__binding__gvector_container_type(self, basis_list)
+            create__binding__dc_type(self, basis_list)
 
-            Defined at ../src/lib/mod_evolver.f90 lines \
-                152-162
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                lines 353-440
 
             Parameters
             ----------
@@ -1221,7 +787,7 @@ class Evolver(f90wrap.runtime.FortranModule):
                 if all([isinstance(basis, Atoms) for basis in basis_list]):
                     basis_list = rw_geom.basis_array(basis_list)
 
-            _raffle.f90wrap_evolver__create__binding__gvector_container_type(this=self._handle, \
+            _raffle.f90wrap_raffle__dc__create__binding__dc_type(this=self._handle, \
                 basis_list=basis_list._handle, \
                 energy_above_hull_list=energy_above_hull_list, \
                 deallocate_systems=deallocate_systems \
@@ -1229,10 +795,10 @@ class Evolver(f90wrap.runtime.FortranModule):
             
         def update(self, basis_list, energy_above_hull_list=None, from_host=True, deallocate_systems=True):
             """
-            update__binding__gvector_container_type(self, basis_list)
+            update__binding__dc_type(self, basis_list)
 
-            Defined at ../src/lib/mod_evolver.f90 lines \
-                152-162
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                445-503
 
             Parameters
             ----------
@@ -1251,7 +817,7 @@ class Evolver(f90wrap.runtime.FortranModule):
                     basis_list = rw_geom.basis_array(basis_list)
             
 
-            _raffle.f90wrap_evolver__update__binding__gvector_container_type(this=self._handle, \
+            _raffle.f90wrap_raffle__dc__update__binding__dc_type(this=self._handle, \
                 basis_list=basis_list._handle, \
                 energy_above_hull_list=energy_above_hull_list, \
                 from_host=from_host, \
@@ -1260,65 +826,43 @@ class Evolver(f90wrap.runtime.FortranModule):
             
         def deallocate_systems(self):
             """
-            deallocate_systems__binding__gvector_container_type(self)
+            deallocate_systems__binding__dc_type(self)
             
             
-            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_evolver.f90 \
-                lines 323-331
-            
-            Parameters
-            ----------
-            this : unknown
-            
-            """
-            _raffle.f90wrap_evolver__deallocate_systems__binding__gvector_conta8f02(this=self._handle)
-        
-        def add_basis(self, lattice, basis):
-            """
-            add_basis__binding__gvector_container_type(self, lattice, basis)
-            
-            
-            Defined at ../src/lib/mod_evolver.f90 lines \
-                415-430
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                lines 497-506
             
             Parameters
             ----------
             this : unknown
-            lattice : float array
-            basis : basis
             
             """
-            _raffle.f90wrap_evolver__add_basis__binding__gvector_container_type(this=self._handle, \
-                lattice=lattice, basis=basis._handle)
+            _raffle.f90wrap_raffle__dc__deallocate_systems__binding__dc_type(this=self._handle)
         
-        # def set_element_info(self, element_file=None, element_list=None):
-        #     """
-        #     set_element_info__binding__gvector_container_type(self[, element_file, \
-        #         element_list])
+        def add_basis(self, basis):
+            """
+            add_basis__binding__dc_type(self, basis)
             
             
-        #     Defined at ../src/lib/mod_evolver.f90 lines \
-        #         436-466
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                lines 776-797
             
-        #     Parameters
-        #     ----------
-        #     this : unknown
-        #     element_file : str
-        #     element_list : str array
+            Parameters
+            ----------
+            this : unknown
+            basis : Basis_Type
             
-        #     --------------------------------------------------------------------------
-        #      load the elements database
-        #     --------------------------------------------------------------------------
-        #     """
-        #     _raffle.f90wrap_evolver__set_element_info__binding__gvector_containbcb0(this=self._handle, \
-        #         element_file=element_file, element_list=element_list)
-
+            """
+            _raffle.f90wrap_raffle__dc__add_basis__binding__dc_type(this=self._handle, \
+                basis=basis._handle)
+        
         def set_element_energies(self, element_energies):
             """
-            set_element_energies__binding__gvector_container_type(self, element_energies)
-
-            Defined at ../src/lib/mod_evolver.f90 lines \
-                472-526
+            set_element_energies__binding__dc_type(self, element_energies)
+            
+            
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                lines 944-958
             
             Parameters
             ----------
@@ -1328,17 +872,17 @@ class Evolver(f90wrap.runtime.FortranModule):
 
             element_list = list(element_energies.keys())
             energies = [element_energies[element] for element in element_list]
-            _raffle.f90wrap_evolver__set_element_energies__binding__gvector_con0537(this=self._handle, \
+            _raffle.f90wrap_raffle__dc__set_element_energies__binding__dc_type(this=self._handle, \
                 elements=element_list, energies=energies)
-
+        
         def get_element_energies(self):
             """
-            get_element_energies_static__binding__gvector_container_type(self, elements, \
+            get_element_energies_static__binding__dc_type(self, elements, \
                 energies)
             
             
-            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_evolver.f90 \
-                lines 557-574
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                lines 984-1004
             
             Parameters
             ----------
@@ -1350,11 +894,11 @@ class Evolver(f90wrap.runtime.FortranModule):
             
             """
 
-            num_elements = _raffle.f90wrap_evolver__get__num_elements(self._handle)
+            num_elements = _raffle.f90wrap_raffle__dc__get__num_elements(self._handle)
             elements = numpy.zeros((num_elements,), dtype='S3')
             energies = numpy.zeros((num_elements,), dtype=numpy.float32)
 
-            _raffle.f90wrap_evolver__get_element_energies_staticmem__binding__g4f53(this=self._handle, \
+            _raffle.f90wrap_raffle__dc__get_element_energies_sm__binding__dc_type(this=self._handle, \
                 elements=elements, energies=energies)
             
             # convert the fortran array to a python dictionary
@@ -1365,39 +909,36 @@ class Evolver(f90wrap.runtime.FortranModule):
 
             return element_energies
 
-        def _set_bond_info(self, bond_file=None):
+        def set_bond_info(self):
             """
-            set_bond_info__binding__gvector_container_type(self[, bond_file])
+            set_bond_info__binding__dc_type(self)
             
             
-            Defined at ../src/lib/mod_evolver.f90 lines \
-                472-526
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                lines 1008-1052
             
             Parameters
             ----------
             this : unknown
-            bond_file : str
             
-            --------------------------------------------------------------------------
-             load the element bonds database
-            --------------------------------------------------------------------------
+            ---------------------------------------------------------------------------
+             allocate the bond information array
+            ---------------------------------------------------------------------------
             """
-            _raffle.f90wrap_evolver__set_bond_info__binding__gvector_container_type(this=self._handle, \
-                bond_file=bond_file)
+            _raffle.f90wrap_raffle__dc__set_bond_info__binding__dc_type(this=self._handle)
         
         def set_bond_radius(self, radius_dict):
             """
-            set_bond_radius__binding__gvector_container_type(self, elements, radius)
+            set_bond_radius__binding__dc_type(self, elements, radius)
             
             
-            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_evolver.f90 \
-                lines 711-757
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                lines 1197-1247
             
             Parameters
             ----------
             this : unknown
-            elements : str array
-            radius : float
+            radius_dict : dict
             
             ---------------------------------------------------------------------------
              remove python formatting
@@ -1409,22 +950,21 @@ class Evolver(f90wrap.runtime.FortranModule):
             elements = list(radius_dict.keys()[0])
             radius = radius_dict.values()[0]
 
-            _raffle.f90wrap_evolver__set_bond_radius__binding__gvector_containe7df9(this=self._handle, \
+            _raffle.f90wrap_raffle__dc__set_bond_radius__binding__dc_type(this=self._handle, \
                 elements=elements, radius=radius)
         
         def set_bond_radii(self, radius_dict):
             """
-            set_bond_radii__binding__gvector_container_type(self, elements, radii)
+            set_bond_radii__binding__dc_type(self, elements, radii)
             
             
-            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_evolver.f90 \
-                lines 761-776
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                lines 1251-1266
             
             Parameters
             ----------
             this : unknown
-            elements : str array
-            radii : float array
+            radius_dict : dict
             
             """
 
@@ -1437,39 +977,38 @@ class Evolver(f90wrap.runtime.FortranModule):
                 radii.append(value)
                
 
-            _raffle.f90wrap_evolver__set_bond_radii__binding__gvector_container83c5(this=self._handle, \
+            _raffle.f90wrap_raffle__dc__set_bond_radii__binding__dc_type(this=self._handle, \
                 elements=elements, radii=radii)
         
         def get_bond_radii(self):
             """
-            get_bond_radii_staticmem__binding__gvector_container_type(self, elements, radii)
+            get_bond_radii_staticmem__binding__dc_type(self, elements, \
+                radii)
             
             
-            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_evolver.f90 \
-                lines 808-828
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                lines 1292-1312
             
             Parameters
             ----------
             this : unknown
-            elements : str array
-            radii : float array
             
             Returns
             -------
-            element_energies : dict
+            bond_radii : dict
             
             """
 
-            num_elements = _raffle.f90wrap_evolver__get__num_elements(self._handle)
+            num_elements = _raffle.f90wrap_raffle__dc__get__num_elements(self._handle)
             if num_elements == 0:
                 return {}
             num_pairs = round(num_elements * ( num_elements + 1 ) / 2)
             elements = numpy.zeros((num_pairs,2,), dtype='S3', order='F')
             radii = numpy.zeros((num_pairs,), dtype=numpy.float32, order='F')
 
-            _raffle.f90wrap_evolver__get_bond_radii_staticmem__binding__gvectord2e1(this=self._handle, \
+            _raffle.f90wrap_raffle__dc__get_bond_radii_staticmem__binding__dc_type(this=self._handle, \
                 elements=elements, radii=radii)
-            # _raffle.f90wrap_evolver__get_element_energies_staticmem__binding__g4f53(this=self._handle, \
+            # _raffle.f90wrap_raffle__dc__get_bond_radii_staticmem__binding__dc_type(this=self._handle, \
             #     elements=elements, energies=energies)
             
             # convert the fortran array to a python dictionary
@@ -1480,65 +1019,48 @@ class Evolver(f90wrap.runtime.FortranModule):
 
             return bond_radii
         
-        # def _set_best_energy(self):
-        #     """
-        #     set_best_energy__binding__gvector_container_type(self)
-            
-            
-        #     Defined at ../src/lib/mod_evolver.f90 lines \
-        #         532-554
-            
-        #     Parameters
-        #     ----------
-        #     this : unknown
-            
-        #     """
-        #     _raffle.f90wrap_evolver__set_best_energy__binding__gvector_containe4680(this=self._handle)
-        
-        def initialise_gvectors(self):
+        def initialise_distribs(self):
             """
-            initialise_gvectors__binding__gvector_container_type(self)
+            initialise_distribs__binding__dc_type(self)
             
             
-            Defined at ../src/lib/mod_evolver.f90 lines \
-                600-630
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                lines 1474-1493
             
             Parameters
             ----------
             this : unknown
             
             """
-            _raffle.f90wrap_evolver__initialise_gvectors__binding__gvector_contc1f2(this=self._handle)
+            _raffle.f90wrap_raffle__dc__initialise_distribs__binding__dc_type(this=self._handle)
         
-        def evolve(self, system=None):
+        def evolve(self): #, system=None):
             """
-            evolve__binding__gvector_container_type(self[, system, \
-                deallocate_systems_after_evolve])
+            evolve__binding__dc_type(self)
             
             
-            Defined at ../src/lib/mod_evolver.f90 lines \
-                637-740
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                lines 1539-1838
             
             Parameters
             ----------
             this : unknown
-            system : Gvector_Type array
-            deallocate_systems_after_evolve : bool
             
-            --------------------------------------------------------------------------
-             if present, set the deallocate flag
-            --------------------------------------------------------------------------
+            ---------------------------------------------------------------------------
+             if present, add the system to the container
+            ---------------------------------------------------------------------------
             """
-            _raffle.f90wrap_evolver__evolve__binding__gvector_container_type(this=self._handle, \
-                system=None if system is None else system._handle)
+            _raffle.f90wrap_raffle__dc__evolve__binding__dc_type(this=self._handle)
+            # _raffle.f90wrap_raffle__dc__evolve__binding__dc_type(this=self._handle, \
+            #     system=None if system is None else system._handle)
         
         def write(self, file):
             """
-            write__binding__gvector_container_type(self, file)
+            write__binding__dc_type(self, file)
             
             
-            Defined at ../src/lib/mod_evolver.f90 lines \
-                182-210
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                lines 510-559
             
             Parameters
             ----------
@@ -1546,16 +1068,16 @@ class Evolver(f90wrap.runtime.FortranModule):
             file : str
             
             """
-            _raffle.f90wrap_evolver__write__binding__gvector_container_type(this=self._handle, \
+            _raffle.f90wrap_raffle__dc__write__binding__dc_type(this=self._handle, \
                 file=file)
         
         def read(self, file):
             """
-            read__binding__gvector_container_type(self, file)
+            read__binding__dc_type(self, file)
             
             
-            Defined at ../src/lib/mod_evolver.f90 lines \
-                216-260
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                lines 563-620
             
             Parameters
             ----------
@@ -1563,16 +1085,16 @@ class Evolver(f90wrap.runtime.FortranModule):
             file : str
             
             """
-            _raffle.f90wrap_evolver__read__binding__gvector_container_type(this=self._handle, \
+            _raffle.f90wrap_raffle__dc__read__binding__dc_type(this=self._handle, \
                 file=file)
         
         def write_2body(self, file):
             """
-            write_2body__binding__gvector_container_type(self, file)
+            write_2body__binding__dc_type(self, file)
             
             
-            Defined at ../src/lib/mod_evolver.f90 lines \
-                266-295
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                lines 624-663
             
             Parameters
             ----------
@@ -1580,16 +1102,16 @@ class Evolver(f90wrap.runtime.FortranModule):
             file : str
             
             """
-            _raffle.f90wrap_evolver__write_2body__binding__gvector_container_type(this=self._handle, \
+            _raffle.f90wrap_raffle__dc__write_2body__binding__dc_type(this=self._handle, \
                 file=file)
         
         def write_3body(self, file):
             """
-            write_3body__binding__gvector_container_type(self, file)
+            write_3body__binding__dc_type(self, file)
             
             
-            Defined at ../src/lib/mod_evolver.f90 lines \
-                301-315
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                lines 667-689
             
             Parameters
             ----------
@@ -1597,16 +1119,16 @@ class Evolver(f90wrap.runtime.FortranModule):
             file : str
             
             """
-            _raffle.f90wrap_evolver__write_3body__binding__gvector_container_type(this=self._handle, \
+            _raffle.f90wrap_raffle__dc__write_3body__binding__dc_type(this=self._handle, \
                 file=file)
         
         def write_4body(self, file):
             """
-            write_4body__binding__gvector_container_type(self, file)
+            write_4body__binding__dc_type(self, file)
             
             
-            Defined at ../src/lib/mod_evolver.f90 lines \
-                321-335
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                lines 693-715
             
             Parameters
             ----------
@@ -1614,16 +1136,16 @@ class Evolver(f90wrap.runtime.FortranModule):
             file : str
             
             """
-            _raffle.f90wrap_evolver__write_4body__binding__gvector_container_type(this=self._handle, \
+            _raffle.f90wrap_raffle__dc__write_4body__binding__dc_type(this=self._handle, \
                 file=file)
         
         def get_pair_index(self, species1, species2):
             """
-            idx = get_pair_index__binding__gvector_container_type(self, species1, species2)
+            idx = get_pair_index__binding__dc_type(self, species1, species2)
             
             
-            Defined at ../src/lib/mod_evolver.f90 lines \
-                560-575
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                lines 1408-1430
             
             Parameters
             ----------
@@ -1637,17 +1159,17 @@ class Evolver(f90wrap.runtime.FortranModule):
             
             """
             idx = \
-                _raffle.f90wrap_evolver__get_pair_index__binding__gvector_container4618(this=self._handle, \
+                _raffle.f90wrap_raffle__dc__get_pair_index__binding__dc_type(this=self._handle, \
                 species1=species1, species2=species2)
             return idx
         
         def get_bin(self, value, dim):
             """
-            bin = get_bin__binding__gvector_container_type(self, value, dim)
+            bin = get_bin__binding__dc_type(self, value, dim)
             
             
-            Defined at ../src/lib/mod_evolver.f90 lines \
-                581-594
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                lines 1451-1470
             
             Parameters
             ----------
@@ -1661,7 +1183,7 @@ class Evolver(f90wrap.runtime.FortranModule):
             
             """
             bin = \
-                _raffle.f90wrap_evolver__get_bin__binding__gvector_container_type(this=self._handle, \
+                _raffle.f90wrap_raffle__dc__get_bin__binding__dc_type(this=self._handle, \
                 value=value, dim=dim)
             return bin
         
@@ -1671,15 +1193,15 @@ class Evolver(f90wrap.runtime.FortranModule):
             Element num_evaluated ftype=integer  pytype=int
             
             
-            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_evolver.f90 \
-                line 57
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                line 30
             
             """
-            return _raffle.f90wrap_gvector_container_type__get__num_evaluated(self._handle)
+            return _raffle.f90wrap_distribs_container_type__get__num_evaluated(self._handle)
         
         @num_evaluated.setter
         def num_evaluated(self, num_evaluated):
-            _raffle.f90wrap_gvector_container_type__set__num_evaluated(self._handle, \
+            _raffle.f90wrap_distribs_container_type__set__num_evaluated(self._handle, \
                 num_evaluated)
         
         @property
@@ -1688,51 +1210,16 @@ class Evolver(f90wrap.runtime.FortranModule):
             Element num_evaluated_allocated ftype=integer  pytype=int
             
             
-            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_evolver.f90 \
-                line 59
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                line 32
             
             """
             return \
-                _raffle.f90wrap_gvector_container_type__get__num_evaluated_allocated(self._handle)
+                _raffle.f90wrap_distribs_container_type__get__num_evaluated_allocated(self._handle)
         
         @num_evaluated_allocated.setter
         def num_evaluated_allocated(self, num_evaluated_allocated):
-            _raffle.f90wrap_gvector_container_type__set__num_evaluated_allocated(self._handle, \
-                num_evaluated_allocated)
-        
-        @property
-        def num_evaluated(self):
-            """
-            Element num_evaluated ftype=integer  pytype=int
-            
-            
-            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_evolver.f90 \
-                line 82
-            
-            """
-            return _raffle.f90wrap_gvector_container_type__get__num_evaluated(self._handle)
-        
-        @num_evaluated.setter
-        def num_evaluated(self, num_evaluated):
-            _raffle.f90wrap_gvector_container_type__set__num_evaluated(self._handle, \
-                num_evaluated)
-        
-        @property
-        def num_evaluated_allocated(self):
-            """
-            Element num_evaluated_allocated ftype=integer  pytype=int
-            
-            
-            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_evolver.f90 \
-                line 84
-            
-            """
-            return \
-                _raffle.f90wrap_gvector_container_type__get__num_evaluated_allocated(self._handle)
-        
-        @num_evaluated_allocated.setter
-        def num_evaluated_allocated(self, num_evaluated_allocated):
-            _raffle.f90wrap_gvector_container_type__set__num_evaluated_allocated(self._handle, \
+            _raffle.f90wrap_distribs_container_type__set__num_evaluated_allocated(self._handle, \
                 num_evaluated_allocated)
         
         @property
@@ -1741,31 +1228,32 @@ class Evolver(f90wrap.runtime.FortranModule):
             Element kBT ftype=real(real12) pytype=float
             
             
-            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_evolver.f90 \
-                line 66
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                line 34
             
             """
-            return _raffle.f90wrap_gvector_container_type__get__kBT(self._handle)
+            return _raffle.f90wrap_distribs_container_type__get__kbt(self._handle)
         
         @kBT.setter
         def kBT(self, kBT):
-            _raffle.f90wrap_gvector_container_type__set__kBT(self._handle, kBT)
-                
+            _raffle.f90wrap_distribs_container_type__set__kbt(self._handle, kBT)
+        
         @property
         def weight_by_hull(self):
             """
             Element weight_by_hull ftype=logical pytype=bool
             
             
-            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_evolver.f90 \
-                line 88
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                line 36
             
             """
-            return _raffle.f90wrap_gvector_container_type__get__weight_by_hull(self._handle)
+            return \
+                _raffle.f90wrap_distribs_container_type__get__weight_by_hull(self._handle)
         
         @weight_by_hull.setter
         def weight_by_hull(self, weight_by_hull):
-            _raffle.f90wrap_gvector_container_type__set__weight_by_hull(self._handle, \
+            _raffle.f90wrap_distribs_container_type__set__weight_by_hull(self._handle, \
                 weight_by_hull)
         
         @property
@@ -1774,17 +1262,18 @@ class Evolver(f90wrap.runtime.FortranModule):
             Element nbins ftype=integer pytype=int
             
             
-            Defined at ../src/lib/mod_evolver.f90 line 33
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                line 54
             
             """
             array_ndim, array_type, array_shape, array_handle = \
-                _raffle.f90wrap_gvector_container_type__array__nbins(self._handle)
+                _raffle.f90wrap_distribs_container_type__array__nbins(self._handle)
             if array_handle in self._arrays:
                 nbins = self._arrays[array_handle]
             else:
                 nbins = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
                                         self._handle,
-                                        _raffle.f90wrap_gvector_container_type__array__nbins)
+                                        _raffle.f90wrap_distribs_container_type__array__nbins)
                 self._arrays[array_handle] = nbins
             return nbins
         
@@ -1798,17 +1287,18 @@ class Evolver(f90wrap.runtime.FortranModule):
             Element sigma ftype=real(real12) pytype=float
             
             
-            Defined at ../src/lib/mod_evolver.f90 line 34
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                line 57
             
             """
             array_ndim, array_type, array_shape, array_handle = \
-                _raffle.f90wrap_gvector_container_type__array__sigma(self._handle)
+                _raffle.f90wrap_distribs_container_type__array__sigma(self._handle)
             if array_handle in self._arrays:
                 sigma = self._arrays[array_handle]
             else:
                 sigma = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
                                         self._handle,
-                                        _raffle.f90wrap_gvector_container_type__array__sigma)
+                                        _raffle.f90wrap_distribs_container_type__array__sigma)
                 self._arrays[array_handle] = sigma
             return sigma
         
@@ -1822,17 +1312,18 @@ class Evolver(f90wrap.runtime.FortranModule):
             Element width ftype=real(real12) pytype=float
             
             
-            Defined at ../src/lib/mod_evolver.f90 line 35
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                line 61
             
             """
             array_ndim, array_type, array_shape, array_handle = \
-                _raffle.f90wrap_gvector_container_type__array__width(self._handle)
+                _raffle.f90wrap_distribs_container_type__array__width(self._handle)
             if array_handle in self._arrays:
                 width = self._arrays[array_handle]
             else:
                 width = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
                                         self._handle,
-                                        _raffle.f90wrap_gvector_container_type__array__width)
+                                        _raffle.f90wrap_distribs_container_type__array__width)
                 self._arrays[array_handle] = width
             return width
         
@@ -1846,17 +1337,18 @@ class Evolver(f90wrap.runtime.FortranModule):
             Element cutoff_min ftype=real(real12) pytype=float
             
             
-            Defined at ../src/lib/mod_evolver.f90 line 36
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                line 64
             
             """
             array_ndim, array_type, array_shape, array_handle = \
-                _raffle.f90wrap_gvector_container_type__array__cutoff_min(self._handle)
+                _raffle.f90wrap_distribs_container_type__array__cutoff_min(self._handle)
             if array_handle in self._arrays:
                 cutoff_min = self._arrays[array_handle]
             else:
                 cutoff_min = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
                                         self._handle,
-                                        _raffle.f90wrap_gvector_container_type__array__cutoff_min)
+                                        _raffle.f90wrap_distribs_container_type__array__cutoff_min)
                 self._arrays[array_handle] = cutoff_min
             return cutoff_min
         
@@ -1870,17 +1362,18 @@ class Evolver(f90wrap.runtime.FortranModule):
             Element cutoff_max ftype=real(real12) pytype=float
             
             
-            Defined at ../src/lib/mod_evolver.f90 line 37
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                line 67
             
             """
             array_ndim, array_type, array_shape, array_handle = \
-                _raffle.f90wrap_gvector_container_type__array__cutoff_max(self._handle)
+                _raffle.f90wrap_distribs_container_type__array__cutoff_max(self._handle)
             if array_handle in self._arrays:
                 cutoff_max = self._arrays[array_handle]
             else:
                 cutoff_max = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
                                         self._handle,
-                                        _raffle.f90wrap_gvector_container_type__array__cutoff_max)
+                                        _raffle.f90wrap_distribs_container_type__array__cutoff_max)
                 self._arrays[array_handle] = cutoff_max
             return cutoff_max
         
@@ -1894,64 +1387,64 @@ class Evolver(f90wrap.runtime.FortranModule):
             Element radius_distance_tol ftype=real(real12) pytype=float
             
             
-            Defined at /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_evolver.f90 \
-                line 81
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                line 70
             
             """
             array_ndim, array_type, array_shape, array_handle = \
-                _raffle.f90wrap_gvector_container_type__array__radius_distance_tol(self._handle)
+                _raffle.f90wrap_distribs_container_type__array__radius_distance_tol(self._handle)
             if array_handle in self._arrays:
                 radius_distance_tol = self._arrays[array_handle]
             else:
                 radius_distance_tol = \
                     f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
                                         self._handle,
-                                        _raffle.f90wrap_gvector_container_type__array__radius_distance_tol)
+                                        _raffle.f90wrap_distribs_container_type__array__radius_distance_tol)
                 self._arrays[array_handle] = radius_distance_tol
             return radius_distance_tol
         
         @radius_distance_tol.setter
         def radius_distance_tol(self, radius_distance_tol):
             self.radius_distance_tol[...] = radius_distance_tol
-
-        @property
-        def total(self):
-            """
-            Element total ftype=type(gvector_base_type) pytype=Gvector_Base_Type
-            
-            
-            Defined at ../src/lib/mod_evolver.f90 line 38
-            
-            """
-            total_handle = _raffle.f90wrap_gvector_container_type__get__total(self._handle)
-            if tuple(total_handle) in self._objs:
-                total = self._objs[tuple(total_handle)]
-            else:
-                total = evolver.gvector_base_type.from_handle(total_handle)
-                self._objs[tuple(total_handle)] = total
-            return total
         
-        @total.setter
-        def total(self, total):
-            total = total._handle
-            _raffle.f90wrap_gvector_container_type__set__total(self._handle, total)
+        # @property
+        # def total(self):
+        #     """
+        #     Element total ftype=type(distribs_base_type) pytype=Distribs_Base_Type
+            
+            
+        #     Defined at ../src/lib/mod_distribs_container.f90 line 38
+            
+        #     """
+        #     total_handle = _raffle.f90wrap_distribs_container_type__get__total(self._handle)
+        #     if tuple(total_handle) in self._objs:
+        #         total = self._objs[tuple(total_handle)]
+        #     else:
+        #         total = distribs.distribs_base_type.from_handle(total_handle)
+        #         self._objs[tuple(total_handle)] = total
+        #     return total
         
-        def _init_array_system(self):
-            self.system = f90wrap.runtime.FortranDerivedTypeArray(self,
-                                            _raffle.f90wrap_gvector_container_type__array_getitem__system,
-                                            _raffle.f90wrap_gvector_container_type__array_setitem__system,
-                                            _raffle.f90wrap_gvector_container_type__array_len__system,
-                                            """
-            Element system ftype=type(gvector_type) pytype=Gvector_Type
+        # @total.setter
+        # def total(self, total):
+        #     total = total._handle
+        #     _raffle.f90wrap_distribs_container_type__set__total(self._handle, total)
+        
+        # def _init_array_system(self):
+        #     self.system = f90wrap.runtime.FortranDerivedTypeArray(self,
+        #                                     _raffle.f90wrap_distribs_container_type__array_getitem__system,
+        #                                     _raffle.f90wrap_distribs_container_type__array_setitem__system,
+        #                                     _raffle.f90wrap_distribs_container_type__array_len__system,
+        #                                     """
+        #     Element system ftype=type(distribs_type) pytype=Distribs_Type
             
             
-            Defined at ../src/lib/mod_evolver.f90 line 39
+        #     Defined at ../src/lib/mod_distribs_container.f90 line 39
             
-            """, Evolver.gvector_type)
-            return self.system
+        #     """, Distribs.distribs_type)
+        #     return self.system
         
         def __str__(self):
-            ret = ['<gvector_container_type>{\n']
+            ret = ['<distribs_container_type>{\n']
             ret.append('    num_evaluated : ')
             ret.append(repr(self.num_evaluated))
             ret.append(',\n    num_evaluated_allocated : ')
@@ -1972,18 +1465,18 @@ class Evolver(f90wrap.runtime.FortranModule):
             ret.append(repr(self.cutoff_max))
             ret.append(',\n    radius_distance_tol : ')
             ret.append(repr(self.radius_distance_tol))
-            ret.append(',\n    total : ')
-            ret.append(repr(self.total))
+            # ret.append(',\n    total : ')
+            # ret.append(repr(self.total))
             ret.append('}')
             return ''.join(ret)
         
-        _dt_array_initialisers = [_init_array_system]
+        _dt_array_initialisers = []#_init_array_system]
         
     
     _dt_array_initialisers = []
     
 
-evolver = Evolver()
+raffle__distribs_container = Raffle__Distribs_Container()
 
 class Generator(f90wrap.runtime.FortranModule):
     """
@@ -2280,8 +1773,7 @@ class Generator(f90wrap.runtime.FortranModule):
                 grid_offset])
             
             
-            Defined at \
-                /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_generator.f90 lines \
+            Defined at ../fortran/lib/mod_generator.f90 lines \
                 142-173
             
             Parameters
@@ -2300,8 +1792,7 @@ class Generator(f90wrap.runtime.FortranModule):
             reset_grid__binding__raffle_generator(self)
             
             
-            Defined at \
-                /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_generator.f90 lines \
+            Defined at ../fortran/lib/mod_generator.f90 lines \
                 170-176
             
             Parameters
@@ -2457,8 +1948,7 @@ class Generator(f90wrap.runtime.FortranModule):
             Element grid_offset ftype=real pytype=float
             
             
-            Defined at \
-                /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_generator.f90 line \
+            Defined at ../fortran/lib/mod_generator.f90 line \
                 45
             
             """
@@ -2483,8 +1973,7 @@ class Generator(f90wrap.runtime.FortranModule):
             Element grid_spacing ftype=real(real12) pytype=float
             
             
-            Defined at \
-                /Users/nedtaylor/DCoding/DGit/raffle/src/fortran/lib/mod_generator.f90 line \
+            Defined at ../fortran/lib/mod_generator.f90 line \
                 47
             
             """
@@ -2498,12 +1987,12 @@ class Generator(f90wrap.runtime.FortranModule):
         @property
         def distributions(self):
             """
-            Element distributions ftype=type(gvector_container_type) \
-                pytype=Gvector_Container_Type
+            Element distributions ftype=type(distribs_container_type) \
+                pytype=Distribs_Container_Type
             
             
-            Defined at ../src/lib/mod_generator.f90 line \
-                27
+            Defined at ../fortran/lib/mod_generator.f90 line \
+                54
             
             """
             distributions_handle = \
@@ -2511,7 +2000,8 @@ class Generator(f90wrap.runtime.FortranModule):
             if tuple(distributions_handle) in self._objs:
                 distributions = self._objs[tuple(distributions_handle)]
             else:
-                distributions = evolver.gvector_container_type.from_handle(distributions_handle)
+                distributions = \
+                    raffle__distribs_container.distribs_container_type.from_handle(distributions_handle)
                 self._objs[tuple(distributions_handle)] = distributions
             return distributions
         

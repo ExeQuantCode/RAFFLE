@@ -82,11 +82,13 @@ set(LIB_FILES
 	mod_elements.f90
 	mod_evaluator.f90
 	mod_atom_adder.f90
+    mod_distribs.f90
+    mod_distribs_host.f90
 )
 
 set(SPECIAL_LIB_FILES
   mod_rw_geom.f90
-  mod_evolver.f90
+  mod_distribs_container.f90
   mod_generator.f90
   # mod_generator_sub.f90
 )

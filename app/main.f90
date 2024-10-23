@@ -5,7 +5,7 @@ program raffle_program
   use misc_raffle, only: touch
   use inputs
   use read_structures, only: get_evolved_gvectors_from_data
-  use raffle, only: raffle_generator_type, gvector_container_type
+  use raffle, only: raffle_generator_type, distribs_container_type
   use rw_geom, only: geom_read, geom_write
   implicit none
 
@@ -78,7 +78,7 @@ program raffle_program
   generator%distributions = get_evolved_gvectors_from_data( &
        input_dir    = database_list, &
        file_format  = database_format, &
-       gvector_container_template = gvector_container_type(&
+       distribs_container_template = distribs_container_type(&
             width = width_list, &
             sigma = sigma_list, &
             cutoff_min = cutoff_min_list, &

@@ -82,7 +82,8 @@ set(LIB_FILES
     mod_extended_geom.f90
 	mod_elements.f90
 	mod_evaluator.f90
-	mod_atom_adder.f90
+	mod_place_methods.f90
+    mod_viability.f90
     mod_distribs.f90
     mod_distribs_host.f90
 )

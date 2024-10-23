@@ -16,10 +16,11 @@ module generator
   use raffle__constants, only: verbose_global => verbose
   use raffle__misc, only: shuffle
   use raffle__geom_utils, only: basis_merge
-  use add_atom, only: &
-       add_atom_void, add_atom_rand, &
-       add_atom_growth, add_atom_walk, &
-       add_atom_min, &
+  use raffle__place_methods, only: &
+       place_method_void, place_method_rand, &
+       place_method_growth, place_method_walk, &
+       place_method_min
+  use raffle__viability, only: &
        get_gridpoints_and_viability, update_gridpoints_and_viability
 
 #ifdef ENABLE_ATHENA
@@ -581,7 +582,7 @@ contains
        call random_number(rtmp1)
        if(rtmp1.le.method_probab_(1)) then
           if(verbose.gt.0) write(*,*) "Add Atom Void"
-          point = add_atom_void( this%grid, &
+          point = place_method_void( this%grid, &
                 this%grid_offset, &
                 basis, &
                 placement_list_shuffled(iplaced+1:,:), viable &
@@ -589,7 +590,7 @@ contains
                           
        else if(rtmp1.le.method_probab_(2)) then
           if(verbose.gt.0) write(*,*) "Add Atom Random"
-          point = add_atom_rand( &
+          point = place_method_rand( &
                basis, &
                placement_list_shuffled(iplaced+1:,:), &
                [ this%distributions%bond_info(:)%radius_covalent ], &
@@ -599,20 +600,20 @@ contains
           if(.not. viable) cycle placement_loop
        else if(rtmp1.le.method_probab_(3)) then
           if(verbose.gt.0) write(*,*) "Add Atom Walk"
-          point = add_atom_walk( &
+          point = place_method_walk( &
                 this%distributions, &
                 basis, &
                 placement_list_shuffled(iplaced+1:,:), &
                 [ this%distributions%bond_info(:)%radius_covalent ], &
-                this%walk_step_size_coarse, this%walk_step_size_fine, &
                 this%max_attempts, &
+                this%walk_step_size_coarse, this%walk_step_size_fine, &
                 viable &
           )
           if(.not. viable) void_ticker = void_ticker + 1
        else if(rtmp1.le.method_probab_(4)) then
           if(iplaced.eq.0)then
              if(verbose.gt.0) write(*,*) "Add Atom Random (growth seed)"
-             point = add_atom_rand( &
+             point = place_method_rand( &
                   basis, &
                   placement_list_shuffled(iplaced+1:,:), &
                   [ this%distributions%bond_info(:)%radius_covalent ], &
@@ -621,7 +622,7 @@ contains
              )
           else
              if(verbose.gt.0) write(*,*) "Add Atom Growth"
-             point = add_atom_growth( &
+             point = place_method_growth( &
                    this%distributions, &
                    basis%spec(placement_list_shuffled(iplaced,1))%atom( &
                         placement_list_shuffled(iplaced,2),:3 &
@@ -630,15 +631,15 @@ contains
                    basis, &
                    placement_list_shuffled(iplaced+1:,:), &
                    [ this%distributions%bond_info(:)%radius_covalent ], &
-                   this%walk_step_size_coarse, this%walk_step_size_fine, &
                    this%max_attempts, &
+                   this%walk_step_size_coarse, this%walk_step_size_fine, &
                    viable &
              )
           end if
           if(.not. viable) void_ticker = void_ticker + 1
        else if(rtmp1.le.method_probab_(5)) then
           if(verbose.gt.0) write(*,*) "Add Atom Minimum"
-          point = add_atom_min( gridpoint_viability, &
+          point = place_method_min( gridpoint_viability, &
                 placement_list_shuffled(iplaced+1,1), &
                 species_index_list, &
                 viable &
@@ -668,7 +669,7 @@ contains
        !------------------------------------------------------------------------
        if(.not. viable) then
           if(void_ticker.gt.10) &
-               point = add_atom_void( this%grid, this%grid_offset, basis, &
+               point = place_method_void( this%grid, this%grid_offset, basis, &
                                   placement_list_shuffled(iplaced+1:,:), viable)
           void_ticker = 0
           if(.not.viable) cycle placement_loop

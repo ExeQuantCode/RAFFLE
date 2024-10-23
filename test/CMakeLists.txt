@@ -8,7 +8,8 @@ foreach(execid
     geom_utils
     dist_calcs
     extended_geom
-    atom_adder
+    place_methods
+    viability
     distribs_container
     evaluator_C
     evaluator_BTO

@@ -6,7 +6,7 @@ program test_evaluator
   use extended_geom, only: extended_basis_type
   use evaluator, only: evaluate_point
   use generator, only: raffle_generator_type
-  use add_atom, only: get_gridpoints_and_viability
+  use raffle__viability, only: get_gridpoints_and_viability
   implicit none
 
 

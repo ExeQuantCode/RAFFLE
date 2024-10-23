@@ -4,7 +4,7 @@ foreach(execid
     misc_maths
     misc_linalg
     elements
-    rw_geom
+    geom_rw
     geom_utils
     dist_calcs
     extended_geom

@@ -1,4 +1,4 @@
-program test_rw_geom
+program test_geom_rw
   !! Test program for the module rw_geom.
   use raffle__constants, only: pi,real32
   use raffle__geom_rw, only: &
@@ -279,9 +279,9 @@ program test_rw_geom
   !-----------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
-     write(*,*) 'test_rw_geom passed all tests'
+     write(*,*) 'test_geom_rw passed all tests'
   else
-     write(0,*) 'test_rw_geom failed one or more tests'
+     write(0,*) 'test_geom_rw failed one or more tests'
      stop 1
   end if
 
@@ -331,4 +331,4 @@ contains
     
   end subroutine uninitialise_bas
 
-end program test_rw_geom
+end program test_geom_rw

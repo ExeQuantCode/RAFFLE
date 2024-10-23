@@ -1,4 +1,4 @@
-module evaluator
+module raffle__evaluator
   !! Module to build viability map of a structure
   !!
   !! This module handles the viability map for a structure, which is a map of
@@ -6,11 +6,8 @@ module evaluator
   !! that point for a new atom. The map is built by checking the bond lengths,
   !! bond angles and dihedral angles between the test point and all atoms.
   use raffle__constants, only: real32
-  use raffle__misc_linalg, only: modu, get_distance, get_angle, get_dihedral_angle, &
-       get_improper_dihedral_angle
-  use raffle__geom_rw, only: basis_type
+  use raffle__misc_linalg, only: modu, get_angle, get_improper_dihedral_angle
   use raffle__geom_extd, only: extended_basis_type
-  use raffle__dist_calcs, only: get_min_dist_between_point_and_atom
   use raffle__distribs_container, only: distribs_container_type
   implicit none
 
@@ -459,4 +456,4 @@ contains
   end function evaluate_4body_contributions
 !###############################################################################
 
-end module evaluator
+end module raffle__evaluator

@@ -1,11 +1,11 @@
 program test_evaluator
-  use raffle__error_handling
+  use raffle__io_utils
   use raffle__constants, only: real32, pi
   use raffle__misc_linalg, only: modu
   use raffle__geom_rw, only: basis_type, geom_write
   use raffle__geom_extd, only: extended_basis_type
-  use evaluator, only: evaluate_point
-  use generator, only: raffle_generator_type
+  use raffle__evaluator, only: evaluate_point
+  use raffle__generator, only: raffle_generator_type
   use raffle__viability, only: get_gridpoints_and_viability
   implicit none
 

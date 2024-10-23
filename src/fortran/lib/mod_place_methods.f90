@@ -15,7 +15,7 @@ module raffle__place_methods
   use raffle__dist_calcs, only: &
        get_min_dist, &
        get_min_dist_between_point_and_species
-  use evaluator, only: evaluate_point
+  use raffle__evaluator, only: evaluate_point
   use raffle__distribs_container, only: distribs_container_type
   implicit none
 

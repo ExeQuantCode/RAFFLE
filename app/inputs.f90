@@ -1,8 +1,9 @@
 module inputs
   !! Module for reading input files and setting global variables.
   use raffle__misc, only: file_check,flagmaker, icount, to_lower
-  use generator, only: stoichiometry_type
-  use raffle__constants, only: real32, verbose, pi
+  use raffle__generator, only: stoichiometry_type
+  use raffle__constants, only: real32, pi
+  use raffle__io_utils
   implicit none
   
 
@@ -21,10 +22,12 @@ module inputs
   public :: bond_pairs, pair_radii
 
   public :: set_global_vars
+  public :: verbose
 
 
   logical :: lseed
 
+  integer :: verbose
   integer :: seed !random seed
   integer :: num_structures ! number of structures to generate
   integer :: task ! task setting (defines the RAFFLE task)
@@ -81,7 +84,7 @@ contains
     !---------------------------------------------------------------------------
     ! Reads flags and assigns to variables
     !---------------------------------------------------------------------------
-    flagloop: do i=0,command_argument_count()-1
+    flagloop: do i=0,command_argument_count()
        empty=.false.
        if (skip) then
           skip=.false.
@@ -119,6 +122,10 @@ contains
        !------------------------------------------------------------------------
        elseif(index(buffer,'-v').eq.1)then
           flag="-v"
+          call print_build_info()
+          stop 0
+       elseif(index(buffer,'--verbose').eq.1)then
+          flag="--verbose"
           call flagmaker(buffer,flag,i,skip,empty)
           if(.not.empty) read(buffer,*) verbose
        elseif(index(buffer,'-h').eq.1)then

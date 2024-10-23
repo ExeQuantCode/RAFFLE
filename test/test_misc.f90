@@ -1,5 +1,5 @@
 program test_misc
-  use raffle__error_handling
+  use raffle__io_utils
   use raffle__misc
   use raffle__constants, only: real32
   implicit none

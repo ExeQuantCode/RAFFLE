@@ -10,5 +10,4 @@ module raffle__constants
   real(real32), parameter, public :: c_vasp = 0.262465831_real32
   real(real32), parameter, public :: INF = huge(0._real32)
   complex(real32), parameter, public :: imag=(0._real32, 1._real32)
-  integer, public :: verbose = 0
 end module raffle__constants

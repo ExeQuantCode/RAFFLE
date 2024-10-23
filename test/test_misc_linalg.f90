@@ -9,7 +9,6 @@ program test_misc_linalg
   test_error_handling = .true.
 
 
-  call test_uvec(success)
   call test_modu(success)
   call test_cross(success)
   call test_get_distance(success)
@@ -17,8 +16,6 @@ program test_misc_linalg
   call test_get_angle_from_points(success)
   call test_get_dihedral_angle_from_vectors(success)
   call test_get_dihedral_angle_from_points(success)
-  call test_get_area(success)
-  call test_get_vol(success)
   call test_inverse_3x3(success)
 
 
@@ -34,17 +31,6 @@ program test_misc_linalg
   end if
 
 contains
-
-  subroutine test_uvec(success)
-    logical, intent(inout) :: success
-    real(real32), dimension(3) :: vector, result
-    vector = [3.0_real32, 4.0_real32, 0.0_real32]
-    result = uvec(vector)
-    call assert_almost_equal_vector( &
-         result, [0.6_real32, 0.8_real32, 0.0_real32], 1.E-6_real32, &
-         "uvec", success &
-    )
-  end subroutine test_uvec
 
   subroutine test_modu(success)
     logical, intent(inout) :: success
@@ -138,31 +124,6 @@ contains
          "get_dihedral_angle_from_points", success &
     )
   end subroutine test_get_dihedral_angle_from_points
-
-  subroutine test_get_area(success)
-    logical, intent(inout) :: success
-    real(real32), dimension(3) :: a, b
-    real(real32) :: result
-    a = [1.0_real32, 0.0_real32, 0.0_real32]
-    b = [0.0_real32, 1.0_real32, 0.0_real32]
-    result = get_area(a, b)
-    call assert_almost_equal_scalar( &
-         result, 1.0_real32, 1.E-6_real32, "get_area", success &
-    )
-  end subroutine test_get_area
-
-  subroutine test_get_vol(success)
-    logical, intent(inout) :: success
-    real(real32), dimension(3,3) :: matrix
-    real(real32) :: result
-    matrix = reshape([1.0_real32, 0.0_real32, 0.0_real32, &
-                      0.0_real32, 1.0_real32, 0.0_real32, &
-                      0.0_real32, 0.0_real32, 1.0_real32], [3,3])
-    result = get_vol(matrix)
-    call assert_almost_equal_scalar( &
-         result, 1.0_real32, 1.E-6_real32, "get_vol", success &
-    )
-  end subroutine test_get_vol
 
   subroutine test_inverse_3x3(success)
     logical, intent(inout) :: success

@@ -24,9 +24,13 @@ contains
 !###############################################################################
   function evaluate_point( gvector_container, &
        position, species, basis, atom_ignore_list, &
-       radius_list ) &
-       result(output)
-    !! Build a map of basis and returns the value of the map at a given point
+       radius_list &
+  ) result(output)
+    !! Return the viability of a point in a basis for a specified species
+    !!
+    !! This function evaluates the viability of a point in a basis for a
+    !! specified species. The viability is determined by the bond lengths,
+    !! bond angles and dihedral angles between the test point and all atoms. 
     implicit none
 
     ! Arguments
@@ -87,9 +91,6 @@ contains
     neighbour_basis%lat = basis%lat
     num_2body = 0
     species_loop: do is = 1, basis%nspec
-       ! 2-body map
-       ! check bondlength between test point and all other atoms
-       !------------------------------------------------------------------------
        allocate(neighbour_basis%spec(is)%atom( &
             basis%spec(is)%num+basis%image_spec(is)%num, &
             size(basis%spec(is)%atom,2) &
@@ -100,6 +101,10 @@ contains
        ) )
        neighbour_basis%spec(is)%num = 0
        neighbour_basis%image_spec(is)%num = 0
+       !------------------------------------------------------------------------
+       ! 2-body map
+       ! check bondlength between test point and all other atoms
+       !------------------------------------------------------------------------
        atom_loop: do ia = 1, basis%spec(is)%num
           ! Check if the atom is in the ignore list
           ! If it is, skip the atom.
@@ -151,7 +156,9 @@ contains
                 ) = matmul(position_store, basis%lat)
              end if
         
-             ! Add the contribution of the bond length to the viability map.
+             !------------------------------------------------------------------
+             ! Add the contribution of the bond length to the viability
+             !------------------------------------------------------------------
              viability_2body = viability_2body + &
                   gvector_container%total%df_2body( &
                        gvector_container%get_bin(bondlength, dim = 1), &
@@ -161,9 +168,11 @@ contains
           end associate
        end do atom_loop
 
+       !------------------------------------------------------------------------
        ! Repeat the process for the image atoms.
        ! i.e. atoms that are not in the unit cell but are within the cutoff
        ! distance.
+       !------------------------------------------------------------------------
        image_loop: do ia = 1, basis%image_spec(is)%num, 1
           associate( position_store => [ basis%image_spec(is)%atom(ia,1:3) ] )
              bondlength = modu( matmul(position - position_store, basis%lat) )
@@ -203,6 +212,9 @@ contains
                 ) = matmul(position_store, basis%lat)
              end if
         
+             !------------------------------------------------------------------
+             ! Add the contribution of the bond length to the viability
+             !------------------------------------------------------------------
              viability_2body = viability_2body + &
                   gvector_container%total%df_2body( &
                        gvector_container%get_bin(bondlength, dim = 1), &
@@ -213,7 +225,11 @@ contains
        end do image_loop
     end do species_loop
     neighbour_basis%natom = sum(neighbour_basis%spec(:)%num)
-    ! Normalise the viability map
+
+
+    !---------------------------------------------------------------------------
+    ! Normalise the bond length viability
+    !---------------------------------------------------------------------------
     if(num_2body.eq.0)then
        ! This does not matter as, if there are no 2-body bonds, the point is
        ! not meant to be included in the viability set.
@@ -236,6 +252,7 @@ contains
     viability_4body = 1._real12
     do is = 1, neighbour_basis%nspec
        do ia = 1, neighbour_basis%spec(is)%num
+          !---------------------------------------------------------------------
           ! 3-body map
           ! check bondangle between test point and all other atoms
           !---------------------------------------------------------------------
@@ -255,6 +272,7 @@ contains
                    if(js.eq.is .and. ja.le.ia) cycle
                    if(all(neighbour_basis%image_spec(:)%num.eq.0))cycle
                    num_4body = num_4body + 1
+                   !------------------------------------------------------------
                    ! 4-body map
                    ! check improperdihedral angle between test point and all
                    ! other atoms
@@ -271,7 +289,11 @@ contains
           end associate
        end do
     end do
-    ! Normalise the viability map
+
+
+    !---------------------------------------------------------------------------
+    ! Normalise the angular viabilities
+    !---------------------------------------------------------------------------
     if(num_3body.eq.0)then
        viability_3body = gvector_container%viability_3body_default
     else
@@ -286,8 +308,11 @@ contains
             1._real12 / real(num_4body,real12) &
        )
     end if
-    
-    ! Combine the 2-, 3- and 4-body maps
+
+
+    !---------------------------------------------------------------------------
+    ! Combine the 2-, 3- and 4-body viabilities to get the overall viability
+    !---------------------------------------------------------------------------
     output = viability_2body * viability_3body * viability_4body
     
   end function evaluate_point
@@ -298,7 +323,7 @@ contains
   function evaluate_3body_contributions( gvector_container, &
        position_1, position_2, basis, species, current_idx, num_3body &
   ) result(output)
-    !! Return the contribution to the viability map from 3-body interactions
+    !! Return the contribution to the viability from 3-body interactions
     implicit none
 
     ! Arguments
@@ -315,7 +340,7 @@ contains
     integer, intent(inout) :: num_3body
     !! Number of 3-body interactions.
     real(real12) :: output
-    !! Contribution to the viability map.
+    !! Contribution to the viability.
 
     ! Local variables
     integer :: js, ja
@@ -358,7 +383,7 @@ contains
 !###############################################################################
   function evaluate_4body_contributions( gvector_container, &
        position_1, position_2, position_3, basis, species ) result(output)
-    !! Return the contribution to the viability map from 4-body interactions
+    !! Return the contribution to the viability from 4-body interactions
     implicit none
 
     ! Arguments
@@ -371,7 +396,7 @@ contains
     integer, intent(in) :: species
     !! Index of the query element.
     real(real12) :: output
-    !! Contribution to the viability map.
+    !! Contribution to the viability.
 
     ! Local variables
     integer :: ks, ka

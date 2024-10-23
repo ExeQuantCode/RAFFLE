@@ -51,7 +51,7 @@ program test_generator
   write(*,*) "Testing generator missing host handling"
   call generator_var%generate( num_structures = 1, &
        stoichiometry = [ stoichiometry_type(element='C  ', num = 8) ], &
-       method_probab = [0.0, 0.0, 1.0], &
+       method_probab = [0.0, 0.0, 0.0, 0.0, 1.0], &
        seed = 0, &
        verbose = 1 &
   )
@@ -226,7 +226,7 @@ program test_generator
   !-----------------------------------------------------------------------------
   ! set up generator
   !-----------------------------------------------------------------------------
-  generator%distributions%kbt = 0.2
+  generator%distributions%kBT = 0.2
   call generator%set_grid( grid_spacing = 0.2, grid_offset = [0.0, 0.0, 0.0] )
   generator%distributions%radius_distance_tol = [1.5, 2.5, 3.0, 6.0]
   do i = 1, 3
@@ -247,7 +247,7 @@ program test_generator
   !-----------------------------------------------------------------------------
   call generator%generate( num_structures = 0, &
        stoichiometry = [ stoichiometry_type(element='C  ', num = 8) ], &
-       method_probab = [0.0, 0.0, 1.0] &
+       method_probab = [0.0, 0.0, 0.0, 0.0, 1.0] &
   )
 
   !-----------------------------------------------------------------------------
@@ -255,7 +255,7 @@ program test_generator
   !-----------------------------------------------------------------------------
   call generator%generate( num_structures = 1, &
        stoichiometry = [ stoichiometry_type(element='C  ', num = 8) ], &
-       method_probab = [0.0, 0.0, 1.0], &
+       method_probab = [0.0, 0.0, 0.0, 0.0, 1.0], &
        seed = 0, &
        verbose = 1 &
   )
@@ -275,7 +275,7 @@ program test_generator
   !-----------------------------------------------------------------------------
   call generator%generate( num_structures = 2, &
        stoichiometry = [ stoichiometry_type(element='C  ', num = 12) ], &
-       method_probab = [0.0, 0.0, 1.0], &
+       method_probab = [0.0, 0.0, 0.0, 0.0, 1.0], &
        seed = 0, &
        verbose = 1 &
   )

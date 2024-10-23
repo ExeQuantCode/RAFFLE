@@ -112,6 +112,7 @@ subroutine sort_str(list, lcase)
     !! Order of the sorted list.
 
     charlen = len(list(1))
+    lcase_ = .false.
     if(present(lcase))then
        if(lcase)then
           lcase_ = lcase
@@ -121,8 +122,6 @@ subroutine sort_str(list, lcase)
              list(i) = to_upper(list(i))
           end do
        end if
-    else
-       lcase_ = .false.
     end if
 
     allocate(torder(size(list)))
@@ -216,6 +215,8 @@ subroutine sort_str(list, lcase)
     ! Local variables
     integer :: i,dim,loc
     !! Loop index.
+    integer :: ibuff
+    !! Buffer for swapping elements.
     real(real12) :: rbuff
     !! Buffer for swapping elements.
     logical :: reverse_
@@ -240,9 +241,9 @@ subroutine sort_str(list, lcase)
        arr1(loc) = rbuff
 
        if(present(arr2)) then
-          rbuff=arr2(i)
-          arr2(i)=arr2(loc)
-          arr2(loc)=rbuff
+          ibuff     = arr2(i)
+          arr2(i)   = arr2(loc)
+          arr2(loc) = ibuff
        end if
     end do
 

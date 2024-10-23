@@ -288,8 +288,6 @@ contains
     !! The species names and number of each atomic species.
     character(len=1024) :: buffer
     !! Temporary character variable.
-    real(real12), dimension(3,3) :: reclat
-    !! The reciprocal lattice vectors.
     integer :: i, j, k
     !! Loop index.
     integer :: length_
@@ -475,13 +473,11 @@ contains
     !! Temporary array to store the number of atoms of each species.
     real(real12), dimension(3) :: tmpvec
     !! Temporary array to store the atomic positions.
-    real(real12), dimension(3,3) :: reclat
-    !! The reciprocal lattice vectors.
-    character(len=5) :: ctmp
+    character(len=3) :: ctmp
     !! Temporary character variable.
-    character(len=5), dimension(1000) :: tmp_spec
+    character(len=3), dimension(1000) :: tmp_spec
     !! Temporary array to store the species names.
-    character(len=1024) :: buffer,buffer2
+    character(len=1024) :: buffer, buffer2
     !! Temporary character variables.
 
 
@@ -489,8 +485,8 @@ contains
     ! determine dimension of basis (include translation dimension for symmetry?)
     !---------------------------------------------------------------------------
     if(present(length)) length_ = length
-    basis%lcart=.false.
-    basis%sysname="Converted_from_geom_file"
+    basis%lcart = .false.
+    basis%sysname = "Converted_from_geom_file"
 
 
     !---------------------------------------------------------------------------
@@ -530,8 +526,8 @@ contains
        if(verify("ATOMIC_POSITIONS",buffer).eq.0)then
           backspace(UNIT)
           read(UNIT,*) buffer,buffer2
-          if(verify("crystal",buffer2).eq.0) basis%lcart=.false.
-          if(verify("angstrom",buffer2).eq.0) basis%lcart=.true.
+          if(verify("crystal",buffer2).eq.0) basis%lcart = .false.
+          if(verify("angstrom",buffer2).eq.0) basis%lcart = .true.
           exit basfind
        end if
     end do basfind
@@ -540,40 +536,40 @@ contains
     !---------------------------------------------------------------------------
     ! read basis
     !---------------------------------------------------------------------------
-    basis%natom=0
-    basis%nspec=0
-    tmp_natom=1
+    basis%natom = 0
+    basis%nspec = 0
+    tmp_natom   = 1
     basread: do
        read(UNIT,'(A)',iostat=Reason) buffer
        read(buffer,*) ctmp
        if(Reason.ne.0) exit
        if(trim(ctmp).eq.'') exit
        if(verify(buffer,' 0123456789').eq.0) exit
-       basis%natom=basis%natom+1
+       basis%natom = basis%natom + 1
        if(.not.any(tmp_spec(1:basis%nspec).eq.ctmp))then
-          basis%nspec=basis%nspec+1
-          tmp_spec(basis%nspec)=ctmp
+          basis%nspec = basis%nspec + 1
+          tmp_spec(basis%nspec) = ctmp
        else
           where(tmp_spec(1:basis%nspec).eq.ctmp)
-             tmp_natom(1:basis%nspec)=tmp_natom(1:basis%nspec)+1
+             tmp_natom(1:basis%nspec) = tmp_natom(1:basis%nspec) + 1
           end where
        end if
     end do basread
 
     allocate(basis%spec(basis%nspec))
-    basis%spec(1:basis%nspec)%name=tmp_spec(1:basis%nspec)
-    do i=1,basis%nspec
-       basis%spec(i)%num=0
+    basis%spec(1:basis%nspec)%name = tmp_spec(1:basis%nspec)
+    do i = 1, basis%nspec
+       basis%spec(i)%num = 0
        allocate(basis%spec(i)%atom(tmp_natom(i),length_))
     end do
 
     call jump(UNIT,iline)
-    basread2: do i=1,basis%natom
+    basread2: do i = 1, basis%natom
        read(UNIT,*,iostat=Reason) ctmp,tmpvec(1:3)
-       do j=1,basis%nspec
+       do j = 1, basis%nspec
           if(basis%spec(j)%name.eq.ctmp)then
-             basis%spec(j)%num=basis%spec(j)%num+1
-             basis%spec(j)%atom(basis%spec(j)%num,1:3)=tmpvec(1:3)
+             basis%spec(j)%num = basis%spec(j)%num + 1
+             basis%spec(j)%atom(basis%spec(j)%num,1:3) = tmpvec(1:3)
              exit
           end if
        end do
@@ -589,11 +585,11 @@ contains
     !---------------------------------------------------------------------------
     ! normalise basis to between 0 and 1 in direct coordinates
     !---------------------------------------------------------------------------
-    do i=1,basis%nspec
-       do j=1,basis%spec(i)%num
-          do k=1,3
-             basis%spec(i)%atom(j,k)=&
-                  basis%spec(i)%atom(j,k)-floor(basis%spec(i)%atom(j,k))
+    do i = 1, basis%nspec
+       do j = 1, basis%spec(i)%num
+          do k = 1, 3
+             basis%spec(i)%atom(j,k) = &
+                  basis%spec(i)%atom(j,k) - floor( basis%spec(i)%atom(j,k) )
           end do
        end do
     end do
@@ -671,22 +667,20 @@ contains
     !! The dimension of the basis atom positions.
     integer :: itmp1
     !! Temporary integer variable.
-    character(len=5) :: ctmp
+    character(len=3) :: ctmp
     !! Temporary character variable.
     character(len=20) :: units
     !! Units of the lattice vectors.
-    character(len=200) :: buffer,store
+    character(len=200) :: buffer, store
     !! Temporary character variables.
     logical :: labc
     !! Logical variable to determine whether the lattice is in abc or 
     !! cartesian coordinates.
     integer, dimension(1000) :: tmp_natom
     !! Temporary array to store the number of atoms of each species.
-    real(real12), dimension(3) :: abc,angle,dvtmp1
+    real(real12), dimension(3) :: abc, angle, dvtmp1
     !! Temporary arrays to store the lattice vectors.
-    real(real12), dimension(3,3) :: reclat
-    !! The reciprocal lattice vectors.
-    character(len=5), dimension(1000) :: tmp_spec
+    character(len=3), dimension(1000) :: tmp_spec
     !! Temporary array to store the species names.
 
    
@@ -699,10 +693,11 @@ contains
     !---------------------------------------------------------------------------
     ! reading loop of file
     !---------------------------------------------------------------------------
-    tmp_spec=""
-    tmp_natom=0
-    iline=0
-    basis%sysname="from CASTEP"
+    tmp_spec = ""
+    tmp_natom = 0
+    iline = 0
+    labc = .true.
+    basis%sysname = "from CASTEP"
     rewind(UNIT)
     readloop: do
        iline=iline+1
@@ -717,12 +712,12 @@ contains
        ! read lattice
        !------------------------------------------------------------------------
        lattice_if: if(index(trim(buffer),"LATTICE").eq.1)then
-          if(index(trim(buffer),"ABC").ne.0) labc=.true.
-          if(index(trim(buffer),"CART").ne.0) labc=.false.
-          store=""
-          itmp1=0
+          if(index(trim(buffer),"ABC").ne.0) labc = .true.
+          if(index(trim(buffer),"CART").ne.0) labc = .false.
+          store = ""
+          itmp1 = 0
           lattice_loop: do 
-             itmp1=itmp1+1
+             itmp1 = itmp1 + 1
              read(UNIT,'(A)',iostat=Reason) buffer
              if(Reason.ne.0) exit lattice_loop
              if(scan(trim(adjustl(buffer)),'%').eq.1) exit lattice_loop
@@ -737,7 +732,7 @@ contains
 
           if(labc)then
              read(store,*) units,(abc(i),i=1,3), (angle(j),j=1,3)
-             basis%lat=convert_abc_to_lat(abc,angle,.false.)
+             basis%lat = convert_abc_to_lat(abc,angle,.false.)
           else
              read(store,*) units,(basis%lat(i,:),i=1,3)
           end if
@@ -750,7 +745,7 @@ contains
        basis_if: if(index(trim(buffer),"POSITIONS").eq.1) then
           if(index(trim(buffer),"ABS").ne.0) basis%lcart=.true.
           if(index(trim(buffer),"FRAC").ne.0) basis%lcart=.false.
-          itmp1=0
+          itmp1 = 0
           basis_loop1: do
              read(UNIT,'(A)',iostat=Reason) buffer
              if(Reason.ne.0) exit basis_loop1
@@ -758,37 +753,37 @@ contains
              read(buffer,*) ctmp
              if(trim(ctmp).eq.'') exit
              if(verify(buffer,' 0123456789').eq.0) exit
-             basis%natom=basis%natom+1
+             basis%natom = basis%natom + 1
              if(.not.any(tmp_spec(1:basis%nspec).eq.ctmp))then
-                basis%nspec=basis%nspec+1
-                tmp_natom(basis%nspec)=1
-                tmp_spec(basis%nspec)=ctmp
+                basis%nspec = basis%nspec+1
+                tmp_natom(basis%nspec) = 1
+                tmp_spec(basis%nspec)  = ctmp
              else
                 where(tmp_spec(1:basis%nspec).eq.ctmp)
-                   tmp_natom(1:basis%nspec)=tmp_natom(1:basis%nspec)+1
+                   tmp_natom(1:basis%nspec) = tmp_natom(1:basis%nspec) + 1
                 end where
              end if
           end do basis_loop1
 
           allocate(basis%spec(basis%nspec))
-          basis%spec(1:basis%nspec)%name=tmp_spec(1:basis%nspec)
-          do i=1,basis%nspec
-             basis%spec(i)%num=0
+          basis%spec(1:basis%nspec)%name = tmp_spec(1:basis%nspec)
+          do i = 1, basis%nspec
+             basis%spec(i)%num = 0
              allocate(basis%spec(i)%atom(tmp_natom(i),length_))
           end do
 
           call jump(UNIT,iline)
-          basis_loop2: do i=1,basis%natom
+          basis_loop2: do i = 1, basis%natom
              read(UNIT,'(A)',iostat=Reason) buffer
              if(Reason.ne.0)then
                 write(0,'("ERROR: Internal error in assigning the basis")')
                 stop
              end if
              read(buffer,*) ctmp,dvtmp1(1:3)
-             species_loop: do j=1,basis%nspec
+             species_loop: do j = 1, basis%nspec
                 if(basis%spec(j)%name.eq.ctmp)then
-                   basis%spec(j)%num=basis%spec(j)%num+1
-                   basis%spec(j)%atom(basis%spec(j)%num,1:3)=dvtmp1(1:3)
+                   basis%spec(j)%num = basis%spec(j)%num + 1
+                   basis%spec(j)%atom(basis%spec(j)%num,1:3) = dvtmp1(1:3)
                    exit species_loop
                 end if
              end do species_loop
@@ -807,11 +802,11 @@ contains
     !---------------------------------------------------------------------------
     ! normalise basis to between 0 and 1 in direct coordinates
     !---------------------------------------------------------------------------
-    do i=1,basis%nspec
-       do j=1,basis%spec(i)%num
-          do k=1,3
-             basis%spec(i)%atom(j,k)=&
-                  basis%spec(i)%atom(j,k)-floor(basis%spec(i)%atom(j,k))
+    do i = 1, basis%nspec
+       do j = 1, basis%spec(i)%num
+          do k = 1, 3
+             basis%spec(i)%atom(j,k) = &
+                  basis%spec(i)%atom(j,k) - floor( basis%spec(i)%atom(j,k) )
           end do
        end do
     end do
@@ -916,9 +911,9 @@ contains
     !! Temporary array to store the atomic positions.
     real(real12), allocatable, dimension(:,:,:) :: tmp_bas
     !! Temporary array to store the atomic positions.
-    character(len=5) :: ctmp
+    character(len=3) :: ctmp
     !! Temporary character variable.
-    character(len=5), allocatable, dimension(:) :: tmp_spec
+    character(len=3), allocatable, dimension(:) :: tmp_spec
     !! Temporary array to store the species names.
     integer :: length_
     !! The dimension of the basis atom positions.
@@ -947,22 +942,22 @@ contains
     allocate(tmp_spec(basis%natom))
     allocate(tmp_num(basis%natom))
     allocate(tmp_bas(basis%natom,basis%natom,length_))
-    tmp_num(:)=0
-    tmp_spec=""
-    tmp_bas=0
-    basis%nspec=0
-    do i=1,basis%natom
+    tmp_num(:) = 0
+    tmp_spec = ""
+    tmp_bas = 0
+    basis%nspec = 0
+    do i = 1, basis%natom
        read(UNIT,*,iostat=Reason) ctmp,vec(1:3)
        if(.not.any(tmp_spec(1:basis%nspec).eq.ctmp))then
-          basis%nspec=basis%nspec+1
-          tmp_spec(basis%nspec)=ctmp
-          tmp_bas(basis%nspec,1,1:3)=vec(1:3)
-          tmp_num(basis%nspec)=1
+          basis%nspec = basis%nspec + 1
+          tmp_spec(basis%nspec) = ctmp
+          tmp_bas(basis%nspec,1,1:3) = vec(1:3)
+          tmp_num(basis%nspec) = 1
        else
-          checkspec: do j=1,basis%nspec
+          checkspec: do j = 1, basis%nspec
              if(tmp_spec(j).eq.ctmp)then
-                tmp_num(j)=tmp_num(j)+1
-                tmp_bas(j,tmp_num(j),1:3)=vec(1:3)
+                tmp_num(j) = tmp_num(j)+1
+                tmp_bas(j,tmp_num(j),1:3) = vec(1:3)
                 exit checkspec
              end if
           end do checkspec
@@ -975,13 +970,12 @@ contains
     ! done to allow for correct allocation of number of and per species
     !---------------------------------------------------------------------------
     allocate(basis%spec(basis%nspec))
-    basis%spec(1:basis%nspec)%name=tmp_spec(1:basis%nspec)
     do i=1,basis%nspec
-       basis%spec(i)%name=tmp_spec(i)
-       basis%spec(i)%num=tmp_num(i)
+       basis%spec(i)%name = tmp_spec(i)
+       basis%spec(i)%num  = tmp_num(i)
        allocate(basis%spec(i)%atom(tmp_num(i),length_))
-       basis%spec(i)%atom(:,:)=0
-       basis%spec(i)%atom(1:tmp_num(i),1:3)=tmp_bas(i,1:tmp_num(i),1:3)
+       basis%spec(i)%atom(:,:) = 0
+       basis%spec(i)%atom(1:tmp_num(i),1:3) = tmp_bas(i,1:tmp_num(i),1:3)
     end do
  
     if(present(iostat)) iostat = iostat_
@@ -1047,9 +1041,9 @@ contains
     !! Temporary array to store the atomic positions.
     real(real12), allocatable, dimension(:,:,:) :: tmp_bas
     !! Temporary array to store the atomic positions.
-    character(len=5) :: ctmp
+    character(len=3) :: ctmp
     !! Temporary character variable.
-    character(len=5), allocatable, dimension(:) :: tmp_spec
+    character(len=3), allocatable, dimension(:) :: tmp_spec
     !! Temporary array to store the species names.
     character(len=1024) :: buffer
     !! Temporary character variable.
@@ -1094,22 +1088,22 @@ contains
     allocate(tmp_spec(basis%natom))
     allocate(tmp_num(basis%natom))
     allocate(tmp_bas(basis%natom,basis%natom,length_))
-    tmp_num(:)=0
-    tmp_spec=""
-    tmp_bas=0
-    basis%nspec=0
-    do i=1,basis%natom
-       read(UNIT,*,iostat=Reason) ctmp,vec(1:3)
+    tmp_num(:) = 0
+    tmp_spec = ""
+    tmp_bas = 0
+    basis%nspec = 0
+    do i = 1, basis%natom
+       read(UNIT,*,iostat=Reason) ctmp, vec(1:3)
        if(.not.any(tmp_spec(1:basis%nspec).eq.ctmp))then
           basis%nspec=basis%nspec+1
-          tmp_spec(basis%nspec)=ctmp
-          tmp_bas(basis%nspec,1,1:3)=vec(1:3)
-          tmp_num(basis%nspec)=1
+          tmp_spec(basis%nspec) = trim(adjustl(ctmp))
+          tmp_bas(basis%nspec,1,1:3) = vec(1:3)
+          tmp_num(basis%nspec) = 1
        else
-          checkspec: do j=1,basis%nspec
+          checkspec: do j = 1, basis%nspec
              if(tmp_spec(j).eq.ctmp)then
-                tmp_num(j)=tmp_num(j)+1
-                tmp_bas(j,tmp_num(j),1:3)=vec(1:3)
+                tmp_num(j) = tmp_num(j) + 1
+                tmp_bas(j,tmp_num(j),1:3) = vec(1:3)
                 exit checkspec
              end if
           end do checkspec
@@ -1122,17 +1116,16 @@ contains
     ! done to allow for correct allocation of number of and per species
     !---------------------------------------------------------------------------
     allocate(basis%spec(basis%nspec))
-    basis%spec(1:basis%nspec)%name=tmp_spec(1:basis%nspec)
     basis%sysname = ""
-    do i=1,basis%nspec
-       basis%spec(i)%name=tmp_spec(i)
-       basis%spec(i)%num=tmp_num(i)
+    do i = 1, basis%nspec
+       basis%spec(i)%name = tmp_spec(i)
+       basis%spec(i)%num = tmp_num(i)
        allocate(basis%spec(i)%atom(tmp_num(i),length_))
-       basis%spec(i)%atom(:,:)=0
-       basis%spec(i)%atom(1:tmp_num(i),1:3)=tmp_bas(i,1:tmp_num(i),1:3)
+       basis%spec(i)%atom(:,:) = 0
+       basis%spec(i)%atom(1:tmp_num(i),1:3) = tmp_bas(i,1:tmp_num(i),1:3)
        write(buffer,'(I0,A)') basis%spec(i)%num,trim(basis%spec(i)%name)
        basis%sysname = basis%sysname//trim(buffer)
-       if(i.lt.basis%nspec) basis%sysname = basis%sysname//"_"
+       if(i.lt.basis%nspec) basis%sysname = trim(adjustl(basis%sysname))//"_"
     end do
  
     if(present(iostat)) iostat = iostat_
@@ -1194,7 +1187,7 @@ contains
    !! Parent. The basis to convert.
 
    ! Local variables
-   integer :: is, ia, length
+   integer :: is, ia
    !! Loop index.
    real(real12), dimension(3,3) :: lattice
    !! The reciprocal lattice vectors.
@@ -1310,12 +1303,11 @@ contains
    !! The lattice constants and angles.
 
    ! Local variables
-   integer :: i
-   !! Loop index.
-   logical :: radians_ = .true.
+   logical :: radians_
    !! Boolean whether to return angles in radians.
 
 
+   radians_ = .true.
    if(present(radians)) radians_ = radians
 
    output = convert_lat_to_abc(this%lat, radians_)

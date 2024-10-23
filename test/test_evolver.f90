@@ -330,6 +330,7 @@ contains
     write(*,*) "Handled error: element_database not initialised"
 
     ! Set element energies
+    allocate(elements(0))
     do i = 1, size(basis_list)
        species_loop: do j = 1, basis_list(i)%nspec
           call gvector_container%set_element_energies( &

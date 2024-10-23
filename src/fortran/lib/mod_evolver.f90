@@ -96,7 +96,7 @@ module evolver
      !! Number of evaluated systems.
      integer :: num_evaluated_allocated = 0
      !! Number of evaluated systems still allocated.
-     real(real12) :: kbt = 0.2_real12
+     real(real12) :: kBT = 0.2_real12
      !! Boltzmann constant times temperature.
      logical :: weight_by_hull = .false.
      !! Boolean whether to weight the distribution functions by the energy
@@ -788,7 +788,7 @@ module evolver
     ! Local variables
     integer :: unit
     !! File unit.
-    integer :: i, j
+    integer :: j
     !! Loop indices.
     integer :: iostat
     !! I/O status.
@@ -976,8 +976,6 @@ module evolver
     !! Loop index.
     integer :: num_structures_previous
     !! Number of structures in the container before adding the system.
-    character(128) :: buffer
-    !! Buffer for writing messages.
     character(256) :: stop_msg
     !! Error message.
 
@@ -1077,6 +1075,7 @@ module evolver
     !---------------------------------------------------------------------------
     ! get list of species in dataset
     !---------------------------------------------------------------------------
+    allocate(element_list(0))
     element_list = [ this%system(1)%element_symbols ]
     do i = 2, size(this%system),1
        element_list = [ element_list, this%system(i)%element_symbols ]
@@ -1134,6 +1133,7 @@ module evolver
     !---------------------------------------------------------------------------
     ! get list of species in dataset
     !---------------------------------------------------------------------------
+    allocate(element_list(0))
     element_list = [ this%system(1)%element_symbols ]
     do i = 2, size(this%system),1
        element_list = [ element_list, this%system(i)%element_symbols ]
@@ -1320,12 +1320,10 @@ module evolver
     !! Parent of the procedure. Instance of distribution functions container.
 
     ! Local variables
-    integer :: i, j, k, idx1, idx2
+    integer :: i, j
     !! Loop index.
     integer :: num_elements, num_pairs
     !! Number of elements and pairs.
-    real(real12) :: radius
-    !! Average of covalent radii.
     logical :: success
     !! Success flag.
 
@@ -1385,8 +1383,6 @@ module evolver
     !! Index of the elements in the element database.
     real(real12) :: radius, radius1, radius2
     !! Average of covalent radii.
-    character(256) :: stop_msg
-    !! Error message.
 
 
     write(0,*) 'WARNING: No bond data for element pair ', &
@@ -1463,6 +1459,7 @@ module evolver
    !----------------------------------------------------------------------------
    ! get list of element pairs in dataset
    !----------------------------------------------------------------------------
+   allocate(element_list(0))
    element_list = [ this%system(1)%element_symbols ]
    do i = 2, size(this%system),1
       element_list = [ element_list, this%system(i)%element_symbols ]
@@ -1970,7 +1967,6 @@ module evolver
                           bonds , &
                           this%nbins(1), eta, this%width(1), &
                           this%cutoff_min(1), &
-                          ( this%cutoff_max(1) - this%cutoff_min(1) ), &
                           scale_list = [ 1._real12 ] &
        )
     elseif( body .eq. 3 )then
@@ -2007,8 +2003,6 @@ module evolver
          best_energy_pair_old, &
          best_energy_per_species_old
     !! Old best energies.
-    real(real12), dimension(:), allocatable :: height
-    !! Height of the g-vectors.
     integer, dimension(:,:), allocatable :: idx_list
     !! Index list for the element pairs in a system.
     real(real12), dimension(:,:), allocatable :: tmp_df
@@ -2017,6 +2011,8 @@ module evolver
 
     integer, dimension(:), allocatable :: host_idx_list
 
+
+    weight = 1._real12
 
     !---------------------------------------------------------------------------
     ! if present, add the system to the container
@@ -2046,18 +2042,18 @@ module evolver
        call this%set_best_energy()
        do i = 1, size(this%total%df_2body,2)
           this%total%df_2body(:,i) = this%total%df_2body(:,i) * &
-                                  exp( this%best_energy_pair(i) / this%kbt ) / &
-                                  exp( best_energy_pair_old(i) / this%kbt )
+                                  exp( this%best_energy_pair(i) / this%kBT ) / &
+                                  exp( best_energy_pair_old(i) / this%kBT )
        end do
        do i = 1, size(this%total%df_3body,2)
           this%total%df_3body(:,i) = &
                this%total%df_3body(:,i) * exp( &
-                    this%best_energy_per_species(i) / this%kbt &
-               ) / exp( best_energy_per_species_old(i) / this%kbt )
+                    this%best_energy_per_species(i) / this%kBT &
+               ) / exp( best_energy_per_species_old(i) / this%kBT )
           this%total%df_4body(:,i) = &
                this%total%df_4body(:,i) * exp( &
-                    this%best_energy_per_species(i) / this%kbt &
-               ) / exp( best_energy_per_species_old(i) / this%kbt )
+                    this%best_energy_per_species(i) / this%kBT &
+               ) / exp( best_energy_per_species_old(i) / this%kBT )
        end do
        if(size(this%total%df_2body,2).ne.size(this%bond_info))then
           allocate(tmp_df(this%nbins(1),size(this%bond_info)), &
@@ -2144,7 +2140,7 @@ module evolver
     do i = this%num_evaluated_allocated + 1, size(this%system), 1
        num_evaluated = num_evaluated + 1
        if(this%weight_by_hull)then
-          weight = exp( this%system(i)%energy_above_hull / this%kbt )
+          weight = exp( this%system(i)%energy_above_hull / this%kBT )
           if(weight.lt.1.E-6) cycle
        end if
        !------------------------------------------------------------------------
@@ -2197,7 +2193,7 @@ module evolver
                                  real12 &
                             ) &
                        ) &
-                  ) / this%kbt &
+                  ) / this%kBT &
              )
              if(weight.lt.1.E-6) cycle
           end if
@@ -2232,7 +2228,7 @@ module evolver
                                     real12 &
                                ) &
                           ) &
-                     ) / this%kbt &
+                     ) / this%kBT &
                 )
                 if(weight.lt.1.E-6) cycle
              end if
@@ -2305,9 +2301,9 @@ module evolver
    this%num_evaluated = this%num_evaluated + num_evaluated
 
    this%viability_3body_default = sum( this%total%df_3body ) / &
-        size( this%total%df_3body )
+        real( size( this%total%df_3body ), real12 )
    this%viability_4body_default = sum( this%total%df_4body ) / &
-        size( this%total%df_4body )
+        real( size( this%total%df_4body ), real12 )
 
   end subroutine evolve
 !###############################################################################
@@ -2353,17 +2349,11 @@ module evolver
     !! Tolerance for the distance between atoms for 3- and 4-body.
 
 
-    !! @note
-    !! Defaults for distribution function parametsr are randomly chosen for now.
-    !! @endnote
-
-    integer :: bin
-    !! Bin index and maximum number of steps.
-    integer :: i, j, b, itmp1, idx
+    integer :: i, b, itmp1, idx
     !! Loop index.
     integer :: is, js, ia, ja, ka, la
     !! Loop index.
-    integer :: num_pairs!, num_angles
+    integer :: num_pairs
     !! Number of pairs and angles.
     real(real12) :: bondlength
     !! Temporary real variables.
@@ -2373,10 +2363,8 @@ module evolver
     !! Extended basis of the system.
     type(extended_basis_type) :: neighbour_basis
     !! Basis for storing neighbour data.
-    real(real12), dimension(3) :: eta, limit
+    real(real12), dimension(3) :: eta
     !! Parameters for the distribution functions.
-    real(real12), dimension(3) :: vtmp1, vtmp2, vtmp3, diff
-    !! Temporary real arrays.
     real(real12), allocatable, dimension(:) :: angle_list, bondlength_list, &
          distance
     !! Temporary real arrays.
@@ -2413,7 +2401,6 @@ module evolver
     else
        nbins_ = 1 + nint( (cutoff_max_ - cutoff_min_)/width_ )
     end if
-    limit = cutoff_max_ - cutoff_min_
     if(present(radius_distance_tol))then
        radius_distance_tol_ = radius_distance_tol
     else
@@ -2629,7 +2616,7 @@ module evolver
                           bondlength_list(:itmp1), &
                           nbins_(1), eta(1), width_(1), &
                           cutoff_min_(1), &
-                          limit(1), scale_list = distance(:itmp1) &
+                          scale_list = distance(:itmp1) &
                      )
                 this%weight_pair(pair_index(is, js)) = &
                      this%weight_pair(pair_index(is, js)) + &
@@ -2684,7 +2671,7 @@ module evolver
           this%df_3body(:,is) = this%df_3body(:,is) + &
                get_gvector( angle_list, &
                             nbins_(2), eta(2), width_(2), &
-                            cutoff_min_(2), limit(2), &
+                            cutoff_min_(2), &
                             scale_list = distance &
                )
           deallocate( angle_list, distance )
@@ -2726,7 +2713,7 @@ module evolver
           this%df_4body(:,is) = this%df_4body(:,is) + &
                get_gvector( angle_list, &
                             nbins_(3), eta(3), width_(3), &
-                            cutoff_min_(3), limit(3), &
+                            cutoff_min_(3), &
                             scale_list = distance &
                )
           deallocate( angle_list, distance )
@@ -2765,7 +2752,7 @@ module evolver
 
 
 !###############################################################################
-  function get_gvector(value_list, nbins, eta, width, cutoff_min, limit, &
+  function get_gvector(value_list, nbins, eta, width, cutoff_min, &
        scale_list ) result(gvector)
     !! Calculate the angular distribution function for a list of values.
     implicit none
@@ -2773,7 +2760,7 @@ module evolver
     ! Arguments
     integer, intent(in) :: nbins
     !! Number of bins for the distribution functions.
-    real(real12), intent(in) :: eta, width, cutoff_min, limit
+    real(real12), intent(in) :: eta, width, cutoff_min
     !! Parameters for the distribution functions.
     real(real12), dimension(:), intent(in) :: value_list
     !! List of angles.

@@ -42,7 +42,8 @@ module inputs
 
   integer, dimension(3) :: grid = [0, 0, 0]
   real(real12) :: grid_spacing = 0._real12
-  real(real12), dimension(3) :: method_probab = [1._real12, 1._real12, 1._real12]
+  real(real12), dimension(5) :: method_probab = &
+       [1._real12, 0.1_real12, 0.5_real12, 0.5_real12, 1._real12]
 
   character(1024), dimension(:), allocatable :: database_list ! list of directories containing input database
   character(1024) :: database_format !format of input file (POSCAR, XYZ, etc.
@@ -59,15 +60,13 @@ contains
     implicit none
 
     ! Local variables
-    integer :: iostat
-    !! I/O status.
     integer :: i,j
     !! Loop indices.
     integer :: nseed
     !! Number of random seed values.
-    character(1024) :: pattern,buffer,flag,input_file
+    character(1024) :: buffer, flag, input_file
     !! Character variables.
-    logical :: skip, empty, filefound
+    logical :: skip, empty
     !! Logical variables.
     integer, dimension(:), allocatable :: seed_arr 
     !! Random seed array.
@@ -178,29 +177,26 @@ contains
     !! Number of species and bonds.
     integer :: iostat, unit, l_pos, r_pos
     !! I/O status, unit, left and right positions.
-    character(1) :: fs
-    !! Field separator.
     character(32) :: pair
     !! Pair of elements.
-    character(1024) :: stoichiometry, elements, database, buffer, energies, &
+    character(1024) :: stoichiometry, database, buffer, energies, &
          bond_radii
     !! Strings buffers to hold input values (usually derived types).
     real(real12), dimension(3) :: width, sigma
     !! Width and sigma values for distribution functions.
+    real(real12) :: void, rand, walk, grow, min
+    !! Placement method probabilities.
     character(50), dimension(3) :: cutoff_min, cutoff_max
     !! Cutoff values for distribution functions.
-    integer, allocatable, dimension(:) :: stoichiometry_list
-    !! Stoichiometry list.
-    character(3), allocatable, dimension(:) :: element_list
-    !! Element list.
 
 
     !---------------------------------------------------------------------------
     ! set up namelists for input file
     !---------------------------------------------------------------------------
-    namelist /setup/        task, filename_host, seed, method_probab, grid, &
+    namelist /setup/        task, filename_host, seed, grid, &
                             grid_spacing, &
                             database_format, database, verbose, output_dir
+    namelist /placement_method/ void, rand, walk, grow, min
     namelist /structure/    num_structures,stoichiometry
     namelist /volume/       vdW, volvar
     namelist /distribution/ cutoff_min, cutoff_max, width, sigma
@@ -220,12 +216,19 @@ contains
     width = -1._real12
     sigma = -1._real12
     database_format = "vasprun.xml"
+    void = 0._real12; rand = 0._real12
+    walk = 0._real12; grow = 0._real12
+    min = 0._real12
     !---------------------------------------------------------------------------
     ! read namelists from input file
     !---------------------------------------------------------------------------
     read(unit,NML=setup,iostat=iostat)
     if(iostat.ne.0)then
        write(0,*) "THERE WAS AN ERROR IN READING SETUP"
+    end if
+    read(unit,NML=placement_method,iostat=iostat)
+    if(.not.is_iostat_end(iostat).and.iostat.ne.0)then
+       stop "THERE WAS AN ERROR IN READING PLACEMENT_METHOD SETTINGS"
     end if
     read(unit,NML=structure,iostat=iostat)
     if(.not.is_iostat_end(iostat).and.iostat.ne.0)then
@@ -257,6 +260,11 @@ contains
       end do
     end if
 
+    method_probab = [void, rand, walk, grow, min]
+    if(all(abs(method_probab).lt.1.E-6))then
+       method_probab = &
+            [1._real12, 0.1_real12, 0.5_real12, 0.5_real12, 1._real12]
+      end if
 
     if(trim(stoichiometry).ne."")then
        num_species = icount(stoichiometry,",")

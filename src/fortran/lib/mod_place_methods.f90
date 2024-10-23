@@ -11,7 +11,7 @@ module raffle__place_methods
   !! - min:  place the atom at the gridpoint with the highest viability
   use raffle__constants, only: real32, pi
   use raffle__misc_linalg, only: modu, inverse_3x3
-  use extended_geom, only: extended_basis_type
+  use raffle__geom_extd, only: extended_basis_type
   use raffle__dist_calcs, only: &
        get_min_dist, &
        get_min_dist_between_point_and_species

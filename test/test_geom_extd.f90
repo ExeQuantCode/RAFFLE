@@ -1,8 +1,8 @@
-program test_extended_geom
-  !! Test program for the module extended_geom.
+program test_geom_extd
+  !! Test program for the module geom_extd.
   use raffle__error_handling
   use raffle__constants, only: real32
-  use extended_geom
+  use raffle__geom_extd
   implicit none
 
   type(extended_basis_type) :: basis_diamond
@@ -40,9 +40,9 @@ program test_extended_geom
   !-----------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
-     write(*,*) 'test_extended_geom passed all tests'
+     write(*,*) 'test_geom_extd passed all tests'
   else
-     write(0,*) 'test_extended_geom failed one or more tests'
+     write(0,*) 'test_geom_extd failed one or more tests'
      stop 1
   end if
 
@@ -192,4 +192,4 @@ contains
     end if
   end subroutine assert
 
-end program test_extended_geom
+end program test_geom_extd

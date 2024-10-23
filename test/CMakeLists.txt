@@ -6,8 +6,8 @@ foreach(execid
     elements
     geom_rw
     geom_utils
+    geom_extd
     dist_calcs
-    extended_geom
     place_methods
     viability
     distribs_container

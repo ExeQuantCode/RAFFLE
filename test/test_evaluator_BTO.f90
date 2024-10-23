@@ -3,7 +3,7 @@ program test_evaluator_BTO
   use raffle__constants, only: real32, pi
   use raffle__misc_linalg, only: modu
   use raffle__geom_rw, only: basis_type, geom_write
-  use extended_geom, only: extended_basis_type
+  use raffle__geom_extd, only: extended_basis_type
   use evaluator, only: evaluate_point
   use generator, only: raffle_generator_type
   use raffle__viability, only: get_gridpoints_and_viability

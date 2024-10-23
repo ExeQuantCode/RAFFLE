@@ -590,6 +590,7 @@ contains
        else if(rtmp1.le.method_probab_(2)) then
           if(verbose.gt.0) write(*,*) "Add Atom Random"
           point = place_method_rand( &
+               this%distributions, &
                basis, &
                placement_list_shuffled(iplaced+1:,:), &
                [ this%distributions%bond_info(:)%radius_covalent ], &
@@ -613,6 +614,7 @@ contains
           if(iplaced.eq.0)then
              if(verbose.gt.0) write(*,*) "Add Atom Random (growth seed)"
              point = place_method_rand( &
+                  this%distributions, &
                   basis, &
                   placement_list_shuffled(iplaced+1:,:), &
                   [ this%distributions%bond_info(:)%radius_covalent ], &

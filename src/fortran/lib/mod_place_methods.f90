@@ -104,7 +104,7 @@ contains
 
 
 !###############################################################################
-  function place_method_rand( &
+  function place_method_rand( distribs_container, &
        basis, atom_ignore_list, radius_list, max_attempts, viable &
   ) result(point)
     !! Random placement method.
@@ -113,6 +113,8 @@ contains
     implicit none
 
     ! Arguments
+    type(distribs_container_type), intent(in) :: distribs_container
+    !! Distribution function (gvector) container.
     type(extended_basis_type), intent(inout) :: basis
     !! Structure to add atom to.
     integer, dimension(:,:), intent(in) :: atom_ignore_list
@@ -144,7 +146,7 @@ contains
     !---------------------------------------------------------------------------
     i = 0
     do is = 1, basis%nspec
-       do js = is, basis%nspec, 1
+       do js = 1, basis%nspec
           pair_index(is, js) = distribs_container%get_pair_index( &
                basis%spec(is)%name, basis%spec(js)%name &
           )

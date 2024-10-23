@@ -5,6 +5,10 @@ from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext
 import shutil
 
+# Add the subdirectory to sys.path
+sys.path.append(os.path.join(os.path.dirname(__file__), 'tools'))
+from version_number import get_version
+
 class CMakeBuild(build_ext):
     """
     Custom build command that uses CMake to build extensions.
@@ -82,7 +86,7 @@ minimum_requirements = [
 
 setup(
     name='raffle',
-    version='0.3.1',
+    version=get_version(),
     author='Ned Thaddeus Taylor',
     author_email='n.t.taylor@exeter.ac.uk',
     description='A Python project with a Fortran library',

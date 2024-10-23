@@ -1,6 +1,6 @@
-program test_atom_adder
+program test_place_methods
   use raffle__error_handling
-  use add_atom
+  use raffle__viability
   use raffle__distribs_container, only: distribs_container_type
   use raffle__constants, only: real32
   use raffle__geom_rw, only: basis_type
@@ -28,7 +28,6 @@ program test_atom_adder
 
   call test_get_gridpoints_and_viability(basis, success)
   call test_update_gridpoints_and_viability(basis, success)
-  call test_add_atom_void(basis, success)
 
 
   !-----------------------------------------------------------------------------
@@ -36,9 +35,9 @@ program test_atom_adder
   !-----------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
-     write(*,*) 'test_add_atom passed all tests'
+     write(*,*) 'test_place_methods passed all tests'
   else
-     write(0,*) 'test_add_atom failed one or more tests'
+     write(0,*) 'test_place_methods failed one or more tests'
      stop 1
   end if
 
@@ -199,51 +198,6 @@ contains
 
   end subroutine test_update_gridpoints_and_viability
 
-  subroutine test_add_atom_void(basis, success)
-    implicit none
-    logical, intent(inout) :: success
-    type(basis_type), intent(in) :: basis
-
-    integer :: i
-    type(extended_basis_type) :: basis_copy
-    logical :: viable
-    integer, dimension(3) :: grid
-    real(real32), dimension(3) :: grid_offset
-    real(real32), dimension(3) :: point
-    integer, dimension(:,:), allocatable :: atom_ignore_list
-    real(real32), dimension(3) :: tolerance
-
-    ! Initialise test data
-    grid = [10, 10, 10]
-    allocate(atom_ignore_list(1, 2))  ! No atoms to ignore
-    atom_ignore_list(1,:) = [1,2]
-    grid_offset = [0.5_real32, 0.5_real32, 0.5_real32]
-
-    ! Initialise basis
-    call basis_copy%copy(basis)
-
-    ! Call the void subroutine
-    point = add_atom_void( &
-         grid, grid_offset, basis_copy, &
-         atom_ignore_list, &
-         viable &
-    )
-
-    ! Check if viable
-    call assert(viable, "No viable gridpoints found.", success)
-
-    do i = 1, 3
-       tolerance(i) = 1._real32 / real(grid(i),real32) / 2._real32
-    end do
-    ! Check point is correct
-    call assert( &
-         all( abs( point - 0.5_real32) .lt. tolerance + 1.E-6_real32 ), &
-         "Incorrect gridpoint found.", &
-         success &
-    )
-
-  end subroutine test_add_atom_void
-
 
 !###############################################################################
 
@@ -258,4 +212,4 @@ contains
     end if
   end subroutine assert
 
-end program test_atom_adder
+end program test_place_methods

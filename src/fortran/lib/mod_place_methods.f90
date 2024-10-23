@@ -145,9 +145,9 @@ contains
     i = 0
     do is = 1, basis%nspec
        do js = is, basis%nspec, 1
-          i = i + 1
-          pair_index(js,is) = i
-          pair_index(is,js) = i
+          pair_index(is, js) = distribs_container%get_pair_index( &
+               basis%spec(is)%name, basis%spec(js)%name &
+          )
        end do
    end do
 
@@ -266,7 +266,7 @@ contains
        ! if we have tried 10 times, then we need to reduce the step size
        ! get the new test point and map it back into the unit cell
        !------------------------------------------------------------------------
-       call random_number(rtmp1)
+       call random_number(rvec1)
        if(nattempt.ge.10) then 
           test_vector = site_vector + &
                ( rvec1 * 2._real32 - 1._real32 ) * step_size_fine / abc
@@ -393,15 +393,9 @@ contains
     !---------------------------------------------------------------------------
     ! get the index of the pair of species
     !---------------------------------------------------------------------------
-    idx = nint( &
-         ( &
-              basis%nspec - &
-              min( prior_species, atom_ignore_list(1,1) &
-         ) / 2._real32 ) * &
-         (  &
-              min( prior_species, atom_ignore_list(1,1) ) - &
-              1._real32 &
-         ) +  max( prior_species, atom_ignore_list(1,1) ) &
+    idx = distribs_container%get_pair_index( &
+               basis%spec(prior_species)%name, &
+               basis%spec(atom_ignore_list(1,1))%name &
     )
     min_radius = radius_list(idx) * distribs_container%radius_distance_tol(1)
 
@@ -449,7 +443,7 @@ contains
        ! if we have tried 10 times, then we need to reduce the step size
        ! get the new test point and map it back into the unit cell
        !------------------------------------------------------------------------
-       call random_number(rtmp1)
+       call random_number(rvec1)
        if(nattempt.ge.10) then 
           test_vector = site_vector + &
                ( rvec1 * 2._real32 - 1._real32 ) * step_size_fine / abc

@@ -1019,9 +1019,9 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
 
             return bond_radii
         
-        def initialise_distribs(self):
+        def initialise_gdfs(self):
             """
-            initialise_distribs__binding__dc_type(self)
+            initialise_gdfs__binding__dc_type(self)
             
             
             Defined at ../fortran/lib/mod_distribs_container.f90 \
@@ -1032,7 +1032,7 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             this : unknown
             
             """
-            _raffle.f90wrap_raffle__dc__initialise_distribs__binding__dc_type(this=self._handle)
+            _raffle.f90wrap_raffle__dc__initialise_gdfs__binding__dc_type(this=self._handle)
         
         def evolve(self): #, system=None):
             """

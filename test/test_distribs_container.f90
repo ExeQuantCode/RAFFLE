@@ -386,9 +386,9 @@ contains
     ! Check if the 2-/3-/4-body distribution functions are not allocated
     call assert( &
          ( &
-              allocated(distribs_container%total%df_2body) .or. &
-              allocated(distribs_container%total%df_3body) .or. &
-              allocated(distribs_container%total%df_4body) &
+              allocated(distribs_container%gdf%df_2body) .or. &
+              allocated(distribs_container%gdf%df_3body) .or. &
+              allocated(distribs_container%gdf%df_4body) &
          ),  &
           "2-/3-/4-body distribution functions are allocated",  &
           success &
@@ -396,19 +396,19 @@ contains
 
     ! Check number of species and species pairs are correct
     call assert( &
-         size(distribs_container%total%df_2body, dim=2) .eq. num_pairs,  &
+         size(distribs_container%gdf%df_2body, dim=2) .eq. num_pairs,  &
          "Number of species pairs in 2-body distribution function &
          &is incorrect",  &
          success &
     )
     call assert( &
-         size(distribs_container%total%df_3body, dim=2) .eq. size(elements),  &
+         size(distribs_container%gdf%df_3body, dim=2) .eq. size(elements),  &
          "Number of species in 3-body distribution function &
          &is incorrect",  &
          success &
     )
     call assert( &
-         size(distribs_container%total%df_4body, dim=2) .eq. size(elements),  &
+         size(distribs_container%gdf%df_4body, dim=2) .eq. size(elements),  &
          "Number of species in 4-body distribution function &
          &is incorrect",  &
          success &
@@ -416,53 +416,53 @@ contains
 
     ! Check if the 2-/3-/4-body distribution functions are not zero
     call assert( &
-         any( abs( distribs_container%total%df_2body ) .gt. 1.E-6_real32 ),  &
+         any( abs( distribs_container%gdf%df_2body ) .gt. 1.E-6_real32 ),  &
          "2-body distribution functions are zero",  &
          success &
     )
     call assert( &
-         any( abs( distribs_container%total%df_3body ) .gt. 1.E-6_real32 ),  &
+         any( abs( distribs_container%gdf%df_3body ) .gt. 1.E-6_real32 ),  &
          "3-body distribution functions are zero",  &
          success &
     )
     call assert( &
-         any( abs( distribs_container%total%df_4body ) .gt. 1.E-6_real32 ),  &
+         any( abs( distribs_container%gdf%df_4body ) .gt. 1.E-6_real32 ),  &
          "4-body distribution functions are zero",  &
          success &
     )
 
     ! Check if the 2-/3-/4-body distribution functions are not NaN
     call assert( &
-         all( .not. isnan( distribs_container%total%df_2body ) ),  &
+         all( .not. isnan( distribs_container%gdf%df_2body ) ),  &
          "2-body distribution functions are NaN",  &
          success &
     )
     call assert( &
-         all( .not. isnan( distribs_container%total%df_3body ) ),  &
+         all( .not. isnan( distribs_container%gdf%df_3body ) ),  &
          "3-body distribution functions are NaN",  &
          success &
     )
     call assert( &
-         all( .not. isnan( distribs_container%total%df_4body ) ),  &
+         all( .not. isnan( distribs_container%gdf%df_4body ) ),  &
          "4-body distribution functions are NaN",  &
          success &
     )
 
     ! Check that the maximum value of 2-/3-/4-body distribution functions is 1
-    do i = 1, size(distribs_container%total%df_2body, dim=2)
+    do i = 1, size(distribs_container%gdf%df_2body, dim=2)
        call assert( &
             abs( &
-                 maxval(distribs_container%total%df_2body(:,i)) - &
+                 maxval(distribs_container%gdf%df_2body(:,i)) - &
                  1._real32 &
             ) .lt. 1.E-6_real32, &
             "Maximum value of 2-body distribution functions is not 1",  &
             success &
        )
     end do
-    do i = 1, size(distribs_container%total%df_3body, dim=2)
+    do i = 1, size(distribs_container%gdf%df_3body, dim=2)
        call assert( &
             abs( &
-                 maxval(distribs_container%total%df_3body(:,i)) - &
+                 maxval(distribs_container%gdf%df_3body(:,i)) - &
                  1._real32 &
             ) .lt. 1.E-6_real32, &
             "Maximum value of 3-body distribution functions is not 1",  &
@@ -470,7 +470,7 @@ contains
        )
        call assert( &
             abs( &
-                 maxval(distribs_container%total%df_4body(:,i)) - &
+                 maxval(distribs_container%gdf%df_4body(:,i)) - &
                  1._real32 &
             ) .lt. 1.E-6_real32, &
             "Maximum value of 4-body distribution functions is not 1",  &

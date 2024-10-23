@@ -335,7 +335,7 @@ contains
     !! Contribution to the viability.
 
 
-   output = distribs_container%total%df_2body( &
+   output = distribs_container%gdf%df_2body( &
         distribs_container%get_bin(bondlength, dim = 1), &
         pair_index &
    )
@@ -389,7 +389,7 @@ contains
                   dim = 2 &
              )
              output = output * &
-                  distribs_container%total%df_3body( &
+                  distribs_container%gdf%df_3body( &
                        bin, &
                        distribs_container%host_system%element_map(species) &
                   ) ** ( 1._real32 / real( num_3body_local, real32 ) )
@@ -448,7 +448,7 @@ contains
                   dim = 3 &
              )
              output = output * &
-                  distribs_container%total%df_4body( &
+                  distribs_container%gdf%df_4body( &
                        bin, &
                        distribs_container%host_system%element_map(species) &
                   ) ** ( 1._real32 / real( num_4body_local, real32 ) )

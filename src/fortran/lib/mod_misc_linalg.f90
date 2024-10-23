@@ -6,8 +6,8 @@ module raffle__misc_linalg
 
   private
 
-  public :: uvec, modu, cross
-  public :: get_distance, get_angle, get_dihedral_angle, get_area, get_vol
+  public :: modu, cross
+  public :: get_distance, get_angle, get_dihedral_angle, get_area
   public :: get_improper_dihedral_angle
   public :: inverse_3x3
 
@@ -28,30 +28,14 @@ module raffle__misc_linalg
 contains
 
 !###############################################################################
-  pure function uvec(vector)
-    !! Return the unit vector of a vector of any size.
-    implicit none
-
-    ! Arguments
-    real(real32),dimension(:), intent(in)::vector
-    !! Input vector.
-    real(real32),allocatable,dimension(:)::uvec
-    !! Output unit vector.
-
-    uvec = vector / modu(vector)
-  end function uvec
-!###############################################################################
-
-
-!###############################################################################
   pure function modu(vector)
     !! Return the magnitude of a vector of any size.
     implicit none
 
     ! Arguments
-    real(real32),dimension(:), intent(in)::vector
+    real(real32),dimension(:), intent(in) :: vector
     !! Input vector.
-    real(real32)::modu
+    real(real32) :: modu
     !! Output magnitude.
 
     modu = abs( sqrt( sum(vector(:)**2) ) )
@@ -65,7 +49,7 @@ contains
     implicit none
 
     ! Arguments
-    real(real32), dimension(3), intent(in) :: a,b
+    real(real32), dimension(3), intent(in) :: a b
     !! Input vectors.
     real(real32), dimension(3) :: cross
     !! Output cross product.
@@ -84,7 +68,7 @@ contains
     implicit none
 
     ! Arguments
-    real(real32), dimension(3), intent(in) :: point1,point2
+    real(real32), dimension(3), intent(in) :: point1, point2
     !! Input points.
     real(real32) :: distance
     !! Output distance.
@@ -102,7 +86,7 @@ contains
     implicit none
 
     ! Arguments
-    real(real32), dimension(3), intent(in) :: vector1,vector2
+    real(real32), dimension(3), intent(in) :: vector1, vector2
     !! Input vectors.
     real(real32) :: angle
     !! Output angle.
@@ -157,7 +141,7 @@ contains
     implicit none
 
     ! Arguments
-    real(real32), dimension(3), intent(in) :: vector1,vector2,vector3
+    real(real32), dimension(3), intent(in) :: vector1, vector2, vector3
     !! Input vectors.
     real(real32) :: angle
     !! Output angle.
@@ -232,60 +216,6 @@ contains
     )
 
   end function get_improper_dihedral_angle_from_points
-!###############################################################################
-
-
-!###############################################################################
-  pure function get_area(a,b) result(area)
-    !! Return the area made by two vectors.
-    implicit none
-
-    ! Arguments
-    real(real32), dimension(3), intent(in) :: a,b
-    !! Input vectors.
-    real(real32) :: area
-    !! Output area.
-    real(real32), dimension(3) :: vec
-    !! Cross product of a and b.
-
-    vec = cross(a,b)
-    area = sqrt(dot_product(vec,vec))
-
-  end function get_area
-!###############################################################################
-
-
-!###############################################################################
-  function get_vol(matrix) result(vol)
-    !! Return the volume of a matrix.
-    implicit none
-
-    ! Arguments
-    real(real32), dimension(3,3), intent(in) :: matrix
-    !! Input matrix.
-
-    ! Local variables
-    integer :: n,i,j,k,l
-    !! Loop indices.
-    real(real32) :: vol,scale
-    !! Volume and scale factor.
-    real(real32), dimension(3) :: a,b,c
-    !! Vectors of the matrix.
-
-
-    a=matrix(1,:)
-    b=matrix(2,:)
-    c=matrix(3,:)
-    vol = 0._real32;scale = 1._real32
-    i=1;j=2;k=3
-1   do n=1,3
-       vol = vol+scale*a(i)*b(j)*c(k)
-       l=i;i=j;j=k;k=l
-    end do
-    i=2;j=1;k=3;scale=-scale
-    if(scale<0._real32) goto 1
-
-  end function get_vol
 !###############################################################################
 
 

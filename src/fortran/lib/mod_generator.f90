@@ -111,6 +111,7 @@ contains
        host, width, sigma, cutoff_min, cutoff_max ) &
        result(generator)
     !! Initialise an instance of the raffle generator.
+    !!
     !! Set up run-independent parameters.
     implicit none
 
@@ -153,6 +154,8 @@ contains
 !###############################################################################
   subroutine set_host(this, host)
     !! Set the host structure.
+    !!
+    !! This procedure sets the host structure for the raffle generator.
     implicit none
 
     ! Arguments
@@ -180,6 +183,10 @@ contains
 !###############################################################################
   subroutine set_grid(this, grid, grid_spacing, grid_offset)
     !! Set the grid for the raffle generator.
+    !!
+    !! This procedure sets the grid for the raffle generator. The grid is used
+    !! to divide the host structure into bins along each axis on which
+    !! atom placement viability will be evaluated
     implicit none
 
     ! Arguments
@@ -240,6 +247,11 @@ contains
   subroutine generate(this, num_structures, &
        stoichiometry, method_probab, seed, verbose)
     !! Generate random structures.
+    !!
+    !! This procedure generates random structures from the contained host
+    !! structure and the stoichiometry argument. The number of structures to
+    !! generate is specified by the num_structures argument.
+    !! The ratio of placement methods to be sampled is defined by method_probab.
     implicit none
 
     ! Arguments

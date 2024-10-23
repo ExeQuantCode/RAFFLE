@@ -331,6 +331,8 @@ contains
     !! Bond length.
     integer, intent(in) :: pair_index
     !! Index of the element pair.
+    real(real12) :: output
+    !! Contribution to the viability.
 
 
    output = gvector_container%total%df_2body( &

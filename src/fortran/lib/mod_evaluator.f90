@@ -160,10 +160,9 @@ contains
              ! Add the contribution of the bond length to the viability
              !------------------------------------------------------------------
              viability_2body = viability_2body + &
-                  gvector_container%total%df_2body( &
-                       gvector_container%get_bin(bondlength, dim = 1), &
-                       pair_index(species,is) &
-                  )
+             evaluate_2body_contributions( &
+                  gvector_container, bondlength, pair_index(species,is) &
+             )
              num_2body = num_2body + 1
           end associate
        end do atom_loop
@@ -216,9 +215,8 @@ contains
              ! Add the contribution of the bond length to the viability
              !------------------------------------------------------------------
              viability_2body = viability_2body + &
-                  gvector_container%total%df_2body( &
-                       gvector_container%get_bin(bondlength, dim = 1), &
-                       pair_index(species,is) &
+                  evaluate_2body_contributions( &
+                       gvector_container, bondlength, pair_index(species,is) &
                   )
              num_2body = num_2body + 1
           end associate
@@ -316,6 +314,31 @@ contains
     output = viability_2body * viability_3body * viability_4body
     
   end function evaluate_point
+!###############################################################################
+
+
+!###############################################################################
+  function evaluate_2body_contributions( gvector_container, &
+       bondlength, pair_index &
+  ) result(output)
+    !! Return the contribution to the viability from 2-body interactions
+    implicit none
+
+    ! Arguments
+    type(gvector_container_type), intent(in) :: gvector_container
+    !! Distribution function (gvector) container.
+    real(real12), intent(in) :: bondlength
+    !! Bond length.
+    integer, intent(in) :: pair_index
+    !! Index of the element pair.
+
+
+   output = gvector_container%total%df_2body( &
+        gvector_container%get_bin(bondlength, dim = 1), &
+        pair_index &
+   )
+
+  end function evaluate_2body_contributions
 !###############################################################################
 
 

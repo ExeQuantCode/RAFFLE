@@ -72,6 +72,7 @@ contains
     ! ... largest void space
     !---------------------------------------------------------------------------
     viable = .false.
+    best_location = 0._real12
     best_location_bond = -huge(1._real12)
     do i = 0, grid(1) - 1, 1
        do j = 0, grid(2) - 1, 1
@@ -209,7 +210,7 @@ contains
     !! Random number.
     real(real12), dimension(3) :: rvec1, abc
     !! Random vector and lattice constants.
-    integer :: crude_norm
+    real(real12) :: crude_norm
     !! Crude normalisation.
     real(real12) :: site_value, test_value
     !! Viability values.
@@ -639,7 +640,7 @@ contains
     !! List of atoms to ignore (i.e. indices of atoms not yet placed).
 
     ! Local variables
-    integer :: i, j, k, l, is, ia
+    integer :: i, j, is
     !! Loop indices.
     integer :: num_points
     !! Number of gridpoints.

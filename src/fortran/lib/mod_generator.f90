@@ -450,7 +450,7 @@ contains
     !! Verbosity level.
 
     ! Local variables
-    integer :: i, j, iplaced, void_ticker
+    integer :: iplaced, void_ticker
     !! Loop counters.
     integer :: num_insert_atoms
     !! Number of atoms to insert.

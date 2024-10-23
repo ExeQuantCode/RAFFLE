@@ -15,6 +15,7 @@ program test_mod_elements
   logical :: success = .true.
 
   ! Initialise the element database
+  allocate(element_list(118))
   element_list = [ &
        'H  ', 'He ', 'Li ', 'Be ', 'B  ', 'C  ', 'N  ', 'O  ', 'F  ', 'Ne ', &
        'Na ', 'Mg ', 'Al ', 'Si ', 'P  ', 'S  ', 'Cl ', 'Ar ', 'K  ', 'Ca ', &

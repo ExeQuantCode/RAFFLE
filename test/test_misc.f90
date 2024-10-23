@@ -79,7 +79,7 @@ contains
     list = [ &
          'banana    ', 'apple     ', 'cherry    ', 'date      ', 'elderberry' &
     ]
-    order = sort_str_order(list)
+    allocate(order, source=sort_str_order(list))
     call assert( &
          all(order .eq. expected_order), &
          'test_sort_str_order failed', success &
@@ -276,8 +276,8 @@ contains
  subroutine test_strip_null(success)
     implicit none
     logical, intent(inout) :: success
-    character(len=10) :: str
-    character(len=10) :: expected_str
+    character(len=16) :: str
+    character(len=16) :: expected_str
 
     str = "hello"//char(0)//"world"
     expected_str = "hello"
@@ -290,7 +290,6 @@ contains
     logical, intent(inout) :: success
     integer :: unit
     logical :: success_tmp
-    character(len=1024) :: buffer
 
     ! Create a temporary scratch file for testing
     open(newunit=unit, status='scratch', action='readwrite')
@@ -320,7 +319,6 @@ contains
     implicit none
     logical, intent(inout) :: success
     integer :: i, j, unit
-    character(len=10) :: str
 
     open(newunit=unit, status='scratch', action='readwrite')
     do i = 1, 10

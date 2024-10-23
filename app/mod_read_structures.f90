@@ -45,8 +45,6 @@ contains
     !! Optional. The format of the input files. Default is vasprun.xml.
 
     ! Local variables
-    character(256) :: name
-    !! The name of the structure file.
     integer :: i, j
     !! Loop indices.
     integer :: ifile_format
@@ -62,12 +60,10 @@ contains
     logical :: success
     !! Boolean for success of file operations.
 
-    integer :: xml_unit, unit
+    integer :: unit
     !! File units.
     integer :: iostat
     !! I/O status.
-    integer :: num_files
-    !! The number of files in the input directories.
     type(basis_type) :: basis
     !! The basis of the structure.
     character(256), dimension(:), allocatable :: structure_list

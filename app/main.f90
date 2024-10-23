@@ -1,6 +1,6 @@
 program raffle_program
   !! Main program for the interface-based random structure search
-  use raffle__constants, only: real12
+  use raffle__constants, only: real32
   use raffle__error_handling, only: stop_program
   use raffle__misc, only: touch
   use inputs
@@ -17,7 +17,7 @@ program raffle_program
   character(:), allocatable :: next_dir
   !! Next directory name
 
-  real(real12), dimension(:), allocatable :: tmp_energies
+  real(real32), dimension(:), allocatable :: tmp_energies
   !! Temporary array for element energies
   character(len=3), dimension(:), allocatable :: tmp_symbols
   !! Temporary array for element symbols

@@ -1,7 +1,7 @@
 program test_misc
   use raffle__error_handling
   use raffle__misc
-  use raffle__constants, only: real12
+  use raffle__constants, only: real32
   implicit none
 
   logical :: success = .true.
@@ -117,16 +117,16 @@ contains
   subroutine test_rsort1D(success)
     implicit none
     logical, intent(inout) :: success
-    real(real12), dimension(5) :: arr = &
-         [5._real12, 3._real12, 4._real12, 1._real12, 2._real12]
-    real(real12), dimension(5) :: expected_arr = &
-         [1._real12, 2._real12, 3._real12, 4._real12, 5._real12]
+    real(real32), dimension(5) :: arr = &
+         [5._real32, 3._real32, 4._real32, 1._real32, 2._real32]
+    real(real32), dimension(5) :: expected_arr = &
+         [1._real32, 2._real32, 3._real32, 4._real32, 5._real32]
     call sort1D(arr)
     call assert( &
          all( abs(arr - expected_arr) .lt. 1.E-6), &
          'test_rsort1D failed', success &
     )
-    expected_arr = [5._real12, 4._real12, 3._real12, 2._real12, 1._real12]
+    expected_arr = [5._real32, 4._real32, 3._real32, 2._real32, 1._real32]
     call sort1D(arr, reverse=.true.)
     call assert( &
          all(arr .eq. expected_arr), &
@@ -153,19 +153,19 @@ contains
   subroutine test_rset(success)
     implicit none
     logical, intent(inout) :: success
-    real(real12), dimension(:), allocatable :: arr
-    real(real12), dimension(:), allocatable :: expected_arr
+    real(real32), dimension(:), allocatable :: arr
+    real(real32), dimension(:), allocatable :: expected_arr
     allocate(arr(6))
-    arr = [1._real12, 2._real12, 2._real12, 3._real12, 3._real12, 3._real12]
+    arr = [1._real32, 2._real32, 2._real32, 3._real32, 3._real32, 3._real32]
     allocate(expected_arr(3))
-    expected_arr = [1._real12, 2._real12, 3._real12]
+    expected_arr = [1._real32, 2._real32, 3._real32]
     call set(arr)
     call assert( &
          all( abs(arr - expected_arr) .lt. 1.E-6), &
          'test_rset failed', success &
     )
-    arr = [1._real12, 2._real12, 2.00001_real12, 3._real12, 3._real12]
-    expected_arr = [1._real12, 2._real12, 2.00001_real12, 3._real12]
+    arr = [1._real32, 2._real32, 2.00001_real32, 3._real32, 3._real32]
+    expected_arr = [1._real32, 2._real32, 2.00001_real32, 3._real32]
     call set(arr, tol=1.E-6)
     call assert( &
          all( abs(arr - expected_arr) .lt. 1.E-6), &
@@ -230,10 +230,10 @@ contains
   subroutine test_rshuffle(success)
     implicit none
     logical, intent(inout) :: success
-    real(real12) :: arr(1,5)
-    real(real12) :: original_arr(1,5)
+    real(real32) :: arr(1,5)
+    real(real32) :: original_arr(1,5)
 
-    arr(1,:) = [1._real12, 2._real12, 3._real12, 4._real12, 5._real12]
+    arr(1,:) = [1._real32, 2._real32, 3._real32, 4._real32, 5._real32]
     original_arr(1,:) = arr(1,:)
     call shuffle(arr, dim=2, seed=0)
     call assert(any(abs(arr - original_arr).gt.1.E-6), "rshuffle failed", success)
@@ -339,10 +339,10 @@ contains
   subroutine test_rswap(success)
     implicit none
     logical, intent(inout) :: success
-    real(real12) :: a = 1._real12
-    real(real12) :: b = 2._real12
-    real(real12) :: expected_a = 2._real12
-    real(real12) :: expected_b = 1._real12
+    real(real32) :: a = 1._real32
+    real(real32) :: b = 2._real32
+    real(real32) :: expected_a = 2._real32
+    real(real32) :: expected_b = 1._real32
 
     call swap(a, b)
     call assert( &
@@ -356,13 +356,13 @@ contains
   subroutine test_rswap_vec(success)
     implicit none
     logical, intent(inout) :: success
-    real(real12), dimension(2) :: a = [1._real12, 2._real12]
-    real(real12), dimension(2) :: b = [3._real12, 4._real12]
+    real(real32), dimension(2) :: a = [1._real32, 2._real32]
+    real(real32), dimension(2) :: b = [3._real32, 4._real32]
 
     call swap(a, b)
     call assert( &
-          all( abs(a - [3._real12, 4._real12]) .lt. 1.E-6_real12 ) .and. &
-          all( abs(b - [1._real12, 2._real12]) .lt. 1.E-6_real12 ), &
+          all( abs(a - [3._real32, 4._real32]) .lt. 1.E-6_real32 ) .and. &
+          all( abs(b - [1._real32, 2._real32]) .lt. 1.E-6_real32 ), &
           "rswap_vec failed", success &
     )
 

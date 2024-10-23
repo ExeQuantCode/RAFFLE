@@ -66,7 +66,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
         @property
         def atom(self):
             """
-            Element atom ftype=real(real12) pytype=float
+            Element atom ftype=real(real32) pytype=float
             
             
             Defined at ../src/lib/mod_rw_geom.f90 line 27
@@ -90,7 +90,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
         @property
         def mass(self):
             """
-            Element mass ftype=real(real12) pytype=float
+            Element mass ftype=real(real32) pytype=float
             
             
             Defined at ../src/lib/mod_rw_geom.f90 line 28
@@ -105,7 +105,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
         @property
         def charge(self):
             """
-            Element charge ftype=real(real12) pytype=float
+            Element charge ftype=real(real32) pytype=float
             
             
             Defined at ../src/lib/mod_rw_geom.f90 line 29
@@ -116,7 +116,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
         @property
         def radius(self):
             """
-            Element radius ftype=real(real12) pytype=float
+            Element radius ftype=real(real32) pytype=float
             
             
             Defined at ../src/lib/mod_rw_geom.f90 line 29
@@ -364,7 +364,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
         @property
         def energy(self):
             """
-            Element energy ftype=real(real12) pytype=float
+            Element energy ftype=real(real32) pytype=float
             
             
             Defined at ../src/lib/mod_rw_geom.f90 line 38
@@ -379,7 +379,7 @@ class Rw_Geom(f90wrap.runtime.FortranModule):
         @property
         def lat(self):
             """
-            Element lat ftype=real(real12) pytype=float
+            Element lat ftype=real(real32) pytype=float
             
             
             Defined at ../src/lib/mod_rw_geom.f90 line 38
@@ -1225,7 +1225,7 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
         @property
         def kBT(self):
             """
-            Element kBT ftype=real(real12) pytype=float
+            Element kBT ftype=real(real32) pytype=float
             
             
             Defined at ../fortran/lib/mod_distribs_container.f90 \
@@ -1284,7 +1284,7 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
         @property
         def sigma(self):
             """
-            Element sigma ftype=real(real12) pytype=float
+            Element sigma ftype=real(real32) pytype=float
             
             
             Defined at ../fortran/lib/mod_distribs_container.f90 \
@@ -1309,7 +1309,7 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
         @property
         def width(self):
             """
-            Element width ftype=real(real12) pytype=float
+            Element width ftype=real(real32) pytype=float
             
             
             Defined at ../fortran/lib/mod_distribs_container.f90 \
@@ -1334,7 +1334,7 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
         @property
         def cutoff_min(self):
             """
-            Element cutoff_min ftype=real(real12) pytype=float
+            Element cutoff_min ftype=real(real32) pytype=float
             
             
             Defined at ../fortran/lib/mod_distribs_container.f90 \
@@ -1359,7 +1359,7 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
         @property
         def cutoff_max(self):
             """
-            Element cutoff_max ftype=real(real12) pytype=float
+            Element cutoff_max ftype=real(real32) pytype=float
             
             
             Defined at ../fortran/lib/mod_distribs_container.f90 \
@@ -1384,7 +1384,7 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
         @property
         def radius_distance_tol(self):
             """
-            Element radius_distance_tol ftype=real(real12) pytype=float
+            Element radius_distance_tol ftype=real(real32) pytype=float
             
             
             Defined at ../fortran/lib/mod_distribs_container.f90 \
@@ -1970,7 +1970,7 @@ class Generator(f90wrap.runtime.FortranModule):
         @property
         def grid_spacing(self):
             """
-            Element grid_spacing ftype=real(real12) pytype=float
+            Element grid_spacing ftype=real(real32) pytype=float
             
             
             Defined at ../fortran/lib/mod_generator.f90 line \
@@ -2031,7 +2031,7 @@ class Generator(f90wrap.runtime.FortranModule):
         @property
         def method_probab(self):
             """
-            Element method_probab ftype=real(real12) pytype=float
+            Element method_probab ftype=real(real32) pytype=float
             
             
             Defined at ../src/lib/mod_generator.f90 line \

@@ -2,7 +2,7 @@ program test_distribs_container
   use raffle__error_handling, only: test_error_handling
   use raffle__distribs_container, only: &
        distribs_container_type
-  use raffle__constants, only: real12, pi
+  use raffle__constants, only: real32, pi
   use raffle__rw_geom, only: basis_type
   implicit none
 
@@ -116,15 +116,15 @@ contains
     character(len=10) :: test_name
 
     integer, dimension(3) :: nbins
-    real(real12), dimension(3) :: width, sigma, cutoff_min, cutoff_max
+    real(real32), dimension(3) :: width, sigma, cutoff_min, cutoff_max
 
     ! Test case 1: Default initialisation
     distribs_container = distribs_container_type()
     nbins = [-1, -1, -1]
-    width = [0.025_real12, pi/64._real12, pi/64._real12]
-    sigma = [0.1_real12, 0.1_real12, 0.1_real12]
-    cutoff_min = [0.5_real12, 0._real12, 0._real12]
-    cutoff_max = [6._real12, pi, pi]
+    width = [0.025_real32, pi/64._real32, pi/64._real32]
+    sigma = [0.1_real32, 0.1_real32, 0.1_real32]
+    cutoff_min = [0.5_real32, 0._real32, 0._real32]
+    cutoff_max = [6._real32, pi, pi]
     test_name = "Default"
 
     do i = 1, 2
@@ -134,25 +134,25 @@ contains
             success &
        )
        call assert( &
-            all( abs( distribs_container%width - width ) .lt. 1.E-6_real12 ), &
+            all( abs( distribs_container%width - width ) .lt. 1.E-6_real32 ), &
             trim(test_name)//" width initialisation failed", &
             success &
        )
        call assert( &
-            all( abs( distribs_container%sigma - sigma ) .lt. 1.E-6_real12 ), &
+            all( abs( distribs_container%sigma - sigma ) .lt. 1.E-6_real32 ), &
             trim(test_name)//" sigma initialisation failed", &
             success &
        )
        call assert( &
             all( abs( distribs_container%cutoff_min - cutoff_min ) .lt. &
-                 1.E-6_real12 &
+                 1.E-6_real32 &
             ), &
             trim(test_name)//" cutoff_min initialisation failed", &
             success &
        )
        call assert( &
             all( abs( distribs_container%cutoff_max - cutoff_max ) .lt. &
-                 1.E-6_real12 &
+                 1.E-6_real32 &
             ), &
             trim(test_name)//" cutoff_max initialisation failed", &
             success &
@@ -161,10 +161,10 @@ contains
        if(i.eq.2) exit
        ! Test case 2: Custom initialisation
        nbins = [10, 20, 30]
-       width = [0.05_real12, 0.1_real12, 0.15_real12]
-       sigma = [0.2_real12, 0.3_real12, 0.4_real12]
-       cutoff_min = [1.0_real12, 2.0_real12, 3.0_real12]
-       cutoff_max = [5.0_real12, 6.0_real12, 7.0_real12]
+       width = [0.05_real32, 0.1_real32, 0.15_real32]
+       sigma = [0.2_real32, 0.3_real32, 0.4_real32]
+       cutoff_min = [1.0_real32, 2.0_real32, 3.0_real32]
+       cutoff_max = [5.0_real32, 6.0_real32, 7.0_real32]
        distribs_container = distribs_container_type( &
             nbins=nbins,  &
             width=width,  &
@@ -176,8 +176,8 @@ contains
     end do
 
     write(*,*) "Testing distribs_container_type initialisation error handling"
-    cutoff_min = [6.0_real12, 6.0_real12, 6.0_real12]
-    cutoff_max = [1.0_real12, 1.0_real12, 1.0_real12]
+    cutoff_min = [6.0_real32, 6.0_real32, 6.0_real32]
+    cutoff_max = [1.0_real32, 1.0_real32, 1.0_real32]
     distribs_container = distribs_container_type( &
          cutoff_min=cutoff_min,  &
          cutoff_max=cutoff_max &
@@ -191,17 +191,17 @@ contains
     logical, intent(inout) :: success
 
     type(distribs_container_type) :: distribs_container
-    real(real12), dimension(3) :: width
+    real(real32), dimension(3) :: width
 
     ! Initialise test data
-    width = [0.05_real12, 0.1_real12, 0.15_real12]
+    width = [0.05_real32, 0.1_real32, 0.15_real32]
 
     ! Call the subroutine to set the width
     call distribs_container%set_width(width)
 
     ! Check if the width was set correctly
     call assert( &
-         all( abs( distribs_container%width - width ) .lt. 1.E-6_real12 ), &
+         all( abs( distribs_container%width - width ) .lt. 1.E-6_real32 ), &
          "Width was not set correctly", &
          success &
     )
@@ -213,17 +213,17 @@ contains
     logical, intent(inout) :: success
 
     type(distribs_container_type) :: distribs_container
-    real(real12), dimension(3) :: sigma
+    real(real32), dimension(3) :: sigma
 
     ! Initialise test data
-    sigma = [0.05_real12, 0.1_real12, 0.15_real12]
+    sigma = [0.05_real32, 0.1_real32, 0.15_real32]
 
     ! Call the subroutine to set the width
     call distribs_container%set_sigma(sigma)
 
     ! Check if the width was set correctly
     call assert( &
-         all( abs( distribs_container%sigma - sigma ) .lt. 1.E-6_real12 ), &
+         all( abs( distribs_container%sigma - sigma ) .lt. 1.E-6_real32 ), &
          "Sigma was not set correctly", &
          success &
     )
@@ -235,10 +235,10 @@ contains
     logical, intent(inout) :: success
 
     type(distribs_container_type) :: distribs_container
-    real(real12), dimension(3) :: cutoff_min
+    real(real32), dimension(3) :: cutoff_min
 
     ! Initialise test data
-    cutoff_min = [0.5_real12, 0.5_real12, 0.5_real12]
+    cutoff_min = [0.5_real32, 0.5_real32, 0.5_real32]
 
     ! Call the subroutine to set the cutoff_min
     call distribs_container%set_cutoff_min(cutoff_min)
@@ -246,7 +246,7 @@ contains
     ! Check if the cutoff_min was set correctly
     call assert( &
          all( abs( distribs_container%cutoff_min - cutoff_min ) .lt. &
-              1.E-6_real12 &
+              1.E-6_real32 &
          ), &
          "Cutoff_min was not set correctly", &
          success &
@@ -259,10 +259,10 @@ contains
     logical, intent(inout) :: success
 
     type(distribs_container_type) :: distribs_container
-    real(real12), dimension(3) :: cutoff_max
+    real(real32), dimension(3) :: cutoff_max
 
     ! Initialise test data
-    cutoff_max = [6.0_real12, 6.0_real12, 6.0_real12]
+    cutoff_max = [6.0_real32, 6.0_real32, 6.0_real32]
 
     ! Call the subroutine to set the cutoff_max
     call distribs_container%set_cutoff_max(cutoff_max)
@@ -270,7 +270,7 @@ contains
     ! Check if the cutoff_max was set correctly
     call assert( &
          all( abs( distribs_container%cutoff_max - cutoff_max ) .lt. &
-              1.E-6_real12 &
+              1.E-6_real32 &
          ), &
          "Cutoff_max was not set correctly", &
          success &
@@ -283,10 +283,10 @@ contains
     logical, intent(inout) :: success
 
     type(distribs_container_type) :: distribs_container
-    real(real12), dimension(4) :: radius_distance_tol
+    real(real32), dimension(4) :: radius_distance_tol
 
     ! Initialise test data
-    radius_distance_tol = [1.5_real12, 2.5_real12, 3.0_real12, 6.0_real12]
+    radius_distance_tol = [1.5_real32, 2.5_real32, 3.0_real32, 6.0_real32]
 
     ! Call the subroutine to set the radius_distance_tol
     call distribs_container%set_radius_distance_tol(radius_distance_tol)
@@ -296,7 +296,7 @@ contains
          all( &
               abs( &
                    distribs_container%radius_distance_tol - radius_distance_tol &
-              ) .lt. 1.E-6_real12 &
+              ) .lt. 1.E-6_real32 &
          ), &
          "Radius_distance_tol was not set correctly", &
          success &
@@ -334,7 +334,7 @@ contains
     do i = 1, size(basis_list)
        species_loop: do j = 1, basis_list(i)%nspec
           call distribs_container%set_element_energies( &
-               [ basis_list(i)%spec(1)%name ], [ -9.027_real12 ] &
+               [ basis_list(i)%spec(1)%name ], [ -9.027_real32 ] &
           )
           species_tmp = basis_list(i)%spec(j)%name(1:3)
           if(.not.allocated(elements)) then
@@ -348,8 +348,8 @@ contains
           elements = [ elements, species_tmp ]
        end do species_loop
     end do
-    num_pairs = nint(gamma(real(size(elements) + 2, real12)) / &
-                ( gamma(real(size(elements), real12)) * gamma( 3._real12 ) ) )
+    num_pairs = nint(gamma(real(size(elements) + 2, real32)) / &
+                ( gamma(real(size(elements), real32)) * gamma( 3._real32 ) ) )
 
     ! Call the create subroutine
     call distribs_container%create(basis_list, deallocate_systems=.false.)
@@ -377,8 +377,8 @@ contains
 
     ! Check element energies are set correctly
     call assert( &
-         abs( distribs_container%element_info(1)%energy + 9.027_real12 ) .lt. &
-         1.E-6_real12 , &
+         abs( distribs_container%element_info(1)%energy + 9.027_real32 ) .lt. &
+         1.E-6_real32 , &
          "element energies not set correctly",  &
          success &
     )
@@ -416,17 +416,17 @@ contains
 
     ! Check if the 2-/3-/4-body distribution functions are not zero
     call assert( &
-         any( abs( distribs_container%total%df_2body ) .gt. 1.E-6_real12 ),  &
+         any( abs( distribs_container%total%df_2body ) .gt. 1.E-6_real32 ),  &
          "2-body distribution functions are zero",  &
          success &
     )
     call assert( &
-         any( abs( distribs_container%total%df_3body ) .gt. 1.E-6_real12 ),  &
+         any( abs( distribs_container%total%df_3body ) .gt. 1.E-6_real32 ),  &
          "3-body distribution functions are zero",  &
          success &
     )
     call assert( &
-         any( abs( distribs_container%total%df_4body ) .gt. 1.E-6_real12 ),  &
+         any( abs( distribs_container%total%df_4body ) .gt. 1.E-6_real32 ),  &
          "4-body distribution functions are zero",  &
          success &
     )
@@ -453,8 +453,8 @@ contains
        call assert( &
             abs( &
                  maxval(distribs_container%total%df_2body(:,i)) - &
-                 1._real12 &
-            ) .lt. 1.E-6_real12, &
+                 1._real32 &
+            ) .lt. 1.E-6_real32, &
             "Maximum value of 2-body distribution functions is not 1",  &
             success &
        )
@@ -463,16 +463,16 @@ contains
        call assert( &
             abs( &
                  maxval(distribs_container%total%df_3body(:,i)) - &
-                 1._real12 &
-            ) .lt. 1.E-6_real12, &
+                 1._real32 &
+            ) .lt. 1.E-6_real32, &
             "Maximum value of 3-body distribution functions is not 1",  &
             success &
        )
        call assert( &
             abs( &
                  maxval(distribs_container%total%df_4body(:,i)) - &
-                 1._real12 &
-            ) .lt. 1.E-6_real12, &
+                 1._real32 &
+            ) .lt. 1.E-6_real32, &
             "Maximum value of 4-body distribution functions is not 1",  &
             success &
        )
@@ -481,19 +481,19 @@ contains
     ! Check if norm is allocated and not zero
     call assert( &
          allocated(distribs_container%norm_2body) .and. &
-         all( abs( distribs_container%norm_2body ) .gt. 1.E-6_real12 ),  &
+         all( abs( distribs_container%norm_2body ) .gt. 1.E-6_real32 ),  &
          "2-body norm is not allocated or zero",  &
          success &
     )
     call assert( &
          allocated(distribs_container%norm_3body) .and. &
-         all( abs( distribs_container%norm_3body ) .gt. 1.E-6_real12 ),  &
+         all( abs( distribs_container%norm_3body ) .gt. 1.E-6_real32 ),  &
          "3-body norm is not allocated or zero",  &
          success &
     )
     call assert( &
          allocated(distribs_container%norm_4body) .and. &
-         all( abs( distribs_container%norm_4body ) .gt. 1.E-6_real12 ),  &
+         all( abs( distribs_container%norm_4body ) .gt. 1.E-6_real32 ),  &
          "4-body norm is not allocated or zero",  &
          success &
     )
@@ -534,7 +534,7 @@ contains
     do i = 1, size(basis_list)
        species_loop: do j = 1, basis_list(i)%nspec
           call distribs_container%set_element_energies( &
-               [ basis_list(i)%spec(1)%name ], [ -9.027_real12 ] &
+               [ basis_list(i)%spec(1)%name ], [ -9.027_real32 ] &
           )
           species_tmp = basis_list(i)%spec(j)%name(1:3)
           if(.not.allocated(elements)) then
@@ -548,8 +548,8 @@ contains
           elements = [ elements, species_tmp ]
        end do species_loop
     end do
-    num_pairs = nint( gamma(real(size(elements) + 2, real12)) / &
-                ( gamma(real(size(elements), real12)) * gamma( 3._real12 ) ) )
+    num_pairs = nint( gamma(real(size(elements) + 2, real32)) / &
+                ( gamma(real(size(elements), real32)) * gamma( 3._real32 ) ) )
 
     ! Call the create subroutine
     call distribs_container%create([basis_list(1)], deallocate_systems=.false.)
@@ -657,9 +657,9 @@ contains
 
     type(distribs_container_type) :: distribs_container
     character(len=3), dimension(:), allocatable :: elements
-    real(real12), dimension(:), allocatable :: energies
+    real(real32), dimension(:), allocatable :: energies
 
-    call distribs_container%set_element_energies(['C  '], [-9.027_real12])
+    call distribs_container%set_element_energies(['C  '], [-9.027_real32])
     call distribs_container%add(basis)
 
     ! Call the get_element_energies subroutine
@@ -682,7 +682,7 @@ contains
          success &
     )
     call assert( &
-         abs(energies(1) + 9.027_real12) .lt. 1.E-6_real12,  &
+         abs(energies(1) + 9.027_real32) .lt. 1.E-6_real32,  &
          "Element energy is incorrect",  &
          success &
     )
@@ -696,9 +696,9 @@ contains
 
     type(distribs_container_type) :: distribs_container
     character(len=3), dimension(1) :: elements
-    real(real12), dimension(1) :: energies
+    real(real32), dimension(1) :: energies
 
-    call distribs_container%set_element_energies(['C  '], [-9.027_real12])
+    call distribs_container%set_element_energies(['C  '], [-9.027_real32])
     call distribs_container%add(basis)
 
     ! Call the get_element_energies_staticmem subroutine
@@ -721,7 +721,7 @@ contains
          success &
     )
     call assert( &
-         abs(energies(1) + 9.027_real12) .lt. 1.E-6_real12,  &
+         abs(energies(1) + 9.027_real32) .lt. 1.E-6_real32,  &
          "Element energy is incorrect",  &
          success &
     )
@@ -735,13 +735,13 @@ contains
 
     integer :: i
     type(distribs_container_type) :: distribs_container
-    real(real12), dimension(1) :: radii
+    real(real32), dimension(1) :: radii
     character(len=3), dimension(1,2) :: elements
-    real(real12), dimension(:), allocatable :: radii_get
+    real(real32), dimension(:), allocatable :: radii_get
     character(len=3), dimension(:,:), allocatable :: elements_get
 
     ! Initialise test data
-    radii(1) = 12.5_real12
+    radii(1) = 12.5_real32
     elements(1,:) = ['C  ', 'C  ']
 
     ! Call the subroutine to set the bond radii
@@ -773,12 +773,12 @@ contains
        )
 
        elements_get = '   '
-       radii_get = 0.0_real12
+       radii_get = 0.0_real32
        ! Get the bond radii from staticmem
        call distribs_container%get_bond_radii_staticmem(elements_get, radii_get)
     end do
 
-    radii(1) = 14.2_real12
+    radii(1) = 14.2_real32
     call distribs_container%set_bond_radii(elements, radii)
     call distribs_container%get_bond_radii(elements_get, radii_get)
 
@@ -804,7 +804,7 @@ contains
     distribs_container%nbins(1) = 10
 
     ! Check lower bound correct handling
-    bin = distribs_container%get_bin(0._real12, 1)
+    bin = distribs_container%get_bin(0._real32, 1)
     call assert( &
          bin .eq. 0,  &
          "Bin is incorrect",  &
@@ -812,7 +812,7 @@ contains
     )
 
     ! Check upper bound correct handling
-    bin = distribs_container%get_bin(100._real12, 1)
+    bin = distribs_container%get_bin(100._real32, 1)
     call assert( &
          bin .eq. 0,  &
          "Bin is incorrect",  &
@@ -820,7 +820,7 @@ contains
     )
 
     ! Check middle value correct handling
-    bin = distribs_container%get_bin(3._real12, 1)
+    bin = distribs_container%get_bin(3._real32, 1)
     call assert( &
          bin .eq. 1 + nint( (distribs_container%nbins(1) - 1) * 2.5 / 5.5 ),  &
          "Bin is incorrect",  &

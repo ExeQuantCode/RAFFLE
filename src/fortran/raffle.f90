@@ -1,12 +1,12 @@
 module raffle
-  use raffle__constants, only: real12
+  use raffle__constants, only: real32
   use generator, only: raffle_generator_type
   use raffle__distribs_container, only: distribs_container_type
   implicit none
 
 
   private
-  public :: real12
+  public :: real32
   public :: distribs_container_type
   public :: raffle_generator_type
 

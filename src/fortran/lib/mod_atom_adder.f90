@@ -9,7 +9,7 @@ module add_atom
   !! - growth: place the atom using a random walk, with last placement point
   !!        as the starting point
   !! - min:  place the atom at the gridpoint with the highest suitability
-  use raffle__constants, only: real12, pi
+  use raffle__constants, only: real32, pi
   use raffle__misc_linalg, only: modu, inverse_3x3
   use raffle__rw_geom, only: basis_type
   use extended_geom, only: extended_basis_type
@@ -47,23 +47,23 @@ contains
     !! Structure to add atom to.
     integer, dimension(3), intent(in) :: grid
     !! Number of gridpoints in each direction.
-    real(real12), dimension(3), intent(in) :: grid_offset
+    real(real32), dimension(3), intent(in) :: grid_offset
     !! Offset for gridpoints.
     integer, dimension(:,:), intent(in) :: atom_ignore_list
     !! List of atoms to ignore (i.e. indices of atoms not yet placed).
     logical, intent(out) :: viable
     !! Boolean to indicate if point is viable.
-    real(real12), dimension(3) :: point
+    real(real32), dimension(3) :: point
     !! Point to add atom to.
     
     ! Local variables
     integer :: i, j, k
     !! Loop indices.
-    real(real12), dimension(3) :: best_location
+    real(real32), dimension(3) :: best_location
     !! Index of best location to place atom.
-    real(real12) :: best_location_bond, smallest_bond
+    real(real32) :: best_location_bond, smallest_bond
     !! Bond lengths.
-    real(real12), dimension(3) :: tmpvector
+    real(real32), dimension(3) :: tmpvector
     !! Temporary vector for gridpoint.
 
    
@@ -72,8 +72,8 @@ contains
     ! ... largest void space
     !---------------------------------------------------------------------------
     viable = .false.
-    best_location = 0._real12
-    best_location_bond = -huge(1._real12)
+    best_location = 0._real32
+    best_location_bond = -huge(1._real32)
     do i = 0, grid(1) - 1, 1
        do j = 0, grid(2) - 1, 1
           do k = 0, grid(3) - 1, 1
@@ -81,7 +81,7 @@ contains
                   i + grid_offset(1), &
                   j + grid_offset(2), &
                   k + grid_offset(3) &
-             ] / real(grid,real12)
+             ] / real(grid,real32)
              smallest_bond = modu(get_min_dist(&
                   basis, tmpvector, .false., &
                   ignore_list = atom_ignore_list))
@@ -115,19 +115,19 @@ contains
     !! Structure to add atom to.
     integer, dimension(:,:), intent(in) :: atom_ignore_list
     !! List of atoms to ignore (i.e. indices of atoms not yet placed).
-    real(real12), dimension(:), intent(in) :: radius_list
+    real(real32), dimension(:), intent(in) :: radius_list
     !! List of radii for each pair of elements.
     integer, intent(in) :: max_attempts
     !! Limit on number of attempts.
     logical, intent(out) :: viable
     !! Boolean to indicate if point is viable.
-    real(real12), dimension(3) :: point
+    real(real32), dimension(3) :: point
     !! Point to add atom to.
 
     ! Local variables
     integer :: i, j, is, js
     !! Loop indices.
-    real(real12) :: rtmp1
+    real(real32) :: rtmp1
     !! random number.
     logical :: ltmp1
     !! logical variable.
@@ -196,9 +196,9 @@ contains
     !! Boolean to indicate if point is viable.
     integer, dimension(:,:), intent(in) :: atom_ignore_list
     !! List of atoms to ignore (i.e. indices of atoms not yet placed).
-    real(real12), dimension(:), intent(in) :: radius_list
+    real(real32), dimension(:), intent(in) :: radius_list
     !! List of radii for each pair of elements.
-    real(real12), dimension(3) :: point
+    real(real32), dimension(3) :: point
     !! Point to add atom to.
 
     ! Local variables
@@ -206,15 +206,15 @@ contains
     !! Loop indices.
     integer :: nattempt, nstuck
     !! Number of attempts and number of times stuck at same site
-    real(real12) :: rtmp1
+    real(real32) :: rtmp1
     !! Random number.
-    real(real12), dimension(3) :: rvec1, abc
+    real(real32), dimension(3) :: rvec1, abc
     !! Random vector and lattice constants.
-    real(real12) :: crude_norm
+    real(real32) :: crude_norm
     !! Crude normalisation.
-    real(real12) :: site_value, test_value
+    real(real32) :: site_value, test_value
     !! Viability values.
-    real(real12), dimension(3) :: site_vector, test_vector
+    real(real32), dimension(3) :: site_vector, test_vector
     !! Vectors for gridpoints.
    
 
@@ -247,15 +247,15 @@ contains
     !---------------------------------------------------------------------------
     nattempt = 0
     nstuck = 0
-    crude_norm = 0.5_real12
+    crude_norm = 0.5_real32
     walk_loop : do
        call random_number(rtmp1)
        if(nattempt.ge.10) then 
           test_vector = site_vector + &
-               ( rvec1 * 2._real12 - 1._real12 ) * 0.1_real12 / abc
+               ( rvec1 * 2._real32 - 1._real32 ) * 0.1_real32 / abc
        else
           test_vector = site_vector + &
-          ( rvec1 * 2._real12 - 1._real12 ) / abc
+          ( rvec1 * 2._real32 - 1._real32 ) / abc
        end if
        test_vector = test_vector - floor(test_vector)
 
@@ -269,7 +269,7 @@ contains
              nattempt = nattempt + 1
              if(crude_norm.lt.site_value) &
                   crude_norm = &
-                       ( crude_norm + site_value/real(nattempt) ) / 2._real12
+                       ( crude_norm + site_value/real(nattempt) ) / 2._real32
 
              ! if we have tried 10 times, and still no luck, then we need to
              ! reduce the tolerance
@@ -316,7 +316,7 @@ contains
     ! Arguments
     type(distribs_container_type), intent(in) :: distribs_container
     !! Distribution function (gvector) container.
-    real(real12), dimension(3), intent(in) :: prior_point
+    real(real32), dimension(3), intent(in) :: prior_point
     !! Point to start walk from.
     integer, intent(in) :: prior_species
     !! Species of last atom placed.
@@ -328,9 +328,9 @@ contains
     !! Boolean to indicate if point is viable.
     integer, dimension(:,:), intent(in) :: atom_ignore_list
     !! List of atoms to ignore (i.e. indices of atoms not yet placed).
-    real(real12), dimension(:), intent(in) :: radius_list
+    real(real32), dimension(:), intent(in) :: radius_list
     !! List of radii for each pair of elements.
-    real(real12), dimension(3) :: point
+    real(real32), dimension(3) :: point
     !! Point to add atom to.
 
     ! Local variables
@@ -338,17 +338,17 @@ contains
     !! Loop indices.
     integer :: nattempt, nstuck
     !! Number of attempts and number of times stuck at same site
-    real(real12) :: rtmp1, min_radius
+    real(real32) :: rtmp1, min_radius
     !! Random number and minimum radius.
-    real(real12), dimension(3) :: rvec1, abc
+    real(real32), dimension(3) :: rvec1, abc
     !! Random vector and lattice constants.
-    real(real12) :: crude_norm
+    real(real32) :: crude_norm
     !! Crude normalisation.
-    real(real12) :: site_value, test_value
+    real(real32) :: site_value, test_value
     !! Viability values.
-    real(real12), dimension(3) :: site_vector, test_vector
+    real(real32), dimension(3) :: site_vector, test_vector
     !! Vectors for gridpoints.
-    real(real12), dimension(3,3) :: inverse_lattice
+    real(real32), dimension(3,3) :: inverse_lattice
    
 
     viable = .false.
@@ -369,10 +369,10 @@ contains
          ( &
               basis%nspec - &
               min( prior_species, atom_ignore_list(1,1) &
-         ) / 2._real12 ) * &
+         ) / 2._real32 ) * &
          (  &
               min( prior_species, atom_ignore_list(1,1) ) - &
-              1._real12 &
+              1._real32 &
          ) +  max( prior_species, atom_ignore_list(1,1) ) &
     )
     min_radius = radius_list(idx) * distribs_container%radius_distance_tol(1)
@@ -387,7 +387,7 @@ contains
        call random_number(rvec1)
        ! map rvec1(1) to ring between min_radius and min_radius + 1.0
        rvec1(1) = rvec1(1) + min_radius ! r
-       rvec1(2) = rvec1(2) * 2._real12 * pi ! theta
+       rvec1(2) = rvec1(2) * 2._real32 * pi ! theta
        rvec1(3) = rvec1(3) * pi ! phi
        ! convert from spherical to cartesian
        rvec1 = [ &
@@ -415,15 +415,15 @@ contains
     !---------------------------------------------------------------------------
     nattempt = 0
     nstuck = 0
-    crude_norm = 0.5_real12
+    crude_norm = 0.5_real32
     walk_loop : do
        call random_number(rtmp1)
        if(nattempt.ge.10) then 
           test_vector = site_vector + &
-               ( rvec1 * 2._real12 - 1._real12 ) * 0.1_real12 / abc
+               ( rvec1 * 2._real32 - 1._real32 ) * 0.1_real32 / abc
        else
           test_vector = site_vector + &
-          ( rvec1 * 2._real12 - 1._real12 ) / abc
+          ( rvec1 * 2._real32 - 1._real32 ) / abc
        end if 
        test_vector = test_vector - floor(test_vector)
 
@@ -437,7 +437,7 @@ contains
              nattempt = nattempt + 1
              if(crude_norm.lt.site_value) &
                   crude_norm = &
-                       ( crude_norm + site_value/real(nattempt) ) / 2._real12
+                       ( crude_norm + site_value/real(nattempt) ) / 2._real32
 
              ! if we have tried 10 times, and still no luck, then we need to
              ! reduce the tolerance
@@ -481,9 +481,9 @@ contains
     !! Species index to add atom to.
     integer, dimension(:), intent(in) :: species_index_list
     !! List of species indices to add atoms to.
-    real(real12), dimension(:,:), intent(in) :: points
+    real(real32), dimension(:,:), intent(in) :: points
     !! List of gridpoints to consider.
-    real(real12), dimension(3) :: point
+    real(real32), dimension(3) :: point
     !! Point to add atom to.
 
     ! Local variables
@@ -528,15 +528,15 @@ contains
     !! Structure to add atom to.
     integer, dimension(3), intent(in) :: grid
     !! Number of gridpoints in each direction.
-    real(real12), dimension(:), intent(in) :: radius_list
+    real(real32), dimension(:), intent(in) :: radius_list
     !! List of radii for each pair of elements.
     integer, dimension(:), intent(in) :: species_index_list
     !! List of species indices to add atoms to.
     integer, dimension(:,:), intent(in) :: atom_ignore_list
     !! List of atoms to ignore (i.e. indices of atoms not yet placed).
-    real(real12), dimension(3), intent(in) :: grid_offset
+    real(real32), dimension(3), intent(in) :: grid_offset
     !! Offset for gridpoints.
-    real(real12), dimension(:,:), allocatable :: points
+    real(real32), dimension(:,:), allocatable :: points
     !! List of gridpoints.
 
     ! Local variables
@@ -544,9 +544,9 @@ contains
     !! Loop indices.
     integer :: num_points
     !! Number of gridpoints.
-    real(real12) :: min_radius
+    real(real32) :: min_radius
     !! Minimum radius.
-    real(real12), dimension(:,:), allocatable :: points_tmp
+    real(real32), dimension(:,:), allocatable :: points_tmp
     !! Temporary list of gridpoints.
 
 
@@ -573,7 +573,7 @@ contains
                                   j + grid_offset(2), &
                                   k + grid_offset(3) &
                              ] / &
-                                  real(grid,real12), &
+                                  real(grid,real32), &
                              [is,ia] &
                         ) .lt. &
                         min_radius &
@@ -585,11 +585,11 @@ contains
                        i + grid_offset(1), &
                        j + grid_offset(2), &
                        k + grid_offset(3) &
-                ] / real(grid,real12)
+                ] / real(grid,real32)
           end do grid_loop3
        end do grid_loop2
     end do grid_loop1
-    allocate(points( 3 + basis%nspec, num_points), source = 0._real12)
+    allocate(points( 3 + basis%nspec, num_points), source = 0._real32)
     points(1:3,:) = points_tmp(1:3,1:num_points)
 
     deallocate(points_tmp)
@@ -624,7 +624,7 @@ contains
     implicit none
 
     ! Arguments
-    real(real12), dimension(:,:), allocatable, intent(inout) :: points
+    real(real32), dimension(:,:), allocatable, intent(inout) :: points
     !! List of gridpoints.
     type(distribs_container_type), intent(in) :: distribs_container
     !! Distribution function (gvector) container.
@@ -632,7 +632,7 @@ contains
     !! Structure to add atom to.
     integer, dimension(2), intent(in) :: atom
     !! Index of atom to add.
-    real(real12), dimension(:), intent(in) :: radius_list
+    real(real32), dimension(:), intent(in) :: radius_list
     !! List of radii for each pair of elements.
     integer, dimension(:), intent(in) :: species_index_list
     !! List of species indices to add atoms to.
@@ -644,13 +644,13 @@ contains
     !! Loop indices.
     integer :: num_points
     !! Number of gridpoints.
-    real(real12) :: min_radius
+    real(real32) :: min_radius
     !! Minimum radius.
-    real(real12) :: distance
+    real(real32) :: distance
     !! Distance between atom and gridpoint.
     logical, dimension(size(points,dim=2)) :: viable
     !! Temporary list of gridpoints.
-    real(real12), dimension(:,:), allocatable :: points_tmp
+    real(real32), dimension(:,:), allocatable :: points_tmp
     !! Temporary list of gridpoints.
 
 
@@ -666,11 +666,11 @@ contains
        do i = 1, num_points
           distance = modu( matmul( atom_pos - points(1:3,i), basis%lat ) )
           if( distance .lt. min_radius )then
-             points(4:,i) = 0._real12
+             points(4:,i) = 0._real32
              viable(i) = .false.
              cycle
           elseif( distance .gt. distribs_container%cutoff_max(1) )then
-             points(4:,i) = 0._real12
+             points(4:,i) = 0._real32
              cycle
           end if
           do is = 1, size(species_index_list,1)

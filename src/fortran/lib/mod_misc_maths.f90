@@ -1,7 +1,7 @@
 module raffle__misc_maths
   !! Module for miscellaneous mathematical functions.
   use raffle__error_handling, only: stop_program
-  use raffle__constants, only: real12
+  use raffle__constants, only: real32
   implicit none
 
 
@@ -21,16 +21,16 @@ contains
     ! Arguments
     integer :: n
     !! The upper limit of the range.
-    real(real12) :: lnsum
+    real(real32) :: lnsum
     !! The sum of the logs of the integers from 1 to n.
 
     ! Local variables
     integer :: i
     !! Loop index.
 
-    lnsum = 0._real12
+    lnsum = 0._real32
     do i = 1, n
-       lnsum = lnsum + log( real(i, real12) )
+       lnsum = lnsum + log( real(i, real32) )
     end do
 
     return
@@ -57,13 +57,13 @@ contains
     implicit none
 
     ! Arguments
-    real(real12), dimension(:), intent(in) :: a
+    real(real32), dimension(:), intent(in) :: a
     !! The first array.
-    real(real12), dimension(:), intent(in) :: b
+    real(real32), dimension(:), intent(in) :: b
     !! The second array.
     logical, optional :: set_min_zero
     !! Boolean to set the maximum value of the output array to zero.
-    real(real12), dimension(size(a)) :: set_difference
+    real(real32), dimension(size(a)) :: set_difference
     !! The set difference of the two arrays.
 
     ! Local variables
@@ -86,7 +86,7 @@ contains
 
     if(set_min_zero_)then
        do i = 1, size(a,1)
-          set_difference(i) = max(0.0_real12, a(i) - b(i))
+          set_difference(i) = max(0.0_real32, a(i) - b(i))
        end do
     else
        set_difference = a - b

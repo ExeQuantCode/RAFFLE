@@ -6,7 +6,7 @@ module generator
   !! distribution functions to determine the placement of atoms in the
   !! provided host structure.
   use raffle__error_handling, only: stop_program
-  use raffle__constants, only: real12
+  use raffle__constants, only: real32
   use raffle__misc_linalg, only: modu
   use raffle__misc, only: strip_null, set
   use raffle__rw_geom, only: basis_type
@@ -55,20 +55,20 @@ module generator
     !! Host structure.
     integer, dimension(3) :: grid = [0, 0, 0]
     !! Grid to divide the host structure into along each axis.
-    real(real12), dimension(3) :: &
-         grid_offset = [0.5_real12, 0.5_real12, 0.5_real12]
+    real(real32), dimension(3) :: &
+         grid_offset = [0.5_real32, 0.5_real32, 0.5_real32]
     !! Offset of the gridpoints.
-    real(real12) :: grid_spacing = 0.1_real12
+    real(real32) :: grid_spacing = 0.1_real32
     !! Spacing of the gridpoints.
     type(distribs_container_type) :: distributions
     !! Distribution function container for the 2-, 3-, and 4-body interactions.
     integer :: max_attempts = 10000
     !! Limit for the number of attempts to place an atom.
-    real(real12) :: &
-         walk_step_size_coarse = 1._real12, &
-         walk_step_size_fine = 0.1_real12
+    real(real32) :: &
+         walk_step_size_coarse = 1._real32, &
+         walk_step_size_fine = 0.1_real32
     !! Step size for the walk and grow methods.
-    real(real12), dimension(5) :: method_probab
+    real(real32), dimension(5) :: method_probab
     !! Probability of each placement method.
     type(basis_type), dimension(:), allocatable :: structures
     !! Generated structures.
@@ -95,10 +95,10 @@ module generator
          host, &
          width, sigma, cutoff_min, cutoff_max) result(generator)
       type(basis_type), intent(in), optional :: host
-      real(real12), dimension(3), intent(in), optional :: width
-      real(real12), dimension(3), intent(in), optional :: sigma
-      real(real12), dimension(3), intent(in), optional :: cutoff_min
-      real(real12), dimension(3), intent(in), optional :: cutoff_max
+      real(real32), dimension(3), intent(in), optional :: width
+      real(real32), dimension(3), intent(in), optional :: sigma
+      real(real32), dimension(3), intent(in), optional :: cutoff_min
+      real(real32), dimension(3), intent(in), optional :: cutoff_max
       type(raffle_generator_type) :: generator
     end function init_raffle_generator
   end interface raffle_generator_type
@@ -117,15 +117,15 @@ contains
     ! Arguments
     type(basis_type), intent(in), optional :: host
     !! Basis of the host structure.
-    real(real12), dimension(3), intent(in), optional :: width
+    real(real32), dimension(3), intent(in), optional :: width
     !! Width of the gaussians used in the 2-, 3-, and 4-body 
     !! distribution functions.
-    real(real12), dimension(3), intent(in), optional :: sigma
+    real(real32), dimension(3), intent(in), optional :: sigma
     !! Width of the gaussians used in the 2-, 3-, and 4-body
     !! distribution functions.
-    real(real12), dimension(3), intent(in), optional :: cutoff_min
+    real(real32), dimension(3), intent(in), optional :: cutoff_min
     !! Minimum cutoff for the 2-, 3-, and 4-body distribution functions.
-    real(real12), dimension(3), intent(in), optional :: cutoff_max
+    real(real32), dimension(3), intent(in), optional :: cutoff_max
     !! Maximum cutoff for the 2-, 3-, and 4-body distribution functions.
 
     ! Local variables
@@ -187,9 +187,9 @@ contains
     !! Instance of the raffle generator.
     integer, dimension(3), intent(in), optional :: grid
     !! Number of bins to divide the host structure into along each axis.
-    real(real12), intent(in), optional :: grid_spacing
+    real(real32), intent(in), optional :: grid_spacing
     !! Spacing of the bins.
-    real(real12), dimension(3), intent(in), optional :: grid_offset
+    real(real32), dimension(3), intent(in), optional :: grid_offset
     !! Offset of the gridpoints.
 
     ! Local variables
@@ -249,7 +249,7 @@ contains
     !! Number of structures to generate.
     type(stoichiometry_type), dimension(:), intent(in) :: stoichiometry
     !! Stoichiometry of the structures to generate.
-    real(real12), dimension(5), intent(in), optional :: method_probab
+    real(real32), dimension(5), intent(in), optional :: method_probab
     !! Probability of each placement method.
     integer, intent(in), optional :: seed
     !! Seed for the random number generator.
@@ -263,7 +263,7 @@ contains
     !! Number of seeds for the random number generator.
     integer :: num_insert_atoms, num_insert_species
     !! Number of atoms and species to insert (from stoichiometry).
-    real(real12) :: total_probab
+    real(real32) :: total_probab
     !! Total probability of the placement methods.
     logical :: success
     !! Boolean comparison of element symbols.
@@ -271,9 +271,9 @@ contains
     !! Verbosity level.
     type(basis_type) :: basis_template
     !! Basis of the structure to generate (i.e. allocated species and atoms).
-    real(real12), dimension(5) :: &
+    real(real32), dimension(5) :: &
          method_probab_ = &
-         [1.0_real12, 0.1_real12, 0.5_real12, 0.5_real12, 1.0_real12]
+         [1.0_real32, 0.1_real32, 0.5_real32, 0.5_real32, 1.0_real32]
     !! Default probability of each placement method.
 
     integer, dimension(:), allocatable :: seed_arr
@@ -298,7 +298,7 @@ contains
     !---------------------------------------------------------------------------
     if(verbose_.gt.0) write(*,*) "Setting method probabilities"
     if(present(method_probab)) method_probab_ = method_probab
-    total_probab = real(sum(method_probab_), real12)
+    total_probab = real(sum(method_probab_), real32)
     method_probab_ = method_probab_ / total_probab
     do i = 2, 5, 1
        method_probab_(i) = method_probab_(i) + method_probab_(i-1)
@@ -354,7 +354,7 @@ contains
     do i = 1, basis_template%nspec
        allocate( &
             basis_template%spec(i)%atom(basis_template%spec(i)%num,3), &
-            source = 0._real12 &
+            source = 0._real32 &
        )
     end do
     if(.not.allocated(this%host%spec))then
@@ -461,7 +461,7 @@ contains
     !! Initial basis to build upon.
     integer, dimension(:,:), intent(in) :: placement_list
     !! List of possible placements.
-    real(real12), dimension(5) :: method_probab
+    real(real32), dimension(5) :: method_probab
     !! Probability of each placement method.
     type(extended_basis_type) :: basis
     !! Generated basis.
@@ -473,22 +473,22 @@ contains
     !! Loop counters.
     integer :: num_insert_atoms
     !! Number of atoms to insert.
-    real(real12) :: rtmp1
+    real(real32) :: rtmp1
     !! Random number.
     logical :: viable
     !! Boolean for viable placement.
     integer, dimension(size(placement_list,1),size(placement_list,2)) :: &
          placement_list_shuffled
     !! Shuffled placement list.
-    real(real12), dimension(3) :: point
+    real(real32), dimension(3) :: point
     !! Coordinate of the atom to place.
-    real(real12), dimension(5) :: method_probab_
+    real(real32), dimension(5) :: method_probab_
     !! Temporary probability of each placement method.
     !! This is used to update the probability of the global minimum method if
     !! no viable gridpoints are found.
     integer, dimension(:), allocatable :: species_index_list
     !! List of species indices to add.
-    real(real12), dimension(:,:), allocatable :: gridpoint_viability
+    real(real32), dimension(:,:), allocatable :: gridpoint_viability
     !! Viable gridpoints for placing atoms.
     character(len=256) :: stop_msg
     !! Error message.
@@ -718,10 +718,10 @@ contains
     !! Instance of the raffle generator.
     type(basis_type), intent(in) :: basis
     !! Basis of the structure to evaluate.
-    real(real12) :: viability
+    real(real32) :: viability
     !! Viability of the generated structures.
 
-    viability = 0.0_real12
+    viability = 0.0_real32
     call stop_program("Evaluate procedure not yet set up")
     return
   end function evaluate

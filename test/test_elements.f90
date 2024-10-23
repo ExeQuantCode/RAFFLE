@@ -1,7 +1,7 @@
 program test_mod_elements
   use elements
   use raffle__rw_geom, only: get_element_properties
-  use raffle__constants, only: real12
+  use raffle__constants, only: real32
   implicit none
 
   ! Local variables
@@ -46,9 +46,9 @@ program test_mod_elements
   ! Test element initialization
   element = element_type( &
        name='H  ', &
-       mass=1.008_real12, &
-       charge=0.0_real12, &
-       energy=13.6_real12 &
+       mass=1.008_real32, &
+       charge=0.0_real32, &
+       energy=13.6_real32 &
   )
   call assert( &
        trim(element%name) .eq. "H", &
@@ -56,7 +56,7 @@ program test_mod_elements
        success &
   )
   call assert( &
-       abs(element%mass - 1.008_real12) .lt. 1.E-6, &
+       abs(element%mass - 1.008_real32) .lt. 1.E-6, &
        "Element mass initialisation failed", &
        success &
   )
@@ -66,7 +66,7 @@ program test_mod_elements
        success &
   )
   call assert( &
-       abs(element%energy - 13.6_real12) .lt. 1.E-6, &
+       abs(element%energy - 13.6_real32) .lt. 1.E-6, &
        "Element energy initialisation failed", &
        success &
   )
@@ -79,17 +79,17 @@ program test_mod_elements
        success &
   )
   call assert( &
-       abs(element%mass - 12.011_real12) .lt. 1.E-6, &
+       abs(element%mass - 12.011_real32) .lt. 1.E-6, &
        "Element mass setting failed", &
        success &
   )
   call assert( &
-       abs(element%charge - 6._real12) .lt. 1.E-6, &
+       abs(element%charge - 6._real32) .lt. 1.E-6, &
        "Element charge setting failed", &
        success &
   )
   call assert( &
-       abs(element%radius - 0.76_real12) .lt. 1.E-6, &
+       abs(element%radius - 0.76_real32) .lt. 1.E-6, &
        "Element radius setting failed", &
        success &
   )
@@ -100,7 +100,7 @@ program test_mod_elements
   )
 
   ! Test bond initialisation
-  bond = element_bond_type(elements=['H  ', 'O  '], radius=0.96_real12)
+  bond = element_bond_type(elements=['H  ', 'O  '], radius=0.96_real32)
 
   ! Test setting bond properties
   call bond%set('C  ', 'O  ', in_database)

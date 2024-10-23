@@ -1,6 +1,6 @@
 module raffle__misc
   !! Module contains various miscellaneous functions and subroutines.
-  use raffle__constants, only: real12
+  use raffle__constants, only: real32
   use raffle__error_handling, only: stop_program
   implicit none
 
@@ -205,7 +205,7 @@ subroutine sort_str(list, lcase)
     implicit none
 
     ! Arguments
-    real(real12), dimension(:), intent(inout) :: arr1
+    real(real32), dimension(:), intent(inout) :: arr1
     !! Array to be sorted.
     integer, dimension(:),intent(inout),optional :: arr2
     !! Optional. Second array to be sorted.
@@ -217,7 +217,7 @@ subroutine sort_str(list, lcase)
     !! Loop index.
     integer :: ibuff
     !! Buffer for swapping elements.
-    real(real12) :: rbuff
+    real(real32) :: rbuff
     !! Buffer for swapping elements.
     logical :: reverse_
     !! Boolean whether to sort in reverse order.
@@ -260,7 +260,7 @@ subroutine sort_str(list, lcase)
     implicit none
 
     ! Arguments
-    real(real12), dimension(:), intent(inout) :: arr
+    real(real32), dimension(:), intent(inout) :: arr
     !! Array to be sorted.
     integer, intent(in) :: low, high
     !! Lower and upper bounds of the array to be sorted.
@@ -268,7 +268,7 @@ subroutine sort_str(list, lcase)
     ! Local variables
     integer :: i, j
     !! Loop indices.
-    real(real12) :: pivot, temp
+    real(real32) :: pivot, temp
     !! Pivot element and temporary buffer.
 
     if (low .lt. high) then
@@ -307,7 +307,7 @@ subroutine sort_str(list, lcase)
     implicit none
 
     ! Arguments
-    real(real12), dimension(dim,3) :: arr
+    real(real32), dimension(dim,3) :: arr
     !! Array to be sorted.
     integer, intent(in) :: dim
     !! Dimension to sort along.
@@ -317,7 +317,7 @@ subroutine sort_str(list, lcase)
     !! Loop indices.
     integer, dimension(3) :: a123
     !! Array to store the order of sorting.
-    real(real12), dimension(3) :: buff
+    real(real32), dimension(3) :: buff
     !! Buffer for swapping elements.
 
     a123(:)=(/1,2,3/)
@@ -391,9 +391,9 @@ subroutine sort_str(list, lcase)
     implicit none
 
     ! Arguments
-    real(real12), dimension(:), allocatable, intent(inout) :: arr
+    real(real32), dimension(:), allocatable, intent(inout) :: arr
     !! Array to be reduced.
-    real(real12), intent(in), optional :: tol
+    real(real32), intent(in), optional :: tol
     !! Tolerance for comparing real numbers.
     integer, dimension(:), allocatable, intent(out), optional :: count_list
     !! List of counts for each unique element.
@@ -401,9 +401,9 @@ subroutine sort_str(list, lcase)
     ! Local variables
     integer :: i,n
     !! Loop index.
-    real(real12) :: tol_
+    real(real32) :: tol_
     !! Tolerance for comparing real numbers.
-    real(real12), dimension(:), allocatable :: tmp_arr
+    real(real32), dimension(:), allocatable :: tmp_arr
     !! Temporary array for storing unique elements.
     integer, dimension(:), allocatable :: count_list_
     !! List of counts for each unique element.
@@ -412,7 +412,7 @@ subroutine sort_str(list, lcase)
     if(present(tol))then
        tol_ = tol
     else
-       tol_ = 1.E-4_real12
+       tol_ = 1.E-4_real32
     end if
     
     call quicksort(arr, 1, size(arr))
@@ -502,7 +502,7 @@ subroutine sort_str(list, lcase)
     implicit none
     
     ! Arguments
-    real(real12), dimension(:,:), intent(inout) :: arr1
+    real(real32), dimension(:,:), intent(inout) :: arr1
     !! Array to be sorted.
     integer, intent(in) :: col
     !! Column to sort along.
@@ -514,7 +514,7 @@ subroutine sort_str(list, lcase)
     !! Loop index.
     logical :: reverse_
     !! Boolean whether to sort in reverse order.
-    real(real12), allocatable, dimension(:) :: dbuff
+    real(real32), allocatable, dimension(:) :: dbuff
     !! Buffer for swapping elements.
 
 
@@ -570,11 +570,11 @@ subroutine sort_str(list, lcase)
    implicit none
 
    ! Arguments
-   real(real12), intent(inout) :: value1, value2
+   real(real32), intent(inout) :: value1, value2
    !! Reals to be swapped.
 
    ! Local variables
-   real(real12) :: rtmp1
+   real(real32) :: rtmp1
    !! Temporary buffer for swapping elements.
 
     rtmp1  = value1
@@ -610,11 +610,11 @@ subroutine sort_str(list, lcase)
     implicit none
 
     ! Arguments
-    real(real12),dimension(:), intent(inout) :: vec1, vec2
+    real(real32),dimension(:), intent(inout) :: vec1, vec2
     !! Vectors to be swapped.
 
     ! Local variables
-    real(real12),allocatable,dimension(:)::tvec
+    real(real32),allocatable,dimension(:)::tvec
     !! Temporary buffer for swapping elements.
 
     allocate(tvec(size(vec1)))
@@ -645,7 +645,7 @@ subroutine sort_str(list, lcase)
     !! Loop indices.
     integer :: i1s,i2s,i1e,i2e,j1s,j2s,j1e,j2e
     !! Indices for swapping elements.
-    real(real12) :: r
+    real(real32) :: r
     !! Random number for shuffling.
     integer, allocatable, dimension(:,:) :: tlist
     !! Temporary list for swapping elements.
@@ -693,7 +693,7 @@ subroutine sort_str(list, lcase)
     implicit none
 
     ! Arguments
-    real(real12), dimension(:,:), intent(inout) :: arr
+    real(real32), dimension(:,:), intent(inout) :: arr
     !! Array to be shuffled.
     integer, intent(in) :: dim
     !! Dimension to shuffle along.
@@ -707,9 +707,9 @@ subroutine sort_str(list, lcase)
     !! Loop indices.
     integer :: i1s,i2s,i1e,i2e,j1s,j2s,j1e,j2e
     !! Indices for swapping elements.
-    real(real12) :: r
+    real(real32) :: r
     !! Random number for shuffling.
-    real(real12), allocatable, dimension(:,:) :: tlist
+    real(real32), allocatable, dimension(:,:) :: tlist
     !! Temporary list for swapping elements.
 
 

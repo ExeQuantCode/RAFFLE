@@ -743,7 +743,7 @@ end subroutine f90wrap_raffle__dc__get_bond_radii_staticmem__binding__dc_type
 !###############################################################################
 ! initialise generalised distribution functions
 !###############################################################################
-subroutine f90wrap_raffle__dc__initialise_distribs__binding__dc_type(this)
+subroutine f90wrap_raffle__dc__initialise_gdfs__binding__dc_type(this)
     use raffle__distribs_container, only: distribs_container_type
     implicit none
     
@@ -753,8 +753,8 @@ subroutine f90wrap_raffle__dc__initialise_distribs__binding__dc_type(this)
     type(distribs_container_type_ptr_type) :: this_ptr
     integer, intent(in), dimension(2) :: this
     this_ptr = transfer(this, this_ptr)
-    call this_ptr%p%initialise_distribs()
-end subroutine f90wrap_raffle__dc__initialise_distribs__binding__dc_type
+    call this_ptr%p%initialise_gdfs()
+end subroutine f90wrap_raffle__dc__initialise_gdfs__binding__dc_type
 !###############################################################################
 
 

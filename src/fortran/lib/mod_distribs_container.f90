@@ -81,8 +81,8 @@ module raffle__distribs_container
      real(real32), dimension(:), allocatable :: &
           norm_2body, norm_3body, norm_4body
      !! Normalisation factors for the 2-, 3-, and 4-body distribution functions.
-     type(distribs_base_type) :: total !! name it best instead?
-     !! Total distribution functions for all systems.
+     type(distribs_base_type) :: gdf !! name it best instead?
+     !! Generalised distribution functions for all systems.
      !! Generated from combining the energy-weighted distribution functions
      !! of all systems
      type(distribs_host_type) :: host_system
@@ -151,10 +151,10 @@ module raffle__distribs_container
      
      procedure, pass(this) :: set_best_energy
      !! Set the best energy and system in the container.
-     procedure, pass(this) :: initialise_distribs
+     procedure, pass(this) :: initialise_gdfs
      !! Initialise the distribution functions in the container.
-     procedure, pass(this) :: set_distribs_to_default
-     !! Set the total distribution function to the default value.
+     procedure, pass(this) :: set_gdfs_to_default
+     !! Set the generalised distribution function to the default value.
      procedure, pass(this) :: evolve
      !! Evolve the learned distribution function.
      procedure, pass(this) :: write
@@ -413,9 +413,9 @@ module raffle__distribs_container
 
     this%num_evaluated = 0
     this%num_evaluated_allocated = 0
-    if(allocated(this%total%df_2body)) deallocate(this%total%df_2body)
-    if(allocated(this%total%df_3body)) deallocate(this%total%df_3body)
-    if(allocated(this%total%df_4body)) deallocate(this%total%df_4body)
+    if(allocated(this%gdf%df_2body)) deallocate(this%gdf%df_2body)
+    if(allocated(this%gdf%df_3body)) deallocate(this%gdf%df_3body)
+    if(allocated(this%gdf%df_4body)) deallocate(this%gdf%df_4body)
     if(allocated(this%norm_2body)) deallocate(this%norm_2body)
     if(allocated(this%norm_3body)) deallocate(this%norm_3body)
     if(allocated(this%norm_4body)) deallocate(this%norm_4body)
@@ -746,13 +746,13 @@ module raffle__distribs_container
     end do
 
     open(newunit=unit, file=file)
-    do i = 1,  size(this%total%df_2body, dim=2)
+    do i = 1,  size(this%gdf%df_2body, dim=2)
        write(unit,'("# ",A,2X,A)') &
             this%element_info(idx(1,i))%name, &
             this%element_info(idx(2,i))%name
-       do j = 1, size(this%total%df_2body, dim=1)
+       do j = 1, size(this%gdf%df_2body, dim=1)
           write(unit,*) this%cutoff_min(1) + this%width(1) * ( j - 1 ), &
-                        this%total%df_2body(j,i)
+                        this%gdf%df_2body(j,i)
        end do
        write(unit,*)
     end do
@@ -781,11 +781,11 @@ module raffle__distribs_container
 
 
     open(newunit=unit, file=file)
-    do i = 1,  size(this%total%df_3body, dim=2)
+    do i = 1,  size(this%gdf%df_3body, dim=2)
        write(unit,'("# ",A)') this%element_info(i)%name
-       do j = 1, size(this%total%df_3body, dim=1)
+       do j = 1, size(this%gdf%df_3body, dim=1)
           write(unit,*) this%cutoff_min(2) + this%width(2) * ( j - 1 ), &
-                        this%total%df_3body(j,i)
+                        this%gdf%df_3body(j,i)
        end do
        write(unit,*)
     end do
@@ -814,11 +814,11 @@ module raffle__distribs_container
 
 
     open(newunit=unit, file=file)
-    do i = 1,  size(this%total%df_4body, dim=2)
+    do i = 1,  size(this%gdf%df_4body, dim=2)
        write(unit,'("# ",A)') this%element_info(i)%name
-       do j = 1, size(this%total%df_4body, dim=1)
+       do j = 1, size(this%gdf%df_4body, dim=1)
           write(unit,*) this%cutoff_min(3) + this%width(3) * ( j - 1 ), &
-                        this%total%df_4body(j,i)
+                        this%gdf%df_4body(j,i)
        end do
        write(unit,*)
     end do
@@ -1737,8 +1737,8 @@ module raffle__distribs_container
 
 
 !###############################################################################
-  subroutine initialise_distribs(this)
-    !! Initialise the g-vectors for the container.
+  subroutine initialise_gdfs(this)
+    !! Initialise the distribution functions for the container.
     implicit none
 
     ! Arguments
@@ -1752,23 +1752,23 @@ module raffle__distribs_container
 
     num_pairs = nint( gamma(real(size(this%element_info) + 2, real32)) / &
          ( gamma(real(size(this%element_info), real32)) * gamma( 3._real32 ) ) )
-    allocate(this%total%df_2body(this%nbins(1),num_pairs), &
+    allocate(this%gdf%df_2body(this%nbins(1),num_pairs), &
          source = 0._real32 )
-    allocate(this%total%df_3body(this%nbins(2),size(this%element_info)), &
+    allocate(this%gdf%df_3body(this%nbins(2),size(this%element_info)), &
          source = 0._real32 )
-    allocate(this%total%df_4body(this%nbins(3),size(this%element_info)), &
+    allocate(this%gdf%df_4body(this%nbins(3),size(this%element_info)), &
          source = 0._real32 )
     allocate(this%in_dataset_2body(num_pairs), source = .false. )
     allocate(this%in_dataset_3body(size(this%element_info)), source = .false. )
     allocate(this%in_dataset_4body(size(this%element_info)), source = .false. )
 
-  end subroutine initialise_distribs
+  end subroutine initialise_gdfs
 !###############################################################################
 
 
 !###############################################################################
-  subroutine set_distribs_to_default(this, body, index)
-    !! Initialise the distribs for index of body distribution function.
+  subroutine set_gdfs_to_default(this, body, index)
+    !! Initialise the gdfs for index of body distribution function.
     implicit none
 
     ! Arguments
@@ -1781,7 +1781,7 @@ module raffle__distribs_container
 
     ! Local variables
     real(real32) :: eta, weight, height
-    !! Parameters for the g-vectors.
+    !! Parameters for the distribution functions.
     real(real32), dimension(1) :: bonds
 
 
@@ -1799,25 +1799,25 @@ module raffle__distribs_container
        if(abs(bonds(1)).lt.1.E-6)then
           call stop_program( "Bond radius is zero" )
        end if
-       this%total%df_2body(:,index) = weight * height * get_distrib( &
+       this%gdf%df_2body(:,index) = weight * height * get_distrib( &
                           bonds , &
                           this%nbins(1), eta, this%width(1), &
                           this%cutoff_min(1), &
                           scale_list = [ 1._real32 ] &
        )
     elseif( body .eq. 3 )then
-       this%total%df_3body(:,index) = 1._real32/this%nbins(2)
+       this%gdf%df_3body(:,index) = 1._real32/this%nbins(2)
     elseif( body .eq. 4 )then
-       this%total%df_4body(:,index) = 1._real32/this%nbins(3)
+       this%gdf%df_4body(:,index) = 1._real32/this%nbins(3)
     end if
 
-  end subroutine set_distribs_to_default
+  end subroutine set_gdfs_to_default
 !###############################################################################
 
 
 !###############################################################################
   subroutine evolve(this, system)
-    !! Evolve the g-vectors for the container.
+    !! Evolve the generalised distribution functions for the container.
     implicit none
 
     ! Arguments
@@ -1842,7 +1842,7 @@ module raffle__distribs_container
     integer, dimension(:,:), allocatable :: idx_list
     !! Index list for the element pairs in a system.
     real(real32), dimension(:,:), allocatable :: tmp_df
-    !! Temporary array for the g-vectors.
+    !! Temporary array for the distribution functions.
     logical, dimension(:), allocatable :: tmp_in_dataset
 
     integer, dimension(:), allocatable :: host_idx_list
@@ -1866,84 +1866,84 @@ module raffle__distribs_container
 
 
     !---------------------------------------------------------------------------
-    ! initialise the total distribution functions and get best energies from
-    ! lowest formation energy system
+    ! initialise the generalised distribution functions and get 
+    ! best energies from lowest formation energy system
     !---------------------------------------------------------------------------
-    if(.not.allocated(this%total%df_2body))then
+    if(.not.allocated(this%gdf%df_2body))then
        call this%set_best_energy()
-       call this%initialise_distribs()
+       call this%initialise_gdfs()
     else
        best_energy_pair_old = this%best_energy_pair
        best_energy_per_species_old = this%best_energy_per_species
        call this%set_best_energy()
-       do i = 1, size(this%total%df_2body,2)
-          this%total%df_2body(:,i) = this%total%df_2body(:,i) * &
+       do i = 1, size(this%gdf%df_2body,2)
+          this%gdf%df_2body(:,i) = this%gdf%df_2body(:,i) * &
                                   exp( this%best_energy_pair(i) / this%kBT ) / &
                                   exp( best_energy_pair_old(i) / this%kBT )
        end do
-       do i = 1, size(this%total%df_3body,2)
-          this%total%df_3body(:,i) = &
-               this%total%df_3body(:,i) * exp( &
+       do i = 1, size(this%gdf%df_3body,2)
+          this%gdf%df_3body(:,i) = &
+               this%gdf%df_3body(:,i) * exp( &
                     this%best_energy_per_species(i) / this%kBT &
                ) / exp( best_energy_per_species_old(i) / this%kBT )
-          this%total%df_4body(:,i) = &
-               this%total%df_4body(:,i) * exp( &
+          this%gdf%df_4body(:,i) = &
+               this%gdf%df_4body(:,i) * exp( &
                     this%best_energy_per_species(i) / this%kBT &
                ) / exp( best_energy_per_species_old(i) / this%kBT )
        end do
-       if(size(this%total%df_2body,2).ne.size(this%bond_info))then
+       if(size(this%gdf%df_2body,2).ne.size(this%bond_info))then
           allocate(tmp_df(this%nbins(1),size(this%bond_info)), &
                source = 0._real32 )
-          tmp_df(:,1:size(this%total%df_2body,2)) = this%total%df_2body
-          deallocate(this%total%df_2body)
-          call move_alloc( tmp_df, this%total%df_2body )
+          tmp_df(:,1:size(this%gdf%df_2body,2)) = this%gdf%df_2body
+          deallocate(this%gdf%df_2body)
+          call move_alloc( tmp_df, this%gdf%df_2body )
           allocate(tmp_in_dataset(size(this%bond_info)), source = .false. )
           tmp_in_dataset(1:size(this%in_dataset_2body)) = this%in_dataset_2body
           deallocate(this%in_dataset_2body)
           call move_alloc( tmp_in_dataset, this%in_dataset_2body )
        end if
-       if(size(this%total%df_3body,2).ne.size(this%element_info))then
+       if(size(this%gdf%df_3body,2).ne.size(this%element_info))then
           allocate(tmp_df(this%nbins(2),size(this%element_info)), &
                source = 0._real32 )
-          tmp_df(:,1:size(this%total%df_3body,2)) = this%total%df_3body
-          deallocate(this%total%df_3body)
-          call move_alloc( tmp_df, this%total%df_3body )
+          tmp_df(:,1:size(this%gdf%df_3body,2)) = this%gdf%df_3body
+          deallocate(this%gdf%df_3body)
+          call move_alloc( tmp_df, this%gdf%df_3body )
           allocate(tmp_in_dataset(size(this%element_info)), source = .false. )
           tmp_in_dataset(1:size(this%in_dataset_3body)) = this%in_dataset_3body
           deallocate(this%in_dataset_3body)
           call move_alloc( tmp_in_dataset, this%in_dataset_3body )
        end if
-       if(size(this%total%df_4body,2).ne.size(this%element_info))then
+       if(size(this%gdf%df_4body,2).ne.size(this%element_info))then
           allocate(tmp_df(this%nbins(3),size(this%element_info)), &
                source = 0._real32 )
-          tmp_df(:,1:size(this%total%df_4body,2)) = this%total%df_4body
-          deallocate(this%total%df_4body)
-          call move_alloc( tmp_df, this%total%df_4body )
+          tmp_df(:,1:size(this%gdf%df_4body,2)) = this%gdf%df_4body
+          deallocate(this%gdf%df_4body)
+          call move_alloc( tmp_df, this%gdf%df_4body )
           allocate(tmp_in_dataset(size(this%element_info)), source = .false. )
           tmp_in_dataset(1:size(this%in_dataset_4body)) = this%in_dataset_4body
           deallocate(this%in_dataset_4body)
           call move_alloc( tmp_in_dataset, this%in_dataset_4body )
        end if
-       do j = 1, size(this%total%df_2body,2)
+       do j = 1, size(this%gdf%df_2body,2)
           if(.not.this%in_dataset_2body(j))then
-             this%total%df_2body(:,j) = 0._real32
+             this%gdf%df_2body(:,j) = 0._real32
           else
-             this%total%df_2body(:,j) = &
-                  this%total%df_2body(:,j) * this%norm_2body(j)
+             this%gdf%df_2body(:,j) = &
+                  this%gdf%df_2body(:,j) * this%norm_2body(j)
           end if
        end do
        do is = 1, size(this%element_info)
           if(.not.this%in_dataset_3body(is))then
-             this%total%df_3body(:,is) = 0._real32
+             this%gdf%df_3body(:,is) = 0._real32
           else
-             this%total%df_3body(:,is) = &
-                  this%total%df_3body(:,is) * this%norm_3body(is)
+             this%gdf%df_3body(:,is) = &
+                  this%gdf%df_3body(:,is) * this%norm_3body(is)
           end if
           if(.not.this%in_dataset_4body(is))then
-             this%total%df_4body(:,is) = 0._real32
+             this%gdf%df_4body(:,is) = 0._real32
           else
-             this%total%df_4body(:,is) = &
-                  this%total%df_4body(:,is) * this%norm_4body(is)
+             this%gdf%df_4body(:,is) = &
+                  this%gdf%df_4body(:,is) * this%norm_4body(is)
           end if
        end do
        deallocate(this%norm_2body)
@@ -2034,15 +2034,15 @@ module raffle__distribs_container
              if(weight.lt.1.E-6) cycle
           end if
 
-          this%total%df_3body(:,idx1) = this%total%df_3body(:,idx1) + &
+          this%gdf%df_3body(:,idx1) = this%gdf%df_3body(:,idx1) + &
                set_difference( weight * this%system(i)%df_3body(:,is), &
-                               this%total%df_3body(:,idx1), &
+                               this%gdf%df_3body(:,idx1), &
                                set_min_zero = .true. &
                )
           
-          this%total%df_4body(:,idx1) = this%total%df_4body(:,idx1) + &
+          this%gdf%df_4body(:,idx1) = this%gdf%df_4body(:,idx1) + &
                set_difference( weight * this%system(i)%df_4body(:,is), &
-                               this%total%df_4body(:,idx1), &
+                               this%gdf%df_4body(:,idx1), &
                                set_min_zero = .true. &
                )
           
@@ -2069,10 +2069,10 @@ module raffle__distribs_container
                 if(weight.lt.1.E-6) cycle
              end if
 
-             this%total%df_2body(:,j) = this%total%df_2body(:,j) + &
+             this%gdf%df_2body(:,j) = this%gdf%df_2body(:,j) + &
                   set_difference( &
                        weight * this%system(i)%df_2body(:,idx_list(is,js)), &
-                       this%total%df_2body(:,j), &
+                       this%gdf%df_2body(:,j), &
                        set_min_zero = .true. &
                   )
 
@@ -2082,64 +2082,64 @@ module raffle__distribs_container
    end do
    
    !----------------------------------------------------------------------------
-   ! if not in the dataset, set g-vectors to default
+   ! if not in the dataset, set distribution functions to default
    !----------------------------------------------------------------------------
-   do j = 1, size(this%total%df_2body,2)
-      if(all(abs(this%total%df_2body(:,j)).lt.1.E-6))then
-         call this%set_distribs_to_default(2, j)
+   do j = 1, size(this%gdf%df_2body,2)
+      if(all(abs(this%gdf%df_2body(:,j)).lt.1.E-6))then
+         call this%set_gdfs_to_default(2, j)
       else
          this%in_dataset_2body(j) = .true.
       end if
    end do
    do is = 1, size(this%element_info)
-      if(all(abs(this%total%df_3body(:,is)).lt.1.E-6))then
-         call this%set_distribs_to_default(3, is)
+      if(all(abs(this%gdf%df_3body(:,is)).lt.1.E-6))then
+         call this%set_gdfs_to_default(3, is)
       else
          this%in_dataset_3body(is) = .true.
       end if
-      if(all(abs(this%total%df_4body(:,is)).lt.1.E-6))then
-         call this%set_distribs_to_default(4, is)
+      if(all(abs(this%gdf%df_4body(:,is)).lt.1.E-6))then
+         call this%set_gdfs_to_default(4, is)
       else
          this%in_dataset_4body(is) = .true.
       end if
    end do
 
-   allocate(this%norm_2body(size(this%total%df_2body,2)))
-   do j = 1, size(this%total%df_2body,2)
-      this%norm_2body(j) = maxval(this%total%df_2body(:,j))
+   allocate(this%norm_2body(size(this%gdf%df_2body,2)))
+   do j = 1, size(this%gdf%df_2body,2)
+      this%norm_2body(j) = maxval(this%gdf%df_2body(:,j))
       if(abs(this%norm_2body(j)).lt.1.E-6)then
-         call stop_program( "Zero norm for 2-body g-vector" )
+         call stop_program( "Zero norm for 2-body distribution function" )
          return
       end if
-      this%total%df_2body(:,j) = &
-           this%total%df_2body(:,j) / this%norm_2body(j)
+      this%gdf%df_2body(:,j) = &
+           this%gdf%df_2body(:,j) / this%norm_2body(j)
    end do
    allocate(this%norm_3body(size(this%element_info)))
    allocate(this%norm_4body(size(this%element_info)))
    do is = 1, size(this%element_info)
-      this%norm_3body(is) = maxval(this%total%df_3body(:,is))
+      this%norm_3body(is) = maxval(this%gdf%df_3body(:,is))
       if(abs(this%norm_3body(is)).lt.1.E-6)then
-         call stop_program( "Zero norm for 3-body g-vector" )
+         call stop_program( "Zero norm for 3-body distribution function" )
          return
       end if
-      this%norm_4body(is) = maxval(this%total%df_4body(:,is))
+      this%norm_4body(is) = maxval(this%gdf%df_4body(:,is))
       if(abs(this%norm_4body(is)).lt.1.E-6)then
-         call stop_program( "Zero norm for 4-body g-vector" )
+         call stop_program( "Zero norm for 4-body distribution function" )
          return
       end if
-      this%total%df_3body(:,is) = &
-           this%total%df_3body(:,is) / this%norm_3body(is)
-      this%total%df_4body(:,is) = &
-           this%total%df_4body(:,is) / this%norm_4body(is)
+      this%gdf%df_3body(:,is) = &
+           this%gdf%df_3body(:,is) / this%norm_3body(is)
+      this%gdf%df_4body(:,is) = &
+           this%gdf%df_4body(:,is) / this%norm_4body(is)
    end do
 
    this%num_evaluated_allocated = size(this%system)
    this%num_evaluated = this%num_evaluated + num_evaluated
 
-   this%viability_3body_default = sum( this%total%df_3body ) / &
-        real( size( this%total%df_3body ), real32 )
-   this%viability_4body_default = sum( this%total%df_4body ) / &
-        real( size( this%total%df_4body ), real32 )
+   this%viability_3body_default = sum( this%gdf%df_3body ) / &
+        real( size( this%gdf%df_3body ), real32 )
+   this%viability_4body_default = sum( this%gdf%df_4body ) / &
+        real( size( this%gdf%df_4body ), real32 )
 
   end subroutine evolve
 !###############################################################################

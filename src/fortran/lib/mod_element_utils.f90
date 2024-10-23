@@ -16,6 +16,7 @@ module raffle__element_utils
 
 
   type :: element_type
+     !! Type for storing the properties of an element.
      character(len=3) :: name
      real(real32) :: mass = 0._real32
      real(real32) :: charge = 0._real32
@@ -28,9 +29,8 @@ module raffle__element_utils
 
 
   type :: element_bond_type
+     !! Type for storing the properties of a bond between two elements.    
      real(real32) :: radius_covalent
-    !  real(real32) :: radius_vdw
-    !  integer, dimension(2) :: coordination
      character(3), dimension(2) :: element
     contains
       procedure, pass(this) :: set => set_bond
@@ -65,6 +65,9 @@ contains
 !###############################################################################
   module function init_element_type(name, mass, charge, energy) result(element)
     !! Initialise an instance of the element_type.
+    !!
+    !! This function initialises an instance of the element_type with the
+    !! provided properties.
     implicit none
 
     ! Arguments
@@ -88,6 +91,9 @@ contains
 !###############################################################################
   module function init_element_bond_type(elements, radius) result(bond)
     !! Initialise an instance of the element_bond_type.
+    !!
+    !! This function initialises an instance of the element_bond_type with the
+    !! provided properties.
     implicit none
 
     ! Arguments
@@ -109,6 +115,11 @@ contains
 !###############################################################################
   subroutine set_element(this, name, in_database)
     !! Set the element properties.
+    !!
+    !! This subroutine sets the properties of an element instance with data from
+    !! the element database.
+    !! Element properties include the mass, charge, radius, and reference energy
+    !! of the element.
     implicit none
 
     ! Arguments
@@ -148,6 +159,10 @@ contains
 !###############################################################################
   subroutine set_bond(this, element_1, element_2, in_database)
     !! Set the bond properties for a pair of elements.
+    !!
+    !! This subroutine sets the properties of a bond instance with data from
+    !! the bond database.
+    !! Bond properties include the covalent radius of the bond.
     implicit none
 
     ! Arguments

@@ -69,12 +69,14 @@ contains
 
     !---------------------------------------------------------------------------
     ! get list of element pair indices
+    ! (i.e. the index for bond_info for each element pair)
     !---------------------------------------------------------------------------
     allocate(pair_index(basis%nspec, basis%nspec), source = 0)
     do is = 1, basis%nspec
        do js = 1, basis%nspec
           pair_index(is, js) = distribs_container%get_pair_index( &
-               basis%spec(is)%name, basis%spec(js)%name )
+               basis%spec(is)%name, basis%spec(js)%name &
+          )
        end do
     end do
 

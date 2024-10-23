@@ -64,12 +64,13 @@ contains
     real(real32), dimension(3) :: tmpvector
     !! Temporary vector for gridpoint.
 
+
+    viable = .false.
    
     !---------------------------------------------------------------------------
     ! loop over all gridpoints in the unit cell and find the one with the ...
     ! ... largest void space
     !---------------------------------------------------------------------------
-    viable = .false.
     best_location = 0._real32
     best_location_bond = -huge(1._real32)
     do i = 0, grid(1) - 1, 1
@@ -91,7 +92,10 @@ contains
        end do
     end do
 
+
+    !---------------------------------------------------------------------------
     ! return the gridpoint with the largest void space
+    !---------------------------------------------------------------------------
     point = best_location
     viable = .true.
 
@@ -134,6 +138,10 @@ contains
 
     viable = .false.
 
+    !---------------------------------------------------------------------------
+    ! get list of element pair indices
+    ! (i.e. the index for bond_info for each element pair)
+    !---------------------------------------------------------------------------
     i = 0
     do is = 1, basis%nspec
        do js = is, basis%nspec, 1
@@ -143,7 +151,10 @@ contains
        end do
    end do
 
-    ! find a random gridpoint
+
+    !---------------------------------------------------------------------------
+    ! find a random gridpoint that is not too close to any other atom
+    !---------------------------------------------------------------------------
     atom_loop: do i = 1, max_attempts
        do j = 1, 3
           call random_number(rtmp1)
@@ -251,6 +262,10 @@ contains
     nstuck = 0
     crude_norm = 0.5_real32
     walk_loop : do
+       !------------------------------------------------------------------------
+       ! if we have tried 10 times, then we need to reduce the step size
+       ! get the new test point and map it back into the unit cell
+       !------------------------------------------------------------------------
        call random_number(rtmp1)
        if(nattempt.ge.10) then 
           test_vector = site_vector + &
@@ -261,10 +276,17 @@ contains
        end if
        test_vector = test_vector - floor(test_vector)
 
+       !------------------------------------------------------------------------
+       ! evaluate the test point
+       !------------------------------------------------------------------------
        test_value = evaluate_point( distribs_container, &
             test_vector, atom_ignore_list(1,1), basis, &
             atom_ignore_list, radius_list &
        )
+       !------------------------------------------------------------------------
+       ! if viability of test point is less than current point, then we
+       ! are stuck at the current point and need to try again
+       !------------------------------------------------------------------------
        if(test_value.lt.site_value) then 
           nstuck = nstuck + 1
           if(nstuck.ge.10) then
@@ -423,6 +445,10 @@ contains
     nstuck = 0
     crude_norm = 0.5_real32
     walk_loop : do
+       !------------------------------------------------------------------------
+       ! if we have tried 10 times, then we need to reduce the step size
+       ! get the new test point and map it back into the unit cell
+       !------------------------------------------------------------------------
        call random_number(rtmp1)
        if(nattempt.ge.10) then 
           test_vector = site_vector + &
@@ -433,10 +459,17 @@ contains
        end if 
        test_vector = test_vector - floor(test_vector)
 
+       !------------------------------------------------------------------------
+       ! evaluate the test point
+       !------------------------------------------------------------------------
        test_value = evaluate_point( distribs_container, &
             test_vector, atom_ignore_list(1,1), basis, &
             atom_ignore_list, radius_list &
        )
+       !------------------------------------------------------------------------
+       ! if viability of test point is less than current point, then we
+       ! are stuck at the current point and need to try again
+       !------------------------------------------------------------------------
        if(test_value.lt.site_value) then 
           nstuck = nstuck + 1
           if(nstuck.ge.10) then
@@ -502,7 +535,9 @@ contains
 
     viable = .false.
 
-    ! find the gridpoint with the highest suitability
+    !---------------------------------------------------------------------------
+    ! find the gridpoint with the highest viability
+    !---------------------------------------------------------------------------
     species_index = findloc(species_index_list, species, 1)
     best_gridpoint = maxloc(points(3+species_index,:), dim=1)
     if(best_gridpoint.eq.0)then
@@ -511,7 +546,9 @@ contains
        return
     end if
 
-    ! return the gridpoint with the highest suitability
+    !---------------------------------------------------------------------------
+    ! return the gridpoint with the highest viability
+    !---------------------------------------------------------------------------
     point = points(1:3,best_gridpoint)
     viable = .true.
    

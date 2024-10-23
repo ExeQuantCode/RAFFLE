@@ -4,9 +4,9 @@ module extended_geom
   !! This module is designed to extend the basis set to include images of atoms
   !! within a specified distance of the unit cell. This is useful for
   !! calculating interactions between atoms that are not within the unit cell.
-  use constants, only: real12, pi
-  use misc_linalg, only: modu, cross, inverse_3x3
-  use rw_geom, only: basis_type, species_type
+  use raffle__constants, only: real12, pi
+  use raffle__misc_linalg, only: modu, cross, inverse_3x3
+  use raffle__rw_geom, only: basis_type, species_type
   implicit none
 
 

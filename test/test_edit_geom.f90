@@ -1,8 +1,8 @@
 program test_edit_geom
   !! Test program for the module edit_geom.
-  use constants, only: real12
-  use rw_geom, only: basis_type
-  use misc_linalg, only: modu
+  use raffle__constants, only: real12
+  use raffle__rw_geom, only: basis_type
+  use raffle__misc_linalg, only: modu
   use edit_geom, only: &
        get_min_dist, &
        get_min_dist_between_point_and_atom, &

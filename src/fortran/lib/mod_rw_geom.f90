@@ -1,11 +1,11 @@
-module rw_geom
+module raffle__rw_geom
   !! Module to store, read and write geometry files
   !!
   !! This module contains the procedures to read and write geometry files.
   !! It also contains the derived types used to store the geometry data.
-  use constants, only: pi,real12
-  use misc_raffle, only: to_upper, to_lower, jump, icount
-  use misc_linalg, only: modu, inverse_3x3
+  use raffle__constants, only: pi,real12
+  use raffle__misc, only: to_upper, to_lower, jump, icount
+  use raffle__misc_linalg, only: modu, inverse_3x3
   implicit none
 
 
@@ -1905,4 +1905,4 @@ contains
   end subroutine get_element_properties
 !###############################################################################
 
-end module rw_geom
+end module raffle__rw_geom

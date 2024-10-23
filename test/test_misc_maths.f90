@@ -1,7 +1,7 @@
 program test_misc_maths
-  use error_handling, only: test_error_handling
-  use misc_maths
-  use constants, only: real12
+  use raffle__error_handling, only: test_error_handling
+  use raffle__misc_maths
+  use raffle__constants, only: real12
   implicit none
 
   logical :: success = .true.

@@ -4,10 +4,10 @@ module read_structures
   !! This module takes a list of directories and reads in the structures from
   !! the contained files. The structures are then converted to a set of
   !! generalised vectors (gvectors, aka distribution functions).
-  use constants, only: real12
-  use misc_raffle, only: grep
-  use misc_linalg, only: modu
-  use rw_geom, only: basis_type, geom_read, geom_write, igeom_input
+  use raffle__constants, only: real12
+  use raffle__misc, only: grep
+  use raffle__misc_linalg, only: modu
+  use raffle__rw_geom, only: basis_type, geom_read, geom_write, igeom_input
   use rw_vasprun, only: get_energy_from_vasprun, get_structure_from_vasprun
   use raffle__distribs_container, only: distribs_container_type
 #ifdef ENABLE_ATHENA

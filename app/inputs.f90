@@ -1,8 +1,8 @@
 module inputs
   !! Module for reading input files and setting global variables.
-  use misc_raffle, only: file_check,flagmaker, icount, to_lower
+  use raffle__misc, only: file_check,flagmaker, icount, to_lower
   use generator, only: stoichiometry_type
-  use constants, only: real12, verbose, pi
+  use raffle__constants, only: real12, verbose, pi
   implicit none
   
 

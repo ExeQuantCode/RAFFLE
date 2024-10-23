@@ -1,7 +1,7 @@
 module machine_learning
-  use constants, only: real12
-  use misc_linalg, only: modu
-  use rw_geom, only: basis_type
+  use raffle__constants, only: real12
+  use raffle__misc_linalg, only: modu
+  use raffle__rw_geom, only: basis_type
 #ifdef ENABLE_ATHENA
   use athena
   use athena, only: graph_type, edge_type

@@ -1,7 +1,7 @@
 program test_mod_elements
   use elements
-  use rw_geom, only: get_element_properties
-  use constants, only: real12
+  use raffle__rw_geom, only: get_element_properties
+  use raffle__constants, only: real12
   implicit none
 
   ! Local variables

@@ -1,4 +1,4 @@
-module constants
+module raffle__constants
   !! Module with global constants
   !!
   !! This module contains global constants that may be used throughout the
@@ -11,4 +11,4 @@ module constants
   real(real12), parameter, public :: INF = huge(0._real12)
   complex(real12), parameter, public :: imag=(0._real12, 1._real12)
   integer, public :: verbose = 0
-end module constants
+end module raffle__constants

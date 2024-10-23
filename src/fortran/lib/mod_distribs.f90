@@ -5,12 +5,12 @@ module raffle__distribs
   !! fucntions for individual materials.
   !! The distribution functions are used as fingerprints for atomic structures
   !! to identify similarities and differences between structures.
-  use constants, only: real12, pi
-  use error_handling, only: stop_program
-  use misc_raffle, only: strip_null, sort_str
-  use misc_maths, only: triangular_number
-  use misc_linalg, only: get_angle, get_improper_dihedral_angle, modu
-  use rw_geom, only: basis_type, get_element_properties
+  use raffle__constants, only: real12, pi
+  use raffle__error_handling, only: stop_program
+  use raffle__misc, only: strip_null, sort_str
+  use raffle__misc_maths, only: triangular_number
+  use raffle__misc_linalg, only: get_angle, get_improper_dihedral_angle, modu
+  use raffle__rw_geom, only: basis_type, get_element_properties
   use extended_geom, only: extended_basis_type
   use elements, only: &
        element_type, element_bond_type, &

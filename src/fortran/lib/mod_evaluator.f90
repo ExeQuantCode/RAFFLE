@@ -5,10 +5,10 @@ module evaluator
   !! the system with each point in the map representing the suitability of
   !! that point for a new atom. The map is built by checking the bond lengths,
   !! bond angles and dihedral angles between the test point and all atoms.
-  use constants, only: real12
-  use misc_linalg, only: modu, get_distance, get_angle, get_dihedral_angle, &
+  use raffle__constants, only: real12
+  use raffle__misc_linalg, only: modu, get_distance, get_angle, get_dihedral_angle, &
        get_improper_dihedral_angle
-  use rw_geom, only: basis_type
+  use raffle__rw_geom, only: basis_type
   use extended_geom, only: extended_basis_type
   use edit_geom, only: get_min_dist_between_point_and_atom
   use raffle__distribs_container, only: distribs_container_type

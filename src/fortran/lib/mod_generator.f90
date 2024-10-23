@@ -5,16 +5,16 @@ module generator
   !! random structures from a host structure. The raffle generator uses
   !! distribution functions to determine the placement of atoms in the
   !! provided host structure.
-  use error_handling, only: stop_program
-  use constants, only: real12
-  use misc_linalg, only: modu
-  use misc_raffle, only: strip_null, set
-  use rw_geom, only: basis_type
+  use raffle__error_handling, only: stop_program
+  use raffle__constants, only: real12
+  use raffle__misc_linalg, only: modu
+  use raffle__misc, only: strip_null, set
+  use raffle__rw_geom, only: basis_type
   use extended_geom, only: extended_basis_type
   use raffle__distribs_container, only: distribs_container_type
 
-  use constants, only: verbose_global => verbose
-  use misc_raffle, only: shuffle
+  use raffle__constants, only: verbose_global => verbose
+  use raffle__misc, only: shuffle
   use edit_geom, only: basis_merge
   use add_atom, only: &
        add_atom_void, add_atom_rand, &

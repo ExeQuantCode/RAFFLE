@@ -3,14 +3,10 @@ module raffle__viability
   !!
   !! This module contains procedures to determine the viability of a set of
   !! points and update the viability based on new atoms being added to the cell.
-  use raffle__constants, only: real32, pi
-  use raffle__misc_linalg, only: modu, inverse_3x3
-  use raffle__geom_rw, only: basis_type
+  use raffle__constants, only: real32
+  use raffle__misc_linalg, only: modu
   use extended_geom, only: extended_basis_type
-  use raffle__dist_calcs, only: &
-       get_min_dist, &
-       get_min_dist_between_point_and_atom, &
-       get_min_dist_between_point_and_species
+  use raffle__dist_calcs, only: get_min_dist_between_point_and_atom
   use evaluator, only: evaluate_point
   use raffle__distribs_container, only: distribs_container_type
   implicit none

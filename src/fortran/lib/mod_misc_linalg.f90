@@ -7,7 +7,7 @@ module raffle__misc_linalg
   private
 
   public :: modu, cross
-  public :: get_distance, get_angle, get_dihedral_angle, get_area
+  public :: get_distance, get_angle, get_dihedral_angle
   public :: get_improper_dihedral_angle
   public :: inverse_3x3
 
@@ -49,7 +49,7 @@ contains
     implicit none
 
     ! Arguments
-    real(real32), dimension(3), intent(in) :: a b
+    real(real32), dimension(3), intent(in) :: a, b
     !! Input vectors.
     real(real32), dimension(3) :: cross
     !! Output cross product.

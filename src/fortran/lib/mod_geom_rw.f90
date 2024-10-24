@@ -4,6 +4,7 @@ module raffle__geom_rw
   !! This module contains the procedures to read and write geometry files.
   !! It also contains the derived types used to store the geometry data.
   use raffle__constants, only: pi,real32
+  use raffle__io_utils, only: stop_program
   use raffle__misc, only: to_upper, to_lower, jump, icount
   use raffle__misc_linalg, only: modu, inverse_3x3
   implicit none
@@ -199,7 +200,8 @@ contains
     case(3)
        call QE_geom_read(UNIT, basis, length_)
     case(4)
-       stop "ERROR: Not yet set up for CRYSTAL"
+       call stop_program("Not yet set up for CRYSTAL")
+       return
     case(5)
        call XYZ_geom_read(UNIT, basis, length_, iostat_)
        write(0,'("WARNING: XYZ file format does not contain lattice data")')
@@ -251,8 +253,8 @@ contains
     case(3)
        call QE_geom_write(UNIT,basis)
     case(4)
-       write(0,'("ERROR: ARTEMIS not yet set up for CRYSTAL")')
-       stop
+       call stop_program("ERROR: Not yet set up for CRYSTAL")
+       return
     case(5)   
        call XYZ_geom_write(UNIT,basis)
     case(6)
@@ -475,6 +477,8 @@ contains
     !! Temporary array to store the atomic positions.
     character(len=3) :: ctmp
     !! Temporary character variable.
+    character(256) :: stop_msg
+    !! Error message.
     character(len=3), dimension(1000) :: tmp_spec
     !! Temporary array to store the species names.
     character(len=1024) :: buffer, buffer2
@@ -496,15 +500,18 @@ contains
     cellparam: do
        read(UNIT,'(A)',iostat=Reason) buffer
        if(Reason.ne.0)then
-          write(0,'(" An issue with the QE input file format &
-               &has been encountered.")')
-          write(0,'(" Exiting code ...")')
-          stop
+          call stop_program( &
+               "An issue with the QE input file format has been encountered." &
+          )
+          return
        end if
        if(index(trim(buffer),"ibrav").ne.0)then
-          write(0,'("ERROR: Internal error in QE_geom_read")')
-          write(0,'(2X,"Subroutine not yet set up to read IBRAV lattices")')
-          stop
+          write(stop_msg,*) &
+               "Internal error in QE_geom_read" // &
+               achar(13) // achar(10) // &
+               "  Subroutine not yet set up to read IBRAV lattices"
+          call stop_program(stop_msg)
+          return
        end if
        if(verify("CELL_PARAMETERS",buffer).eq.0) then
           exit cellparam
@@ -722,9 +729,10 @@ contains
              if(Reason.ne.0) exit lattice_loop
              if(scan(trim(adjustl(buffer)),'%').eq.1) exit lattice_loop
              if(itmp1.eq.5)then
-                write(0,'("ERROR: Too many lines in &
-                     &LATTICE block of structure file")')
-                stop
+                call stop_program( &
+                     "Too many lines in LATTICE block of structure file" &
+                )
+                return
              end if
              store=trim(store)//" "//trim(buffer)
           end do lattice_loop
@@ -776,8 +784,8 @@ contains
           basis_loop2: do i = 1, basis%natom
              read(UNIT,'(A)',iostat=Reason) buffer
              if(Reason.ne.0)then
-                write(0,'("ERROR: Internal error in assigning the basis")')
-                stop
+                call stop_program("Internal error in assigning the basis")
+                return
              end if
              read(buffer,*) ctmp,dvtmp1(1:3)
              species_loop: do j = 1, basis%nspec
@@ -838,6 +846,8 @@ contains
     !! Temporary arrays to store the lattice vectors.
     character(4) :: string_lat, string_bas
     !! Strings specifying lattice and basis format
+    character(len=256) :: stop_msg
+    !! Error message.
 
 
     string_lat="CART"
@@ -849,10 +859,12 @@ contains
     if(present(cartesian))then
        if(cartesian)then
           string_bas="ABS"
-          write(0,'("ERROR: Internal error in CASTEP_geom_write")')
-          write(0,'(2X,"Subroutine not yet set up to output cartesian &
-               &coordinates")')
-          stop
+          write(stop_msg,*) &
+               "Internal error in CASTEP_geom_write" // &
+               achar(13) // achar(10) // &
+               "  Subroutine not yet set up to output cartesian coordinates"
+          call stop_program(stop_msg)
+          return
        end if
     end if
 

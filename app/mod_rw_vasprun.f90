@@ -66,8 +66,10 @@ contains
     end if
     if(present(name)) then
        if(size(name) .ne. size(section)) then
-          write(0,*) 'Error in find_section: name and section must be same size'
-          stop
+          call stop_program( &
+               'name and section must be same size in find_section' &
+          )
+          return
        end if
        name_ = name
     else
@@ -99,8 +101,10 @@ contains
        read(unit, '(A)', iostat=ierror) line
        if(is_iostat_end(ierror)) exit
        if(ierror .ne. 0) then
-          write(0,*) 'Error reading vasprun.xml'
-          stop
+          call stop_program( &
+              'Issue encountered when reading vasprun.xml' &
+          )
+          return
        end if
        if(index(line, trim(section_string)) .eq. 1) then
           found = .true.
@@ -180,8 +184,10 @@ contains
        if (.not. found_) exit
        read(unit, '(A)', iostat=ierror) line
        if(ierror .ne. 0) then
-          write(0,*) 'Error reading energy from vasprun.xml'
-          stop
+          call stop_program( &
+               'Issue encountered when reading energy from vasprun.xml' &
+          )
+          return
        end if
        read(line, '(3X, A22, F16.8)') buffer, energy
        energy_list = [ energy_list, energy ]
@@ -248,7 +254,7 @@ contains
     read(unit, '(A)', iostat=ierror) line
     if(ierror .ne. 0) then
        call stop_program( &
-            'Issue encountered when reading incar from vasprun.xml' &
+            'Error encountered when reading incar from vasprun.xml' &
        )
        return
     end if
@@ -272,8 +278,8 @@ contains
          unit, section_list(2:), found_, name=name_list(2:), depth=1 &
     )
     if(.not. found_) then
-       write(0,*) 'Error finding set in vasprun.xml'
-       stop
+       call stop_program('Section "set" not found in vasprun.xml')
+       return
     end if
 
     !---------------------------------------------------------------------------
@@ -284,8 +290,10 @@ contains
        i = i + 1
        read(unit, '(A)', iostat=ierror) line
        if(ierror .ne. 0) then
-          write(0,*) 'Error reading atomtypes from vasprun.xml'
-          stop
+          call stop_program( &
+               'Error encountered when reading atomtypes from vasprun.xml' &
+          )
+          return
        end if
        if(index(line, '   </set>') .eq. 1) exit
        read( line, '(4X,A7, I4, A7, A2, A7, F16.8, A7, F16.8, A7, A40)' ) &
@@ -336,14 +344,18 @@ contains
          unit, section_list(2:), found_, name=name_list(2:), depth=1 &
     )
     if(.not. found_) then
-       write(0,*) 'Error finding structure in vasprun.xml'
-       stop
+       call stop_program( &
+            'Error encountered when finding structure in vasprun.xml' &
+       )
+       return
     end if
     do i = 1, 3
        read(unit, '(A)', iostat=ierror) line
        if(ierror .ne. 0) then
-          write(0,*) 'Error reading lattice from vasprun.xml'
-          stop
+          call stop_program( &
+               'Error encountered when reading lattice from vasprun.xml' &
+          )
+          return
        end if
        read( line, '(4X,A3,3(1X,F16.8))' ) buffer, basis%lat(i,:)
     end do
@@ -358,16 +370,20 @@ contains
          unit, section_list(3:3), found_, name=name_list(3:3), depth=2 &
     )
     if(.not. found_) then
-       write(0,*) 'Error finding structure in vasprun.xml'
-       stop
+       call stop_program( &
+            'Error encountered when finding structure in vasprun.xml' &
+       )
+       return
     end if
     ia = 0
     is = 1
     do i = 1, basis%natom
        read(unit, '(A)', iostat=ierror) line
        if(ierror .ne. 0) then
-          write(0,*) 'Error reading positions from vasprun.xml'
-          stop
+          call stop_program( &
+               'Error encountered when reading positions from vasprun.xml' &
+          )
+          return
        end if
        ia = ia + 1
        if(ia .gt. basis%spec(is)%num) then

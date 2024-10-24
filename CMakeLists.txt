@@ -42,7 +42,6 @@ set(HOME_DIR $ENV{HOME})
 # set options for building tests and examples
 option(BUILD_TESTS "Build the unit tests" ON)
 option(BUILD_EXAMPLES "Build the examples" ON)
-option(ENABLE_ATHENA "Build energetic predictions with ATHENA" OFF)
 option(BUILD_PYTHON "Build the python library" On)
 option(BUILD_EXECUTABLE "Build the Fortran executable" On)
 option(REMAKE_F90WRAP "Remake the f90wrap signature file" OFF)
@@ -95,42 +94,6 @@ set(SPECIAL_LIB_FILES
   # mod_generator_sub.f90
 )
 
-
-# Add Athena library
-if(ENABLE_ATHENA)
-
-    include(FetchContent)
-    FetchContent_Declare(
-        athena
-        GIT_REPOSITORY https://github.com/nedtaylor/athena.git
-        GIT_TAG        74e988b8538e57d57cd5c9cfaebd3181782e03dd # branch-message_passing_neural_network
-        FIND_PACKAGE_ARGS NAMES athena
-    )
-    FetchContent_MakeAvailable(athena)
-
-
-    # Specify the paths to the include and library directories
-    # set(ATHENA_ROOT ${HOME_DIR}/.local/athena)
-    # set(ATHENA_INCLUDE_DIR ${HOME_DIR}/.local/athena/include)
-    # set(ATHENA_LIBRARY ${HOME_DIR}/.local/athena/lib/libathena.a)  # or libfoo.a for static libraries
-
-    # find_library(ATHENA_LIBRARY NAMES athena)
-    find_package(athena REQUIRED)
-
-    # Add the include directory
-    include_directories(${ATHENA_INCLUDE_DIR})
-    list(APPEND LIB_FILES mod_ml.f90)
-
-    # set(F2PY_ATHENA_LIBRARY_FLAGS
-    #     -L${ATHENA_ROOT}/lib
-    #     -I${ATHENA_ROOT}/include
-    #     -lathena
-    # )
-
-    message(STATUS "Athena library: ${ATHENA_LIBRARY}")
-    message(STATUS "Athena home directory: ${athena_DIR}")
-    message(STATUS "Athena install directory: ${athena_INSTALL_DIR}")
-endif()
 
 foreach(lib ${LIB_FILES})
     list(APPEND PREPENDED_LIB_FILES ${LIB_DIR}/${lib})
@@ -325,7 +288,6 @@ if (BUILD_PYTHON)
         OUTPUT ${F2PY_OUTPUT_FILE}
         POST_BUILD
         COMMAND ${F2PY_EXECUTABLE}
-        ${F2PY_ATHENA_LIBRARY_FLAGS}
         -I${MODULE_DIR}
         -c
         -m _${PROJECT_NAME}
@@ -352,13 +314,6 @@ if (BUILD_PYTHON)
     # Installation instructions
     install(FILES ${PY_MODULE} DESTINATION .)
     install(FILES ${F2PY_OUTPUT_FILE} DESTINATION .)
-endif()
-
-
-# link the Athena library
-if(ENABLE_ATHENA)
-    add_dependencies(${PROJECT_NAME} athena)
-    target_link_libraries(${PROJECT_NAME} athena)
 endif()
 
 

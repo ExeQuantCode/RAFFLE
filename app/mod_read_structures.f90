@@ -10,12 +10,6 @@ module read_structures
   use raffle__geom_rw, only: basis_type, geom_read, geom_write, igeom_input
   use rw_vasprun, only: get_energy_from_vasprun, get_structure_from_vasprun
   use raffle__distribs_container, only: distribs_container_type
-#ifdef ENABLE_ATHENA
-  use machine_learning, only: network_setup, &
-       network_train, network_train_graph, &
-       network_predict, network_predict_graph
-  use athena, only: graph_type
-#endif
   implicit none
 
 
@@ -68,16 +62,6 @@ contains
     !! The basis of the structure.
     character(256), dimension(:), allocatable :: structure_list
     !! The list of structure files.
-#ifdef ENABLE_ATHENA
-    type(graph_type), dimension(:), allocatable :: graphs
-    !! Graph representations of the structures.
-    real(real32), dimension(:), allocatable :: &
-         labels, labels_train, labels_validate
-    !! The labels for the structures.
-    real(real32), dimension(:,:), allocatable :: &
-         dataset, data_train, data_validate
-    !! The dataset for the structures.
-#endif
 
 
     if(present(distribs_container_template)) then
@@ -128,10 +112,6 @@ contains
 
 
     num_structures = 0
-#ifdef ENABLE_ATHENA
-    allocate(graphs(0))
-    allocate(labels(0))
-#endif
     do i = 1, size(structure_list)
 
        write(*,*) "Reading structure: ", trim(adjustl(structure_list(i)))
@@ -166,10 +146,6 @@ contains
              if(trim(buffer).eq."") cycle
              backspace(unit)
              call geom_read(unit, basis)
-#ifdef ENABLE_ATHENA
-             graphs = [ graphs, get_graph_from_basis(basis) ]
-             labels = [ labels, basis%energy ]
-#endif
 
              num_structures = num_structures + 1
              write(format,'("(""Found structure: "",I4,"" with energy: "",&
@@ -199,12 +175,6 @@ contains
 
 
 100 call distribs_container%evolve()
-
-
-#ifdef ENABLE_ATHENA
-    call network_setup(num_inputs = 2, num_outputs = 1)
-    call network_train_graph(graphs(:), labels(:), num_epochs = 200)
-#endif
 
     igeom_input = 1
 

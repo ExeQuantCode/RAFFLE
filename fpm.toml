@@ -20,6 +20,3 @@ source-form = "free"
 name="raffle_executable"
 source-dir="app"
 main="main.f90"
-
-[build]
-external-modules = ["athena"]

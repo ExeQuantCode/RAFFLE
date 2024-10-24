@@ -22,11 +22,6 @@ module raffle__generator
   use raffle__viability, only: &
        get_gridpoints_and_viability, update_gridpoints_and_viability
 
-#ifdef ENABLE_ATHENA
-  use machine_learning, only: network_predict_graph, get_graph_from_basis
-  use athena, only: graph_type
-#endif
-
   implicit none
 
 
@@ -297,12 +292,6 @@ contains
     !! List of possible atoms to place in the structure.
 
 
-#ifdef ENABLE_ATHENA
-    type(graph_type), dimension(1) :: graph
-    !! Graph for machine learning.
-#endif
-
-
     if(present(verbose)) verbose_ = verbose
 
     !---------------------------------------------------------------------------
@@ -435,17 +424,9 @@ contains
             placement_list, method_probab_, verbose_ ) &
        )
        this%num_structures = istructure
-       
-#ifdef ENABLE_ATHENA
-       !------------------------------------------------------------------------
-       ! predict energy using ML
-       !------------------------------------------------------------------------
-       graph(1) = get_graph_from_basis(this%structures(istructure))
-       write(*,*) "Predicted energy", network_predict_graph(graph(1:1))
-#endif
 
     end do structure_loop
-    write(*,*) "Finished generating structures"
+    if(verbose_.gt.0) write(*,*) "Finished generating structures"
 
   end subroutine generate
 !###############################################################################

@@ -35,7 +35,7 @@ The library bas been developed and tested using the following Fortran compilers:
 To install RAFFLE, the source must be obtained from the git repository. Use the following commands to get started:
 ```
  git clone https://github.com/nedtaylor/raffle.git
- cd athena
+ cd raffle
 ```
 
 

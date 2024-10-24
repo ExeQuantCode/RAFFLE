@@ -1,5 +1,9 @@
 module inputs
   !! Module for reading input files and setting global variables.
+  !!
+  !! This module reads the input file and sets the global variables for the
+  !! program. NOTE: this module is not intended to be used in a library, it is
+  !! only included in the executable program.
   use raffle__misc, only: file_check,flagmaker, icount, to_lower
   use raffle__generator, only: stoichiometry_type
   use raffle__constants, only: real32, pi
@@ -9,7 +13,6 @@ module inputs
 
   private
 
-  public :: vdW, volvar
   public :: grid, grid_spacing, method_probab
   public :: seed
   public :: num_structures, task
@@ -26,40 +29,59 @@ module inputs
 
 
   logical :: lseed
+  !! Logical for random seed.
 
   integer :: verbose
-  integer :: seed !random seed
-  integer :: num_structures ! number of structures to generate
-  integer :: task ! task setting (defines the RAFFLE task)
-  type(stoichiometry_type), dimension(:), allocatable :: stoich ! stoichiometry of species to add
-
-  integer :: vdW, volvar
+  !! Verbose printing.
+  integer :: seed
+  !! Random seed.
+  integer :: num_structures
+  !! Number of structures to generate.
+  integer :: task
+  !! Task to perform (0 = run, 1 = continue).
+  type(stoichiometry_type), dimension(:), allocatable :: stoich
+  !! Stoichiometry of species to add
 
   real(real32), dimension(3) :: cutoff_min_list, cutoff_max_list
+  !! Cutoff values for distribution functions.
   real(real32), dimension(3) :: width_list, sigma_list
+  !! Width and sigma values for distribution functions.
 
   real(real32), dimension(:), allocatable :: element_energies
+  !! Element reference energies.
   real(real32), dimension(:), allocatable :: pair_radii
+  !! Element pair radii.
   character(3), dimension(:), allocatable :: element_symbols
+  !! Element symbols.
   character(3), dimension(:,:), allocatable :: bond_pairs
+  !! Element symbol pairs for pair_radii.
 
   integer, dimension(3) :: grid = [0, 0, 0]
+  !! Grid dimensions.
   real(real32) :: grid_spacing = 0._real32
+  !! Grid spacing.
   real(real32), dimension(5) :: method_probab = &
        [1._real32, 0.1_real32, 0.5_real32, 0.5_real32, 1._real32]
+  !! Placement method probabilities.
 
-  character(1024), dimension(:), allocatable :: database_list ! list of directories containing input database
-  character(1024) :: database_format !format of input file (POSCAR, XYZ, etc.
-  character(1024) :: filename_host !host structure filename
-  character(1024) :: output_dir !output directory
-
+  character(1024), dimension(:), allocatable :: database_list
+  !! List of directories containing input database.
+  character(1024) :: database_format
+  !! Format of input file (POSCAR, XYZ, etc).
+  character(1024) :: filename_host
+  !! Host structure filename.
+  character(1024) :: output_dir
+  !! Output directory.
 
 
 contains
 
 !###############################################################################
   subroutine set_global_vars()
-    !! Set global variables from input file.
+    !! Set global variables for the program.
+    !!
+    !! This subroutine reads the flags from the command line and sets the global
+    !! variables for the program.
     implicit none
 
     ! Local variables
@@ -82,7 +104,7 @@ contains
     seed = 1
 
     !---------------------------------------------------------------------------
-    ! Reads flags and assigns to variables
+    ! read flags and assign to variables
     !---------------------------------------------------------------------------
     flagloop: do i=0,command_argument_count()
        empty=.false.
@@ -93,7 +115,7 @@ contains
        call get_command_argument(i,buffer)
        buffer=trim(buffer)
        !------------------------------------------------------------------------
-       ! FILE AND DIRECTORY FLAGS
+       ! file and directory flags
        !------------------------------------------------------------------------
        if(index(buffer,'-f').eq.1)then
           flag="-f"
@@ -101,7 +123,10 @@ contains
           if(.not.empty)then
              read(buffer,'(A)') input_file
           else
-             write(6,'("ERROR: No input filename supplied, but the flag ''-f'' was used")')
+             write(0,'("&
+                  &ERROR: No input filename supplied, &
+                  &but the flag ''-f'' was used&
+             &")')
              infilename_do: do j=1,3
                 write(6,'("Please supply an input filename:")')
                 read(5,'(A)') input_file
@@ -109,21 +134,21 @@ contains
                    write(6,'("Input filename supplied")')
                    exit infilename_do
                 else
-                   write(6,'(1X,"Not a valid filename")')
+                   write(0,'(1X,"Not a valid filename")')
                 end if
                 if(j.eq.3)then
-                   write(0,*) "ERROR: No valid input filename supplied"
-                   stop "Exiting..."
+                   call stop_program("No valid input filename supplied")
+                   return
                 end if
              end do infilename_do
           end if
        !------------------------------------------------------------------------
-       ! VERBOSE PRINTS
+       ! verbose flags
        !------------------------------------------------------------------------
        elseif(index(buffer,'-v').eq.1)then
           flag="-v"
           call print_build_info()
-          stop 0
+          stop
        elseif(index(buffer,'--verbose').eq.1)then
           flag="--verbose"
           call flagmaker(buffer,flag,i,skip,empty)
@@ -133,7 +158,9 @@ contains
           write(6,'(2X,"-h              : Prints the help for each flag.")')
           write(6,'(2X,"-v              : Verbose printing.")')
           write(6,'("-----------------FILE-NAME-FLAGS-----------------")')
-          write(6,'(2X,"-f<STR>         : Input structure file name (Default = (empty)).")')
+          write(6,'(2X,"-f<STR>         : Input structure file name (&
+               &Default = (empty)&
+          &).")')
           stop
        end if
     end do flagloop
@@ -167,10 +194,11 @@ contains
 
 
 !###############################################################################
-! read input file to get variables
-!###############################################################################
   subroutine read_input_file(file_name)
     !! Read input file to get variables.
+    !!
+    !! This subroutine reads a namelist input file to get the variables for the
+    !! program.
     implicit none
 
     ! Arguments
@@ -205,7 +233,6 @@ contains
                             database_format, database, verbose, output_dir
     namelist /placement_method/ void, rand, walk, grow, min
     namelist /structure/    num_structures,stoichiometry
-    namelist /volume/       vdW, volvar
     namelist /distribution/ cutoff_min, cutoff_max, width, sigma
     namelist /element_info/ energies, bond_radii
 
@@ -217,6 +244,9 @@ contains
     call file_check(unit,file_name)
 
 
+    !---------------------------------------------------------------------------
+    ! initialise variables
+    !---------------------------------------------------------------------------
     output_dir = "iteration1"
     cutoff_min = "-1.0"
     cutoff_max = "-1.0"
@@ -226,6 +256,8 @@ contains
     void = 0._real32; rand = 0._real32
     walk = 0._real32; grow = 0._real32
     min = 0._real32
+
+
     !---------------------------------------------------------------------------
     ! read namelists from input file
     !---------------------------------------------------------------------------
@@ -235,25 +267,37 @@ contains
     end if
     read(unit,NML=placement_method,iostat=iostat)
     if(.not.is_iostat_end(iostat).and.iostat.ne.0)then
-       stop "THERE WAS AN ERROR IN READING PLACEMENT_METHOD SETTINGS"
+       call stop_program( &
+            "THERE WAS AN ERROR IN READING PLACEMENT_METHOD SETTINGS" &
+       )
+       return
     end if
     read(unit,NML=structure,iostat=iostat)
     if(.not.is_iostat_end(iostat).and.iostat.ne.0)then
-       stop "THERE WAS AN ERROR IN READING STRUCTURE SETTINGS"
-    end if
-    read(unit,NML=volume,iostat=iostat)
-    if(.not.is_iostat_end(iostat).and.iostat.ne.0)then
-       stop "THERE WAS AN ERROR IN READING VOLUME SETTINGS"
+      call stop_program( &
+           "THERE WAS AN ERROR IN READING STRUCTURE SETTINGS" &
+      )
+      return
     end if
     read(unit,NML=distribution,iostat=iostat)
     if(.not.is_iostat_end(iostat).and.iostat.ne.0)then
-       stop "THERE WAS AN ERROR IN READING DISTRIBUTION SETTINGS"
+      call stop_program( &
+           "THERE WAS AN ERROR IN READING DISTRIBUTION SETTINGS" &
+      )
+      return
     end if
     read(unit,NML=element_info,iostat=iostat)
     if(.not.is_iostat_end(iostat).and.iostat.ne.0)then
-       stop "THERE WAS AN ERROR IN READING ELEMENT_INFO SETTINGS"
+      call stop_program( &
+           "THERE WAS AN ERROR IN READING ELEMENT_INFO SETTINGS" &
+      )
+      return
     end if
 
+
+    !---------------------------------------------------------------------------
+    ! handle variables
+    !---------------------------------------------------------------------------
     if(trim(database).ne."")then
        allocate(database_list(icount(database)))
        read(database,*) database_list
@@ -285,7 +329,8 @@ contains
           l_pos = scan(stoichiometry(l_pos+1:),",") + l_pos
        end do
     else
-       stop "No stoichiometry specified"
+       call stop_program("No stoichiometry specified")
+       return
     end if
 
 
@@ -302,11 +347,12 @@ contains
          l_pos = scan(energies(l_pos+1:),",") + l_pos
       end do
     else
-       stop "No element energies specified"
+       call stop_program("No element energies specified")
+       return
     end if
 
 
-    if(trim(bond_radii).ne."")then !! PAIR_RADII instead?
+    if(trim(bond_radii).ne."")then
        num_bonds = icount(bond_radii,",")
        allocate(bond_pairs(num_bonds,2))
        allocate(pair_radii(num_bonds))
@@ -350,7 +396,7 @@ contains
 
 !###############################################################################
   function read_value_from_string(string) result(output)
-    !! Read a value from a string.
+    !! Read a formatted numeric from a string.
     implicit none
 
     ! Arguments

@@ -1,10 +1,15 @@
 program raffle_program
-  !! Main program for the interface-based random structure search
+  !! Main program for the interface-based random structure search.
+  !!
+  !! This program generates random structures based on the host structure and
+  !! the distribution functions of the elements and bonds. The structures are
+  !! generated using a random structure generator, which is based on the
+  !! the RAFFLE method.
   use raffle__constants, only: real32
   use raffle__io_utils, only: stop_program
   use raffle__misc, only: touch
   use inputs
-  use read_structures, only: get_evolved_gvectors_from_data
+  use read_structures, only: get_gdfs_from_data
   use raffle, only: raffle_generator_type, distribs_container_type
   use raffle__geom_rw, only: geom_read, geom_write
   implicit none
@@ -35,8 +40,8 @@ program raffle_program
   !-----------------------------------------------------------------------------
   ! check the task and run the appropriate case
   !-----------------------------------------------------------------------------
-  ! 0) Run RSS
-  ! 1) Continue RSS
+  ! 0) Run structure search
+  ! 1) Continue structure search
   select case(task)
   case(0)
      allocate(character(len=len_trim(output_dir)+1) :: next_dir)
@@ -75,14 +80,15 @@ program raffle_program
   !-----------------------------------------------------------------------------
   ! read structures from the database and generate gvectors
   !-----------------------------------------------------------------------------
-  generator%distributions = get_evolved_gvectors_from_data( &
+  generator%distributions = get_gdfs_from_data( &
        input_dir    = database_list, &
        file_format  = database_format, &
        distribs_container_template = distribs_container_type(&
             width = width_list, &
             sigma = sigma_list, &
             cutoff_min = cutoff_min_list, &
-            cutoff_max = cutoff_max_list ) )
+            cutoff_max = cutoff_max_list ) &
+  )
 
   call generator%distributions%write_2body(file="2body.txt")
   call generator%distributions%write_3body(file="3body.txt")

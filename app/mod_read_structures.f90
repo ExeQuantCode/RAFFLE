@@ -4,7 +4,10 @@ module read_structures
   !! This module takes a list of directories and reads in the structures from
   !! the contained files. The structures are then converted to a set of
   !! generalised vectors (gvectors, aka distribution functions).
+  !! NOTE: This does not currently handle relaxations in POSCAR/CONTCAR format.
+  !! NOTE: This does not currently restart from a printed distribs_container.
   use raffle__constants, only: real32
+  use raffle__io_utils, only: stop_program
   use raffle__misc, only: grep
   use raffle__misc_linalg, only: modu
   use raffle__geom_rw, only: basis_type, geom_read, geom_write, igeom_input
@@ -15,16 +18,17 @@ module read_structures
 
   private
 
-  public :: get_evolved_gvectors_from_data
+  public :: get_gdfs_from_data
 
 
 contains
 
 !###############################################################################
-  function get_evolved_gvectors_from_data(input_dir, &
-       file_format, distribs_container_template) &
-       result(distribs_container)
-    !! Read structures from the input directories and evolve them to gvectors.
+  function get_gdfs_from_data(input_dir, &
+       file_format, distribs_container_template &
+  ) result(distribs_container)
+    !! Read structures from the input directories and generate the generalised
+    !! distribution functions.
     implicit none
 
     ! Arguments
@@ -34,7 +38,7 @@ contains
          distribs_container_template
     !! Optional. A template distribs_container to be used.
     type(distribs_container_type), allocatable :: distribs_container
-    !! The distribs_container containing the evolved gvectors.
+    !! The distribs_container containing the distribution functions.
     character(*), intent(in), optional :: file_format
     !! Optional. The format of the input files. Default is vasprun.xml.
 
@@ -60,10 +64,17 @@ contains
     !! I/O status.
     type(basis_type) :: basis
     !! The basis of the structure.
+    type(basis_type), dimension(:), allocatable :: basis_list
+    !! The list of bases.
+    character(256) :: stop_msg
+    !! The stop message.
     character(256), dimension(:), allocatable :: structure_list
     !! The list of structure files.
 
 
+    !---------------------------------------------------------------------------
+    ! handle optional arguments
+    !---------------------------------------------------------------------------
     if(present(distribs_container_template)) then
        distribs_container = distribs_container_template
     else
@@ -81,43 +92,54 @@ contains
           ifile_format = 2
           igeom_input = 6
        case default
-          write(*,*) "Unknown file format: ", file_format
-          stop
+          write(stop_msg,'("Unknown file format: ",A)') file_format
+          call stop_program(stop_msg)
+          return
        end select
     else
        ifile_format = 0
     end if
 
+
+    !---------------------------------------------------------------------------
+    ! read the list of structure files from the input directories
+    !---------------------------------------------------------------------------
     ! inquire(file='distribs_container.dat', exist=success)
     ! if(success) then
     !    call distribs_container%read('distribs_container.dat')
     !    goto 100
     ! end if
-    ! ! For each new run of the code, it should populate a new directory and ...
-    ! ! ... add to the existing ones.
-    ! ! And it should check that output_dir never equals any of the input_dirs (or database_dirs)
     select rank(input_dir)
     rank(0)
        structure_list = [ get_structure_list( input_dir, ifile_format ) ]
     rank(1)
        do i = 1, size(input_dir)
          if(i.eq.1)then
-            structure_list = [ get_structure_list( input_dir(i), ifile_format ) ]
+            structure_list = [ &
+                 get_structure_list( input_dir(i), ifile_format ) &
+            ]
          else
-            structure_list = [ structure_list, &
-                               get_structure_list( input_dir(i), ifile_format )]
+            structure_list = [ &
+                 structure_list, &
+                 get_structure_list( input_dir(i), ifile_format ) &
+            ]
          end if
        end do
     end select
 
 
+    !---------------------------------------------------------------------------
+    ! read the structures from the list of files
+    !---------------------------------------------------------------------------
     num_structures = 0
     do i = 1, size(structure_list)
-
        write(*,*) "Reading structure: ", trim(adjustl(structure_list(i)))
        select case(ifile_format)
        case(0) ! vasprun.xml
-          open(newunit=unit, file=trim(adjustl(structure_list(i)))//"/vasprun.xml")
+          open( &
+               newunit=unit, &
+               file=trim(adjustl(structure_list(i)))//"/vasprun.xml" &
+          )
           write(*,*) "Reading structures from xml"
           basis%energy = get_energy_from_vasprun(unit, success)
           if(.not.success) cycle
@@ -125,19 +147,22 @@ contains
           call get_structure_from_vasprun(unit, basis, success)
           if(.not.success) cycle
           close(unit)
-       case(1)
+       case(1) ! POSCAR/OUTCAR
           open(newunit=unit, file=trim(adjustl(structure_list(i)))//"/POSCAR")
           write(*,*) "Reading structures from POSCAR"
           call geom_read(unit, basis)
           close(unit)
           open(newunit=unit, file=trim(adjustl(structure_list(i)))//"/OUTCAR")
-          call grep(unit, 'free  energy   TOTEN  =', lline=.false., success=success)
+          call grep( &
+               unit, 'free  energy   TOTEN  =', &
+               lline=.false., success=success &
+          )
           if(.not.success) cycle
           backspace(unit)
           read(unit,*) buffer, buffer, buffer, buffer, energy
           close(unit)
           basis%energy = energy
-       case(2)
+       case(2) ! extended xyz
           open(newunit=unit, file=trim(adjustl(structure_list(i))))
           write(*,*) "Reading structures from xyz"
           do
@@ -163,22 +188,19 @@ contains
        write(*,*) &
             "Found structure: ", trim(adjustl(structure_list(i))), &
             " with energy: ", basis%energy
-       call distribs_container%add(basis)
+       basis_list = [ basis_list, basis ]
        num_structures = num_structures + 1
-      
-       ! ! STORE THE ENERGY IN AN ARRAY
-       ! probably new structure format of crystal
-       ! where crystal contains lattice, basis, and energy
-       ! ! DO SOMETHING ABOUT NESTED RELAXATIONS
     end do
 
 
-
-100 call distribs_container%evolve()
+    !---------------------------------------------------------------------------
+    ! generate the generalised distribution functions
+    !---------------------------------------------------------------------------
+    call distribs_container%create(basis_list)
 
     igeom_input = 1
 
-  end function get_evolved_gvectors_from_data
+  end function get_gdfs_from_data
 !###############################################################################
 
 
@@ -202,10 +224,15 @@ contains
     !! I/O status.
     character(256) :: name
     !! The name of the structure file.
+    character(256) :: stop_msg
+    !! The stop message.
     logical :: file_exists, addit_file_exists, structures_found
     !! Booleans for file existence.
 
 
+    !---------------------------------------------------------------------------
+    ! get the list of structure files using the command line
+    !---------------------------------------------------------------------------
     structures_found = .false.
     call execute_command_line( &
          "ls "//trim(adjustl(input_dir))//"/. >structures.txt", wait = .TRUE. )
@@ -240,10 +267,11 @@ contains
     close(unit)
 
     if(.not.structures_found) then
-       write(*,'("No structures found in directory: """,A, &
+       write(stop_msg,'("No structures found in directory: """,A, &
             &""" with format: ",I0)') &
             trim(input_dir), ifile_format
-       stop 0
+       call stop_program(stop_msg)
+       return
     end if
 
   end function get_structure_list

@@ -81,7 +81,7 @@ module raffle__distribs_container
      real(real32), dimension(:), allocatable :: &
           norm_2body, norm_3body, norm_4body
      !! Normalisation factors for the 2-, 3-, and 4-body distribution functions.
-     type(distribs_base_type) :: gdf !! name it best instead?
+     type(distribs_base_type) :: gdf
      !! Generalised distribution functions for all systems.
      !! Generated from combining the energy-weighted distribution functions
      !! of all systems
@@ -93,10 +93,6 @@ module raffle__distribs_container
      !! Information about the elements in the container.
      type(element_bond_type), dimension(:), allocatable :: bond_info
      !! Information about the 2-body bonds in the container.
-
-     !! @note
-     !! Defaults for distribution function parametsr are randomly chosen for now.
-     !! @endnote
    contains
      procedure, pass(this) :: set_width
      !! Set the width of the bins used in the 2-, 3-, and 4-body.

@@ -44,8 +44,8 @@ program test_edit_geom
   rtmp2 = modu(loc)
 
   if ( abs(rtmp1 - rtmp2) .gt. 1.E-6 ) then
-    write(0,*) 'get_min_dist failed'
-    success = .false.
+     write(0,*) 'get_min_dist failed'
+     success = .false.
   end if
 
 
@@ -60,8 +60,8 @@ program test_edit_geom
   rtmp2 = modu(loc)
 
   if ( abs(rtmp1 - rtmp2) .gt. 1.E-6 ) then
-    write(0,*) 'get_min_dist_between_point_and_atom failed'
-    success = .false.
+     write(0,*) 'get_min_dist_between_point_and_atom failed'
+     success = .false.
   end if
 
 

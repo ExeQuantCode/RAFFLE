@@ -176,8 +176,8 @@ contains
     open( newunit=unit, file='iter_count.txt', &
          status='old', action='read', iostat=ierror)
     if (ierror .ne. 0) then
-      call stop_program('Opening pipe to list directories')
-      return
+       call stop_program('Opening pipe to list directories')
+       return
     end if
 
     ! Read the output of the command and get number of directories

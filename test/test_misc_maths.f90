@@ -47,7 +47,7 @@ contains
               ) &
          ) .lt. 1.E-6_real32, &
          'lnsum failed', &
-          success &
+         success &
     )
   end subroutine test_lnsum
 
@@ -108,8 +108,8 @@ contains
     character(len=*), intent(in) :: message
     logical, intent(inout) :: success
     if (.not. condition) then
-      write(0,*) "Test failed: ", message
-      success = .false.
+       write(0,*) "Test failed: ", message
+       success = .false.
     end if
   end subroutine assert
 

@@ -8,12 +8,10 @@ module raffle__generator
   use raffle__io_utils, only: stop_program
   use raffle__constants, only: real32
   use raffle__misc_linalg, only: modu
-  use raffle__misc, only: strip_null, set
+  use raffle__misc, only: strip_null, set, shuffle
   use raffle__geom_rw, only: basis_type
   use raffle__geom_extd, only: extended_basis_type
   use raffle__distribs_container, only: distribs_container_type
-
-  use raffle__misc, only: shuffle
   use raffle__geom_utils, only: basis_merge
   use raffle__place_methods, only: &
        place_method_void, place_method_rand, &
@@ -614,7 +612,7 @@ contains
                   basis, &
                   placement_list_shuffled(iplaced+1:,:), &
                   [ this%distributions%bond_info(:)%radius_covalent ], &
-                   this%max_attempts, &
+                  this%max_attempts, &
                   viable &
              )
           else

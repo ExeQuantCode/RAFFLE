@@ -71,10 +71,10 @@ program test_evaluator
         else
            call get_command_argument(i-1, arg_prev, status=iostat)
            if( index(arg,'-p').eq.1 .or. index(arg,'--print').eq.1 ) then
-               viability_printing_file = trim(adjustl(arg))
+              viability_printing_file = trim(adjustl(arg))
            else
-               write(0,*) "Unknown argument: ", arg
-               stop 1
+              write(0,*) "Unknown argument: ", arg
+              stop 1
            end if
         end if
         i = i + 1
@@ -113,8 +113,8 @@ program test_evaluator
   element_symbols(1) = 'C'
   element_energies(1) = -9.0266865
   call generator%distributions%set_element_energies( &
-      element_symbols, &
-      element_energies &
+       element_symbols, &
+       element_energies &
   )
 
 
@@ -284,14 +284,14 @@ contains
 !###############################################################################
 
   subroutine assert(condition, message, success)
-     implicit none
-     logical, intent(in) :: condition
-     character(len=*), intent(in) :: message
-     logical, intent(inout) :: success
-     if (.not. condition) then
+    implicit none
+    logical, intent(in) :: condition
+    character(len=*), intent(in) :: message
+    logical, intent(inout) :: success
+    if (.not. condition) then
        write(0,*) "Test failed: ", message
        success = .false.
-     end if
-   end subroutine assert
+    end if
+  end subroutine assert
 
 end program test_evaluator

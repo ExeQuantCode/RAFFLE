@@ -73,14 +73,14 @@ contains
                    do l = 1, size(atom_ignore_list,dim=1), 1
                       if(all(atom_ignore_list(l,:).eq.[is,ia])) cycle atom_loop
                    end do
-                   if( get_min_dist_between_point_and_atom( &
+                   if( &
+                        get_min_dist_between_point_and_atom( &
                              basis, &
                              [ &
                                   i + grid_offset(1), &
                                   j + grid_offset(2), &
                                   k + grid_offset(3) &
-                             ] / &
-                                  real(grid,real32), &
+                             ] / real(grid,real32), &
                              [is,ia] &
                         ) .lt. &
                         min_radius &
@@ -89,10 +89,10 @@ contains
              end do
              num_points = num_points + 1
              points_tmp(:,num_points) = [ &
-                       i + grid_offset(1), &
-                       j + grid_offset(2), &
-                       k + grid_offset(3) &
-                ] / real(grid,real32)
+                  i + grid_offset(1), &
+                  j + grid_offset(2), &
+                  k + grid_offset(3) &
+             ] / real(grid,real32)
           end do grid_loop3
        end do grid_loop2
     end do grid_loop1

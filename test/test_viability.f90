@@ -207,8 +207,8 @@ contains
     character(len=*), intent(in) :: message
     logical, intent(inout) :: success
     if (.not. condition) then
-      write(0,*) "Test failed: ", message
-      success = .false.
+       write(0,*) "Test failed: ", message
+       success = .false.
     end if
   end subroutine assert
 

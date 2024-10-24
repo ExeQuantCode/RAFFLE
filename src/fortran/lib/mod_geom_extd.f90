@@ -80,9 +80,11 @@ contains
 
 
     spec_loop: do is=1,this%nspec
-       allocate( image_species(is)%atom( &
-            this%spec(is)%num*(2*amax+2)*(2*bmax+2)*(2*cmax+2), &
-            size(this%spec(is)%atom,2) ) &
+       allocate( &
+            image_species(is)%atom( &
+                 this%spec(is)%num*(2*amax+2)*(2*bmax+2)*(2*cmax+2), &
+                 size(this%spec(is)%atom,2) &
+            ) &
        )
        image_species(is)%num = 0
        image_species(is)%mass = this%spec(is)%mass
@@ -113,7 +115,6 @@ contains
     end do spec_loop
 
 
-   !  this%nspec_images = count(image_species%num.gt.0)
     allocate(this%image_spec(this%nspec))
     do is = 1, this%nspec
        this%image_spec(is)%num = image_species(is)%num
@@ -174,10 +175,12 @@ contains
     do i = 1, this%nspec
        if ( size(this%spec(i)%atom,2) .gt. dim) dim =  size(this%spec(i)%atom,2)
     end do
-    allocate( image_species%atom( &
-         num_images + &
-         (2*amax+2)*(2*bmax+2)*(2*cmax+2), &
-         dim ) &
+    allocate( &
+         image_species%atom( &
+              num_images + &
+              (2*amax+2)*(2*bmax+2)*(2*cmax+2), &
+              dim &
+         ) &
     )
     if( num_images .ne. 0 ) then
        image_species%atom(:num_images,:3) = &
@@ -272,11 +275,11 @@ contains
     if(present(is_cartesian)) is_cartesian_ = is_cartesian
     inverse_lattice = inverse_3x3( lattice )
     if(is_cartesian_) then
-        ! Convert point to fractional coordinates
-        ! point_ = matmul(LUinv(lattice), point)
-        point_ = point
+       ! Convert point to fractional coordinates
+       ! point_ = matmul(LUinv(lattice), point)
+       point_ = point
     else
-        point_ = matmul(point, lattice)
+       point_ = matmul(point, lattice)
     end if
 
     min_distance = huge(1._real32)
@@ -302,15 +305,17 @@ contains
           ! if so, it is on the wrong side of the plane and should be ignored
           if( dot_product(point_ - projection, normal) .lt. 0._real32 )then
              plane_point = plane_point + lattice(index_list(1),:)
-            cycle direction_loop
+             cycle direction_loop
           end if
           is_outside = .true.
 
           ! check if projection is outside the surface
           
           inverse_projection = matmul(projection, inverse_lattice)
-          if( any( inverse_projection .lt. 0._real32 ) .or. &
-              any( inverse_projection .gt. 1._real32 ) ) then
+          if( &
+               any( inverse_projection .lt. 0._real32 ) .or. &
+               any( inverse_projection .gt. 1._real32 ) &
+          ) then
              ! projection is outside the surface
              ! check if the projection is outside the edges
              ! if it is, then the closest point is the edge or corner

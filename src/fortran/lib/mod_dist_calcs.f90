@@ -118,8 +118,7 @@ contains
 
 
 !###############################################################################
-  pure function get_min_dist_between_point_and_atom(basis,loc,atom) &
-       result(dist)
+  pure function get_min_dist_between_point_and_atom(basis,loc,atom) result(dist)
     !! Return the minimum distance between a point and an atom in a cell.
     !!
     !! This function returns the minimum distance between a point and an atom

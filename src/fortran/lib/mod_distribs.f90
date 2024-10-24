@@ -63,7 +63,7 @@ module raffle__distribs
   end type distribs_type
 
 
-  contains
+contains
 
 !###############################################################################
   subroutine set_bond_radius_to_default(elements)
@@ -84,26 +84,26 @@ module raffle__distribs
 
 
     write(0,*) 'WARNING: No bond data for element pair ', &
-               elements(1), ' and ', &
-               elements(2)
+         elements(1), ' and ', &
+         elements(2)
     write(0,*) 'WARNING: Setting bond to average of covalent radii'
     if(.not.allocated(element_database)) allocate(element_database(0))
     idx1 = findloc([ element_database(:)%name ], &
          elements(1), dim=1)
     if(idx1.lt.1)then
-        call get_element_properties(elements(1), radius=radius1)
-        element_database = [ element_database, &
-              element_type(name=elements(1), radius=radius1) ]
-        idx1 = size(element_database)
-     end if
-     idx2 = findloc([ element_database(:)%name ], &
-          elements(2), dim=1)
-     if(idx2.lt.1)then
-        call get_element_properties(elements(2), radius=radius2)
-        element_database = [ element_database, &
-              element_type(name=elements(2), radius=radius2) ]
-        idx2 = size(element_database)
-     end if
+       call get_element_properties(elements(1), radius=radius1)
+       element_database = [ element_database, &
+            element_type(name=elements(1), radius=radius1) ]
+       idx1 = size(element_database)
+    end if
+    idx2 = findloc([ element_database(:)%name ], &
+         elements(2), dim=1)
+    if(idx2.lt.1)then
+       call get_element_properties(elements(2), radius=radius2)
+       element_database = [ element_database, &
+            element_type(name=elements(2), radius=radius2) ]
+       idx2 = size(element_database)
+    end if
     radius = ( element_database(idx1)%radius + &
          element_database(idx2)%radius ) / 2._real32
     if(.not.allocated(element_bond_database)) &
@@ -226,8 +226,10 @@ module raffle__distribs
     ! get the number of pairs of species
     ! (this uses a combination calculator with repetition)
     !---------------------------------------------------------------------------
-    num_pairs = nint(gamma(real(basis%nspec + 2, real32)) / &
-                ( gamma(real(basis%nspec, real32)) * gamma( 3._real32 ) ))
+    num_pairs = nint( &
+         gamma(real(basis%nspec + 2, real32)) / &
+         ( gamma(real(basis%nspec, real32)) * gamma( 3._real32 ) ) &
+    )
     allocate(this%element_symbols(basis%nspec))
     do is = 1, basis%nspec
        this%element_symbols(is) = strip_null(basis%spec(is)%name)
@@ -240,16 +242,18 @@ module raffle__distribs
           i = i + 1
           pair_index(js,is) = i
           pair_index(is,js) = i
-          call bond_info(i)%set( this%element_symbols(is), &
-                                 this%element_symbols(js), success &
+          call bond_info(i)%set( &
+               this%element_symbols(is), &
+               this%element_symbols(js), success &
           )
           if(success) cycle
           call set_bond_radius_to_default( [ &
                this%element_symbols(is), &
-               this%element_symbols(js) ] &
-          )
-          call bond_info(i)%set( this%element_symbols(is), &
-                                 this%element_symbols(js), success &
+               this%element_symbols(js) &
+          ] )
+          call bond_info(i)%set( &
+               this%element_symbols(is), &
+               this%element_symbols(js), success &
           )
        end do
     end do
@@ -313,25 +317,30 @@ module raffle__distribs
              !------------------------------------------------------------------
              atom_loop: do ja = 1, basis_extd%spec(js)%num
 
-                associate( vector =>  matmul( [ &
+                associate( vector =>  matmul( &
+                     [ &
                           basis_extd%spec(js)%atom(ja,1:3) - &
                           basis_extd%spec(is)%atom(ia,1:3) &
                      ], basis_extd%lat ) &
                 )
                    bondlength = modu( vector )
                    
-                   if( bondlength .lt. cutoff_min_(1) .or. &
-                       bondlength .gt. cutoff_max_(1) ) cycle atom_loop
+                   if( &
+                        bondlength .lt. cutoff_min_(1) .or. &
+                        bondlength .gt. cutoff_max_(1) &
+                   ) cycle atom_loop
                   
                    ! add 2-body bond to store if within tolerances for 3-body
                    ! distance
                    if( &
-                        bondlength .ge. &
+                        bondlength .ge. ( &
                              bond_info(pair_index(is, js))%radius_covalent * &
-                             radius_distance_tol_(1) .and. &
-                        bondlength .le. &
+                             radius_distance_tol_(1) &
+                        ) .and. &
+                        bondlength .le. ( &
                              bond_info(pair_index(is, js))%radius_covalent * &
                              radius_distance_tol_(2) &
+                        ) &
                    ) then
                       neighbour_basis%spec(1)%num = &
                            neighbour_basis%spec(1)%num + 1
@@ -341,12 +350,15 @@ module raffle__distribs
 
                    ! add 2-body bond to store if within tolerances for 4-body
                    ! distance
-                   if( bondlength .ge. ( & 
-                        bond_info(pair_index(is, js))%radius_covalent * &
-                        radius_distance_tol_(3) ) .and. &
-                       bondlength .le. ( &
-                        bond_info(pair_index(is, js))%radius_covalent * &
-                        radius_distance_tol_(4) ) &
+                   if( &
+                        bondlength .ge. ( & 
+                             bond_info(pair_index(is, js))%radius_covalent * &
+                             radius_distance_tol_(3) &
+                        ) .and. &
+                        bondlength .le. ( &
+                             bond_info(pair_index(is, js))%radius_covalent * &
+                             radius_distance_tol_(4) &
+                        ) &
                    ) then
                       neighbour_basis%image_spec(1)%num = &
                            neighbour_basis%image_spec(1)%num + 1
@@ -367,7 +379,8 @@ module raffle__distribs
              ! loop over all image atoms outside of the unit cell
              !------------------------------------------------------------------
              image_loop: do ja = 1, basis_extd%image_spec(js)%num
-                associate( vector =>  matmul( [ &
+                associate( vector =>  matmul( &
+                     [ &
                           basis_extd%image_spec(js)%atom(ja,1:3) - &
                           basis_extd%spec(is)%atom(ia,1:3) &
                      ], basis_extd%lat ) &
@@ -375,18 +388,22 @@ module raffle__distribs
 
                    bondlength = modu( vector )
                    
-                   if( bondlength .lt. cutoff_min_(1) .or. &
-                       bondlength .gt. cutoff_max_(1) ) cycle image_loop
+                   if( &
+                        bondlength .lt. cutoff_min_(1) .or. &
+                        bondlength .gt. cutoff_max_(1) &
+                   ) cycle image_loop
                   
                    ! add 2-body bond to store if within tolerances for 3-body
                    ! distance
                    if( &
-                        bondlength .ge. &
+                        bondlength .ge. ( &
                              bond_info(pair_index(is, js))%radius_covalent * &
-                             radius_distance_tol_(1) .and. &
-                        bondlength .le. &
+                             radius_distance_tol_(1) &
+                        ) .and. &
+                        bondlength .le. ( &
                              bond_info(pair_index(is, js))%radius_covalent * &
                              radius_distance_tol_(2) &
+                        ) &
                    ) then
                       neighbour_basis%spec(1)%num = &
                            neighbour_basis%spec(1)%num + 1
@@ -397,12 +414,15 @@ module raffle__distribs
 
                    ! add 2-body bond to store if within tolerances for 4-body
                    ! distance
-                   if( bondlength .ge. ( & 
-                        bond_info(pair_index(is, js))%radius_covalent * &
-                        radius_distance_tol_(3) ) .and. &
-                       bondlength .le. ( &
-                        bond_info(pair_index(is, js))%radius_covalent * &
-                        radius_distance_tol_(4) ) &
+                   if( &
+                        bondlength .ge. ( & 
+                             bond_info(pair_index(is, js))%radius_covalent * &
+                             radius_distance_tol_(3) &
+                        ) .and. &
+                        bondlength .le. ( &
+                             bond_info(pair_index(is, js))%radius_covalent * &
+                             radius_distance_tol_(4) &
+                        ) &
                    ) then
                       neighbour_basis%image_spec(1)%num = &
                            neighbour_basis%image_spec(1)%num + 1
@@ -482,10 +502,11 @@ module raffle__distribs
              end do
           end do
           this%df_3body(:,is) = this%df_3body(:,is) + &
-               get_distrib( angle_list, &
-                            nbins_(2), eta(2), width_(2), &
-                            cutoff_min_(2), &
-                            scale_list = distance &
+               get_distrib( &
+                    angle_list, &
+                    nbins_(2), eta(2), width_(2), &
+                    cutoff_min_(2), &
+                    scale_list = distance &
                )
           deallocate( angle_list, distance )
 
@@ -503,8 +524,8 @@ module raffle__distribs
           end associate
           idx = 0
           do concurrent ( &
-                 ja = 1:neighbour_basis%spec(1)%num:1, &
-                 la = 1:neighbour_basis%image_spec(1)%num:1 &
+               ja = 1:neighbour_basis%spec(1)%num:1, &
+               la = 1:neighbour_basis%image_spec(1)%num:1 &
           )
              do concurrent ( ka = ja + 1:neighbour_basis%spec(1)%num:1 )
                 idx = nint( &
@@ -518,16 +539,17 @@ module raffle__distribs
                           [ neighbour_basis%image_spec(1)%atom(la,:3) ] &
                      )
                 distance(idx) = &
-                    modu(neighbour_basis%spec(1)%atom(ja,:3)) ** 2 * &
-                    modu(neighbour_basis%spec(1)%atom(ka,:3)) ** 2 * &
-                    modu(neighbour_basis%image_spec(1)%atom(la,:3)) ** 2
+                     modu(neighbour_basis%spec(1)%atom(ja,:3)) ** 2 * &
+                     modu(neighbour_basis%spec(1)%atom(ka,:3)) ** 2 * &
+                     modu(neighbour_basis%image_spec(1)%atom(la,:3)) ** 2
              end do
           end do
           this%df_4body(:,is) = this%df_4body(:,is) + &
-               get_distrib( angle_list, &
-                            nbins_(3), eta(3), width_(3), &
-                            cutoff_min_(3), &
-                            scale_list = distance &
+               get_distrib( &
+                    angle_list, &
+                    nbins_(3), eta(3), width_(3), &
+                    cutoff_min_(3), &
+                    scale_list = distance &
                )
           deallocate( angle_list, distance )
 
@@ -619,11 +641,14 @@ module raffle__distribs
        !------------------------------------------------------------------------
        do concurrent ( j = 1:2 )
           do concurrent ( &
-                 b = loop_limits(1,j):loop_limits(2,j):loop_limits(3,j) )
+               b = loop_limits(1,j):loop_limits(2,j):loop_limits(3,j) &
+          )
              output(b) = output(b) + &
-                  exp( -eta * ( value_list(i) - &
-                                   ( width * real(b-1, real32) + &
-                                     cutoff_min ) ) ** 2._real32 &
+                  exp( &
+                       -eta * ( &
+                            value_list(i) - &
+                            ( width * real(b-1, real32) + cutoff_min ) &
+                       ) ** 2._real32 &
                   ) / scale_list(i)
           end do
        end do

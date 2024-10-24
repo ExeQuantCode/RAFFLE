@@ -33,7 +33,7 @@ contains
 !###############################################################################
   function place_method_void( &
        grid, grid_offset, basis, atom_ignore_list, viable &
-   ) result(point)
+  ) result(point)
     !! VOID placement method.
     !!
     !! This method returns the gridpoint with the lowest neighbour density.
@@ -151,7 +151,7 @@ contains
                basis%spec(is)%name, basis%spec(js)%name &
           )
        end do
-   end do
+    end do
 
 
     !---------------------------------------------------------------------------
@@ -239,7 +239,7 @@ contains
     ! test a random point in the unit cell
     !---------------------------------------------------------------------------
     do i = 1, 3
-      abc(i) = modu(basis%lat(i,:))
+       abc(i) = modu(basis%lat(i,:))
     end do
     i = 0
     random_loop : do 
@@ -274,7 +274,7 @@ contains
                ( rvec1 * 2._real32 - 1._real32 ) * step_size_fine / abc
        else
           test_vector = site_vector + &
-          ( rvec1 * 2._real32 - 1._real32 ) * step_size_coarse / abc
+               ( rvec1 * 2._real32 - 1._real32 ) * step_size_coarse / abc
        end if
        test_vector = test_vector - floor(test_vector)
 
@@ -294,8 +294,9 @@ contains
           if(nstuck.ge.10) then
              nattempt = nattempt + 1
              if(crude_norm.lt.site_value) &
-                  crude_norm = &
-                       ( crude_norm + site_value/real(nattempt) ) / 2._real32
+                  crude_norm = ( &
+                       crude_norm + site_value/real(nattempt) &
+                  ) / 2._real32
 
              ! if we have tried 10 times, and still no luck, then we need to
              ! reduce the tolerance
@@ -387,7 +388,7 @@ contains
     ! get the lattice constants and the inverse lattice
     !---------------------------------------------------------------------------
     do i = 1, 3
-      abc(i) = modu(basis%lat(i,:))
+       abc(i) = modu(basis%lat(i,:))
     end do
     inverse_lattice = inverse_3x3(basis%lat)
 
@@ -396,8 +397,8 @@ contains
     ! get the index of the pair of species
     !---------------------------------------------------------------------------
     idx = distribs_container%get_pair_index( &
-               basis%spec(prior_species)%name, &
-               basis%spec(atom_ignore_list(1,1))%name &
+         basis%spec(prior_species)%name, &
+         basis%spec(atom_ignore_list(1,1))%name &
     )
     min_radius = radius_list(idx) * distribs_container%radius_distance_tol(1)
 
@@ -415,9 +416,9 @@ contains
        rvec1(3) = rvec1(3) * pi ! phi
        ! convert from spherical to cartesian
        rvec1 = [ &
-             rvec1(1) * cos(rvec1(2)) * sin(rvec1(3)), &
-             rvec1(1) * sin(rvec1(2)) * sin(rvec1(3)), &
-             rvec1(1) * cos(rvec1(3)) &
+            rvec1(1) * cos(rvec1(2)) * sin(rvec1(3)), &
+            rvec1(1) * sin(rvec1(2)) * sin(rvec1(3)), &
+            rvec1(1) * cos(rvec1(3)) &
        ]
        ! convert from cartesian to direct
        rvec1 = matmul(rvec1, inverse_lattice)
@@ -451,7 +452,7 @@ contains
                ( rvec1 * 2._real32 - 1._real32 ) * step_size_fine / abc
        else
           test_vector = site_vector + &
-          ( rvec1 * 2._real32 - 1._real32 ) * step_size_coarse / abc
+               ( rvec1 * 2._real32 - 1._real32 ) * step_size_coarse / abc
        end if 
        test_vector = test_vector - floor(test_vector)
 
@@ -471,8 +472,9 @@ contains
           if(nstuck.ge.10) then
              nattempt = nattempt + 1
              if(crude_norm.lt.site_value) &
-                  crude_norm = &
-                       ( crude_norm + site_value/real(nattempt) ) / 2._real32
+                  crude_norm = ( &
+                       crude_norm + site_value/real(nattempt) &
+                  ) / 2._real32
 
              ! if we have tried 10 times, and still no luck, then we need to
              ! reduce the tolerance

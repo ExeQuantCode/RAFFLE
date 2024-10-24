@@ -43,7 +43,7 @@ module raffle__distribs_host
   end type distribs_host_type
 
 
-  contains
+contains
 
 !###############################################################################
   subroutine set_host(this, host)
@@ -72,10 +72,10 @@ module raffle__distribs_host
           this%pair_index(js,is) = i
           this%pair_index(is,js) = i
        end do
-   end do
-   if(allocated(this%df_2body)) deallocate(this%df_2body)
-   if(allocated(this%df_3body)) deallocate(this%df_3body)
-   if(allocated(this%df_4body)) deallocate(this%df_4body)
+    end do
+    if(allocated(this%df_2body)) deallocate(this%df_2body)
+    if(allocated(this%df_3body)) deallocate(this%df_3body)
+    if(allocated(this%df_4body)) deallocate(this%df_4body)
 
   end subroutine set_host
 !###############################################################################
@@ -98,8 +98,10 @@ module raffle__distribs_host
 
     this%interface_energy = this%energy
     do is = 1, size(this%element_symbols)
-       idx1 = findloc( [ element_info(:)%name ], &
-                       this%element_symbols(is), dim=1)
+       idx1 = findloc( &
+            [ element_info(:)%name ], &
+            this%element_symbols(is), dim=1 &
+       )
        if(idx1.lt.1)then
           call stop_program( "Species not found in species list" )
           return

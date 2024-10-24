@@ -115,7 +115,7 @@ contains
        call get_command_argument(i,buffer)
        buffer=trim(buffer)
        !------------------------------------------------------------------------
-       ! file and directory flags
+       ! flag options
        !------------------------------------------------------------------------
        if(index(buffer,'-f').eq.1)then
           flag="-f"
@@ -142,9 +142,6 @@ contains
                 end if
              end do infilename_do
           end if
-       !------------------------------------------------------------------------
-       ! verbose flags
-       !------------------------------------------------------------------------
        elseif(index(buffer,'-v').eq.1)then
           flag="-v"
           call print_build_info()
@@ -228,9 +225,9 @@ contains
     !---------------------------------------------------------------------------
     ! set up namelists for input file
     !---------------------------------------------------------------------------
-    namelist /setup/        task, filename_host, seed, grid, &
-                            grid_spacing, &
-                            database_format, database, verbose, output_dir
+    namelist /setup/ task, filename_host, seed, grid, &
+         grid_spacing, &
+         database_format, database, verbose, output_dir
     namelist /placement_method/ void, rand, walk, grow, min
     namelist /structure/    num_structures,stoichiometry
     namelist /distribution/ cutoff_min, cutoff_max, width, sigma
@@ -274,24 +271,24 @@ contains
     end if
     read(unit,NML=structure,iostat=iostat)
     if(.not.is_iostat_end(iostat).and.iostat.ne.0)then
-      call stop_program( &
-           "THERE WAS AN ERROR IN READING STRUCTURE SETTINGS" &
-      )
-      return
+       call stop_program( &
+            "THERE WAS AN ERROR IN READING STRUCTURE SETTINGS" &
+       )
+       return
     end if
     read(unit,NML=distribution,iostat=iostat)
     if(.not.is_iostat_end(iostat).and.iostat.ne.0)then
-      call stop_program( &
-           "THERE WAS AN ERROR IN READING DISTRIBUTION SETTINGS" &
-      )
-      return
+       call stop_program( &
+            "THERE WAS AN ERROR IN READING DISTRIBUTION SETTINGS" &
+       )
+       return
     end if
     read(unit,NML=element_info,iostat=iostat)
     if(.not.is_iostat_end(iostat).and.iostat.ne.0)then
-      call stop_program( &
-           "THERE WAS AN ERROR IN READING ELEMENT_INFO SETTINGS" &
-      )
-      return
+       call stop_program( &
+            "THERE WAS AN ERROR IN READING ELEMENT_INFO SETTINGS" &
+       )
+       return
     end if
 
 
@@ -303,19 +300,19 @@ contains
        read(database,*) database_list
        l_pos = 0
        do i = 1, size(database_list)
-         read(database(l_pos+1:),'(A)') buffer
-         r_pos = scan(buffer,",")
-         if(r_pos.eq.0) r_pos = len_trim(buffer)
-         read(buffer(:r_pos-1),'(A)') database_list(i)
-         l_pos = scan(database(l_pos+1:),",") + l_pos
-      end do
+          read(database(l_pos+1:),'(A)') buffer
+          r_pos = scan(buffer,",")
+          if(r_pos.eq.0) r_pos = len_trim(buffer)
+          read(buffer(:r_pos-1),'(A)') database_list(i)
+          l_pos = scan(database(l_pos+1:),",") + l_pos
+       end do
     end if
 
     method_probab = [void, rand, walk, grow, min]
     if(all(abs(method_probab).lt.1.E-6))then
        method_probab = &
             [1._real32, 0.1_real32, 0.5_real32, 0.5_real32, 1._real32]
-      end if
+    end if
 
     if(trim(stoichiometry).ne."")then
        num_species = icount(stoichiometry,",")
@@ -335,17 +332,17 @@ contains
 
 
     if(trim(energies).ne."")then
-      num_species = icount(energies,",")
-      allocate(element_symbols(num_species))
-      allocate(element_energies(num_species))
-      l_pos = scan(energies,"{")
-      r_pos = scan(energies,"}", back=.true.)
-      do i = 1, num_species
-         read(energies(l_pos+1:r_pos-1),'(A)') buffer
-         read(buffer(:scan(buffer,":")-1),*) element_symbols(i)
-         read(buffer(scan(buffer,":")+1:),*) element_energies(i)
-         l_pos = scan(energies(l_pos+1:),",") + l_pos
-      end do
+       num_species = icount(energies,",")
+       allocate(element_symbols(num_species))
+       allocate(element_energies(num_species))
+       l_pos = scan(energies,"{")
+       r_pos = scan(energies,"}", back=.true.)
+       do i = 1, num_species
+          read(energies(l_pos+1:r_pos-1),'(A)') buffer
+          read(buffer(:scan(buffer,":")-1),*) element_symbols(i)
+          read(buffer(scan(buffer,":")+1:),*) element_energies(i)
+          l_pos = scan(energies(l_pos+1:),",") + l_pos
+       end do
     else
        call stop_program("No element energies specified")
        return

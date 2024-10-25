@@ -1,3 +1,4 @@
+import os
 import re
 import sys
 import glob
@@ -44,8 +45,16 @@ def check_indentation(file_path):
     num_double_quotes = 0
     unbalanced_quotes = False
 
+    success = True
+
     with open(file_path, 'r') as file:
         for line_num, line in enumerate(file, start=1):
+            
+            # check length of line does not exceed
+            if len(line) > 81:
+                print(f"Line {line_num} in {file_path} exceeds 80 characters: {len(line)}")
+                success = False
+
             stripped_line = line.rstrip()
 
             # Skip empty lines
@@ -59,6 +68,10 @@ def check_indentation(file_path):
 
             # Check if preprocessing directive
             if re.match(r'^\s*#', stripped_line):
+                continue
+
+            # Check for lines with ! in first column and skip
+            if re.match(r'^!', stripped_line):
                 continue
 
             # If unbalanced quotes, check line starts with ampersand
@@ -319,17 +332,32 @@ def check_indentation(file_path):
 
 
 
-    return True
+    return success
 
 
 def main():
-    # Check all Fortran files in the directory
-    for file_path in glob.glob("**/*.f90", recursive=True):
+    # Check directory of script
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    os.chdir(script_dir+"/..")
+    
+    # Get list of .f90 and .F90 files from ../src/fortran and ../app
+    fortran_files = glob.glob("src/fortran/**/*.f90", recursive=True) + glob.glob("src/fortran/**/*.F90", recursive=True)
+    app_files = glob.glob("app/**/*.f90", recursive=True) + glob.glob("app/**/*.F90", recursive=True)
+    all_files = fortran_files + app_files
+
+    # Check indentation of all files
+    success = True
+    for file_path in all_files:
         if not check_indentation(file_path):
-            sys.exit(1)
+            success = False
         else:
             print(f"{file_path} passed indentation check.")
-    print("All files passed indentation check.")
+
+    # Exit with error if any file failed indentation check
+    if not success:
+        sys.exit("Indentation check failed.")
+    else:
+        print("All files passed indentation check.")
 
 if __name__ == "__main__":
     main()

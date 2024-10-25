@@ -849,7 +849,16 @@ module raffle__distribs_container
        type is (distribs_type)
           this%system = [ this%system, system ]
        type is (basis_type)
+#if defined(GFORTRAN)
           call this%add_basis(system)
+#else
+          block
+            type(basis_type), dimension(1) :: basis
+
+            basis = system
+            call this%add_basis(basis(1))
+          end block
+#endif
        class default
           write(stop_msg,*) "Invalid type for system" // &
                achar(13) // achar(10) // &

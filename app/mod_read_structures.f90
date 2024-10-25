@@ -32,7 +32,7 @@ contains
     implicit none
 
     ! Arguments
-    character(*), dimension(..), intent(in) :: input_dir
+    character(1024), dimension(..), intent(in) :: input_dir
     !! List of directories containing the structures to be read.
     type(distribs_container_type), intent(in), optional :: &
          distribs_container_template

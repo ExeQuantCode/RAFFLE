@@ -433,7 +433,7 @@ contains
 
 
 !###############################################################################
-  module function generate_structure( &
+  function generate_structure( &
        this, &
        basis_initial, &
        placement_list, method_probab, verbose &

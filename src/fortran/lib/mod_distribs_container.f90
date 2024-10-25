@@ -1695,8 +1695,6 @@ module raffle__distribs_container
     !! Index of the element in the element_info array.
 
     ! Local variables
-    integer :: is, js
-    !! Index of the elements in the element_info array.
 
     idx = findloc([ this%element_info(:)%name ], species, dim=1)
 

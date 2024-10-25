@@ -124,7 +124,7 @@ module raffle__distribs_host
     !! Element information.
 
     ! Local variables
-    integer :: is, js
+    integer :: is
     !! Index of the elements in the element_info array.
 
     if(.not.this%defined)then

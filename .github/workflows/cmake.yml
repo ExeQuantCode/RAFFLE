@@ -34,7 +34,7 @@ jobs:
         - {compiler: gcc, version: 13}
         - {compiler: intel, version: '2024.1'}
         - {compiler: intel-classic, version: '2021.10'}
-        excldue:
+        exclude:
           - os: macos-latest
             toolchain:
               - {compiler: intel, version: '2024.1'}
@@ -82,7 +82,7 @@ jobs:
         - {compiler: gcc, version: 13}
         - {compiler: intel, version: '2024.1'}
         - {compiler: intel-classic, version: '2021.10'}
-        excldue:
+        exclude:
           - os: macos-latest
             toolchain:
               - {compiler: intel, version: '2024.1'}

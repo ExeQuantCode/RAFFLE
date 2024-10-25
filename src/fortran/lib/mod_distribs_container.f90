@@ -843,19 +843,19 @@ module raffle__distribs_container
     character(256) :: stop_msg
     !! Error message.
 
-    select rank(system)
+    select rank(rank_ptr => system)
     rank(0)
-       select type(system)
+       select type(type_ptr => rank_ptr)
        type is (distribs_type)
-          this%system = [ this%system, system ]
+          this%system = [ this%system, type_ptr ]
        type is (basis_type)
 #if defined(GFORTRAN)
-          call this%add_basis(system)
+          call this%add_basis(type_ptr)
 #else
           block
             type(basis_type), dimension(1) :: basis
 
-            basis = system
+            basis = type_ptr
             call this%add_basis(basis(1))
           end block
 #endif
@@ -868,12 +868,12 @@ module raffle__distribs_container
        end select
     rank(1)
        num_structures_previous = size(this%system)
-       select type(system)
+       select type(type_ptr => rank_ptr)
        type is (distribs_type)
-          this%system = [ this%system, system ]
+          this%system = [ this%system, type_ptr ]
        type is (basis_type)
-          do i = 1, size(system)
-             call this%add_basis(system(i))
+          do i = 1, size(type_ptr)
+             call this%add_basis(type_ptr(i))
           end do
        class default
           write(stop_msg,*) "Invalid type for system" // &
@@ -885,7 +885,7 @@ module raffle__distribs_container
     rank default
        write(stop_msg,*) "Invalid rank for system" // &
             achar(13) // achar(10) // &
-            "Expected rank 0 or 1, got ", rank(system)
+            "Expected rank 0 or 1, got ", rank(rank_ptr)
        call stop_program( stop_msg )
        return
     end select

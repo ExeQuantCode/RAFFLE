@@ -70,11 +70,11 @@ contains
     if(lcase_)then
        allocate(character(len=charlen) :: tlist(size(list)))
        tlist = list
-       do i=1,size(tlist)
+       do i = 1, size(tlist)
           list(i) = to_upper(list(i))
        end do
     end if
-    do i=1,size(list)
+    do i = 1, size(list)
        loc = minloc(list(i:),dim=1)
        if(loc.eq.1) cycle
        if(lcase_) call cswap(tlist(i),tlist(loc+i-1))
@@ -118,18 +118,18 @@ contains
           lcase_ = lcase
           allocate(character(len=charlen) :: tlist(size(list)))
           tlist = list
-          do i=1,size(tlist)
+          do i = 1, size(tlist)
              list(i) = to_upper(list(i))
           end do
        end if
     end if
 
     allocate(torder(size(list)))
-    do i=1,size(list)
+    do i = 1, size(list)
        torder(i) = i
     end do
     
-    do i=1,size(list)
+    do i = 1, size(list)
        loc = minloc(list(i:),dim=1)
        if(loc.eq.1) cycle
        if(lcase_) call cswap(tlist(i),tlist(loc+i-1))
@@ -138,7 +138,7 @@ contains
     end do
     
     allocate(order(size(list)))
-    do i=1,size(list)
+    do i = 1, size(list)
        order(i) = findloc(torder,i,dim=1)
     end do
     
@@ -177,7 +177,7 @@ contains
     end if
 
     dim=size(arr1,dim=1)
-    do i=1,dim
+    do i = 1, dim
        if(reverse_)then
           loc=maxloc(arr1(i:dim),dim=1)+i-1          
        else
@@ -229,7 +229,7 @@ contains
     end if
 
     dim=size(arr1,dim=1)
-    do i=1,dim
+    do i = 1, dim
        select case(reverse_)
        case(.true.)
           loc=maxloc(arr1(i:dim),dim=1)+i-1          
@@ -321,8 +321,8 @@ contains
 
     a123(:)=(/1,2,3/)
     istart=1
-    do j=1,3
-       do i=j,dim
+    do j = 1, 3
+       do i = j, dim
           loc = minloc( &
                abs(arr(i:dim,a123(1))), &
                dim = 1, &
@@ -333,7 +333,7 @@ contains
           arr(loc,:) = buff(:)
        end do
 
-       scndrow: do i=j,dim
+       scndrow: do i = j, dim
           if(abs(arr(j,a123(1))).ne.abs(arr(i,a123(1)))) exit scndrow
           loc = minloc( &
                abs( arr(i:dim,a123(2)) ) + abs( arr(i:dim,a123(3) ) ), &
@@ -376,7 +376,7 @@ contains
 
     tmp_arr(1) = arr(1)
     n=1
-    do i=2,size(arr)
+    do i = 2, size(arr)
        if(arr(i)==tmp_arr(n)) cycle
        n = n + 1
        tmp_arr(n) = arr(i)
@@ -425,7 +425,7 @@ contains
 
     tmp_arr(1) = arr(1)
     n=1
-    do i=2,size(arr)
+    do i = 2, size(arr)
        if(abs(arr(i)-tmp_arr(n)).lt.tol_)then
           count_list_(i) = count_list_(i) + 1
           cycle
@@ -481,7 +481,7 @@ contains
     tmp_arr(1) = arr(1)
     n=1
     
-    do i=2,size(arr)
+    do i = 2, size(arr)
        if(lcase_) arr(i) = to_lower(arr(i))
        if(trim(arr(i)).eq.trim(tmp_arr(n))) cycle
        n = n + 1
@@ -627,8 +627,8 @@ contains
     end if
     istart=1
     allocate(tlist(1,size(arr,dim=iother)))
-    do k=1,2
-       do i=1,n_data
+    do k = 1, 2
+       do i = 1, n_data
           call random_number(r)
           j = istart + floor((n_data+1-istart)*r)
           if(dim.eq.1)then
@@ -689,8 +689,8 @@ contains
     end if
     istart=1
     allocate(tlist(1,size(arr,dim=iother)))
-    do k=1,2
-       do i=1,n_data
+    do k = 1, 2
+       do i = 1, n_data
           call random_number(r)
           j = istart + floor((n_data+1-istart)*r)
           if(dim.eq.1)then
@@ -921,7 +921,7 @@ contains
     action_="READWRITE"
     if(present(action)) action_=action
     action_=to_upper(action_)
-    do i=1,5
+    do i = 1, 5
        inquire(file=trim(filename),exist=filefound)
        if(.not.filefound) then
           write(6,'("File name ",A," not found.")')&
@@ -984,7 +984,7 @@ contains
 
 
     allocate(character(len=len(buffer)) :: upper)
-    do i=1,len(buffer)
+    do i = 1, len(buffer)
        j=iachar(buffer(i:i))
        if(j.ge.iachar("a").and.j.le.iachar("z"))then
           upper(i:i)=achar(j-32)
@@ -1014,7 +1014,7 @@ contains
 
 
     allocate(character(len=len(buffer)) :: lower)
-    do i=1,len(buffer)
+    do i = 1, len(buffer)
        j=iachar(buffer(i:i))
        if(j.ge.iachar("A").and.j.le.iachar("Z"))then
           lower(i:i)=achar(j+32)
@@ -1048,7 +1048,7 @@ contains
     !! Loop index.
 
     stripped = ""
-    do i=1,len(buffer)
+    do i = 1, len(buffer)
        if(iachar(buffer(i:i)).ne.0)then
           stripped(i:i)=buffer(i:i)
        else

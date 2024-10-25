@@ -330,7 +330,8 @@ contains
        allocate(this%structures(num_structures))
     else
        allocate(tmp_structures(this%num_structures + num_structures))
-       tmp_structures(:this%num_structures) = this%structures(:this%num_structures)
+       tmp_structures(:this%num_structures) = &
+            this%structures(:this%num_structures)
        call move_alloc(tmp_structures, this%structures)
     end if
 
@@ -560,7 +561,9 @@ contains
                      "No placement methods available" &
                 )
                 return
-             else if(abs( method_probab_(5) - method_probab_(4) ) .gt. 1.E-6) then
+             else if( &
+                  abs( method_probab_(5) - method_probab_(4) ) .gt. 1.E-6 &
+             ) then
                 write(*,*) "WARNING: No more viable gridpoints"
                 write(*,*) "Suppressing global minimum method"
                 method_probab_ = method_probab_ / method_probab_(4)

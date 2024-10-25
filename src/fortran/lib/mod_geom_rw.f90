@@ -323,7 +323,7 @@ contains
     !---------------------------------------------------------------------------
     ! read lattice
     !---------------------------------------------------------------------------
-    do i=1,3
+    do i = 1, 3
        read(UNIT,*) (basis%lat(i,j),j=1,3)
     end do
     basis%lat=scal*basis%lat
@@ -350,7 +350,7 @@ contains
 
        read(UNIT,*) (basis%spec(j)%num,j=1,basis%nspec)
     else !only numbers
-       do count=1,basis%nspec
+       do count = 1, basis%nspec
           write(basis%spec(count)%name,'(I0)') count
        end do
        read(lspec,*) (basis%spec(j)%num,j=1,basis%nspec)
@@ -370,10 +370,10 @@ contains
     !---------------------------------------------------------------------------
     ! read basis
     !---------------------------------------------------------------------------
-    do i=1,basis%nspec
+    do i = 1, basis%nspec
        allocate(basis%spec(i)%atom(basis%spec(i)%num,length_))
        basis%spec(i)%atom(:,:)=0._real32
-       do j=1,basis%spec(i)%num
+       do j = 1, basis%spec(i)%num
           read(UNIT,*) (basis%spec(i)%atom(j,k),k=1,3)
        end do
     end do
@@ -388,9 +388,9 @@ contains
     !---------------------------------------------------------------------------
     ! normalise basis to between 0 and 1 in direct coordinates
     !---------------------------------------------------------------------------
-    do i=1,basis%nspec
-       do j=1,basis%spec(i)%num
-          do k=1,3
+    do i = 1, basis%nspec
+       do j = 1, basis%spec(i)%num
+          do k = 1, 3
              basis%spec(i)%atom(j,k)=&
                   basis%spec(i)%atom(j,k)-floor(basis%spec(i)%atom(j,k))
           end do
@@ -433,7 +433,7 @@ contains
 
     write(UNIT,'(A)') trim(adjustl(basis%sysname))
     write(UNIT,'(F15.9)') 1._real32
-    do i=1,3
+    do i = 1, 3
        write(UNIT,'(3(F15.9))') basis%lat(i,:)
     end do
     write(fmt,'("(",I0,"(A,1X))")') basis%nspec
@@ -441,8 +441,8 @@ contains
     write(fmt,'("(",I0,"(I0,5X))")') basis%nspec
     write(UNIT,trim(adjustl(fmt))) (basis%spec(j)%num,j=1,basis%nspec)
     write(UNIT,'(A)') trim(adjustl(string))
-    do i=1,basis%nspec
-       do j=1,basis%spec(i)%num
+    do i = 1, basis%nspec
+       do j = 1, basis%spec(i)%num
           write(UNIT,'(3(F15.9))') basis%spec(i)%atom(j,1:3)
        end do
     end do
@@ -517,7 +517,7 @@ contains
           exit cellparam
        end if
     end do cellparam
-    do i=1,3
+    do i = 1, 3
        read(UNIT,*) (basis%lat(i,j),j=1,3)
     end do
 
@@ -633,16 +633,16 @@ contains
 
 
     write(UNIT,'("CELL_PARAMETERS angstrom")')
-    do i=1,3
+    do i = 1, 3
        write(UNIT,'(3(F15.9))') basis%lat(i,:)
     end do
     write(UNIT,'("ATOMIC_SPECIES")')
-    do i=1,basis%nspec
+    do i = 1, basis%nspec
        write(UNIT,'(A)') trim(adjustl(basis%spec(i)%name))
     end do
     write(UNIT,'("ATOMIC_POSITIONS",1X,A)') trim(adjustl(string))
-    do i=1,basis%nspec
-       do j=1,basis%spec(i)%num
+    do i = 1, basis%nspec
+       do j = 1, basis%spec(i)%num
           write(UNIT,'(A5,1X,3(F15.9))') &
                basis%spec(i)%name,basis%spec(i)%atom(j,1:3)
        end do
@@ -878,7 +878,7 @@ contains
           goto 10
        end if
     end if
-    do i=1,3
+    do i = 1, 3
        write(UNIT,'(3(F15.9))') basis%lat(i,:)
     end do
 
@@ -886,9 +886,10 @@ contains
 
     write(UNIT,*)
     write(UNIT,'("%block POSITIONS_",A)') trim(string_bas)
-    do i=1,basis%nspec
-       do j=1,basis%spec(i)%num
-          write(UNIT,'(A5,1X,3(F15.9))') basis%spec(i)%name,basis%spec(i)%atom(j,1:3)
+    do i = 1, basis%nspec
+       do j = 1, basis%spec(i)%num
+          write(UNIT,'(A5,1X,3(F15.9))') &
+               basis%spec(i)%name,basis%spec(i)%atom(j,1:3)
        end do
     end do
     write(UNIT,'("%endblock POSITIONS_",A)') trim(string_bas)
@@ -982,7 +983,7 @@ contains
     ! done to allow for correct allocation of number of and per species
     !---------------------------------------------------------------------------
     allocate(basis%spec(basis%nspec))
-    do i=1,basis%nspec
+    do i = 1, basis%nspec
        basis%spec(i)%name = tmp_spec(i)
        basis%spec(i)%num  = tmp_num(i)
        allocate(basis%spec(i)%atom(tmp_num(i),length_))
@@ -1014,8 +1015,8 @@ contains
 
     write(UNIT,'("I0")') basis%natom
     write(UNIT,'("A")') basis%sysname
-    do i=1,basis%nspec
-       do j=1,basis%spec(i)%num
+    do i = 1, basis%nspec
+       do j = 1, basis%spec(i)%num
           write(UNIT,'(A5,1X,3(F15.9))') &
                basis%spec(i)%name,basis%spec(i)%atom(j,1:3)
        end do
@@ -1168,15 +1169,15 @@ contains
     write(UNIT,'(A,F0.8)', advance="no") ' free_energy=',basis%energy
     write(UNIT,'(A)', advance="no") ' pbc="T T T"'
     if(basis%lcart)then
-       do i=1,basis%nspec
-          do j=1,basis%spec(i)%num
+       do i = 1, basis%nspec
+          do j = 1, basis%spec(i)%num
              write(UNIT,'(A8,3(1X, F16.8))') &
                   basis%spec(i)%name,basis%spec(i)%atom(j,1:3)
           end do
        end do
     else
-       do i=1,basis%nspec
-          do j=1,basis%spec(i)%num
+       do i = 1, basis%nspec
+          do j = 1, basis%spec(i)%num
              write(UNIT,'(A8,3(1X, F16.8))') basis%spec(i)%name, &
                   matmul(basis%spec(i)%atom(j,1:3),basis%lat)
           end do
@@ -1279,10 +1280,10 @@ contains
     !! Loop index.
 
 
-    do i=1,3
+    do i = 1, 3
        abc_angle(1,i)=modu(lattice(i,:))
     end do
-    do i=1,3
+    do i = 1, 3
     end do
     abc_angle(2,1)=acos(dot_product(lattice(2,:),lattice(3,:))/&
          (abc_angle(1,2)*abc_angle(1,3)))
@@ -1362,7 +1363,7 @@ contains
     ! if already allocated, deallocates output basis
     !---------------------------------------------------------------------------
     if(allocated(this%spec))then
-       do i=1,this%nspec
+       do i = 1, this%nspec
           if(allocated(this%spec(i)%atom)) deallocate(this%spec(i)%atom)
        end do
        deallocate(this%spec)

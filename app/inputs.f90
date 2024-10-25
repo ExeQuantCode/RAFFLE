@@ -106,7 +106,7 @@ contains
     !---------------------------------------------------------------------------
     ! read flags and assign to variables
     !---------------------------------------------------------------------------
-    flagloop: do i=0,command_argument_count()
+    flagloop: do i = 0, command_argument_count()
        empty=.false.
        if (skip) then
           skip=.false.
@@ -127,7 +127,7 @@ contains
                   &ERROR: No input filename supplied, &
                   &but the flag ''-f'' was used&
              &")')
-             infilename_do: do j=1,3
+             infilename_do: do j = 1, 3
                 write(6,'("Please supply an input filename:")')
                 read(5,'(A)') input_file
                 if(trim(input_file).ne.'')then

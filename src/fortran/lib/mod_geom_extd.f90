@@ -79,7 +79,7 @@ contains
     cmax = ceiling(max_bondlength/modu(this%lat(3,:)))
 
 
-    spec_loop: do is=1,this%nspec
+    spec_loop: do is = 1, this%nspec
        allocate( &
             image_species(is)%atom( &
                  this%spec(is)%num*(2*amax+2)*(2*bmax+2)*(2*cmax+2), &
@@ -91,7 +91,7 @@ contains
        image_species(is)%charge = this%spec(is)%charge
        image_species(is)%radius = this%spec(is)%radius
        image_species(is)%name = this%spec(is)%name
-       atom_loop: do ia=1,this%spec(is)%num
+       atom_loop: do ia = 1, this%spec(is)%num
           do i = 1, size(atom_ignore_list_,1), 1
              if(all(atom_ignore_list_(i,:).eq.[is,ia])) cycle atom_loop
           end do
@@ -381,7 +381,8 @@ contains
     
     vector_to_plane = point - plane_point
 
-    distance = dot_product(vector_to_plane, normal) / dot_product(normal, normal)
+    distance = &
+         dot_product(vector_to_plane, normal) / dot_product(normal, normal)
 
     output = point - distance * normal
 

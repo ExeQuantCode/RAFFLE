@@ -121,9 +121,11 @@ contains
 
 
 !###############################################################################
-  subroutine update_gridpoints_and_viability(points, distribs_container, basis, &
+  subroutine update_gridpoints_and_viability( &
+       points, distribs_container, basis, &
        species_index_list, &
-       atom, radius_list, atom_ignore_list)
+       atom, radius_list, atom_ignore_list &
+  )
     !! Update the list of viable gridpoints and their viability for each 
     !! species.
     !!

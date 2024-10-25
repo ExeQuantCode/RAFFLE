@@ -54,7 +54,7 @@ contains
     allocate(match(basis2%nspec))
     match=0
     output%nspec=basis1%nspec
-    do i=1,basis2%nspec
+    do i = 1, basis2%nspec
        if(.not.any(basis2%spec(i)%name.eq.basis1%spec(:)%name))then
           output%nspec=output%nspec+1
        end if
@@ -67,8 +67,8 @@ contains
     write(output%sysname,'(A,"+",A)') &
          trim(basis1%sysname),trim(basis2%sysname)
     k=basis1%nspec
-    spec1check: do i=1,basis2%nspec
-       do j=1,basis1%nspec
+    spec1check: do i = 1, basis2%nspec
+       do j = 1, basis1%nspec
           if(basis2%spec(i)%name.eq.basis1%spec(j)%name)then
              output%spec(j)%num=output%spec(j)%num+basis2%spec(i)%num
              match(i)=j
@@ -99,13 +99,13 @@ contains
     !---------------------------------------------------------------------------
     ! set up atoms in merged basis
     !---------------------------------------------------------------------------
-    do i=1,basis1%nspec
+    do i = 1, basis1%nspec
        allocate(output%spec(i)%atom(output%spec(i)%num,dim))
        output%spec(i)%atom(:,:)=0._real32
        output%spec(i)%atom(1:basis1%spec(i)%num,:3)=basis1%spec(i)%atom(:,:3)
        if(lmap) new_map(i,:basis1%spec(i)%num,:)=map1(i,:basis1%spec(i)%num,:)
     end do
-    do i=1,basis2%nspec
+    do i = 1, basis2%nspec
        if(match(i).gt.basis1%nspec)then
           allocate(output%spec(match(i))%atom(output%spec(match(i))%num,dim))
           output%spec(match(i))%atom(:,:)=0._real32

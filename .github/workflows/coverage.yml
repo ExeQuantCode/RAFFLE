@@ -7,6 +7,7 @@ on:
       - ".github/workflows/coverage.yml"
       - "CMakeLists.txt"
       - "**.f90"
+      - "**.F90"
       - "**.cmake"
   pull_request:
     branches: ["main"]
@@ -14,6 +15,7 @@ on:
       - ".github/workflows/coverage.yml"
       - "CMakeLists.txt"
       - "**.f90"
+      - "**.F90"
       - "**.cmake"
   workflow_dispatch:
 

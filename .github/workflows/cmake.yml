@@ -1,0 +1,112 @@
+name: run-cmake-build
+
+on:
+  pull_request:
+    branches:
+      - main
+      - development
+    paths:
+      - ".github/workflows/cmake.yml"
+      - "CMakeLists.txt"
+      - "**.f90"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-test-cmake-debug:
+    environment:
+      name: github-pages
+    name: Build and test in debug mode
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        toolchain:
+        - {compiler: gcc, version: 13}
+        - {compiler: intel, version: '2023.2'}
+        - {compiler: intel-classic, version: '2021.7'}
+        - {compiler: intel-classic, version: '2021.10'}
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v4
+      
+      - name: actions-setup-cmake
+        uses: jwlawson/actions-setup-cmake@v2.0.1
+        with:
+          cmake-version: '3.24.x'
+            
+      - uses: fortran-lang/setup-fortran@v1
+        id: setup-fortran
+        with:
+          compiler: ${{ matrix.compiler }}
+          version: ${{ matrix.version }}
+          
+      - name: Compile
+        run: |
+          cmake --version
+          ${{ env.FC }} --version
+          mkdir -p build
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_Fortran_COMPILER=${{ env.FC }} ..
+          make
+          make install
+
+      - name: Test
+        run: |
+          ${{ env.FC }} --version
+          ctest
+          
+  build-and-test-cmake-release:
+    environment:
+      name: github-pages
+    name: Build and test in release mode
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        toolchain:
+        - {compiler: gcc, version: 13}
+        - {compiler: intel, version: '2023.2'}
+        - {compiler: intel-classic, version: '2021.7'}
+        - {compiler: intel-classic, version: '2021.10'}
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v4
+      
+      - name: actions-setup-cmake
+        uses: jwlawson/actions-setup-cmake@v2.0.1
+        with:
+          cmake-version: '3.24.x'
+            
+      - uses: fortran-lang/setup-fortran@v1
+        id: setup-fortran
+        with:
+          compiler: ${{ matrix.compiler }}
+          version: ${{ matrix.version }}
+          
+      - name: Compile
+        run: |
+          cmake --version
+          ${{ env.FC }} --version
+          mkdir -p build
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_Fortran_COMPILER=${{ env.FC }} ..
+          make
+          make install
+
+      - name: Test
+        run: |
+          ${{ env.FC }} --version
+          ctest
+  
+        

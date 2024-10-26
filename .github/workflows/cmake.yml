@@ -17,7 +17,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: cmake
   cancel-in-progress: false
 
 jobs:

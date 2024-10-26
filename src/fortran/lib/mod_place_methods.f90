@@ -133,8 +133,6 @@ contains
     !! Loop indices.
     real(real32) :: rtmp1
     !! random number.
-    logical :: ltmp1
-    !! logical variable.
     integer, dimension(basis%nspec,basis%nspec) :: pair_index
 
 

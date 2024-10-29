@@ -262,7 +262,7 @@ if (BUILD_PYTHON)
     else()
         message(FATAL_ERROR "Failed to retrieve Python extension module suffix")
     endif()
-    set(F2PY_OUTPUT_FILE ${CMAKE_BUILD_DIR}/raffle/_${PROJECT_NAME}.${PYTHON_EXTENSION_MODULE_SUFFIX})
+    set(F2PY_OUTPUT_FILE ${CMAKE_BUILD_DIR}/raffle/_${PROJECT_NAME}${PYTHON_EXTENSION_MODULE_SUFFIX})
 
     # Generate f90wrap signature file
     set(F90WRAP_FILE

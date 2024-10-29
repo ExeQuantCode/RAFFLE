@@ -2,7 +2,7 @@ module raffle__geom_utils
   !! Module to contain all geometry-manipulation related procedures
   !!
   !! This module contains procedures that are used to manipulate the geometry
-  !! of the system. The geometry type used is defined in the rw_geom module.
+  !! of the system. The geometry type used is defined in the geom_rw module.
   use raffle__constants, only: pi,real32
   use raffle__geom_rw, only: basis_type
   use raffle__misc_linalg, only: modu, get_angle

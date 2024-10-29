@@ -1,5 +1,5 @@
 program test_geom_rw
-  !! Test program for the module rw_geom.
+  !! Test program for the module geom_rw.
   use raffle__constants, only: pi,real32
   use raffle__geom_rw, only: &
        basis_type, &

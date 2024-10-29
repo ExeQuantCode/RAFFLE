@@ -43,6 +43,11 @@ jobs:
       - name: checkout repo
         uses: actions/checkout@v4
       
+      - name: actions-setup-python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12' 
+
       - name: actions-setup-cmake
         uses: jwlawson/actions-setup-cmake@v2.0.1
         with:
@@ -96,6 +101,11 @@ jobs:
       - name: checkout repo
         uses: actions/checkout@v4
       
+      - name: actions-setup-python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12' 
+
       - name: actions-setup-cmake
         uses: jwlawson/actions-setup-cmake@v2.0.1
         with:

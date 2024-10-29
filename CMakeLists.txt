@@ -304,7 +304,7 @@ if (BUILD_PYTHON)
         -c
         -m _${PROJECT_NAME}
         -I${MODULE_DIR}
-        --f90flags="${PPFLAGS} -fPIC"
+        --f90flags="${PPFLAGS}"
         --backend meson
         ${F90WRAP_FILE}
         -L${CMAKE_BUILD_DIR}

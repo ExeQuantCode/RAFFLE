@@ -29,7 +29,7 @@ set( LIB_NAME ${PROJECT_NAME} )
 set( PROJECT_DESCRIPTION
   "Fortran neural network" )
 set( PROJECT_URL "https://github.com/nedtaylor/raffle" )
-set( CMAKE_CONFIGURATION_TYPES "Release" "Parallel" "Serial" "Dev" "Debug"
+set( CMAKE_CONFIGURATION_TYPES "Release" "Parallel" "Serial" "Dev" "Debug" "Coverage"
   CACHE STRING "List of configurations types." )
 set( CMAKE_BUILD_TYPE "Release"
   CACHE STRING "Select which configuration to build." )
@@ -48,7 +48,7 @@ option(BUILD_EXECUTABLE "Build the Fortran executable" On)
 option(REMAKE_F90WRAP "Remake the f90wrap signature file" Off)
 
 # set coverage compiler flags
-if (CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*")
+if (CMAKE_BUILD_TYPE MATCHES "Coverage")
   list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
   set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
   if(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
@@ -199,6 +199,7 @@ target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel>:${MPFLAGS}>"
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Dev>:${DEVFLAGS}>")
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug>:${DEBUGFLAGS}>")
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug>:${WARNFLAGS}>")
+target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug>:${PYTHONFLAGS}>")
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Release>:${PYTHONFLAGS}>")
 
 
@@ -337,7 +338,7 @@ endif()
 
 # add coverage compiler flags
 if ( ( CMAKE_Fortran_COMPILER MATCHES ".*gfortran.*" OR CMAKE_Fortran_COMPILER MATCHES ".*gcc.*" ) AND 
-     ( CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*" ) )
+     ( CMAKE_BUILD_TYPE MATCHES "Coverage" ) )
 
     append_coverage_compiler_flags()
 

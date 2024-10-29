@@ -1,12 +1,42 @@
+[build-system]
+requires = [
+    "f90wrap~=0.2.15",
+    "numpy~=2.1.2",
+    "meson~=1.6.0",
+    "cython~=3.0.11",
+    "scikit-build-core",
+]
+build-backend = "scikit_build_core.build"
+
+[tool.scikit-build]
+cmake.version = "CMakeLists.txt"
+ninja.version = ">=1.10"
+cmake.build-type = "Release"
+cmake.source-dir = "."
+# Verbose printout when building.
+build.verbose = true
+cmake.args = [
+    "-DBUILD_PYTHON=On",
+    "-DBUILD_EXECUTABLE=Off",
+    "-DREMAKE_F90WRAP=Off",
+]
+# If Ninja is not present on the system or is older than required, it will be
+# downloaded via PyPI if this is false.
+ninja.make-fallback = true
+build-dir="build/{wheel_tag}"
+logging.level = "WARNING"
+sdist.reproducible = true
+sdist.cmake = true
+fail = false
+wheel.cmake = true
+
 [project]
 name = "raffle"
-dynamic = ["version"]
+version = "0.4.0"
 dependencies = [
-    "f90wrap>=0.2.14,<0.2.15",
-    "numpy>=1.26,<2.0.0",
-    "ase>=3.23.0",
+    "numpy~=2.1.2",
 ]
-requires-python = ">=3.11, <3.12"
+requires-python = ">=3.12"
 authors = [
     { name = "Ned Thaddeus Taylor", email = "n.t.taylor@exeter.ac.uk" },
     { name = "Joe Pitfield" },
@@ -14,28 +44,22 @@ authors = [
 ]
 description = "A material interface structure prediction package"
 readme = "README.md"
+license = { text = 'GNU General Public License v3.0 or later'}
 classifiers = [
-    "Development Status :: 3",
-    "Indented Audience :: Computational materials scientists",
+    "Development Status :: 4",
+    "Indented Audience :: Science/Research",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Fortran :: Fortran 2018", 
-    "License :: ",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Operating System :: OS Independent",
 ]
 
 [project.urls]
 Homepage = "https://github.com/nedtaylor/raffle"
+Documentation = "https://raffle-fortran.readthedocs.io/"
+Repository = "https://github.com/nedtaylor/raffle"
 Issues = "https://github.com/nedtaylor/raffle/issues"
 
-[build-system]
-requires = [
-    "f90wrap>=0.2.14,<0.2.15",
-    "numpy>=1.26,<2.0.0",
-    "setuptools ~= 58.0",
-    "cython ~= 0.29.0",
-    "cmake>=3.17.5",
-]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools.dynamic]
-version = {attr = "raffle.__version__"}
+[project.optional-dependencies]
+all = ["ase>=3.23.0"]
+no-ase = []

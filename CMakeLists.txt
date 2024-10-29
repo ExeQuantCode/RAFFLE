@@ -13,6 +13,7 @@ else()
 	set(SKBUILD_PROJECT_NAME "raffle")
 endif()
 
+
 # set compiler
 set(CMAKE_Fortran_COMPILER gfortran
   CACHE STRING "Select Fortran compiler." )  # Change this to your desired compiler
@@ -308,8 +309,7 @@ if (BUILD_PYTHON)
         ${F90WRAP_FILE}
         -L${CMAKE_BUILD_DIR}
         -lraffle
-        # --dep raffle
-        --build-dir ${CMAKE_BUILD_DIR}/Dmeson
+        # --build-dir ${CMAKE_BUILD_DIR}/Dmeson
         DEPENDS ${F90WRAP_FILE} ${CMAKE_BUILD_DIR}/raffle/python_copied ${PROJECT_NAME}
         WORKING_DIRECTORY ${CMAKE_BUILD_DIR}/raffle
         COMMENT "Creating Python module using f2py"
@@ -317,7 +317,6 @@ if (BUILD_PYTHON)
 
     # Define output files
 	set(PY_MODULE ${CMAKE_BUILD_DIR}/raffle/${PROJECT_NAME}.py ${CMAKE_BUILD_DIR}/raffle/__init__.py)
-    # file(GLOB SO_MODULE "${CMAKE_BUILD_DIR}/_${PROJECT_NAME}*.so")
 
     # Create a custom target for the Python module
     add_custom_target(python_module ALL

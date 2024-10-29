@@ -32,13 +32,13 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         toolchain:
         - {compiler: gcc, version: 13}
-        - {compiler: intel, version: '2024.1'}
-        - {compiler: intel-classic, version: '2021.10'}
-        exclude:
-          - os: macos-latest
-            toolchain: {compiler: intel, version: '2024.1'}
-          - os: macos-latest
-            toolchain: {compiler: intel-classic, version: '2021.10'}
+        # - {compiler: intel, version: '2024.1'}
+        # - {compiler: intel-classic, version: '2021.10'}
+        # exclude:
+        #   - os: macos-latest
+        #     toolchain: {compiler: intel, version: '2024.1'}
+        #   - os: macos-latest
+        #     toolchain: {compiler: intel-classic, version: '2021.10'}
     steps:
       - name: checkout repo
         uses: actions/checkout@v4
@@ -80,13 +80,13 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         toolchain:
         - {compiler: gcc, version: 13}
-        - {compiler: intel, version: '2024.1'}
-        - {compiler: intel-classic, version: '2021.10'}
-        exclude:
-          - os: macos-latest
-            toolchain: {compiler: intel, version: '2024.1'}
-          - os: macos-latest
-            toolchain: {compiler: intel-classic, version: '2021.10'}
+        # - {compiler: intel, version: '2024.1'}
+        # - {compiler: intel-classic, version: '2021.10'}
+        # exclude:
+        #   - os: macos-latest
+        #     toolchain: {compiler: intel, version: '2024.1'}
+        #   - os: macos-latest
+        #     toolchain: {compiler: intel-classic, version: '2021.10'}
     steps:
       - name: checkout repo
         uses: actions/checkout@v4

@@ -54,6 +54,11 @@ jobs:
           compiler: ${{ matrix.compiler }}
           version: ${{ matrix.version }}
           
+      - name: Install gcovr
+        run: |
+          pip --version
+          pip install gcovr
+
       - name: Compile
         run: |
           cmake --version

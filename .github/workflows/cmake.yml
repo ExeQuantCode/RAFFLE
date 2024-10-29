@@ -63,6 +63,13 @@ jobs:
         run: |
           pip --version
           pip install gcovr
+        
+      - name: Install python dependencies
+        run: |
+          python --version
+          python -m pip install pip-tools
+          python -m piptools compile -o requirements.txt pyproject.toml --all-build-deps
+          python -m pip install -r requirements.txt
 
       - name: Compile
         run: |
@@ -118,6 +125,13 @@ jobs:
           compiler: ${{ matrix.compiler }}
           version: ${{ matrix.version }}
           
+      - name: Install python dependencies
+        run: |
+          python --version
+          python -m pip install pip-tools
+          python -m piptools compile -o requirements.txt pyproject.toml --all-build-deps
+          python -m pip install -r requirements.txt
+
       - name: Compile
         run: |
           cmake --version

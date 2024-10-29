@@ -32,7 +32,7 @@ wheel.cmake = true
 
 [project]
 name = "raffle"
-version = "0.4.0"
+dynamic = ["version"]
 dependencies = [
     "numpy~=2.1.2",
 ]
@@ -63,3 +63,8 @@ Issues = "https://github.com/nedtaylor/raffle/issues"
 [project.optional-dependencies]
 all = ["ase>=3.23.0"]
 no-ase = []
+
+[tool.scikit-build.metadata.version]
+provider = "scikit_build_core.metadata.regex"
+input = "fpm.toml"
+regex = '(?i)^version *= \"(?P<value>.+?)\"'

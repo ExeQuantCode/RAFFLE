@@ -67,10 +67,11 @@ jobs:
       - name: Compile
         run: |
           cmake --version
+          python --version
           ${{ env.FC }} --version
           mkdir -p build
           cd build
-          cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_Fortran_COMPILER=${{ env.FC }} ..
+          cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_Fortran_COMPILER=${{ env.FC }} -DPython_EXECUTABLE=$(which python) -DPython_INCLUDE_DIRS=$(python -c "from distutils.sysconfig import get_python_inc; print(get_python_inc())") ..
           make
           make install
 
@@ -120,10 +121,11 @@ jobs:
       - name: Compile
         run: |
           cmake --version
+          python --version
           ${{ env.FC }} --version
           mkdir -p build
           cd build
-          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_Fortran_COMPILER=${{ env.FC }} ..
+          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_Fortran_COMPILER=${{ env.FC }} -DPython_EXECUTABLE=$(which python) -DPython_INCLUDE_DIRS=$(python -c "from distutils.sysconfig import get_python_inc; print(get_python_inc())") ..
           make
           make install
 

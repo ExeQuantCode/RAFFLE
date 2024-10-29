@@ -219,8 +219,6 @@ endif()
 
 
 
-# link_directories(${CMAKE_BUILD_DIR})
-# link_libraries("-L${CMAKE_BUILD_DIR} -llibraffle")
 if (BUILD_PYTHON)
 
     # # Get the directory where object files are generated
@@ -250,19 +248,21 @@ if (BUILD_PYTHON)
     set (F90WRAP_EXECUTABLE ${PYTHON_EXECUTABLE} -m f90wrap)
     set (F2PY_EXECUTABLE ${PYTHON_EXECUTABLE} -m f90wrap --f2py-f90wrap)
 
-    # determine middle part of shared object filename
-    string(REPLACE "." "" PYTHON_VERSION ${Python_VERSION_MAJOR}${Python_VERSION_MINOR})
-    if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-        set(PLATFORM_TAG "darwin")
-    elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-        set(PLATFORM_TAG "linux")
-    elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
-        set(PLATFORM_TAG "win_amd64")
+    # Run Python command to get the extension suffix
+    execute_process(
+        COMMAND ${Python_EXECUTABLE} -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))"
+        RESULT_VARIABLE result
+        OUTPUT_VARIABLE PYTHON_EXTENSION_MODULE_SUFFIX
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+
+    # Check if the suffix was retrieved successfully
+    if (result EQUAL 0)
+        message(STATUS "Python extension module suffix: ${PYTHON_EXTENSION_MODULE_SUFFIX}")
     else()
-        set(PLATFORM_TAG "unknown")
+        message(FATAL_ERROR "Failed to retrieve Python extension module suffix")
     endif()
-    set(FILENAME_MIDDLE "cpython-${PYTHON_VERSION}-${PLATFORM_TAG}")
-    set(F2PY_OUTPUT_FILE ${CMAKE_BUILD_DIR}/raffle/_${PROJECT_NAME}.${FILENAME_MIDDLE}.so)
+    set(F2PY_OUTPUT_FILE ${CMAKE_BUILD_DIR}/raffle/_${PROJECT_NAME}.${PYTHON_EXTENSION_MODULE_SUFFIX})
 
     # Generate f90wrap signature file
     set(F90WRAP_FILE

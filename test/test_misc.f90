@@ -218,25 +218,43 @@ contains
   subroutine test_ishuffle(success)
     implicit none
     logical, intent(inout) :: success
+    integer  :: i
+    logical :: ltmp1
     integer :: arr(1,5)
     integer :: original_arr(1,5)
 
     arr(1,:) = [1, 2, 3, 4, 5]
     original_arr(1,:) = arr(1,:)
     call shuffle(arr, dim=2, seed=0)
-    call assert(any(arr .ne. original_arr), "ishuffle failed", success)
+    ltmp1 = .true.
+    do i = 1, size(arr,dim=2)
+       if(all(abs(arr(1,i) - original_arr(1,:)).gt.0)) then
+          ltmp1 = .false.
+          exit
+       end if
+    end do
+    call assert(ltmp1, "ishuffle failed", success)
   end subroutine test_ishuffle
 
   subroutine test_rshuffle(success)
     implicit none
     logical, intent(inout) :: success
+    integer  :: i
+    logical :: ltmp1
     real(real32) :: arr(1,5)
     real(real32) :: original_arr(1,5)
 
     arr(1,:) = [1._real32, 2._real32, 3._real32, 4._real32, 5._real32]
     original_arr(1,:) = arr(1,:)
     call shuffle(arr, dim=2, seed=0)
-    call assert(any(abs(arr - original_arr).gt.1.E-6), "rshuffle failed", success)
+    ltmp1 = .true.
+    do i = 1, size(arr,dim=2)
+       if(all(abs(arr(1,i) - original_arr(1,:)).gt.1.E-6)) then
+          ltmp1 = .false.
+          exit
+       end if
+    end do
+    call assert(ltmp1, "rshuffle failed", success)
   end subroutine test_rshuffle
 
   subroutine test_icount(success)

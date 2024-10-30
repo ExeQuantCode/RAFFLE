@@ -32,7 +32,7 @@ contains
     implicit none
 
     ! Arguments
-    character(*), dimension(..), intent(in) :: input_dir
+    character(1024), dimension(..), intent(in) :: input_dir
     !! List of directories containing the structures to be read.
     type(distribs_container_type), intent(in), optional :: &
          distribs_container_template
@@ -109,19 +109,19 @@ contains
     !    call distribs_container%read('distribs_container.dat')
     !    goto 100
     ! end if
-    select rank(input_dir)
+    select rank(dir_ptr => input_dir)
     rank(0)
-       structure_list = [ get_structure_list( input_dir, ifile_format ) ]
+       structure_list = [ get_structure_list( dir_ptr, ifile_format ) ]
     rank(1)
-       do i = 1, size(input_dir)
+       do i = 1, size(dir_ptr)
           if(i.eq.1)then
              structure_list = [ &
-                  get_structure_list( input_dir(i), ifile_format ) &
+                  get_structure_list( dir_ptr(i), ifile_format ) &
              ]
           else
              structure_list = [ &
                   structure_list, &
-                  get_structure_list( input_dir(i), ifile_format ) &
+                  get_structure_list( dir_ptr(i), ifile_format ) &
              ]
           end if
        end do

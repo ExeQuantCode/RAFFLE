@@ -10,7 +10,7 @@ module raffle__distribs_container
   !! The generalised distribution functions are used to evaluate the viability
   !! of a new structure.
   use raffle__constants, only: real32, pi
-  use raffle__io_utils, only: stop_program
+  use raffle__io_utils, only: stop_program, print_warning
   use raffle__misc, only: set, icount, strip_null, sort_str
   use raffle__misc_maths, only: triangular_number, set_difference
   use raffle__geom_rw, only: basis_type, get_element_properties
@@ -571,8 +571,6 @@ contains
     !! Parent. Instance of distribution functions container.
 
     deallocate(this%system)
-    !  this%best_system = 0
-    deallocate(this%best_energy_pair, this%best_energy_per_species)
     this%num_evaluated_allocated = 0
 
   end subroutine deallocate_systems
@@ -851,13 +849,22 @@ contains
     character(256) :: stop_msg
     !! Error message.
 
-    select rank(system)
+    select rank(rank_ptr => system)
     rank(0)
-       select type(system)
+       select type(type_ptr => rank_ptr)
        type is (distribs_type)
-          this%system = [ this%system, system ]
+          this%system = [ this%system, type_ptr ]
        type is (basis_type)
-          call this%add_basis(system)
+#if defined(GFORTRAN)
+          call this%add_basis(type_ptr)
+#else
+          block
+            type(basis_type), dimension(1) :: basis
+
+            basis = type_ptr
+            call this%add_basis(basis(1))
+          end block
+#endif
        class default
           write(stop_msg,*) "Invalid type for system" // &
                achar(13) // achar(10) // &
@@ -867,12 +874,12 @@ contains
        end select
     rank(1)
        num_structures_previous = size(this%system)
-       select type(system)
+       select type(type_ptr => rank_ptr)
        type is (distribs_type)
-          this%system = [ this%system, system ]
+          this%system = [ this%system, type_ptr ]
        type is (basis_type)
-          do i = 1, size(system)
-             call this%add_basis(system(i))
+          do i = 1, size(type_ptr)
+             call this%add_basis(type_ptr(i))
           end do
        class default
           write(stop_msg,*) "Invalid type for system" // &
@@ -884,7 +891,7 @@ contains
     rank default
        write(stop_msg,*) "Invalid rank for system" // &
             achar(13) // achar(10) // &
-            "Expected rank 0 or 1, got ", rank(system)
+            "Expected rank 0 or 1, got ", rank(rank_ptr)
        call stop_program( stop_msg )
        return
     end select
@@ -1574,6 +1581,8 @@ contains
     !! Energy of the system.
     integer, dimension(:,:), allocatable :: idx_list
     !! Index list for pairs of elements.
+    character(len=256) :: warn_msg
+    !! Warning message.
 
     if(.not.allocated(this%best_energy_pair))then
        allocate( &
@@ -1632,6 +1641,14 @@ contains
        energy = energy / this%system(i)%num_atoms
 
        do is = 1, size(this%system(i)%element_symbols)
+          if(this%system(i)%num_per_species(is).eq.0)then
+             write(warn_msg, &
+                  '("No neighbours found for species ",A," (",I0,") &
+                  &in system ",I0)' &
+             ) trim(this%system(i)%element_symbols(is)), is, i
+             call print_warning(warn_msg)
+             cycle
+          end if
           idx1 = findloc( &
                [ this%element_info(:)%name ], &
                this%system(i)%element_symbols(is), &
@@ -1666,10 +1683,6 @@ contains
              end if
 
           end do
-          if(this%system(i)%num_per_species(is).eq.0)then
-             call stop_program( "Species not found in system" )
-             return
-          end if
        end do
        deallocate(idx_list)
             
@@ -1725,8 +1738,6 @@ contains
     !! Index of the element in the element_info array.
 
     ! Local variables
-    integer :: is, js
-    !! Index of the elements in the element_info array.
 
     idx = findloc([ this%element_info(:)%name ], species, dim=1)
 
@@ -2050,6 +2061,8 @@ contains
        ! loop over all species in the system to add the distributions
        !------------------------------------------------------------------------
        do is = 1, size(this%system(i)%element_symbols)
+
+          if( this%system(i)%num_per_species(is).eq.0 )cycle
 
           idx1 = findloc( &
                [ this%element_info(:)%name ], &

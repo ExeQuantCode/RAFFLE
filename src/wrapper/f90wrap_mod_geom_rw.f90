@@ -1,4 +1,4 @@
-! Module raffle__geom_rw defined in file ../src/lib/mod_rw_geom.f90
+! Module raffle__geom_rw defined in file ../src/lib/mod_geom_rw.f90
 
 subroutine f90wrap_species_type__array__atom(this, nd, dtype, dshape, dloc)
     use raffle__geom_rw, only: species_type
@@ -165,7 +165,7 @@ subroutine f90wrap_species_type__set__num(this, f90wrap_num)
     this_ptr%p%num = f90wrap_num
 end subroutine f90wrap_species_type__set__num
 
-subroutine f90wrap_rw_geom__species_type_initialise(this)
+subroutine f90wrap_geom_rw__species_type_initialise(this)
     use raffle__geom_rw, only: species_type
     implicit none
     
@@ -176,9 +176,9 @@ subroutine f90wrap_rw_geom__species_type_initialise(this)
     integer, intent(out), dimension(2) :: this
     allocate(this_ptr%p)
     this = transfer(this_ptr, this)
-end subroutine f90wrap_rw_geom__species_type_initialise
+end subroutine f90wrap_geom_rw__species_type_initialise
 
-subroutine f90wrap_rw_geom__species_type_finalise(this)
+subroutine f90wrap_geom_rw__species_type_finalise(this)
     use raffle__geom_rw, only: species_type
     implicit none
     
@@ -189,7 +189,7 @@ subroutine f90wrap_rw_geom__species_type_finalise(this)
     integer, intent(in), dimension(2) :: this
     this_ptr = transfer(this, this_ptr)
     deallocate(this_ptr%p)
-end subroutine f90wrap_rw_geom__species_type_finalise
+end subroutine f90wrap_geom_rw__species_type_finalise
 
 subroutine f90wrap_basis_type__array_getitem__spec(f90wrap_this, f90wrap_i, specitem)
     
@@ -456,7 +456,7 @@ subroutine f90wrap_basis_type__set__sysname(this, f90wrap_sysname)
     this_ptr%p%sysname = f90wrap_sysname
 end subroutine f90wrap_basis_type__set__sysname
 
-subroutine f90wrap_rw_geom__basis_type_initialise(this)
+subroutine f90wrap_geom_rw__basis_type_initialise(this)
     use raffle__geom_rw, only: basis_type
     implicit none
     
@@ -467,9 +467,9 @@ subroutine f90wrap_rw_geom__basis_type_initialise(this)
     integer, intent(out), dimension(2) :: this
     allocate(this_ptr%p)
     this = transfer(this_ptr, this)
-end subroutine f90wrap_rw_geom__basis_type_initialise
+end subroutine f90wrap_geom_rw__basis_type_initialise
 
-subroutine f90wrap_rw_geom__basis_type_finalise(this)
+subroutine f90wrap_geom_rw__basis_type_finalise(this)
     use raffle__geom_rw, only: basis_type
     implicit none
     
@@ -480,7 +480,7 @@ subroutine f90wrap_rw_geom__basis_type_finalise(this)
     integer, intent(in), dimension(2) :: this
     this_ptr = transfer(this, this_ptr)
     deallocate(this_ptr%p)
-end subroutine f90wrap_rw_geom__basis_type_finalise
+end subroutine f90wrap_geom_rw__basis_type_finalise
 
 
 
@@ -602,7 +602,7 @@ subroutine f90wrap_basis_type_xnum_array__array_dealloc__items(this)
     this = transfer(this_ptr, this)
 end subroutine f90wrap_basis_type_xnum_array__array_dealloc__items
 
-subroutine f90wrap_rw_geom__basis_type_xnum_array_initialise(this)
+subroutine f90wrap_geom_rw__basis_type_xnum_array_initialise(this)
     use raffle__geom_rw, only: basis_type
     implicit none
 
@@ -617,9 +617,9 @@ subroutine f90wrap_rw_geom__basis_type_xnum_array_initialise(this)
     integer, intent(out), dimension(2) :: this
     allocate(this_ptr%p)
     this = transfer(this_ptr, this)
-end subroutine f90wrap_rw_geom__basis_type_xnum_array_initialise
+end subroutine f90wrap_geom_rw__basis_type_xnum_array_initialise
 
-subroutine f90wrap_rw_geom__basis_type_xnum_array_finalise(this)
+subroutine f90wrap_geom_rw__basis_type_xnum_array_finalise(this)
     use raffle__geom_rw, only: basis_type
     implicit none
 
@@ -634,12 +634,12 @@ subroutine f90wrap_rw_geom__basis_type_xnum_array_finalise(this)
     integer, intent(in), dimension(2) :: this
     this_ptr = transfer(this, this_ptr)
     deallocate(this_ptr%p)
-end subroutine f90wrap_rw_geom__basis_type_xnum_array_finalise
+end subroutine f90wrap_geom_rw__basis_type_xnum_array_finalise
 
 
 
 
-subroutine f90wrap_rw_geom__allocate_species__binding__basis_type( &
+subroutine f90wrap_geom_rw__allocate_species__binding__basis_type( &
        this, num_species, species_symbols, species_count, atoms, n0, &
        n1, n2, n3)
     use raffle__geom_rw, only: basis_type
@@ -669,9 +669,9 @@ subroutine f90wrap_rw_geom__allocate_species__binding__basis_type( &
          species_count=species_count, &
          atoms=atoms &
     )
-end subroutine f90wrap_rw_geom__allocate_species__binding__basis_type
+end subroutine f90wrap_geom_rw__allocate_species__binding__basis_type
 
-subroutine f90wrap_rw_geom__convert__binding__basis_type(this)
+subroutine f90wrap_geom_rw__convert__binding__basis_type(this)
     use raffle__geom_rw, only: basis_type
     implicit none
     
@@ -682,9 +682,9 @@ subroutine f90wrap_rw_geom__convert__binding__basis_type(this)
     integer, intent(in), dimension(2) :: this
     this_ptr = transfer(this, this_ptr)
     call this_ptr%p%convert()
-end subroutine f90wrap_rw_geom__convert__binding__basis_type
+end subroutine f90wrap_geom_rw__convert__binding__basis_type
 
-subroutine f90wrap_rw_geom__copy__binding__basis_type(this, basis, length)
+subroutine f90wrap_geom_rw__copy__binding__basis_type(this, basis, length)
     use raffle__geom_rw, only: basis_type
     implicit none
     
@@ -699,9 +699,9 @@ subroutine f90wrap_rw_geom__copy__binding__basis_type(this, basis, length)
     this_ptr = transfer(this, this_ptr)
     basis_ptr = transfer(basis, basis_ptr)
     call this_ptr%p%copy(basis=basis_ptr%p, length=length)
-end subroutine f90wrap_rw_geom__copy__binding__basis_type
+end subroutine f90wrap_geom_rw__copy__binding__basis_type
 
-subroutine f90wrap_rw_geom__get_lattice_constants__binding__basis_type(this, ret_output, radians)
+subroutine f90wrap_geom_rw__get_lattice_constants__binding__basis_type(this, ret_output, radians)
     use raffle__geom_rw, only: basis_type
     implicit none
     
@@ -714,9 +714,9 @@ subroutine f90wrap_rw_geom__get_lattice_constants__binding__basis_type(this, ret
     logical, intent(in), optional :: radians
     this_ptr = transfer(this, this_ptr)
     ret_output = this_ptr%p%get_lattice_constants(radians=radians)
-end subroutine f90wrap_rw_geom__get_lattice_constants__binding__basis_type
+end subroutine f90wrap_geom_rw__get_lattice_constants__binding__basis_type
 
-subroutine f90wrap_rw_geom__geom_read(unit, basis, length, iostat)
+subroutine f90wrap_geom_rw__geom_read(unit, basis, length, iostat)
     use raffle__geom_rw, only: geom_read, basis_type
     implicit none
     
@@ -731,9 +731,9 @@ subroutine f90wrap_rw_geom__geom_read(unit, basis, length, iostat)
     allocate(basis_ptr%p)
     call geom_read(UNIT=unit, basis=basis_ptr%p, length=length, iostat=iostat)
     basis = transfer(basis_ptr, basis)
-end subroutine f90wrap_rw_geom__geom_read
+end subroutine f90wrap_geom_rw__geom_read
 
-subroutine f90wrap_rw_geom__geom_write(unit, basis)
+subroutine f90wrap_geom_rw__geom_write(unit, basis)
     use raffle__geom_rw, only: geom_write, basis_type
     implicit none
     
@@ -745,9 +745,9 @@ subroutine f90wrap_rw_geom__geom_write(unit, basis)
     integer, intent(in), dimension(2) :: basis
     basis_ptr = transfer(basis, basis_ptr)
     call geom_write(UNIT=unit, basis=basis_ptr%p)
-end subroutine f90wrap_rw_geom__geom_write
+end subroutine f90wrap_geom_rw__geom_write
 
-subroutine f90wrap_rw_geom__get_element_properties(element, charge, mass, radius)
+subroutine f90wrap_geom_rw__get_element_properties(element, charge, mass, radius)
     use raffle__geom_rw, only: get_element_properties
     implicit none
     
@@ -761,39 +761,39 @@ subroutine f90wrap_rw_geom__get_element_properties(element, charge, mass, radius
          mass=mass, &
          radius=radius &
     )
-end subroutine f90wrap_rw_geom__get_element_properties
+end subroutine f90wrap_geom_rw__get_element_properties
 
-subroutine f90wrap_rw_geom__get__igeom_input(f90wrap_igeom_input)
+subroutine f90wrap_geom_rw__get__igeom_input(f90wrap_igeom_input)
     use raffle__geom_rw, only: raffle__geom_rw_igeom_input => igeom_input
     implicit none
     integer, intent(out) :: f90wrap_igeom_input
     
     f90wrap_igeom_input = raffle__geom_rw_igeom_input
-end subroutine f90wrap_rw_geom__get__igeom_input
+end subroutine f90wrap_geom_rw__get__igeom_input
 
-subroutine f90wrap_rw_geom__set__igeom_input(f90wrap_igeom_input)
+subroutine f90wrap_geom_rw__set__igeom_input(f90wrap_igeom_input)
     use raffle__geom_rw, only: raffle__geom_rw_igeom_input => igeom_input
     implicit none
     integer, intent(in) :: f90wrap_igeom_input
     
     raffle__geom_rw_igeom_input = f90wrap_igeom_input
-end subroutine f90wrap_rw_geom__set__igeom_input
+end subroutine f90wrap_geom_rw__set__igeom_input
 
-subroutine f90wrap_rw_geom__get__igeom_output(f90wrap_igeom_output)
+subroutine f90wrap_geom_rw__get__igeom_output(f90wrap_igeom_output)
     use raffle__geom_rw, only: raffle__geom_rw_igeom_output => igeom_output
     implicit none
     integer, intent(out) :: f90wrap_igeom_output
     
     f90wrap_igeom_output = raffle__geom_rw_igeom_output
-end subroutine f90wrap_rw_geom__get__igeom_output
+end subroutine f90wrap_geom_rw__get__igeom_output
 
-subroutine f90wrap_rw_geom__set__igeom_output(f90wrap_igeom_output)
+subroutine f90wrap_geom_rw__set__igeom_output(f90wrap_igeom_output)
     use raffle__geom_rw, only: raffle__geom_rw_igeom_output => igeom_output
     implicit none
     integer, intent(in) :: f90wrap_igeom_output
     
     raffle__geom_rw_igeom_output = f90wrap_igeom_output
-end subroutine f90wrap_rw_geom__set__igeom_output
+end subroutine f90wrap_geom_rw__set__igeom_output
 
-! End of module raffle__geom_rw defined in file ../src/lib/mod_rw_geom.f90
+! End of module raffle__geom_rw defined in file ../src/lib/mod_geom_rw.f90
 

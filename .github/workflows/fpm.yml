@@ -1,0 +1,110 @@
+name: run-fpm-build
+
+on:
+  pull_request:
+    branches:
+      - main
+      - development
+    paths:
+      - ".github/workflows/fpm.yml"
+      - "fpm.toml"
+      - "**.f90"
+      - "**.F90"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: fpm
+  cancel-in-progress: false
+  
+jobs:
+  build-and-test-fpm-debug:
+    environment:
+      name: github-pages
+    name: Build and test in debug mode
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        toolchain:
+        - {compiler: gcc, version: 13}
+        # - {compiler: intel, version: '2024.1'}
+        # - {compiler: intel-classic, version: '2021.10'}
+        # exclude:
+        #   - os: macos-latest
+        #     toolchain: {compiler: intel, version: '2024.1'}
+        #   - os: macos-latest
+        #     toolchain: {compiler: intel-classic, version: '2021.10'}
+    steps:
+    - name: checkout repo
+      uses: actions/checkout@v4
+
+    - uses: fortran-lang/setup-fortran@v1
+      id: setup-fortran
+      with:
+        compiler: ${{ matrix.toolchain.compiler }}
+        version: ${{ matrix.toolchain.version }}
+          
+    - uses: fortran-lang/setup-fpm@v5
+      id: setup-fpm
+      with:
+        fpm-version: "v0.10.0"
+        
+    - name: Compile
+      run: |
+        ${{ env.FC }} --version
+        fpm build --profile debug --compiler ${{ env.FC }}
+
+    - name: Test
+      run: |
+        ${{ env.FC }} --version
+        fpm test --profile debug --compiler ${{ env.FC }}
+
+  build-and-test-fpm-release:
+    name: Build and test in release mode
+    environment:
+      name: github-pages
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        toolchain:
+        - {compiler: gcc, version: 13}
+        # - {compiler: intel, version: '2024.1'}
+        # - {compiler: intel-classic, version: '2021.10'}
+        # exclude:
+        #   - os: macos-latest
+        #     toolchain: {compiler: intel, version: '2024.1'}
+        #   - os: macos-latest
+        #     toolchain: {compiler: intel-classic, version: '2021.10'}
+
+    steps:
+    - name: checkout repo
+      uses: actions/checkout@v4
+        
+    - uses: fortran-lang/setup-fortran@v1
+      id: setup-fortran
+      with:
+        compiler: ${{ matrix.toolchain.compiler }}
+        version: ${{ matrix.toolchain.version }}
+          
+    - uses: fortran-lang/setup-fpm@v5
+      id: setup-fpm
+      with:
+        fpm-version: "v0.10.0"
+
+    - name: Compile
+      run: |
+        ${{ env.FC }} --version
+        fpm build --profile release --compiler ${{ env.FC }}
+
+    - name: Test
+      run: |
+        ${{ env.FC }} --version
+        fpm test --profile release --compiler ${{ env.FC }}

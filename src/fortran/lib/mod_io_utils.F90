@@ -12,7 +12,7 @@ module raffle__io_utils
 
   public :: raffle__version__
   public :: test_error_handling
-  public :: stop_program
+  public :: stop_program, print_warning
   public :: print_version, print_build_info
 
 
@@ -38,6 +38,17 @@ contains
        stop exit_code_
     end if
   end subroutine stop_program
+!###############################################################################
+
+
+!###############################################################################
+  subroutine print_warning(message)
+    !! Print a warning message
+    implicit none
+    character(len=*), intent(in) :: message
+
+    write(0,*) 'WARNING: ', trim(message)
+  end subroutine print_warning
 !###############################################################################
 
 

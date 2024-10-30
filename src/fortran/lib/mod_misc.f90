@@ -306,10 +306,10 @@ contains
     implicit none
 
     ! Arguments
-    real(real32), dimension(dim,3) :: arr
-    !! Array to be sorted.
     integer, intent(in) :: dim
     !! Dimension to sort along.
+    real(real32), dimension(dim,3), intent(inout) :: arr
+    !! Array to be sorted.
 
     ! Local variables
     integer :: i,j,loc,istart

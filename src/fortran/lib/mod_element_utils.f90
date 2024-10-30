@@ -30,7 +30,7 @@ module raffle__element_utils
 
   type :: element_bond_type
      !! Type for storing the properties of a bond between two elements.    
-     real(real32) :: radius_covalent
+     real(real32) :: radius_covalent = 0._real32
      character(3), dimension(2) :: element
    contains
      procedure, pass(this) :: set => set_bond

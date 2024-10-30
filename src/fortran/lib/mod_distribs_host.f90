@@ -78,12 +78,12 @@ contains
     if(allocated(this%df_3body)) deallocate(this%df_3body)
     if(allocated(this%df_4body)) deallocate(this%df_4body)
 
-   if(allocated(this%stoichiometry)) deallocate(this%stoichiometry)
-   if(allocated(this%element_symbols)) deallocate(this%element_symbols)
-   if(allocated(this%num_pairs)) deallocate(this%num_pairs)
-   if(allocated(this%num_per_species)) deallocate(this%num_per_species)
-   if(allocated(this%weight_pair)) deallocate(this%weight_pair)
-   if(allocated(this%weight_per_species)) deallocate(this%weight_per_species)
+    if(allocated(this%stoichiometry)) deallocate(this%stoichiometry)
+    if(allocated(this%element_symbols)) deallocate(this%element_symbols)
+    if(allocated(this%num_pairs)) deallocate(this%num_pairs)
+    if(allocated(this%num_per_species)) deallocate(this%num_per_species)
+    if(allocated(this%weight_pair)) deallocate(this%weight_pair)
+    if(allocated(this%weight_per_species)) deallocate(this%weight_per_species)
 
   end subroutine set_host
 !###############################################################################

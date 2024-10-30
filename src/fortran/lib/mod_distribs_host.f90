@@ -64,6 +64,7 @@ module raffle__distribs_host
 
     call this%basis%copy(host)
     this%defined = .true.
+    if(allocated(this%pair_index)) deallocate(this%pair_index)
     allocate(this%pair_index(this%basis%nspec, this%basis%nspec))
     i = 0
     do is = 1, this%basis%nspec
@@ -76,6 +77,13 @@ module raffle__distribs_host
    if(allocated(this%df_2body)) deallocate(this%df_2body)
    if(allocated(this%df_3body)) deallocate(this%df_3body)
    if(allocated(this%df_4body)) deallocate(this%df_4body)
+
+   if(allocated(this%stoichiometry)) deallocate(this%stoichiometry)
+   if(allocated(this%element_symbols)) deallocate(this%element_symbols)
+   if(allocated(this%num_pairs)) deallocate(this%num_pairs)
+   if(allocated(this%num_per_species)) deallocate(this%num_per_species)
+   if(allocated(this%weight_pair)) deallocate(this%weight_pair)
+   if(allocated(this%weight_per_species)) deallocate(this%weight_per_species)
 
   end subroutine set_host
 !###############################################################################

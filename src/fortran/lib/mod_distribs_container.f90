@@ -571,8 +571,6 @@ module raffle__distribs_container
     !! Parent. Instance of distribution functions container.
 
     deallocate(this%system)
-    !  this%best_system = 0
-    deallocate(this%best_energy_pair, this%best_energy_per_species)
     this%num_evaluated_allocated = 0
 
   end subroutine deallocate_systems

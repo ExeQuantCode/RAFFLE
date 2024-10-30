@@ -34,6 +34,8 @@ The library bas been developed and tested using the following Fortran compilers:
 - gfortran -- gcc 13.2.0
 - gfortran -- gcc 14.1.0
 
+The library is known to not currently work with the intel Fortran compilers.
+
 ## Installation
 
 To install RAFFLE, the source must be obtained from the git repository. Use the following commands to get started:
@@ -111,6 +113,21 @@ To check whether RAFFLE has installed correctly and that the compilation works a
 ctest
 ```
 This runs the unit tests (found in the `test` directory) to ensure procedures output as expected.
+
+### MacOS
+
+Issues can arise with the built-in C and Fortran compilers when installing on MacOS, particularly for Python installation.
+It is recommended to manually install new versions (such as via [Homebrew](https://brew.sh)) and setting the `CC` and `FC` environment variables (i.e. defining the default compilers for the respective language).
+We have found the following to work:
+
+```
+brew install gcc
+brew install gfortran
+export CC=$(brew --prefix gfortran)
+export FC=$(brew --prefix gcc)
+```
+
+Now follow the instructions for the [Python](#python) build methods.
 
 
 ## Examples

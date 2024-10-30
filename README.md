@@ -1,5 +1,5 @@
 <p align="center">
-<img src="doc/RAFFLE_logo_no_background.png" width="400"/>
+<img src="doc/RAFFLE_logo_no_background.png" width="250"/>
 </p>
 
 [![MIT workflow](https://img.shields.io/badge/License-GPLv3-yellow.svg)](https://www.gnu.org/licenses/gpl-3.0.en.html "View GPLv3 license")
@@ -17,7 +17,8 @@ by Ned Thaddeus Taylor, Joe Pitfield, and Steven Paul Hepplestone
 
 RAFFLE (pseudoRandom Approach For Finding Local Energetic minima) is a package for structural prediction applied to material interfaces. RAFFLE can interface with the [Atomic Simulation Environment (ASE)](https://gitlab.com/ase/ase).
 
-RAFFLE is both a Fortran and a Python library. A standalone Fortran executable is also being developed. The code heavily relies on features of Fortran2008 and above, so there is no backwards compatibility with Fortran95.
+RAFFLE is both a Fortran and a Python library, with the option of a Fortran executable.
+The code heavily relies on features of Fortran 2018 and above, so there is no backwards compatibility with Fortran95.
 
 ## Requirements
 

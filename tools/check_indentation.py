@@ -183,6 +183,10 @@ def check_indentation(file_path):
                 else:
                     expected_indent -= module_program_indent
 
+            # Detect end of block block
+            if re.match(r'^\s*end\s*block\b', stripped_line, re.IGNORECASE):
+                expected_indent -= procedure_indent
+
             # Detect end of associate block
             if re.match(r'^\s*end\s*associate\b', stripped_line, re.IGNORECASE):
                 expected_indent -= loop_conditional_indent
@@ -286,6 +290,10 @@ def check_indentation(file_path):
                     inside_associate_arguments = True
                 else:
                     expected_indent += loop_conditional_indent
+            
+            # Detect block block
+            if re.match(r'^\s*block\b', stripped_line, re.IGNORECASE):
+                expected_indent += procedure_indent
 
             # Detect do loop, and where statement with optional "NAME:"
             if re.match(r'^\s*\w+\s*:\s*(do|where)\b', stripped_line, re.IGNORECASE) or \

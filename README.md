@@ -21,14 +21,20 @@ RAFFLE is both a Fortran and a Python library. A standalone Fortran executable i
 
 ## Requirements
 
-- Python 3.11 or later (might work on earlier, have not tested)
-- Fortran compiler supporting Fortran 2008 standard or later
-- NumPy
-- f90wrap
-- CMake
+- Fortran compiler supporting Fortran 2018 standard or later
+- fpm or CMake (fpm works only for Fortran installation)
 
-Optional:
-- ASE
+Python-specific installation:
+
+- Python 3.11 or later (might work on earlier, have not tested)
+- NumPy.f2py
+- f90wrap
+- cython
+- scikit-build-core
+- meson
+- make or ninja
+- CMake
+- ASE (optional)
 
 The library bas been developed and tested using the following Fortran compilers:
 - gfortran -- gcc 13.2.0

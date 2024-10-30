@@ -10,7 +10,7 @@ module raffle__distribs_container
   !! The generalised distribution functions are used to evaluate the viability
   !! of a new structure.
   use raffle__constants, only: real32, pi
-  use raffle__io_utils, only: stop_program
+  use raffle__io_utils, only: stop_program, print_warning
   use raffle__misc, only: set, icount, strip_null, sort_str
   use raffle__misc_maths, only: triangular_number, set_difference
   use raffle__geom_rw, only: basis_type, get_element_properties
@@ -1565,6 +1565,8 @@ module raffle__distribs_container
     !! Energy of the system.
     integer, dimension(:,:), allocatable :: idx_list
     !! Index list for pairs of elements.
+    character(len=256) :: warn_msg
+    !! Warning message.
 
     if(.not.allocated(this%best_energy_pair))then
        allocate( &
@@ -1618,6 +1620,14 @@ module raffle__distribs_container
        energy = energy / this%system(i)%num_atoms
 
        do is = 1, size(this%system(i)%element_symbols)
+          if(this%system(i)%num_per_species(is).eq.0)then
+             write(warn_msg, &
+                  '("No neighbours found for species ",A," (",I0,") &
+                  &in system ",I0)' &
+             ) trim(this%system(i)%element_symbols(is)), is, i
+             call print_warning(warn_msg)
+             cycle
+          end if
           idx1 = findloc( [ this%element_info(:)%name ], &
                            this%system(i)%element_symbols(is), dim=1 )
           energy_per_species = &
@@ -1643,10 +1653,6 @@ module raffle__distribs_container
              end if
 
           end do
-          if(this%system(i)%num_per_species(is).eq.0)then
-             call stop_program( "Species not found in system" )
-             return
-          end if
        end do
        deallocate(idx_list)
             
@@ -2015,6 +2021,8 @@ module raffle__distribs_container
        ! loop over all species in the system to add the distributions
        !------------------------------------------------------------------------
        do is = 1, size(this%system(i)%element_symbols)
+
+          if( this%system(i)%num_per_species(is).eq.0 )cycle
 
           idx1 = findloc( [ this%element_info(:)%name ], &
                           this%system(i)%element_symbols(is), dim=1)

@@ -1,3 +1,7 @@
+<p align="center">
+<img src="doc/RAFFLE_logo_no_background.png" width="400"/>
+</p>
+
 [![MIT workflow](https://img.shields.io/badge/License-GPLv3-yellow.svg)](https://www.gnu.org/licenses/gpl-3.0.en.html "View GPLv3 license")
 [![Latest Release](https://img.shields.io/github/v/release/nedtaylor/RAFFLE?sort=semver)](https://github.com/nedtaylor/RAFFLE/releases "View on GitHub")
 [![Paper](https://img.shields.io/badge/Paper-Phys_Rev_B-blue.svg)](https://link.aps.org/doi/10.1103/PhysRevLett.132.066201)

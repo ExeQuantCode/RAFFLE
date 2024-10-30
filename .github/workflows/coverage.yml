@@ -2,7 +2,8 @@ name: run-code-coverage
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - "main"
     paths:
       - ".github/workflows/coverage.yml"
       - "CMakeLists.txt"
@@ -10,7 +11,11 @@ on:
       - "**.F90"
       - "**.cmake"
   pull_request:
-    branches: ["main"]
+    branches:
+      - "main"
+    types:
+      - opened
+      - synchronize
     paths:
       - ".github/workflows/coverage.yml"
       - "CMakeLists.txt"

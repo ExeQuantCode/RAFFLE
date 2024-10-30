@@ -7,13 +7,18 @@ on:
     paths:
       - ".github/workflows/formatting.yml"
       - "**.f90"
+      - "**.F90"
   pull_request:
     branches:
       - main
       - development
+    types:
+      - opened
+      - synchronize
     paths:
       - ".github/workflows/formatting.yml"
       - "**.f90"
+      - "**.F90"
   workflow_dispatch:
 
 permissions:

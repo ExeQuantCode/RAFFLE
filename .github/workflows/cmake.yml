@@ -5,10 +5,14 @@ on:
     branches:
       - main
       - development
+    types:
+      - opened
+      - synchronize
     paths:
       - ".github/workflows/cmake.yml"
       - "CMakeLists.txt"
       - "**.f90"
+      - "**.F90"
   workflow_dispatch:
 
 permissions:

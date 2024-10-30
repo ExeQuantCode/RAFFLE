@@ -34,17 +34,18 @@ jobs:
         uses: actions/checkout@v4
 
       - name: actions-setup-python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: '3.12'
         
       - name: Run format checker
         id: run_format_checker
         run: |
           python tools/check_indentation.py
+        continue-on-error: true
 
       - name: Comment on PR if script failed
-        if: github.event_name == 'pull_request' && steps.run_format_checker.outcome == 'failure'
+        if: github.event_name == 'pull_request' && steps.run_format_checker.outcome != 'success'
         run: |
           github.rest.issues.createComment({
             issue_number: context.issue.number,

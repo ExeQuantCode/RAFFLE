@@ -13,6 +13,7 @@ src/*.egg-info
 *.egg-info
 iteration*
 doc/html
+docs/html
 settings.json
 example/example_files/database*
 **/POSCAR*

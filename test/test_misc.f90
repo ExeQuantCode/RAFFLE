@@ -202,11 +202,11 @@ contains
     deallocate(expected_arr)
     allocate(expected_arr(6))
     expected_arr(:4) = &
-          [ 'Banana', 'apple ', 'banana', 'cherry' ]
+         [ 'Banana', 'apple ', 'banana', 'cherry' ]
     expected_arr(5:) = ''
     call set(arr, lkeep_size=.true.)
     call assert( &
-          size(arr) .eq. 6, &
+         size(arr) .eq. 6, &
          'test_cset failed to keep size', success &
     )
     call assert( &
@@ -218,25 +218,43 @@ contains
   subroutine test_ishuffle(success)
     implicit none
     logical, intent(inout) :: success
+    integer  :: i
+    logical :: ltmp1
     integer :: arr(1,5)
     integer :: original_arr(1,5)
 
     arr(1,:) = [1, 2, 3, 4, 5]
     original_arr(1,:) = arr(1,:)
     call shuffle(arr, dim=2, seed=0)
-    call assert(any(arr .ne. original_arr), "ishuffle failed", success)
+    ltmp1 = .true.
+    do i = 1, size(arr,dim=2)
+       if(all(abs(arr(1,i) - original_arr(1,:)).gt.0)) then
+          ltmp1 = .false.
+          exit
+       end if
+    end do
+    call assert(ltmp1, "ishuffle failed", success)
   end subroutine test_ishuffle
 
   subroutine test_rshuffle(success)
     implicit none
     logical, intent(inout) :: success
+    integer  :: i
+    logical :: ltmp1
     real(real32) :: arr(1,5)
     real(real32) :: original_arr(1,5)
 
     arr(1,:) = [1._real32, 2._real32, 3._real32, 4._real32, 5._real32]
     original_arr(1,:) = arr(1,:)
     call shuffle(arr, dim=2, seed=0)
-    call assert(any(abs(arr - original_arr).gt.1.E-6), "rshuffle failed", success)
+    ltmp1 = .true.
+    do i = 1, size(arr,dim=2)
+       if(all(abs(arr(1,i) - original_arr(1,:)).gt.1.E-6)) then
+          ltmp1 = .false.
+          exit
+       end if
+    end do
+    call assert(ltmp1, "rshuffle failed", success)
   end subroutine test_rshuffle
 
   subroutine test_icount(success)
@@ -271,9 +289,9 @@ contains
     expected_str = "hello"
     str = to_lower(str)
     call assert(trim(str) .eq. trim(expected_str), "to_lower failed", success)
- end subroutine test_to_lower
+  end subroutine test_to_lower
 
- subroutine test_strip_null(success)
+  subroutine test_strip_null(success)
     implicit none
     logical, intent(inout) :: success
     character(len=16) :: str
@@ -361,9 +379,9 @@ contains
 
     call swap(a, b)
     call assert( &
-          all( abs(a - [3._real32, 4._real32]) .lt. 1.E-6_real32 ) .and. &
-          all( abs(b - [1._real32, 2._real32]) .lt. 1.E-6_real32 ), &
-          "rswap_vec failed", success &
+         all( abs(a - [3._real32, 4._real32]) .lt. 1.E-6_real32 ) .and. &
+         all( abs(b - [1._real32, 2._real32]) .lt. 1.E-6_real32 ), &
+         "rswap_vec failed", success &
     )
 
   end subroutine test_rswap_vec
@@ -376,8 +394,8 @@ contains
     character(len=*), intent(in) :: message
     logical, intent(inout) :: success
     if (.not. condition) then
-      write(0,*) "Test failed: ", message
-      success = .false.
+       write(0,*) "Test failed: ", message
+       success = .false.
     end if
   end subroutine assert
 

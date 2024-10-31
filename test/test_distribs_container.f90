@@ -348,8 +348,10 @@ contains
           elements = [ elements, species_tmp ]
        end do species_loop
     end do
-    num_pairs = nint(gamma(real(size(elements) + 2, real32)) / &
-                ( gamma(real(size(elements), real32)) * gamma( 3._real32 ) ) )
+    num_pairs = nint( &
+         gamma(real(size(elements) + 2, real32) ) / &
+         ( gamma(real(size(elements), real32)) * gamma( 3._real32 ) ) &
+    )
 
     ! Call the create subroutine
     call distribs_container%create(basis_list, deallocate_systems=.false.)
@@ -390,8 +392,8 @@ contains
               allocated(distribs_container%gdf%df_3body) .or. &
               allocated(distribs_container%gdf%df_4body) &
          ),  &
-          "2-/3-/4-body distribution functions are allocated",  &
-          success &
+         "2-/3-/4-body distribution functions are allocated",  &
+         success &
     )
 
     ! Check number of species and species pairs are correct
@@ -548,8 +550,10 @@ contains
           elements = [ elements, species_tmp ]
        end do species_loop
     end do
-    num_pairs = nint( gamma(real(size(elements) + 2, real32)) / &
-                ( gamma(real(size(elements), real32)) * gamma( 3._real32 ) ) )
+    num_pairs = nint( &
+         gamma(real(size(elements) + 2, real32)) / &
+         ( gamma(real(size(elements), real32)) * gamma( 3._real32 ) ) &
+    )
 
     ! Call the create subroutine
     call distribs_container%create([basis_list(1)], deallocate_systems=.false.)
@@ -838,8 +842,8 @@ contains
     character(len=*), intent(in) :: message
     logical, intent(inout) :: success
     if (.not. condition) then
-      write(0,*) "Test failed: ", message
-      success = .false.
+       write(0,*) "Test failed: ", message
+       success = .false.
     end if
   end subroutine assert
 

@@ -20,7 +20,7 @@ contains
 !###############################################################################
   recursive subroutine find_section( &
        unit, section, found, name, end_section, depth &
-)
+  )
     !! Find a section in a vasprun.xml file.
     !!
     !! This subroutine reads a vasprun.xml file and searches for an embedded
@@ -79,7 +79,7 @@ contains
     if(trim(name_(1)).ne."")then
        name_string = ' name="'//trim(adjustl(name_(1)))//'" >'
     else
-      name_string = ">"
+       name_string = ">"
     end if
 
 
@@ -102,7 +102,7 @@ contains
        if(is_iostat_end(ierror)) exit
        if(ierror .ne. 0) then
           call stop_program( &
-              'Issue encountered when reading vasprun.xml' &
+               'Issue encountered when reading vasprun.xml' &
           )
           return
        end if

@@ -32,7 +32,7 @@ contains
     implicit none
 
     ! Arguments
-    character(*), dimension(..), intent(in) :: input_dir
+    character(1024), dimension(..), intent(in) :: input_dir
     !! List of directories containing the structures to be read.
     type(distribs_container_type), intent(in), optional :: &
          distribs_container_template
@@ -109,21 +109,21 @@ contains
     !    call distribs_container%read('distribs_container.dat')
     !    goto 100
     ! end if
-    select rank(input_dir)
+    select rank(dir_ptr => input_dir)
     rank(0)
-       structure_list = [ get_structure_list( input_dir, ifile_format ) ]
+       structure_list = [ get_structure_list( dir_ptr, ifile_format ) ]
     rank(1)
-       do i = 1, size(input_dir)
-         if(i.eq.1)then
-            structure_list = [ &
-                 get_structure_list( input_dir(i), ifile_format ) &
-            ]
-         else
-            structure_list = [ &
-                 structure_list, &
-                 get_structure_list( input_dir(i), ifile_format ) &
-            ]
-         end if
+       do i = 1, size(dir_ptr)
+          if(i.eq.1)then
+             structure_list = [ &
+                  get_structure_list( dir_ptr(i), ifile_format ) &
+             ]
+          else
+             structure_list = [ &
+                  structure_list, &
+                  get_structure_list( dir_ptr(i), ifile_format ) &
+             ]
+          end if
        end do
     end select
 
@@ -173,13 +173,17 @@ contains
              call geom_read(unit, basis)
 
              num_structures = num_structures + 1
-             write(format,'("(""Found structure: "",I4,"" with energy: "",&
-                  &F13.7,"" and formula:"",",I0,"(1X,A,I0))")') basis%nspec
+             write(format,'&
+                  &("(""Found structure: "",I4,"" with energy: "",&
+                  &F13.7,"" and formula:"",",I0,"(1X,A,I0))")' &
+             ) basis%nspec
              write(*,format) &
                   num_structures, &
                   basis%energy, &
-                  ( trim(basis%spec(j)%name), basis%spec(j)%num, &
-                  j=1, basis%nspec )
+                  ( &
+                       trim(basis%spec(j)%name), basis%spec(j)%num, &
+                       j=1, basis%nspec &
+                  )
              call distribs_container%add(basis)
           end do
           cycle
@@ -268,8 +272,8 @@ contains
 
     if(.not.structures_found) then
        write(stop_msg,'("No structures found in directory: """,A, &
-            &""" with format: ",I0)') &
-            trim(input_dir), ifile_format
+            &""" with format: ",I0)' &
+       ) trim(input_dir), ifile_format
        call stop_program(stop_msg)
        return
     end if

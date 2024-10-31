@@ -113,18 +113,18 @@ contains
           associate( position_store => [ basis%spec(is)%atom(ia,1:3) ] )
              bondlength = modu( matmul(position - position_store, basis%lat) )
              if( bondlength .gt. distribs_container%cutoff_max(1) ) &
-                 cycle atom_loop
+                  cycle atom_loop
              if( bondlength .lt. ( &
                   radius_list(pair_index(species,is)) * &
-                  distribs_container%radius_distance_tol(1) ) &
-             )then
+                  distribs_container%radius_distance_tol(1) &
+             ) )then
                 ! If the bond length is less than the minimum allowed bond,
                 ! return 0 (i.e. the point is not viable).
                 return
              elseif( bondlength .le. ( &
-                    radius_list(pair_index(species,is)) * &
-                    distribs_container%radius_distance_tol(2) ) &
-             )then
+                  radius_list(pair_index(species,is)) * &
+                  distribs_container%radius_distance_tol(2) &
+             ) )then
                 ! If the bond length is within the tolerance of the covalent
                 ! radius of the pair, add the atom to the list of
                 ! atoms to consider for 3-body interactions.
@@ -134,17 +134,18 @@ contains
                 ) = matmul(position_store, basis%lat)
              end if
 
-             if( bondlength .ge. ( &
-                         radius_list(pair_index(species,is)) * &
-                         distribs_container%radius_distance_tol(3) &
-                    ) .and. &
-                    bondlength .le. min( &
-                         distribs_container%cutoff_max(1), &
-                         ( &
-                              radius_list(pair_index(species,is)) * &
-                              distribs_container%radius_distance_tol(4) &
-                         ) &
-                    ) &
+             if( bondlength .ge. &
+                  ( &
+                       radius_list(pair_index(species,is)) * &
+                       distribs_container%radius_distance_tol(3) &
+                  ) .and. &
+                  bondlength .le. min( &
+                       distribs_container%cutoff_max(1), &
+                       ( &
+                            radius_list(pair_index(species,is)) * &
+                            distribs_container%radius_distance_tol(4) &
+                       ) &
+                  ) &
              )then
                 ! If the bond length is within the min and max allowed size,
                 ! add the atom to the list of atoms to consider for 4-body.
@@ -159,9 +160,9 @@ contains
              ! Add the contribution of the bond length to the viability
              !------------------------------------------------------------------
              viability_2body = viability_2body + &
-             evaluate_2body_contributions( &
-                  distribs_container, bondlength, pair_index(species,is) &
-             )
+                  evaluate_2body_contributions( &
+                       distribs_container, bondlength, pair_index(species,is) &
+                  )
              num_2body = num_2body + 1
           end associate
        end do atom_loop
@@ -178,30 +179,31 @@ contains
                   cycle image_loop
              if( bondlength .lt. ( &
                   radius_list(pair_index(species,is)) * &
-                  distribs_container%radius_distance_tol(1) ) &
-             )then
+                  distribs_container%radius_distance_tol(1) &
+             ) )then
                 return
              elseif( bondlength .le. ( &
-                    radius_list(pair_index(species,is)) * &
-                    distribs_container%radius_distance_tol(2) ) &
-             )then
+                  radius_list(pair_index(species,is)) * &
+                  distribs_container%radius_distance_tol(2) &
+             ) )then
                 neighbour_basis%spec(is)%num = neighbour_basis%spec(is)%num + 1
                 neighbour_basis%spec(is)%atom( &
                      neighbour_basis%spec(is)%num,:3 &
                 ) = matmul(position_store, basis%lat)
              end if
 
-             if( bondlength .ge. ( &
-                         radius_list(pair_index(species,is)) * &
-                         distribs_container%radius_distance_tol(3) &
-                    ) .and. &
-                    bondlength .le. min( &
-                         distribs_container%cutoff_max(1), &
-                         ( &
-                              radius_list(pair_index(species,is)) * &
-                              distribs_container%radius_distance_tol(4) &
-                         ) &
-                    ) &
+             if( bondlength .ge. &
+                  ( &
+                       radius_list(pair_index(species,is)) * &
+                       distribs_container%radius_distance_tol(3) &
+                  ) .and. &
+                  bondlength .le. min( &
+                       distribs_container%cutoff_max(1), &
+                       ( &
+                            radius_list(pair_index(species,is)) * &
+                            distribs_container%radius_distance_tol(4) &
+                       ) &
+                  ) &
              )then
                 neighbour_basis%image_spec(is)%num = &
                      neighbour_basis%image_spec(is)%num + 1
@@ -259,11 +261,11 @@ contains
           )
              num_3body = num_3body + 1
              viability_3body = viability_3body * &
-                   evaluate_3body_contributions( distribs_container, &
-                      position_1, &
-                      position_2, &
-                      neighbour_basis, species, [is, ia], num_3body &
-                   )
+                  evaluate_3body_contributions( distribs_container, &
+                       position_1, &
+                       position_2, &
+                       neighbour_basis, species, [is, ia], num_3body &
+                  )
              do js = is, neighbour_basis%nspec
                 do ja = 1, neighbour_basis%spec(js)%num
                    if(js.eq.is .and. ja.le.ia) cycle
@@ -276,10 +278,10 @@ contains
                    !------------------------------------------------------------
                    viability_4body = viability_4body * &
                         evaluate_4body_contributions( distribs_container, &
-                           position_1, &
-                           position_2, &
-                           [neighbour_basis%spec(js)%atom(ja,1:3)], &
-                           neighbour_basis, species &
+                             position_1, &
+                             position_2, &
+                             [neighbour_basis%spec(js)%atom(ja,1:3)], &
+                             neighbour_basis, species &
                         )
                 end do
              end do
@@ -334,10 +336,10 @@ contains
     !! Contribution to the viability.
 
 
-   output = distribs_container%gdf%df_2body( &
-        distribs_container%get_bin(bondlength, dim = 1), &
-        pair_index &
-   )
+    output = distribs_container%gdf%df_2body( &
+         distribs_container%get_bin(bondlength, dim = 1), &
+         pair_index &
+    )
 
   end function evaluate_2body_contributions
 !###############################################################################
@@ -382,10 +384,11 @@ contains
           if(js.eq.current_idx(1) .and. ja.le.current_idx(2))cycle
           associate( position_store => [ basis%spec(js)%atom(ja,1:3) ] )
              bin = distribs_container%get_bin( &
-                  get_angle( position_2, &
-                             position_1, &
-                             position_store ), &
-                  dim = 2 &
+                  get_angle( &
+                       position_2, &
+                       position_1, &
+                       position_store &
+                  ), dim = 2 &
              )
              output = output * &
                   distribs_container%gdf%df_3body( &
@@ -439,12 +442,11 @@ contains
           associate( position_store => [ basis%image_spec(ks)%atom(ka,1:3) ] )
              bin = distribs_container%get_bin( &
                   get_improper_dihedral_angle( &
-                                 position_1, &
-                                 position_2, &
-                                 position_3, &
-                                 position_store &
-                  ), &
-                  dim = 3 &
+                       position_1, &
+                       position_2, &
+                       position_3, &
+                       position_store &
+                  ), dim = 3 &
              )
              output = output * &
                   distribs_container%gdf%df_4body( &

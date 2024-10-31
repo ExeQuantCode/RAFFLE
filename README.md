@@ -1,3 +1,7 @@
+<p align="center">
+<img src="docs/RAFFLE_logo_no_background.png" width="250"/>
+</p>
+
 [![MIT workflow](https://img.shields.io/badge/License-GPLv3-yellow.svg)](https://www.gnu.org/licenses/gpl-3.0.en.html "View GPLv3 license")
 [![Latest Release](https://img.shields.io/github/v/release/nedtaylor/RAFFLE?sort=semver)](https://github.com/nedtaylor/RAFFLE/releases "View on GitHub")
 [![Paper](https://img.shields.io/badge/Paper-Phys_Rev_B-blue.svg)](https://link.aps.org/doi/10.1103/PhysRevLett.132.066201)
@@ -13,22 +17,31 @@ by Ned Thaddeus Taylor, Joe Pitfield, and Steven Paul Hepplestone
 
 RAFFLE (pseudoRandom Approach For Finding Local Energetic minima) is a package for structural prediction applied to material interfaces. RAFFLE can interface with the [Atomic Simulation Environment (ASE)](https://gitlab.com/ase/ase).
 
-RAFFLE is both a Fortran and a Python library. A standalone Fortran executable is also being developed. The code heavily relies on features of Fortran2008 and above, so there is no backwards compatibility with Fortran95.
+RAFFLE is both a Fortran and a Python library, with the option of a Fortran executable.
+The code heavily relies on features of Fortran 2018 and above, so there is no backwards compatibility with Fortran95.
 
 ## Requirements
 
-- Python 3.11 or later (might work on earlier, have not tested)
-- Fortran compiler supporting Fortran 2008 standard or later
-- NumPy
-- f90wrap
-- CMake
+- Fortran compiler supporting Fortran 2018 standard or later
+- fpm or CMake (fpm works only for Fortran installation)
 
-Optional:
-- ASE
+Python-specific installation:
+
+- Python 3.11 or later (might work on earlier, have not tested)
+- NumPy.f2py
+- f90wrap
+- cython
+- scikit-build-core
+- meson
+- make or ninja
+- CMake
+- ASE (optional)
 
 The library bas been developed and tested using the following Fortran compilers:
 - gfortran -- gcc 13.2.0
 - gfortran -- gcc 14.1.0
+
+The library is known to not currently work with the intel Fortran compilers.
 
 ## Installation
 
@@ -107,6 +120,21 @@ To check whether RAFFLE has installed correctly and that the compilation works a
 ctest
 ```
 This runs the unit tests (found in the `test` directory) to ensure procedures output as expected.
+
+### MacOS
+
+Issues can arise with the built-in C and Fortran compilers when installing on MacOS, particularly for Python installation.
+It is recommended to manually install new versions (such as via [Homebrew](https://brew.sh)) and setting the `CC` and `FC` environment variables (i.e. defining the default compilers for the respective language).
+We have found the following to work:
+
+```
+brew install gcc
+brew install gfortran
+export CC=$(brew --prefix gfortran)
+export FC=$(brew --prefix gcc)
+```
+
+Now follow the instructions for the [Python](#python) build methods.
 
 
 ## Examples

@@ -3,7 +3,7 @@ summary: A Fortran library and executable for structure prediction at material i
 src_dir: ./src/fortran
     ./app
 exclude: **/f90wrap_*.f90
-output_dir: doc/html
+output_dir: docs/html
 preprocess: false
 predocmark: !!
 fpp_extensions: f90

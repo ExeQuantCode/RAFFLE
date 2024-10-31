@@ -57,40 +57,40 @@ program test_geom_utils
   basis_merged = basis_merge(bas, bas2)
 
   if ( basis_merged%nspec .ne. 2 ) then
-    write(0,*) &
-         'basis_merge failed, number of species not equal to 2: ', &
-         basis_merged%nspec
-    success = .false.
+     write(0,*) &
+          'basis_merge failed, number of species not equal to 2: ', &
+          basis_merged%nspec
+     success = .false.
   end if
   if ( basis_merged%natom .ne. 5 ) then
-    write(0,*) &
-         'basis_merge failed, number of atoms not equal to 5: ', &
-         basis_merged%natom
-    success = .false.
+     write(0,*) &
+          'basis_merge failed, number of atoms not equal to 5: ', &
+          basis_merged%natom
+     success = .false.
   end if
   if ( basis_merged%spec(1)%num .ne. 4 ) then
-    write(0,*) &
-         'basis_merge failed, number of atoms for species 1 not equal to 4: ', &
-         basis_merged%spec(1)%num
-    success = .false.
+     write(0,*) &
+          'basis_merge failed, number of atoms for species 1 not equal to 4: ', &
+          basis_merged%spec(1)%num
+     success = .false.
   end if
   if ( basis_merged%spec(2)%num .ne. 1 ) then
-    write(0,*) &
-         'basis_merge failed, number of atoms for species 2 not equal to 1: ', &
-         basis_merged%spec(2)%num
-    success = .false.
+     write(0,*) &
+          'basis_merge failed, number of atoms for species 2 not equal to 1: ', &
+          basis_merged%spec(2)%num
+     success = .false.
   end if
   if( basis_merged%spec(1)%name .ne. 'Si' ) then
-    write(0,*) &
-         'basis_merge failed, name of species 1 not equal to Si: ', &
-         basis_merged%spec(1)%name
-    success = .false.
+     write(0,*) &
+          'basis_merge failed, name of species 1 not equal to Si: ', &
+          basis_merged%spec(1)%name
+     success = .false.
   end if
   if( basis_merged%spec(2)%name .ne. 'O' ) then
-    write(0,*) &
-         'basis_merge failed, name of species 2 not equal to O: ', &
-         basis_merged%spec(2)%name
-    success = .false.
+     write(0,*) &
+          'basis_merge failed, name of species 2 not equal to O: ', &
+          basis_merged%spec(2)%name
+     success = .false.
   end if
 
 

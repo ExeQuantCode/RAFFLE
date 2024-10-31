@@ -1,5 +1,5 @@
 program test_geom_rw
-  !! Test program for the module rw_geom.
+  !! Test program for the module geom_rw.
   use raffle__constants, only: pi,real32
   use raffle__geom_rw, only: &
        basis_type, &
@@ -56,22 +56,22 @@ program test_geom_rw
   !-----------------------------------------------------------------------------
   call bas%allocate_species()
   if(bas%nspec .ne. 1) then
-      write(0,*) 'allocate_species failed, nspec changed'
-      write(0,*) bas%nspec
-      success = .false.
+     write(0,*) 'allocate_species failed, nspec changed'
+     write(0,*) bas%nspec
+     success = .false.
   end if
   call bas%allocate_species()
   if(size(bas%spec,1) .ne. bas%nspec) then
-      write(0,*) 'allocate_species failed, spec array size not equal to nspec'
-      write(0,*) bas%nspec
-      success = .false.
+     write(0,*) 'allocate_species failed, spec array size not equal to nspec'
+     write(0,*) bas%nspec
+     success = .false.
   end if
   call bas%allocate_species(2)
   if(bas%nspec .ne. 2 .or. size(bas%spec,1) .ne. 2) then
-        write(0,*) 'allocate_species failed, &
-             &nspec or spec array size not equal to 2'
-        write(0,*) bas%nspec
-        success = .false.
+     write(0,*) 'allocate_species failed, &
+          &nspec or spec array size not equal to 2'
+     write(0,*) bas%nspec
+     success = .false.
   end if
   atoms(1,:3) = [0.0, 0.0, 0.0]
   atoms(2,:3) = [0.5, 0.5, 0.5]
@@ -104,7 +104,7 @@ program test_geom_rw
      write(0,*) 'allocate_species failed, atom positions not equal to atoms'
      write(0,*) bas%spec(2)%atom(1,1:3)
      success = .false.
-   end if
+  end if
 
 
 
@@ -237,18 +237,18 @@ program test_geom_rw
      )
      if(mass.lt.1.E-6) then
         write(0,*) 'Element properties failed, mass check failed'
-         write(*,*) element_list(i), mass
+        write(*,*) element_list(i), mass
         success = .false.
      end if
      if(charge.lt.1.E-6) then
-         write(0,*) 'Element properties failed, charge check failed'
-         write(*,*) element_list(i), charge
-         success = .false.
+        write(0,*) 'Element properties failed, charge check failed'
+        write(*,*) element_list(i), charge
+        success = .false.
      end if
      if(radius.lt.1.E-6) then
-         write(0,*) 'Element properties failed, radius check failed'
-         write(*,*) element_list(i), radius
-         success = .false.
+        write(0,*) 'Element properties failed, radius check failed'
+        write(*,*) element_list(i), radius
+        success = .false.
      end if
   end do
 
@@ -257,21 +257,21 @@ program test_geom_rw
        charge = charge, &
        radius = radius &
   )
-   if(mass.gt.1.E-6) then
-       write(0,*) 'Element properties failed, mass check failed'
-       write(*,*) 'X', mass
-       success = .false.
-   end if
-   if(charge.gt.1.E-6) then
-       write(0,*) 'Element properties failed, charge check failed'
-       write(*,*) 'X', charge
-       success = .false.
-   end if
-   if(radius.gt.1.E-6) then
-       write(0,*) 'Element properties failed, radius check failed'
-       write(*,*) 'X', radius
-       success = .false.
-   end if
+  if(mass.gt.1.E-6) then
+     write(0,*) 'Element properties failed, mass check failed'
+     write(*,*) 'X', mass
+     success = .false.
+  end if
+  if(charge.gt.1.E-6) then
+     write(0,*) 'Element properties failed, charge check failed'
+     write(*,*) 'X', charge
+     success = .false.
+  end if
+  if(radius.gt.1.E-6) then
+     write(0,*) 'Element properties failed, radius check failed'
+     write(*,*) 'X', radius
+     success = .false.
+  end if
 
 
   !-----------------------------------------------------------------------------
@@ -293,26 +293,26 @@ contains
     logical :: output
     output = .true.
 
-  ! Compare the geometries
+    ! Compare the geometries
     if(any(abs(bas1%lat - bas2%lat).gt.1.E-6)) then
-      write(0,*) 'Geometry read/write failed, lattice check failed'
-      output = .false.
-   end if
-   if(bas1%sysname .ne. bas2%sysname) then
-      write(0,*) 'Geometry read/write failed, system name check failed'
-      write(0,*) bas1%sysname, bas2%sysname
-      output = .false.
-   end if
-   if(bas1%natom .ne. bas2%natom) then
-      write(0,*) 'Geometry read/write failed, number of atoms check failed'
-      write(0,*) bas1%natom, bas2%natom
-      output = .false.
-   end if
-   if(abs(bas1%energy - bas2%energy).gt.1.E-6) then
-      write(0,*) 'Geometry read/write failed, energy check failed'
-      write(0,*) bas1%energy, bas2%energy
-      output = .false.
-   end if
+       write(0,*) 'Geometry read/write failed, lattice check failed'
+       output = .false.
+    end if
+    if(bas1%sysname .ne. bas2%sysname) then
+       write(0,*) 'Geometry read/write failed, system name check failed'
+       write(0,*) bas1%sysname, bas2%sysname
+       output = .false.
+    end if
+    if(bas1%natom .ne. bas2%natom) then
+       write(0,*) 'Geometry read/write failed, number of atoms check failed'
+       write(0,*) bas1%natom, bas2%natom
+       output = .false.
+    end if
+    if(abs(bas1%energy - bas2%energy).gt.1.E-6) then
+       write(0,*) 'Geometry read/write failed, energy check failed'
+       write(0,*) bas1%energy, bas2%energy
+       output = .false.
+    end if
 
   end function compare_bas
 

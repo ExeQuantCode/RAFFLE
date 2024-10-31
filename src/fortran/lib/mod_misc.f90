@@ -40,7 +40,7 @@ module raffle__misc
 contains
 
 !###############################################################################
-subroutine sort_str(list, lcase)
+  subroutine sort_str(list, lcase)
     !! Sort a list of strings.
     implicit none
 
@@ -70,11 +70,11 @@ subroutine sort_str(list, lcase)
     if(lcase_)then
        allocate(character(len=charlen) :: tlist(size(list)))
        tlist = list
-       do i=1,size(tlist)
+       do i = 1, size(tlist)
           list(i) = to_upper(list(i))
        end do
     end if
-    do i=1,size(list)
+    do i = 1, size(list)
        loc = minloc(list(i:),dim=1)
        if(loc.eq.1) cycle
        if(lcase_) call cswap(tlist(i),tlist(loc+i-1))
@@ -118,18 +118,18 @@ subroutine sort_str(list, lcase)
           lcase_ = lcase
           allocate(character(len=charlen) :: tlist(size(list)))
           tlist = list
-          do i=1,size(tlist)
+          do i = 1, size(tlist)
              list(i) = to_upper(list(i))
           end do
        end if
     end if
 
     allocate(torder(size(list)))
-    do i=1,size(list)
+    do i = 1, size(list)
        torder(i) = i
     end do
     
-    do i=1,size(list)
+    do i = 1, size(list)
        loc = minloc(list(i:),dim=1)
        if(loc.eq.1) cycle
        if(lcase_) call cswap(tlist(i),tlist(loc+i-1))
@@ -138,7 +138,7 @@ subroutine sort_str(list, lcase)
     end do
     
     allocate(order(size(list)))
-    do i=1,size(list)
+    do i = 1, size(list)
        order(i) = findloc(torder,i,dim=1)
     end do
     
@@ -177,7 +177,7 @@ subroutine sort_str(list, lcase)
     end if
 
     dim=size(arr1,dim=1)
-    do i=1,dim
+    do i = 1, dim
        if(reverse_)then
           loc=maxloc(arr1(i:dim),dim=1)+i-1          
        else
@@ -229,7 +229,7 @@ subroutine sort_str(list, lcase)
     end if
 
     dim=size(arr1,dim=1)
-    do i=1,dim
+    do i = 1, dim
        select case(reverse_)
        case(.true.)
           loc=maxloc(arr1(i:dim),dim=1)+i-1          
@@ -272,30 +272,29 @@ subroutine sort_str(list, lcase)
     !! Pivot element and temporary buffer.
 
     if (low .lt. high) then
-        pivot = arr((low + high) / 2)
-        i = low
-        j = high
-        do
-            do while (arr(i) .lt. pivot .and. i .lt. high)
-                i = i + 1
-            end do
-            do while (arr(j) .gt. pivot .and. j .gt. low)
-                j = j - 1
-            end do
-            if (i .le. j) then
-                temp = arr(i)
-                arr(i) = arr(j)
-                arr(j) = temp
-                i = i + 1
-                j = j - 1
-            end if
-
-            ! Exit the loop when indices cross
-            if (i .gt. j) exit
-        end do
-        ! Recursively apply quicksort to both partitions
-        if (low .lt. j) call quicksort(arr, low, j)
-        if (i .lt. high) call quicksort(arr, i, high)
+       pivot = arr((low + high) / 2)
+       i = low
+       j = high
+       do
+          do while (arr(i) .lt. pivot .and. i .lt. high)
+             i = i + 1
+          end do
+          do while (arr(j) .gt. pivot .and. j .gt. low)
+             j = j - 1
+          end do
+          if (i .le. j) then
+             temp = arr(i)
+             arr(i) = arr(j)
+             arr(j) = temp
+             i = i + 1
+             j = j - 1
+          end if
+          ! Exit the loop when indices cross
+          if (i .gt. j) exit
+       end do
+       ! Recursively apply quicksort to both partitions
+       if (low .lt. j) call quicksort(arr, low, j)
+       if (i .lt. high) call quicksort(arr, i, high)
     end if
   end subroutine quicksort
 !###############################################################################
@@ -307,10 +306,10 @@ subroutine sort_str(list, lcase)
     implicit none
 
     ! Arguments
-    real(real32), dimension(dim,3) :: arr
-    !! Array to be sorted.
     integer, intent(in) :: dim
     !! Dimension to sort along.
+    real(real32), dimension(dim,3), intent(inout) :: arr
+    !! Array to be sorted.
 
     ! Local variables
     integer :: i,j,loc,istart
@@ -322,22 +321,27 @@ subroutine sort_str(list, lcase)
 
     a123(:)=(/1,2,3/)
     istart=1
-    do j=1,3
-       do i=j,dim
+    do j = 1, 3
+       do i = j, dim
           loc = minloc( &
                abs(arr(i:dim,a123(1))), &
                dim = 1, &
                mask = (abs(arr(i:dim,a123(1))).gt.1.D-5) &
-               )+i-1
-          buff(:)=arr(i,:)
-          arr(i,:)=arr(loc,:)
-          arr(loc,:)=buff(:)
+          ) + i - 1
+          buff(:) = arr(i,:)
+          arr(i,:) = arr(loc,:)
+          arr(loc,:) = buff(:)
        end do
 
-       scndrow: do i=j,dim
+       scndrow: do i = j, dim
           if(abs(arr(j,a123(1))).ne.abs(arr(i,a123(1)))) exit scndrow
-          loc=minloc(abs(arr(i:dim,a123(2)))+abs(arr(i:dim,a123(3))),dim=1,&
-               mask=(abs(arr(j,a123(1))).eq.abs(arr(i:dim,a123(1)))))+i-1
+          loc = minloc( &
+               abs( arr(i:dim,a123(2)) ) + abs( arr(i:dim,a123(3) ) ), &
+               dim = 1, &
+               mask = ( &
+                    abs( arr(j,a123(1)) ) .eq. abs( arr(i:dim,a123(1)) ) &
+               ) &
+          ) + i - 1
           buff(:)=arr(i,:)
           arr(i,:)=arr(loc,:)
           arr(loc,:)=buff(:)
@@ -372,7 +376,7 @@ subroutine sort_str(list, lcase)
 
     tmp_arr(1) = arr(1)
     n=1
-    do i=2,size(arr)
+    do i = 2, size(arr)
        if(arr(i)==tmp_arr(n)) cycle
        n = n + 1
        tmp_arr(n) = arr(i)
@@ -421,7 +425,7 @@ subroutine sort_str(list, lcase)
 
     tmp_arr(1) = arr(1)
     n=1
-    do i=2,size(arr)
+    do i = 2, size(arr)
        if(abs(arr(i)-tmp_arr(n)).lt.tol_)then
           count_list_(i) = count_list_(i) + 1
           cycle
@@ -459,7 +463,7 @@ subroutine sort_str(list, lcase)
     integer :: i, n
     !! Loop index.
     logical :: lkeep_size_
-   !! Boolean whether to keep the original size of the array.
+    !! Boolean whether to keep the original size of the array.
     character(len=:), allocatable, dimension(:) :: tmp_arr
     !! Temporary array for storing unique elements.
     logical :: lcase_
@@ -467,7 +471,7 @@ subroutine sort_str(list, lcase)
 
 
     if(present(lcase))then
-      lcase_ = lcase
+       lcase_ = lcase
     else
        lcase_ = .false.
     end if
@@ -477,7 +481,7 @@ subroutine sort_str(list, lcase)
     tmp_arr(1) = arr(1)
     n=1
     
-    do i=2,size(arr)
+    do i = 2, size(arr)
        if(lcase_) arr(i) = to_lower(arr(i))
        if(trim(arr(i)).eq.trim(tmp_arr(n))) cycle
        n = n + 1
@@ -523,16 +527,16 @@ subroutine sort_str(list, lcase)
 
 !###############################################################################
   subroutine rswap(value1,value2)
-   !! Swap two reals.
-   implicit none
+    !! Swap two reals.
+    implicit none
 
-   ! Arguments
-   real(real32), intent(inout) :: value1, value2
-   !! Reals to be swapped.
+    ! Arguments
+    real(real32), intent(inout) :: value1, value2
+    !! Reals to be swapped.
 
-   ! Local variables
-   real(real32) :: rtmp1
-   !! Temporary buffer for swapping elements.
+    ! Local variables
+    real(real32) :: rtmp1
+    !! Temporary buffer for swapping elements.
 
     rtmp1  = value1
     value1 = value2
@@ -543,7 +547,7 @@ subroutine sort_str(list, lcase)
 
 !###############################################################################
   subroutine cswap(c1,c2)
-   !! Swap two character strings.
+    !! Swap two character strings.
     implicit none
 
     ! Arguments
@@ -623,8 +627,8 @@ subroutine sort_str(list, lcase)
     end if
     istart=1
     allocate(tlist(1,size(arr,dim=iother)))
-    do k=1,2
-       do i=1,n_data
+    do k = 1, 2
+       do i = 1, n_data
           call random_number(r)
           j = istart + floor((n_data+1-istart)*r)
           if(dim.eq.1)then
@@ -685,8 +689,8 @@ subroutine sort_str(list, lcase)
     end if
     istart=1
     allocate(tlist(1,size(arr,dim=iother)))
-    do k=1,2
-       do i=1,n_data
+    do k = 1, 2
+       do i = 1, n_data
           call random_number(r)
           j = istart + floor((n_data+1-istart)*r)
           if(dim.eq.1)then
@@ -818,9 +822,9 @@ subroutine sort_str(list, lcase)
              call stop_program('I/O stat error encounted when reading file')
           end if
           if(index(trim(buffer),trim(input)).ne.0)then
-            success_ = .true.
-            exit greploop
-         end if
+             success_ = .true.
+             exit greploop
+          end if
        end do greploop
     end if
 
@@ -831,37 +835,37 @@ subroutine sort_str(list, lcase)
 
 !###############################################################################
   subroutine flagmaker(buffer,flag,i,skip,empty)
-   !! Assign variables of flags from get_command_argument.
-   implicit none
+    !! Assign variables of flags from get_command_argument.
+    implicit none
 
-   ! Arguments
-   character(*), intent(inout) :: buffer
-   !! Buffer to be assigned a flag.
-   character(*), intent(in) :: flag
-   !! Flag to look for.
-   integer :: i
-   !! Index of command argument.
-   logical :: skip
-   !! Boolean whether to skip the next argument.
-   logical, intent(out) :: empty
-   !! Boolean whether the buffer is empty.
+    ! Arguments
+    character(*), intent(inout) :: buffer
+    !! Buffer to be assigned a flag.
+    character(*), intent(in) :: flag
+    !! Flag to look for.
+    integer :: i
+    !! Index of command argument.
+    logical :: skip
+    !! Boolean whether to skip the next argument.
+    logical, intent(out) :: empty
+    !! Boolean whether the buffer is empty.
 
 
-   skip = .false.
-   empty = .false.
-   if(len(trim(buffer)).eq.len(trim(flag))) then
-      call get_command_argument(i+1,buffer)
-      if(scan(buffer,'-').eq.1.or.buffer.eq.'') then
-         buffer=""
-         empty=.true.
-      else
-         skip=.true.
-      end if
-   else
-      buffer=buffer(len(trim(flag))+1:)
-   end if
+    skip = .false.
+    empty = .false.
+    if(len(trim(buffer)).eq.len(trim(flag))) then
+       call get_command_argument(i+1,buffer)
+       if(scan(buffer,'-').eq.1.or.buffer.eq.'') then
+          buffer=""
+          empty=.true.
+       else
+          skip=.true.
+       end if
+    else
+       buffer=buffer(len(trim(flag))+1:)
+    end if
 
- end subroutine flagmaker
+  end subroutine flagmaker
 !###############################################################################
 
 
@@ -917,7 +921,7 @@ subroutine sort_str(list, lcase)
     action_="READWRITE"
     if(present(action)) action_=action
     action_=to_upper(action_)
-    do i=1,5
+    do i = 1, 5
        inquire(file=trim(filename),exist=filefound)
        if(.not.filefound) then
           write(6,'("File name ",A," not found.")')&
@@ -980,7 +984,7 @@ subroutine sort_str(list, lcase)
 
 
     allocate(character(len=len(buffer)) :: upper)
-    do i=1,len(buffer)
+    do i = 1, len(buffer)
        j=iachar(buffer(i:i))
        if(j.ge.iachar("a").and.j.le.iachar("z"))then
           upper(i:i)=achar(j-32)
@@ -1010,7 +1014,7 @@ subroutine sort_str(list, lcase)
 
 
     allocate(character(len=len(buffer)) :: lower)
-    do i=1,len(buffer)
+    do i = 1, len(buffer)
        j=iachar(buffer(i:i))
        if(j.ge.iachar("A").and.j.le.iachar("Z"))then
           lower(i:i)=achar(j+32)
@@ -1044,7 +1048,7 @@ subroutine sort_str(list, lcase)
     !! Loop index.
 
     stripped = ""
-    do i=1,len(buffer)
+    do i = 1, len(buffer)
        if(iachar(buffer(i:i)).ne.0)then
           stripped(i:i)=buffer(i:i)
        else

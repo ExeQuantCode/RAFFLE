@@ -43,7 +43,7 @@ module raffle__distribs_host
   end type distribs_host_type
 
 
-  contains
+contains
 
 !###############################################################################
   subroutine set_host(this, host)
@@ -64,6 +64,7 @@ module raffle__distribs_host
 
     call this%basis%copy(host)
     this%defined = .true.
+    if(allocated(this%pair_index)) deallocate(this%pair_index)
     allocate(this%pair_index(this%basis%nspec, this%basis%nspec))
     i = 0
     do is = 1, this%basis%nspec
@@ -72,10 +73,17 @@ module raffle__distribs_host
           this%pair_index(js,is) = i
           this%pair_index(is,js) = i
        end do
-   end do
-   if(allocated(this%df_2body)) deallocate(this%df_2body)
-   if(allocated(this%df_3body)) deallocate(this%df_3body)
-   if(allocated(this%df_4body)) deallocate(this%df_4body)
+    end do
+    if(allocated(this%df_2body)) deallocate(this%df_2body)
+    if(allocated(this%df_3body)) deallocate(this%df_3body)
+    if(allocated(this%df_4body)) deallocate(this%df_4body)
+
+    if(allocated(this%stoichiometry)) deallocate(this%stoichiometry)
+    if(allocated(this%element_symbols)) deallocate(this%element_symbols)
+    if(allocated(this%num_pairs)) deallocate(this%num_pairs)
+    if(allocated(this%num_per_species)) deallocate(this%num_per_species)
+    if(allocated(this%weight_pair)) deallocate(this%weight_pair)
+    if(allocated(this%weight_per_species)) deallocate(this%weight_per_species)
 
   end subroutine set_host
 !###############################################################################
@@ -98,8 +106,10 @@ module raffle__distribs_host
 
     this%interface_energy = this%energy
     do is = 1, size(this%element_symbols)
-       idx1 = findloc( [ element_info(:)%name ], &
-                       this%element_symbols(is), dim=1)
+       idx1 = findloc( &
+            [ element_info(:)%name ], &
+            this%element_symbols(is), dim=1 &
+       )
        if(idx1.lt.1)then
           call stop_program( "Species not found in species list" )
           return
@@ -124,7 +134,7 @@ module raffle__distribs_host
     !! Element information.
 
     ! Local variables
-    integer :: is, js
+    integer :: is
     !! Index of the elements in the element_info array.
 
     if(.not.this%defined)then

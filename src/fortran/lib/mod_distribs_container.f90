@@ -10,7 +10,7 @@ module raffle__distribs_container
   !! The generalised distribution functions are used to evaluate the viability
   !! of a new structure.
   use raffle__constants, only: real32, pi
-  use raffle__io_utils, only: stop_program
+  use raffle__io_utils, only: stop_program, print_warning
   use raffle__misc, only: set, icount, strip_null, sort_str
   use raffle__misc_maths, only: triangular_number, set_difference
   use raffle__geom_rw, only: basis_type, get_element_properties
@@ -172,33 +172,33 @@ module raffle__distribs_container
   end type distribs_container_type
 
   interface distribs_container_type
-    !! Interface for the distribution functions container.
-    module function init_distribs_container( &
-         nbins, width, sigma, cutoff_min, cutoff_max &
-         ) result(distribs_container)
-         !! Initialise the distribution functions container.
-         integer, dimension(3), intent(in), optional :: nbins
-         !! Optional. Number of bins for the 2-, 3-, and 4-body distribution
-         !! functions.
-         real(real32), dimension(3), intent(in), optional :: width, sigma
-         !! Optional. Width and sigma of the gaussians used in the 2-, 3-, and 
-         !! 4-body.
-         real(real32), dimension(3), intent(in), optional :: &
-              cutoff_min, cutoff_max
-         !! Optional. Minimum and maximum cutoff for the 2-, 3-, and 4-body.
-         type(distribs_container_type) :: distribs_container
-         !! Instance of the distribution functions container.
-    end function init_distribs_container
+     !! Interface for the distribution functions container.
+     module function init_distribs_container( &
+          nbins, width, sigma, cutoff_min, cutoff_max &
+     ) result(distribs_container)
+       !! Initialise the distribution functions container.
+       integer, dimension(3), intent(in), optional :: nbins
+       !! Optional. Number of bins for the 2-, 3-, and 4-body distribution
+       !! functions.
+       real(real32), dimension(3), intent(in), optional :: width, sigma
+       !! Optional. Width and sigma of the gaussians used in the 2-, 3-, and 
+       !! 4-body.
+       real(real32), dimension(3), intent(in), optional :: &
+            cutoff_min, cutoff_max
+       !! Optional. Minimum and maximum cutoff for the 2-, 3-, and 4-body.
+       type(distribs_container_type) :: distribs_container
+       !! Instance of the distribution functions container.
+     end function init_distribs_container
   end interface distribs_container_type
 
 
-  contains
+contains
   
 !###############################################################################
   module function init_distribs_container( &
        nbins, width, sigma, &
-       cutoff_min, cutoff_max ) &
-       result(distribs_container)
+       cutoff_min, cutoff_max &
+  ) result(distribs_container)
     !! Initialise the distribution functions container.
     implicit none
 
@@ -305,7 +305,7 @@ module raffle__distribs_container
     real(real32), dimension(3), intent(in) :: cutoff_min
     !! Minimum cutoff for the 2-, 3-, and 4-body distribution functions.
 
-     this%cutoff_min = cutoff_min
+    this%cutoff_min = cutoff_min
 
   end subroutine set_cutoff_min
 !###############################################################################
@@ -531,7 +531,7 @@ module raffle__distribs_container
           call stop_program( stop_msg )
           return
        else
-         if(.not.allocated(this%host_system%df_2body))then
+          if(.not.allocated(this%host_system%df_2body))then
              call this%host_system%calculate( &
                   this%host_system%basis, &
                   width = this%width, &
@@ -548,7 +548,7 @@ module raffle__distribs_container
                   this%host_system%interface_energy
              this%system(i)%num_atoms = this%system(i)%num_atoms - &
                   this%host_system%num_atoms
-         end do
+          end do
        end if
     end if
 
@@ -571,8 +571,6 @@ module raffle__distribs_container
     !! Parent. Instance of distribution functions container.
 
     deallocate(this%system)
-    !  this%best_system = 0
-    deallocate(this%best_energy_pair, this%best_energy_per_species)
     this%num_evaluated_allocated = 0
 
   end subroutine deallocate_systems
@@ -682,8 +680,10 @@ module raffle__distribs_container
        read(buffer, *) system%element_symbols
        read(unit, *) system%stoichiometry
        system%num_atoms = sum(system%stoichiometry)
-       num_pairs = nint( gamma(real(num_species + 2, real32)) / &
-                   ( gamma(real(num_species, real32)) * gamma( 3._real32 ) ) )
+       num_pairs = nint( &
+            gamma(real(num_species + 2, real32)) / &
+            ( gamma(real(num_species, real32)) * gamma( 3._real32 ) ) &
+       )
        allocate(system%df_2body(this%nbins(1),num_pairs))
        do j = 1, this%nbins(1)
           read(unit, *) system%df_2body(j,:)
@@ -698,8 +698,10 @@ module raffle__distribs_container
        end do
 
        this%system = [ this%system, system ]
-       deallocate(system%element_symbols, system%stoichiometry, &
-                  system%df_2body, system%df_3body, system%df_4body)
+       deallocate(&
+            system%element_symbols, system%stoichiometry, &
+            system%df_2body, system%df_3body, system%df_4body &
+       )
     end do
     close(unit)
 
@@ -729,9 +731,10 @@ module raffle__distribs_container
     !! Pair indices.
 
 
-    num_pairs = nint( gamma(real(size(this%element_info) + 2, real32)) / &
-                ( gamma(real(size(this%element_info), real32)) * &
-                  gamma( 3._real32 ) ) )
+    num_pairs = nint( &
+         gamma(real(size(this%element_info) + 2, real32)) / &
+         ( gamma(real(size(this%element_info), real32)) * gamma( 3._real32 ) ) &
+    )
     allocate(idx(2,num_pairs))
     i = 0 
     do is = 1, size(this%element_info)
@@ -747,8 +750,9 @@ module raffle__distribs_container
             this%element_info(idx(1,i))%name, &
             this%element_info(idx(2,i))%name
        do j = 1, size(this%gdf%df_2body, dim=1)
-          write(unit,*) this%cutoff_min(1) + this%width(1) * ( j - 1 ), &
-                        this%gdf%df_2body(j,i)
+          write(unit,*) &
+               this%cutoff_min(1) + this%width(1) * ( j - 1 ), &
+               this%gdf%df_2body(j,i)
        end do
        write(unit,*)
     end do
@@ -780,8 +784,9 @@ module raffle__distribs_container
     do i = 1,  size(this%gdf%df_3body, dim=2)
        write(unit,'("# ",A)') this%element_info(i)%name
        do j = 1, size(this%gdf%df_3body, dim=1)
-          write(unit,*) this%cutoff_min(2) + this%width(2) * ( j - 1 ), &
-                        this%gdf%df_3body(j,i)
+          write(unit,*) &
+               this%cutoff_min(2) + this%width(2) * ( j - 1 ), &
+               this%gdf%df_3body(j,i)
        end do
        write(unit,*)
     end do
@@ -813,8 +818,9 @@ module raffle__distribs_container
     do i = 1,  size(this%gdf%df_4body, dim=2)
        write(unit,'("# ",A)') this%element_info(i)%name
        do j = 1, size(this%gdf%df_4body, dim=1)
-          write(unit,*) this%cutoff_min(3) + this%width(3) * ( j - 1 ), &
-                        this%gdf%df_4body(j,i)
+          write(unit,*) &
+               this%cutoff_min(3) + this%width(3) * ( j - 1 ), &
+               this%gdf%df_4body(j,i)
        end do
        write(unit,*)
     end do
@@ -843,13 +849,22 @@ module raffle__distribs_container
     character(256) :: stop_msg
     !! Error message.
 
-    select rank(system)
+    select rank(rank_ptr => system)
     rank(0)
-       select type(system)
+       select type(type_ptr => rank_ptr)
        type is (distribs_type)
-          this%system = [ this%system, system ]
+          this%system = [ this%system, type_ptr ]
        type is (basis_type)
-          call this%add_basis(system)
+#if defined(GFORTRAN)
+          call this%add_basis(type_ptr)
+#else
+          block
+            type(basis_type), dimension(1) :: basis
+
+            basis = type_ptr
+            call this%add_basis(basis(1))
+          end block
+#endif
        class default
           write(stop_msg,*) "Invalid type for system" // &
                achar(13) // achar(10) // &
@@ -859,12 +874,12 @@ module raffle__distribs_container
        end select
     rank(1)
        num_structures_previous = size(this%system)
-       select type(system)
+       select type(type_ptr => rank_ptr)
        type is (distribs_type)
-          this%system = [ this%system, system ]
+          this%system = [ this%system, type_ptr ]
        type is (basis_type)
-          do i = 1, size(system)
-             call this%add_basis(system(i))
+          do i = 1, size(type_ptr)
+             call this%add_basis(type_ptr(i))
           end do
        class default
           write(stop_msg,*) "Invalid type for system" // &
@@ -872,11 +887,11 @@ module raffle__distribs_container
                "Expected type distribs_type or basis_type"
           call stop_program( stop_msg )
           return
-         end select
+       end select
     rank default
        write(stop_msg,*) "Invalid rank for system" // &
             achar(13) // achar(10) // &
-            "Expected rank 0 or 1, got ", rank(system)
+            "Expected rank 0 or 1, got ", rank(rank_ptr)
        call stop_program( stop_msg )
        return
     end select
@@ -902,11 +917,13 @@ module raffle__distribs_container
     type(distribs_type) :: system
     !! System to add to the container.
 
-    call system%calculate(basis, width = this%width, &
-                     sigma = this%sigma, &
-                     cutoff_min = this%cutoff_min, &
-                     cutoff_max = this%cutoff_max, &
-                     radius_distance_tol = this%radius_distance_tol &
+    call system%calculate( &
+         basis, &
+         width = this%width, &
+         sigma = this%sigma, &
+         cutoff_min = this%cutoff_min, &
+         cutoff_max = this%cutoff_max, &
+         radius_distance_tol = this%radius_distance_tol &
     )
 
     if(.not.allocated(this%system))then
@@ -1116,30 +1133,30 @@ module raffle__distribs_container
 
 !###############################################################################
   subroutine get_element_energies(this, elements, energies)
-   !! Return the energies of elements in the container.
-   implicit none
+    !! Return the energies of elements in the container.
+    implicit none
 
-   ! Arguments
-   class(distribs_container_type), intent(in) :: this
-   !! Parent of the procedure. Instance of distribution functions container.
-   character(len=3), dimension(:), allocatable, intent(out) :: elements
-   !! Element names.
-   real(real32), dimension(:), allocatable, intent(out) :: energies
-   !! Energies of the elements.
+    ! Arguments
+    class(distribs_container_type), intent(in) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
+    character(len=3), dimension(:), allocatable, intent(out) :: elements
+    !! Element names.
+    real(real32), dimension(:), allocatable, intent(out) :: energies
+    !! Energies of the elements.
 
-   ! Local variables
-   integer :: i
-   !! Loop index.
+    ! Local variables
+    integer :: i
+    !! Loop index.
 
 
-   allocate(elements(size(this%element_info)))
-   allocate(energies(size(this%element_info)))
-   do i = 1, size(this%element_info)
-      elements(i) = this%element_info(i)%name
-      energies(i) = this%element_info(i)%energy
-   end do
+    allocate(elements(size(this%element_info)))
+    allocate(energies(size(this%element_info)))
+    do i = 1, size(this%element_info)
+       elements(i) = this%element_info(i)%name
+       energies(i) = this%element_info(i)%energy
+    end do
 
- end subroutine get_element_energies
+  end subroutine get_element_energies
 !###############################################################################
 
 
@@ -1217,8 +1234,8 @@ module raffle__distribs_container
           if(success) cycle pair_loop2
           call set_bond_radius_to_default( [ &
                this%element_info(i)%name, &
-               this%element_info(j)%name ] &
-          )
+               this%element_info(j)%name &
+          ] )
           call this%bond_info(num_pairs)%set( &
                this%element_info(i)%name, &
                this%element_info(j)%name, &
@@ -1250,26 +1267,26 @@ module raffle__distribs_container
 
 
     write(0,*) 'WARNING: No bond data for element pair ', &
-               elements(1), ' and ', &
-               elements(2)
+         elements(1), ' and ', &
+         elements(2)
     write(0,*) 'WARNING: Setting bond to average of covalent radii'
     if(.not.allocated(element_database)) allocate(element_database(0))
     idx1 = findloc([ element_database(:)%name ], &
          elements(1), dim=1)
     if(idx1.lt.1)then
-        call get_element_properties(elements(1), radius=radius1)
-        element_database = [ element_database, &
-              element_type(name=elements(1), radius=radius1) ]
-        idx1 = size(element_database)
-     end if
-     idx2 = findloc([ element_database(:)%name ], &
-          elements(2), dim=1)
-     if(idx2.lt.1)then
-        call get_element_properties(elements(2), radius=radius2)
-        element_database = [ element_database, &
-              element_type(name=elements(2), radius=radius2) ]
-        idx2 = size(element_database)
-     end if
+       call get_element_properties(elements(1), radius=radius1)
+       element_database = [ element_database, &
+            element_type(name=elements(1), radius=radius1) ]
+       idx1 = size(element_database)
+    end if
+    idx2 = findloc([ element_database(:)%name ], &
+         elements(2), dim=1)
+    if(idx2.lt.1)then
+       call get_element_properties(elements(2), radius=radius2)
+       element_database = [ element_database, &
+            element_type(name=elements(2), radius=radius2) ]
+       idx2 = size(element_database)
+    end if
     radius = ( element_database(idx1)%radius + &
          element_database(idx2)%radius ) / 2._real32
     if(.not.allocated(element_bond_database)) &
@@ -1290,104 +1307,108 @@ module raffle__distribs_container
 
 !###############################################################################
   subroutine update_bond_info(this)
-   !! Update the element information in the container.
-   implicit none
+    !! Update the element information in the container.
+    implicit none
 
-   ! Arguments
-   class(distribs_container_type), intent(inout) :: this
-   !! Parent of the procedure. Instance of distribution functions container.
+    ! Arguments
+    class(distribs_container_type), intent(inout) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
 
-   ! Local variables
-   integer :: i, j, k, is, js
-   !! Loop index.
-   real(real32) :: radius, radius1, radius2
-   !! Average of covalent radii.
-   character(len=3), dimension(:), allocatable :: element_list
-   !! List of elements in the container.
-   character(len=3), dimension(:,:), allocatable :: pair_list
-   !! List of element pairs in the container.
-
-
-   !----------------------------------------------------------------------------
-   ! check if bond_info is allocated, if not, set it and return
-   !----------------------------------------------------------------------------
-   if(.not.allocated(this%bond_info))then
-      call this%set_bond_info()
-      return
-   elseif(size(this%bond_info).eq.0)then
-      call this%set_bond_info()
-      return
-   end if
+    ! Local variables
+    integer :: i, j, k, is, js
+    !! Loop index.
+    real(real32) :: radius, radius1, radius2
+    !! Average of covalent radii.
+    character(len=3), dimension(:), allocatable :: element_list
+    !! List of elements in the container.
+    character(len=3), dimension(:,:), allocatable :: pair_list
+    !! List of element pairs in the container.
 
 
-   !----------------------------------------------------------------------------
-   ! get list of element pairs in dataset
-   !----------------------------------------------------------------------------
-   allocate(element_list(0))
-   element_list = [ this%system(1)%element_symbols ]
-   do i = 2, size(this%system),1
-      element_list = [ element_list, this%system(i)%element_symbols ]
-   end do
-   call set(element_list)
-   allocate(pair_list(triangular_number(size(element_list)),2))
-   k = 0
-   do i = 1, size(element_list)
-      do j = i, size(element_list)
-         k = k + 1
-         pair_list(k,:) = [ element_list(i), element_list(j) ]
-         call sort_str(pair_list(k,:))
-      end do
-   end do
-
-   !----------------------------------------------------------------------------
-   ! check if all element pairs are in the database
-   !----------------------------------------------------------------------------
-   if(.not.allocated(element_bond_database)) allocate(element_bond_database(0))
-   pair_loop1: do i = 1, size(pair_list,1)
-      do j = 1, size(element_bond_database)
-         if( ( element_bond_database(j)%element(1) .eq. pair_list(i,1) .and. &
-               element_bond_database(j)%element(2) .eq. pair_list(i,2) ) .or. &
-             ( element_bond_database(j)%element(1) .eq. pair_list(i,2) .and. &
-               element_bond_database(j)%element(2) .eq. pair_list(i,1) ) &
-              ) cycle pair_loop1
-      end do
-      ! if not found, add to the database
-      is = findloc([ this%element_info(:)%name ], pair_list(i,1), dim=1)
-      js = findloc([ this%element_info(:)%name ], pair_list(i,2), dim=1)
-      radius1 = this%element_info(is)%radius
-      if(radius1.le.1.E-6) &
-           call get_element_properties(pair_list(i,1), radius = radius1)
-      radius2 = this%element_info(js)%radius
-      if(radius2.le.1.E-6) &
-           call get_element_properties(pair_list(i,2), radius = radius2)
-      radius = ( radius1 + radius2 ) / 2._real32
-      element_bond_database = [ element_bond_database, &
-           element_bond_type(elements=[pair_list(i,:)], radius=radius) ]
-      call sort_str(element_bond_database(size(element_bond_database))%element)
-   end do pair_loop1
+    !---------------------------------------------------------------------------
+    ! check if bond_info is allocated, if not, set it and return
+    !---------------------------------------------------------------------------
+    if(.not.allocated(this%bond_info))then
+       call this%set_bond_info()
+       return
+    elseif(size(this%bond_info).eq.0)then
+       call this%set_bond_info()
+       return
+    end if
 
 
-   ! ---------------------------------------------------------------------------
-   ! check if all element pairs are in the bond_info array
-   ! ---------------------------------------------------------------------------
-   pair_loop2: do i = 1, size(pair_list,1)
+    !---------------------------------------------------------------------------
+    ! get list of element pairs in dataset
+    !---------------------------------------------------------------------------
+    allocate(element_list(0))
+    element_list = [ this%system(1)%element_symbols ]
+    do i = 2, size(this%system),1
+       element_list = [ element_list, this%system(i)%element_symbols ]
+    end do
+    call set(element_list)
+    allocate(pair_list(triangular_number(size(element_list)),2))
+    k = 0
+    do i = 1, size(element_list)
+       do j = i, size(element_list)
+          k = k + 1
+          pair_list(k,:) = [ element_list(i), element_list(j) ]
+          call sort_str(pair_list(k,:))
+       end do
+    end do
+
+    !---------------------------------------------------------------------------
+    ! check if all element pairs are in the database
+    !---------------------------------------------------------------------------
+    if(.not.allocated(element_bond_database)) allocate(element_bond_database(0))
+    pair_loop1: do i = 1, size(pair_list,1)
+       do j = 1, size(element_bond_database)
+          if( ( &
+               element_bond_database(j)%element(1) .eq. pair_list(i,1) .and. &
+               element_bond_database(j)%element(2) .eq. pair_list(i,2) &
+          ) .or. ( &
+               element_bond_database(j)%element(1) .eq. pair_list(i,2) .and. &
+               element_bond_database(j)%element(2) .eq. pair_list(i,1) &
+          ) ) cycle pair_loop1
+       end do
+       ! if not found, add to the database
+       is = findloc([ this%element_info(:)%name ], pair_list(i,1), dim=1)
+       js = findloc([ this%element_info(:)%name ], pair_list(i,2), dim=1)
+       radius1 = this%element_info(is)%radius
+       if(radius1.le.1.E-6) &
+            call get_element_properties(pair_list(i,1), radius = radius1)
+       radius2 = this%element_info(js)%radius
+       if(radius2.le.1.E-6) &
+            call get_element_properties(pair_list(i,2), radius = radius2)
+       radius = ( radius1 + radius2 ) / 2._real32
+       element_bond_database = [ element_bond_database, &
+            element_bond_type(elements=[pair_list(i,:)], radius=radius) ]
+       call sort_str(element_bond_database(size(element_bond_database))%element)
+    end do pair_loop1
+
+
+    ! --------------------------------------------------------------------------
+    ! check if all element pairs are in the bond_info array
+    ! --------------------------------------------------------------------------
+    pair_loop2: do i = 1, size(pair_list,1)
        info_loop: do j = 1, size(this%bond_info)
-          if( ( this%bond_info(j)%element(1) .eq. pair_list(i,1) .and. &
-                this%bond_info(j)%element(2) .eq. pair_list(i,2) ) .or. &
-              ( this%bond_info(j)%element(1) .eq. pair_list(i,2) .and. &
-                this%bond_info(j)%element(2) .eq. pair_list(i,1) ) &
-               )then
-             cycle pair_loop2
-          end if
+          if( ( &
+               this%bond_info(j)%element(1) .eq. pair_list(i,1) .and. &
+               this%bond_info(j)%element(2) .eq. pair_list(i,2) &
+          ) .or. ( &
+               this%bond_info(j)%element(1) .eq. pair_list(i,2) .and. &
+               this%bond_info(j)%element(2) .eq. pair_list(i,1) &
+          ) ) cycle pair_loop2
        end do info_loop
-       this%bond_info = [ this%bond_info(:), &
-                          element_bond_type([ pair_list(i,1:2) ]) ]
+       this%bond_info = [ &
+            this%bond_info(:), &
+            element_bond_type( [ pair_list(i,1:2) ] ) &
+       ]
        call this%bond_info(size(this%bond_info))%set( &
             pair_list(i,1), &
             pair_list(i,2) )
-   end do pair_loop2
+    end do pair_loop2
 
- end subroutine update_bond_info
+  end subroutine update_bond_info
 !###############################################################################
 
 
@@ -1438,11 +1459,13 @@ module raffle__distribs_container
        return
     end if
     do i = 1, size(element_bond_database)
-       if( ( element_bond_database(i)%element(1) .eq. element_1 .and. &
-             element_bond_database(i)%element(2) .eq. element_2 ) .or. &
-           ( element_bond_database(i)%element(1) .eq. element_2 .and. &
-             element_bond_database(i)%element(2) .eq. element_1 ) &
-            )then
+       if( ( &
+            element_bond_database(i)%element(1) .eq. element_1 .and. &
+            element_bond_database(i)%element(2) .eq. element_2 &
+       ) .or. ( &
+            element_bond_database(i)%element(1) .eq. element_2 .and. &
+            element_bond_database(i)%element(2) .eq. element_1 &
+       ) )then
           element_bond_database(i)%radius_covalent = radius
           return
        end if
@@ -1484,30 +1507,30 @@ module raffle__distribs_container
 
 !###############################################################################
   subroutine get_bond_radii(this, elements, radii)
-   !! Return the bond radii of elements in the container.
-   implicit none
+    !! Return the bond radii of elements in the container.
+    implicit none
 
-   ! Arguments
-   class(distribs_container_type), intent(in) :: this
-   !! Parent of the procedure. Instance of distribution functions container.
-   character(len=3), dimension(:,:), allocatable, intent(out) :: elements
-   !! Element pair names.
-   real(real32), dimension(:), allocatable, intent(out) :: radii
-   !! Radii of the bond pairs.
+    ! Arguments
+    class(distribs_container_type), intent(in) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
+    character(len=3), dimension(:,:), allocatable, intent(out) :: elements
+    !! Element pair names.
+    real(real32), dimension(:), allocatable, intent(out) :: radii
+    !! Radii of the bond pairs.
 
-   ! Local variables
-   integer :: i
-   !! Loop index.
+    ! Local variables
+    integer :: i
+    !! Loop index.
 
 
-   allocate(elements(size(this%bond_info),2))
-   allocate(radii(size(this%bond_info)))
-   do i = 1, size(this%bond_info)
-      elements(i,:) = this%bond_info(i)%element
-      radii(i) = this%bond_info(i)%radius_covalent
-   end do
+    allocate(elements(size(this%bond_info),2))
+    allocate(radii(size(this%bond_info)))
+    do i = 1, size(this%bond_info)
+       elements(i,:) = this%bond_info(i)%element
+       radii(i) = this%bond_info(i)%radius_covalent
+    end do
 
- end subroutine get_bond_radii
+  end subroutine get_bond_radii
 !###############################################################################
 
 
@@ -1519,7 +1542,7 @@ module raffle__distribs_container
     !! allocated outside of the subroutine. Used in Python interface.
     implicit none
 
-   ! Arguments
+    ! Arguments
     class(distribs_container_type), intent(in) :: this
     !! Parent of the procedure. Instance of distribution functions container.
     character(len=3), dimension(size(this%bond_info,1),2), intent(out) :: &
@@ -1558,6 +1581,8 @@ module raffle__distribs_container
     !! Energy of the system.
     integer, dimension(:,:), allocatable :: idx_list
     !! Index list for pairs of elements.
+    character(len=256) :: warn_msg
+    !! Warning message.
 
     if(.not.allocated(this%best_energy_pair))then
        allocate( &
@@ -1587,8 +1612,10 @@ module raffle__distribs_container
 
     do i = 1, size(this%system)
        j = 0
-       allocate(idx_list(size(this%system(i)%element_symbols),&
-                         size(this%system(i)%element_symbols)))
+       allocate( idx_list( &
+            size(this%system(i)%element_symbols), &
+            size(this%system(i)%element_symbols) &
+       ) )
        do is = 1, size(this%system(i)%element_symbols)
           do js = is, size(this%system(i)%element_symbols), 1
              j = j + 1
@@ -1599,20 +1626,34 @@ module raffle__distribs_container
 
        energy = this%system(i)%energy
        do is = 1, size(this%system(i)%element_symbols)
-          idx1 = findloc( [ this%element_info(:)%name ], &
-                           this%system(i)%element_symbols(is), dim=1 )
+          idx1 = findloc( &
+               [ this%element_info(:)%name ], &
+               this%system(i)%element_symbols(is), &
+               dim = 1 &
+          )
           if(idx1.lt.1)then
              call stop_program( "Species not found in element_info" )
              return
           end if
-          energy = energy - this%system(i)%stoichiometry(is) * &
-                            this%element_info(idx1)%energy
+          energy = energy - &
+               this%system(i)%stoichiometry(is) * this%element_info(idx1)%energy
        end do
        energy = energy / this%system(i)%num_atoms
 
        do is = 1, size(this%system(i)%element_symbols)
-          idx1 = findloc( [ this%element_info(:)%name ], &
-                           this%system(i)%element_symbols(is), dim=1 )
+          if(this%system(i)%num_per_species(is).eq.0)then
+             write(warn_msg, &
+                  '("No neighbours found for species ",A," (",I0,") &
+                  &in system ",I0)' &
+             ) trim(this%system(i)%element_symbols(is)), is, i
+             call print_warning(warn_msg)
+             cycle
+          end if
+          idx1 = findloc( &
+               [ this%element_info(:)%name ], &
+               this%system(i)%element_symbols(is), &
+               dim = 1 &
+          )
           energy_per_species = &
                energy * this%system(i)%weight_per_species(is) / &
                real( sum( this%system(i)%num_per_species(:) ), real32 )
@@ -1621,11 +1662,17 @@ module raffle__distribs_container
              this%best_energy_per_species(idx1) = energy_per_species
           end if
           do js = 1, size(this%system(i)%element_symbols)
-             idx2 = findloc( [ this%element_info(:)%name ], &
-                             this%system(i)%element_symbols(js), dim=1)
-             j = nint( ( size(this%element_info) - &
-                         min( idx1, idx2 ) / 2._real32 ) * &
-                         ( min( idx1, idx2 ) - 1._real32 ) + max( idx1, idx2 ) ) 
+             idx2 = findloc( &
+                  [ this%element_info(:)%name ], &
+                  this%system(i)%element_symbols(js), &
+                  dim = 1 &
+             )
+             j = nint( &
+                  ( &
+                       size(this%element_info) - &
+                       min( idx1, idx2 ) / 2._real32 &
+                  ) * ( min( idx1, idx2 ) - 1._real32 ) + max( idx1, idx2 ) &
+             ) 
 
              energy_pair = &
                   energy * this%system(i)%weight_pair(idx_list(is,js)) / &
@@ -1636,10 +1683,6 @@ module raffle__distribs_container
              end if
 
           end do
-          if(this%system(i)%num_per_species(is).eq.0)then
-             call stop_program( "Species not found in system" )
-             return
-          end if
        end do
        deallocate(idx_list)
             
@@ -1675,7 +1718,7 @@ module raffle__distribs_container
     !idx = nint( ( size(this%element_info) - min( is, js ) / 2._real32 ) * &
     !      ( is - 1._real32 ) + js )
     idx = nint( ( size(this%element_info) - min( is, js ) / 2._real32 ) * &
-          ( min( is, js ) - 1._real32 ) + max( is, js ) )
+         ( min( is, js ) - 1._real32 ) + max( is, js ) )
 
   end function get_pair_index
 !###############################################################################
@@ -1695,8 +1738,6 @@ module raffle__distribs_container
     !! Index of the element in the element_info array.
 
     ! Local variables
-    integer :: is, js
-    !! Index of the elements in the element_info array.
 
     idx = findloc([ this%element_info(:)%name ], species, dim=1)
 
@@ -1723,9 +1764,11 @@ module raffle__distribs_container
          value .gt. this%cutoff_max(dim) + this%width(dim))then
        bin = 0
     else
-       bin = nint( ( this%nbins(dim) - 1 ) * &
-                   ( value - this%cutoff_min(dim) ) / &
-                   ( this%cutoff_max(dim) - this%cutoff_min(dim) ) ) + 1
+       bin = nint( &
+            ( this%nbins(dim) - 1 ) * &
+            ( value - this%cutoff_min(dim) ) / &
+            ( this%cutoff_max(dim) - this%cutoff_min(dim) ) &
+       ) + 1
     end if
 
   end function get_bin
@@ -1788,18 +1831,18 @@ module raffle__distribs_container
        if(size(this%bond_info).eq.0)then
           call set_bond_radius_to_default( [ &
                this%bond_info(index)%element(1), &
-               this%bond_info(index)%element(2) ] &
-          )
+               this%bond_info(index)%element(2) &
+          ] )
        end if
        bonds = [ 2._real32 * this%bond_info(index)%radius_covalent ]
        if(abs(bonds(1)).lt.1.E-6)then
           call stop_program( "Bond radius is zero" )
        end if
        this%gdf%df_2body(:,index) = weight * height * get_distrib( &
-                          bonds , &
-                          this%nbins(1), eta, this%width(1), &
-                          this%cutoff_min(1), &
-                          scale_list = [ 1._real32 ] &
+            bonds , &
+            this%nbins(1), eta, this%width(1), &
+            this%cutoff_min(1), &
+            scale_list = [ 1._real32 ] &
        )
     elseif( body .eq. 3 )then
        this%gdf%df_3body(:,index) = 1._real32/this%nbins(2)
@@ -1874,8 +1917,8 @@ module raffle__distribs_container
        call this%set_best_energy()
        do i = 1, size(this%gdf%df_2body,2)
           this%gdf%df_2body(:,i) = this%gdf%df_2body(:,i) * &
-                                  exp( this%best_energy_pair(i) / this%kBT ) / &
-                                  exp( best_energy_pair_old(i) / this%kBT )
+               exp( this%best_energy_pair(i) / this%kBT ) / &
+               exp( best_energy_pair_old(i) / this%kBT )
        end do
        do i = 1, size(this%gdf%df_3body,2)
           this%gdf%df_3body(:,i) = &
@@ -1955,8 +1998,11 @@ module raffle__distribs_container
        allocate(host_idx_list(size(this%element_info)))
        host_idx_list = 0
        do is = 1, size(this%host_system%element_symbols)
-          idx1 = findloc( [ this%element_info(:)%name ], &
-                         this%host_system%element_symbols(is), dim=1)
+          idx1 = findloc( &
+               [ this%element_info(:)%name ], &
+               this%host_system%element_symbols(is), &
+               dim = 1 &
+          )
           if(idx1.lt.1)then
              call stop_program( "Host species not found in species list" )
              return
@@ -1979,8 +2025,10 @@ module raffle__distribs_container
        ! get the list of 2-body species pairs the system
        !------------------------------------------------------------------------
        j = 0
-       allocate(idx_list(size(this%system(i)%element_symbols),&
-                         size(this%system(i)%element_symbols)))
+       allocate( idx_list( &
+            size(this%system(i)%element_symbols), &
+            size(this%system(i)%element_symbols) &
+       ) )
        do is = 1, size(this%system(i)%element_symbols)
           do js = is, size(this%system(i)%element_symbols), 1
              j = j + 1
@@ -1995,8 +2043,11 @@ module raffle__distribs_container
        !------------------------------------------------------------------------
        energy = this%system(i)%energy
        do is = 1, size(this%system(i)%element_symbols)
-          idx1 = findloc( [ this%element_info(:)%name ], &
-                          this%system(i)%element_symbols(is), dim=1)
+          idx1 = findloc( &
+               [ this%element_info(:)%name ], &
+               this%system(i)%element_symbols(is), &
+               dim = 1 &
+          )
           if(idx1.lt.1)then
              call stop_program( "Species not found in species list" )
              return
@@ -2011,8 +2062,13 @@ module raffle__distribs_container
        !------------------------------------------------------------------------
        do is = 1, size(this%system(i)%element_symbols)
 
-          idx1 = findloc( [ this%element_info(:)%name ], &
-                          this%system(i)%element_symbols(is), dim=1)
+          if( this%system(i)%num_per_species(is).eq.0 )cycle
+
+          idx1 = findloc( &
+               [ this%element_info(:)%name ], &
+               this%system(i)%element_symbols(is), &
+               dim = 1 &
+          )
 
           if(.not.this%weight_by_hull)then
              weight = exp( &
@@ -2031,23 +2087,28 @@ module raffle__distribs_container
           end if
 
           this%gdf%df_3body(:,idx1) = this%gdf%df_3body(:,idx1) + &
-               set_difference( weight * this%system(i)%df_3body(:,is), &
-                               this%gdf%df_3body(:,idx1), &
-                               set_min_zero = .true. &
+               set_difference( &
+                    weight * this%system(i)%df_3body(:,is), &
+                    this%gdf%df_3body(:,idx1), &
+                    set_min_zero = .true. &
                )
           
           this%gdf%df_4body(:,idx1) = this%gdf%df_4body(:,idx1) + &
-               set_difference( weight * this%system(i)%df_4body(:,is), &
-                               this%gdf%df_4body(:,idx1), &
-                               set_min_zero = .true. &
+               set_difference( &
+                    weight * this%system(i)%df_4body(:,is), &
+                    this%gdf%df_4body(:,idx1), &
+                    set_min_zero = .true. &
                )
           
           do js = is, size(this%system(i)%element_symbols), 1
-             idx2 = findloc( [ this%element_info(:)%name ], &
-                             this%system(i)%element_symbols(js), dim=1)
-             j = nint( ( size(this%element_info) - &
-                         min( idx1, idx2 ) / 2._real32 ) * &
-                         ( min( idx1, idx2 ) - 1._real32 ) + max( idx1, idx2 ) )
+             idx2 = findloc( &
+                  [ this%element_info(:)%name ], &
+                  this%system(i)%element_symbols(js), &
+                  dim = 1 &
+             )
+             j = nint( ( &
+                  size(this%element_info) - min( idx1, idx2 ) / 2._real32 &
+             ) * ( min( idx1, idx2 ) - 1._real32 ) + max( idx1, idx2 ) )
 
              if(.not.this%weight_by_hull)then
                 weight = exp( &
@@ -2075,67 +2136,67 @@ module raffle__distribs_container
           end do
        end do
        deallocate(idx_list)
-   end do
+    end do
    
-   !----------------------------------------------------------------------------
-   ! if not in the dataset, set distribution functions to default
-   !----------------------------------------------------------------------------
-   do j = 1, size(this%gdf%df_2body,2)
-      if(all(abs(this%gdf%df_2body(:,j)).lt.1.E-6))then
-         call this%set_gdfs_to_default(2, j)
-      else
-         this%in_dataset_2body(j) = .true.
-      end if
-   end do
-   do is = 1, size(this%element_info)
-      if(all(abs(this%gdf%df_3body(:,is)).lt.1.E-6))then
-         call this%set_gdfs_to_default(3, is)
-      else
-         this%in_dataset_3body(is) = .true.
-      end if
-      if(all(abs(this%gdf%df_4body(:,is)).lt.1.E-6))then
-         call this%set_gdfs_to_default(4, is)
-      else
-         this%in_dataset_4body(is) = .true.
-      end if
-   end do
+    !---------------------------------------------------------------------------
+    ! if not in the dataset, set distribution functions to default
+    !---------------------------------------------------------------------------
+    do j = 1, size(this%gdf%df_2body,2)
+       if(all(abs(this%gdf%df_2body(:,j)).lt.1.E-6))then
+          call this%set_gdfs_to_default(2, j)
+       else
+          this%in_dataset_2body(j) = .true.
+       end if
+    end do
+    do is = 1, size(this%element_info)
+       if(all(abs(this%gdf%df_3body(:,is)).lt.1.E-6))then
+          call this%set_gdfs_to_default(3, is)
+       else
+          this%in_dataset_3body(is) = .true.
+       end if
+       if(all(abs(this%gdf%df_4body(:,is)).lt.1.E-6))then
+          call this%set_gdfs_to_default(4, is)
+       else
+          this%in_dataset_4body(is) = .true.
+       end if
+    end do
 
-   allocate(this%norm_2body(size(this%gdf%df_2body,2)))
-   do j = 1, size(this%gdf%df_2body,2)
-      this%norm_2body(j) = maxval(this%gdf%df_2body(:,j))
-      if(abs(this%norm_2body(j)).lt.1.E-6)then
-         call stop_program( "Zero norm for 2-body distribution function" )
-         return
-      end if
-      this%gdf%df_2body(:,j) = &
-           this%gdf%df_2body(:,j) / this%norm_2body(j)
-   end do
-   allocate(this%norm_3body(size(this%element_info)))
-   allocate(this%norm_4body(size(this%element_info)))
-   do is = 1, size(this%element_info)
-      this%norm_3body(is) = maxval(this%gdf%df_3body(:,is))
-      if(abs(this%norm_3body(is)).lt.1.E-6)then
-         call stop_program( "Zero norm for 3-body distribution function" )
-         return
-      end if
-      this%norm_4body(is) = maxval(this%gdf%df_4body(:,is))
-      if(abs(this%norm_4body(is)).lt.1.E-6)then
-         call stop_program( "Zero norm for 4-body distribution function" )
-         return
-      end if
-      this%gdf%df_3body(:,is) = &
-           this%gdf%df_3body(:,is) / this%norm_3body(is)
-      this%gdf%df_4body(:,is) = &
-           this%gdf%df_4body(:,is) / this%norm_4body(is)
-   end do
+    allocate(this%norm_2body(size(this%gdf%df_2body,2)))
+    do j = 1, size(this%gdf%df_2body,2)
+       this%norm_2body(j) = maxval(this%gdf%df_2body(:,j))
+       if(abs(this%norm_2body(j)).lt.1.E-6)then
+          call stop_program( "Zero norm for 2-body distribution function" )
+          return
+       end if
+       this%gdf%df_2body(:,j) = &
+            this%gdf%df_2body(:,j) / this%norm_2body(j)
+    end do
+    allocate(this%norm_3body(size(this%element_info)))
+    allocate(this%norm_4body(size(this%element_info)))
+    do is = 1, size(this%element_info)
+       this%norm_3body(is) = maxval(this%gdf%df_3body(:,is))
+       if(abs(this%norm_3body(is)).lt.1.E-6)then
+          call stop_program( "Zero norm for 3-body distribution function" )
+          return
+       end if
+       this%norm_4body(is) = maxval(this%gdf%df_4body(:,is))
+       if(abs(this%norm_4body(is)).lt.1.E-6)then
+          call stop_program( "Zero norm for 4-body distribution function" )
+          return
+       end if
+       this%gdf%df_3body(:,is) = &
+            this%gdf%df_3body(:,is) / this%norm_3body(is)
+       this%gdf%df_4body(:,is) = &
+            this%gdf%df_4body(:,is) / this%norm_4body(is)
+    end do
 
-   this%num_evaluated_allocated = size(this%system)
-   this%num_evaluated = this%num_evaluated + num_evaluated
+    this%num_evaluated_allocated = size(this%system)
+    this%num_evaluated = this%num_evaluated + num_evaluated
 
-   this%viability_3body_default = sum( this%gdf%df_3body ) / &
-        real( size( this%gdf%df_3body ), real32 )
-   this%viability_4body_default = sum( this%gdf%df_4body ) / &
-        real( size( this%gdf%df_4body ), real32 )
+    this%viability_3body_default = sum( this%gdf%df_3body ) / &
+         real( size( this%gdf%df_3body ), real32 )
+    this%viability_4body_default = sum( this%gdf%df_4body ) / &
+         real( size( this%gdf%df_4body ), real32 )
 
   end subroutine evolve
 !###############################################################################

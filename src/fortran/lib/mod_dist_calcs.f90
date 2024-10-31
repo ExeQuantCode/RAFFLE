@@ -82,7 +82,7 @@ contains
     min_bond=huge(0._real32)
     output = 0._real32
     do js = 1, basis%nspec
-       atmloop: do ja=1,basis%spec(js)%num
+       atmloop: do ja = 1, basis%spec(js)%num
           if(present(ignore_list))then
              do i = 1, size(ignore_list,1), 1
                 if(all(ignore_list(i,:).eq.[js,ja])) cycle atmloop
@@ -118,8 +118,7 @@ contains
 
 
 !###############################################################################
-  pure function get_min_dist_between_point_and_atom(basis,loc,atom) &
-       result(dist)
+  pure function get_min_dist_between_point_and_atom(basis,loc,atom) result(dist)
     !! Return the minimum distance between a point and an atom in a cell.
     !!
     !! This function returns the minimum distance between a point and an atom

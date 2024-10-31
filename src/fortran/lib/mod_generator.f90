@@ -8,12 +8,10 @@ module raffle__generator
   use raffle__io_utils, only: stop_program
   use raffle__constants, only: real32
   use raffle__misc_linalg, only: modu
-  use raffle__misc, only: strip_null, set
+  use raffle__misc, only: strip_null, set, shuffle
   use raffle__geom_rw, only: basis_type
   use raffle__geom_extd, only: extended_basis_type
   use raffle__distribs_container, only: distribs_container_type
-
-  use raffle__misc, only: shuffle
   use raffle__geom_utils, only: basis_merge
   use raffle__place_methods, only: &
        place_method_void, place_method_rand, &
@@ -30,72 +28,72 @@ module raffle__generator
 
 
   type :: stoichiometry_type
-    !! Type for storing the stoichiometry of atoms to be placed in the host
-    !! structure.
-    character(len=3) :: element
-    !! Element symbol.
-    integer :: num
-    !! Number of atoms.
+     !! Type for storing the stoichiometry of atoms to be placed in the host
+     !! structure.
+     character(len=3) :: element
+     !! Element symbol.
+     integer :: num
+     !! Number of atoms.
   end type stoichiometry_type
 
 
   type :: raffle_generator_type
-    !! Type for instance of raffle generator.
-    !!
-    !! This type contains the parameters and methods for generating random
-    !! structures from a host structure, using the RAFFLE method.
-    integer :: num_structures = 0
-    !! Number of structures generated. Initialised to zero.
-    type(basis_type) :: host
-    !! Host structure.
-    integer, dimension(3) :: grid = [0, 0, 0]
-    !! Grid to divide the host structure into along each axis.
-    real(real32), dimension(3) :: &
-         grid_offset = [0.5_real32, 0.5_real32, 0.5_real32]
-    !! Offset of the gridpoints.
-    real(real32) :: grid_spacing = 0.1_real32
-    !! Spacing of the gridpoints.
-    type(distribs_container_type) :: distributions
-    !! Distribution function container for the 2-, 3-, and 4-body interactions.
-    integer :: max_attempts = 10000
-    !! Limit for the number of attempts to place an atom.
-    real(real32) :: &
-         walk_step_size_coarse = 1._real32, &
-         walk_step_size_fine = 0.1_real32
-    !! Step size for the walk and grow methods.
-    real(real32), dimension(5) :: method_probab
-    !! Probability of each placement method.
-    type(basis_type), dimension(:), allocatable :: structures
-    !! Generated structures.
+     !! Type for instance of raffle generator.
+     !!
+     !! This type contains the parameters and methods for generating random
+     !! structures from a host structure, using the RAFFLE method.
+     integer :: num_structures = 0
+     !! Number of structures generated. Initialised to zero.
+     type(basis_type) :: host
+     !! Host structure.
+     integer, dimension(3) :: grid = [0, 0, 0]
+     !! Grid to divide the host structure into along each axis.
+     real(real32), dimension(3) :: &
+          grid_offset = [0.5_real32, 0.5_real32, 0.5_real32]
+     !! Offset of the gridpoints.
+     real(real32) :: grid_spacing = 0.1_real32
+     !! Spacing of the gridpoints.
+     type(distribs_container_type) :: distributions
+     !! Distribution function container for the 2-, 3-, and 4-body interactions.
+     integer :: max_attempts = 10000
+     !! Limit for the number of attempts to place an atom.
+     real(real32) :: &
+          walk_step_size_coarse = 1._real32, &
+          walk_step_size_fine = 0.1_real32
+     !! Step size for the walk and grow methods.
+     real(real32), dimension(5) :: method_probab
+     !! Probability of each placement method.
+     type(basis_type), dimension(:), allocatable :: structures
+     !! Generated structures.
    contains
-    procedure, pass(this) :: set_host
-    !! Procedure to set the host structure.
-    procedure, pass(this) :: set_grid
-    !! Procedure to set the grid for the raffle generator.
-    procedure, pass(this) :: reset_grid
-    !! Procedure to reset the grid for the raffle generator.
-    procedure, pass(this) :: generate
-    !! Procedure to generate random structures.
-    procedure, pass(this), private :: generate_structure
-    !! Procedure to generate a single random structure.
-    procedure, pass(this) :: get_structures
-    !! Procedure to return the generated structures.
-    procedure, pass(this) :: evaluate
-    !! Procedure to evaluate the viability of a structure.
+     procedure, pass(this) :: set_host
+     !! Procedure to set the host structure.
+     procedure, pass(this) :: set_grid
+     !! Procedure to set the grid for the raffle generator.
+     procedure, pass(this) :: reset_grid
+     !! Procedure to reset the grid for the raffle generator.
+     procedure, pass(this) :: generate
+     !! Procedure to generate random structures.
+     procedure, pass(this), private :: generate_structure
+     !! Procedure to generate a single random structure.
+     procedure, pass(this) :: get_structures
+     !! Procedure to return the generated structures.
+     procedure, pass(this) :: evaluate
+     !! Procedure to evaluate the viability of a structure.
   end type raffle_generator_type
 
   interface raffle_generator_type
-    !! Constructor for the raffle generator type.
-    module function init_raffle_generator( &
-         host, &
-         width, sigma, cutoff_min, cutoff_max) result(generator)
-      type(basis_type), intent(in), optional :: host
-      real(real32), dimension(3), intent(in), optional :: width
-      real(real32), dimension(3), intent(in), optional :: sigma
-      real(real32), dimension(3), intent(in), optional :: cutoff_min
-      real(real32), dimension(3), intent(in), optional :: cutoff_max
-      type(raffle_generator_type) :: generator
-    end function init_raffle_generator
+     !! Constructor for the raffle generator type.
+     module function init_raffle_generator( &
+          host, &
+          width, sigma, cutoff_min, cutoff_max) result(generator)
+       type(basis_type), intent(in), optional :: host
+       real(real32), dimension(3), intent(in), optional :: width
+       real(real32), dimension(3), intent(in), optional :: sigma
+       real(real32), dimension(3), intent(in), optional :: cutoff_min
+       real(real32), dimension(3), intent(in), optional :: cutoff_max
+       type(raffle_generator_type) :: generator
+     end function init_raffle_generator
   end interface raffle_generator_type
 
 
@@ -103,8 +101,8 @@ contains
 
 !###############################################################################
   module function init_raffle_generator( &
-       host, width, sigma, cutoff_min, cutoff_max ) &
-       result(generator)
+       host, width, sigma, cutoff_min, cutoff_max &
+  ) result(generator)
     !! Initialise an instance of the raffle generator.
     !!
     !! Set up run-independent parameters.
@@ -332,7 +330,8 @@ contains
        allocate(this%structures(num_structures))
     else
        allocate(tmp_structures(this%num_structures + num_structures))
-       tmp_structures(:this%num_structures) = this%structures(:this%num_structures)
+       tmp_structures(:this%num_structures) = &
+            this%structures(:this%num_structures)
        call move_alloc(tmp_structures, this%structures)
     end if
 
@@ -389,8 +388,8 @@ contains
        do j = 1, size(stoichiometry)
           if( &
                trim(basis_template%spec(i)%name) .eq. &
-               trim(strip_null(stoichiometry(j)%element))) &
-               success = .true.
+               trim(strip_null(stoichiometry(j)%element)) &
+          ) success = .true.
        end do
        if(.not.success) cycle
        if(i.gt.this%host%nspec)then
@@ -420,8 +419,12 @@ contains
     
        if(verbose_.gt.0) write(*,*) "Generating structure", istructure
        call this%structures(istructure)%copy( basis = &
-            this%generate_structure( basis_template, &
-            placement_list, method_probab_, verbose_ ) &
+            this%generate_structure( &
+                 basis_template, &
+                 placement_list, &
+                 method_probab_, &
+                 verbose_ &
+            ) &
        )
        this%num_structures = istructure
 
@@ -433,7 +436,7 @@ contains
 
 
 !###############################################################################
-  module function generate_structure( &
+  function generate_structure( &
        this, &
        basis_initial, &
        placement_list, method_probab, verbose &
@@ -558,7 +561,9 @@ contains
                      "No placement methods available" &
                 )
                 return
-             else if(abs( method_probab_(5) - method_probab_(4) ) .gt. 1.E-6) then
+             else if( &
+                  abs( method_probab_(5) - method_probab_(4) ) .gt. 1.E-6 &
+             ) then
                 write(*,*) "WARNING: No more viable gridpoints"
                 write(*,*) "Suppressing global minimum method"
                 method_probab_ = method_probab_ / method_probab_(4)
@@ -575,11 +580,10 @@ contains
        if(rtmp1.le.method_probab_(1)) then
           if(verbose.gt.0) write(*,*) "Add Atom Void"
           point = place_method_void( this%grid, &
-                this%grid_offset, &
-                basis, &
-                placement_list_shuffled(iplaced+1:,:), viable &
+               this%grid_offset, &
+               basis, &
+               placement_list_shuffled(iplaced+1:,:), viable &
           )
-                          
        else if(rtmp1.le.method_probab_(2)) then
           if(verbose.gt.0) write(*,*) "Add Atom Random"
           point = place_method_rand( &
@@ -594,13 +598,13 @@ contains
        else if(rtmp1.le.method_probab_(3)) then
           if(verbose.gt.0) write(*,*) "Add Atom Walk"
           point = place_method_walk( &
-                this%distributions, &
-                basis, &
-                placement_list_shuffled(iplaced+1:,:), &
-                [ this%distributions%bond_info(:)%radius_covalent ], &
-                this%max_attempts, &
-                this%walk_step_size_coarse, this%walk_step_size_fine, &
-                viable &
+               this%distributions, &
+               basis, &
+               placement_list_shuffled(iplaced+1:,:), &
+               [ this%distributions%bond_info(:)%radius_covalent ], &
+               this%max_attempts, &
+               this%walk_step_size_coarse, this%walk_step_size_fine, &
+               viable &
           )
           if(.not. viable) void_ticker = void_ticker + 1
        else if(rtmp1.le.method_probab_(4)) then
@@ -611,32 +615,32 @@ contains
                   basis, &
                   placement_list_shuffled(iplaced+1:,:), &
                   [ this%distributions%bond_info(:)%radius_covalent ], &
-                   this%max_attempts, &
+                  this%max_attempts, &
                   viable &
              )
           else
              if(verbose.gt.0) write(*,*) "Add Atom Growth"
              point = place_method_growth( &
-                   this%distributions, &
-                   basis%spec(placement_list_shuffled(iplaced,1))%atom( &
-                        placement_list_shuffled(iplaced,2),:3 &
-                   ), &
-                   placement_list_shuffled(iplaced,1), &
-                   basis, &
-                   placement_list_shuffled(iplaced+1:,:), &
-                   [ this%distributions%bond_info(:)%radius_covalent ], &
-                   this%max_attempts, &
-                   this%walk_step_size_coarse, this%walk_step_size_fine, &
-                   viable &
+                  this%distributions, &
+                  basis%spec(placement_list_shuffled(iplaced,1))%atom( &
+                       placement_list_shuffled(iplaced,2),:3 &
+                  ), &
+                  placement_list_shuffled(iplaced,1), &
+                  basis, &
+                  placement_list_shuffled(iplaced+1:,:), &
+                  [ this%distributions%bond_info(:)%radius_covalent ], &
+                  this%max_attempts, &
+                  this%walk_step_size_coarse, this%walk_step_size_fine, &
+                  viable &
              )
           end if
           if(.not. viable) void_ticker = void_ticker + 1
        else if(rtmp1.le.method_probab_(5)) then
           if(verbose.gt.0) write(*,*) "Add Atom Minimum"
           point = place_method_min( gridpoint_viability, &
-                placement_list_shuffled(iplaced+1,1), &
-                species_index_list, &
-                viable &
+               placement_list_shuffled(iplaced+1,1), &
+               species_index_list, &
+               viable &
           )
           if(.not. viable .and. abs(method_probab_(4)).lt.1.E-6)then
              write(stop_msg,*) &
@@ -663,8 +667,10 @@ contains
        !------------------------------------------------------------------------
        if(.not. viable) then
           if(void_ticker.gt.10) &
-               point = place_method_void( this%grid, this%grid_offset, basis, &
-                                  placement_list_shuffled(iplaced+1:,:), viable)
+               point = place_method_void( &
+                    this%grid, this%grid_offset, basis, &
+                    placement_list_shuffled(iplaced+1:,:), viable &
+               )
           void_ticker = 0
           if(.not.viable) cycle placement_loop
        end if

@@ -1,0 +1,62 @@
+name: format-checker
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/formatting.yml"
+      - "**.f90"
+      - "**.F90"
+  pull_request:
+    branches:
+      - main
+      - development
+    types:
+      - opened
+      - synchronize
+    paths:
+      - ".github/workflows/formatting.yml"
+      - "**.f90"
+      - "**.F90"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: formatting
+  cancel-in-progress: false
+
+jobs:
+  format-checker:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v4
+
+      - name: actions-setup-python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+        
+      - name: Run format checker
+        id: run_format_checker
+        run: |
+          python tools/check_indentation.py
+        continue-on-error: true
+
+      - name: Comment on PR if script failed
+        if: github.event_name == 'pull_request' && steps.run_format_checker.outcome != 'success'
+        run: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: '⚠️ The format checker failed.
+              Please check the formatting of your code by running tools/check_indentation.py locally.'
+          })
+  

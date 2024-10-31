@@ -63,13 +63,13 @@ contains
     ! Check if the number of images is correct
     call assert( &
          basis_copy%num_images .eq. 10, &
-          'Number of images is not correct', &
-          success &
+         'Number of images is not correct', &
+         success &
     )
     call assert( &
          basis_copy%image_spec(1)%num .eq. 10, &
-          'Number of images in first species is not correct', &
-          success &
+         'Number of images in first species is not correct', &
+         success &
     )
     call assert( &
          all( &
@@ -102,13 +102,13 @@ contains
     ! Check if the number of images is correct
     call assert( &
          basis_copy%num_images .eq. 3, &
-          'Number of images is not correct', &
-          success &
+         'Number of images is not correct', &
+         success &
     )
     call assert( &
          basis_copy%image_spec(1)%num .eq. 3, &
-          'Number of images in first species is not correct', &
-          success &
+         'Number of images in first species is not correct', &
+         success &
     )
 
     ! Update images
@@ -117,13 +117,13 @@ contains
     ! Check if the number of images is correct
     call assert( &
          basis_copy%num_images .eq. 10, &
-          'Number of images is not correct', &
-          success &
+         'Number of images is not correct', &
+         success &
     )
     call assert( &
          basis_copy%image_spec(1)%num .eq. 10, &
-          'Number of images in first species is not correct', &
-          success &
+         'Number of images in first species is not correct', &
+         success &
     )
     call assert( &
          all( &
@@ -143,26 +143,26 @@ contains
     logical :: output
     output = .true.
 
-  ! Compare the geometries
+    ! Compare the geometries
     if(any(abs(bas1%lat - bas2%lat).gt.1.E-6)) then
-      write(0,*) 'Geometry read/write failed, lattice check failed'
-      output = .false.
-   end if
-   if(bas1%sysname .ne. bas2%sysname) then
-      write(0,*) 'Geometry read/write failed, system name check failed'
-      write(0,*) bas1%sysname, bas2%sysname
-      output = .false.
-   end if
-   if(bas1%natom .ne. bas2%natom) then
-      write(0,*) 'Geometry read/write failed, number of atoms check failed'
-      write(0,*) bas1%natom, bas2%natom
-      output = .false.
-   end if
-   if(abs(bas1%energy - bas2%energy).gt.1.E-6) then
-      write(0,*) 'Geometry read/write failed, energy check failed'
-      write(0,*) bas1%energy, bas2%energy
-      output = .false.
-   end if
+       write(0,*) 'Geometry read/write failed, lattice check failed'
+       output = .false.
+    end if
+    if(bas1%sysname .ne. bas2%sysname) then
+       write(0,*) 'Geometry read/write failed, system name check failed'
+       write(0,*) bas1%sysname, bas2%sysname
+       output = .false.
+    end if
+    if(bas1%natom .ne. bas2%natom) then
+       write(0,*) 'Geometry read/write failed, number of atoms check failed'
+       write(0,*) bas1%natom, bas2%natom
+       output = .false.
+    end if
+    if(abs(bas1%energy - bas2%energy).gt.1.E-6) then
+       write(0,*) 'Geometry read/write failed, energy check failed'
+       write(0,*) bas1%energy, bas2%energy
+       output = .false.
+    end if
 
   end function compare_bas
 
@@ -187,8 +187,8 @@ contains
     character(len=*), intent(in) :: message
     logical, intent(inout) :: success
     if (.not. condition) then
-      write(0,*) "Test failed: ", message
-      success = .false.
+       write(0,*) "Test failed: ", message
+       success = .false.
     end if
   end subroutine assert
 

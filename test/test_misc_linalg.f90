@@ -128,12 +128,16 @@ contains
   subroutine test_inverse_3x3(success)
     logical, intent(inout) :: success
     real(real32), dimension(3,3) :: matrix, result, expected
-    matrix = reshape([4.0_real32, 3.0_real32, 0.0_real32, &
-                      3.0_real32, 2.0_real32, 1.0_real32, &
-                      0.0_real32, 1.0_real32, 1.0_real32], [3,3])
-    expected = reshape([-1.0_real32, 3.0_real32, -3.0_real32, &
-                        3.0_real32, -4.0_real32, 4.0_real32, &
-                        -3.0_real32, 4.0_real32, 1.0_real32], [3,3])
+    matrix = reshape([ &
+         4.0_real32, 3.0_real32, 0.0_real32, &
+         3.0_real32, 2.0_real32, 1.0_real32, &
+         0.0_real32, 1.0_real32, 1.0_real32 &
+    ], [3,3])
+    expected = reshape([ &
+         -1.0_real32, 3.0_real32, -3.0_real32, &
+         3.0_real32, -4.0_real32, 4.0_real32, &
+         -3.0_real32, 4.0_real32, 1.0_real32 &
+    ], [3,3])
     expected = expected / 5.0_real32
     result = inverse_3x3(matrix)
     call assert_almost_equal_matrix( &

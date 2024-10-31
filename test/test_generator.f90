@@ -94,8 +94,8 @@ program test_generator
   element_symbols(1) = 'C'
   element_energies(1) = -9.0266865
   call generator%distributions%set_element_energies( &
-      element_symbols, &
-      element_energies &
+       element_symbols, &
+       element_energies &
   )
 
 
@@ -312,56 +312,56 @@ contains
     logical :: ltmp1
     output = .true.
 
-  ! Compare the geometries
+    ! Compare the geometries
     if(any(abs(bas1%lat - bas2%lat).gt.1.E-6)) then
-      output = .false.
-   end if
-   if(bas1%sysname .ne. bas2%sysname) then
-      output = .false.
-   end if
-   if(bas1%natom .ne. bas2%natom) then
-      output = .false.
-   end if
+       output = .false.
+    end if
+    if(bas1%sysname .ne. bas2%sysname) then
+       output = .false.
+    end if
+    if(bas1%natom .ne. bas2%natom) then
+       output = .false.
+    end if
 
-   do is = 1, bas1%nspec
-      do ia = 1, bas1%spec(is)%num
-         ltmp1 = .false.
-         do ja = 1, bas2%spec(is)%num
-            if( &
-                 all( &
-                      abs( &
-                           bas1%spec(is)%atom(ia,:3) - &
-                           bas2%spec(is)%atom(ja,:3) - &
-                           ceiling( &
-                                bas1%spec(is)%atom(ia,:3) - &
-                                bas2%spec(is)%atom(ja,:3) - &
-                                0.5_real32 &
-                           ) &
-                      ) .lt. 2._real32 * tolerance + 1.E-6_real32 &
-                 ) &
-            ) ltmp1 = .true.
-         end do
-         if(.not. ltmp1) then
-            write(0,*) 'Generator failed to produce expected atom: ', is, ia
-            write(0,*) bas1%spec(is)%atom(ia,:3), bas2%spec(is)%atom(ia,:3)
-            output = .false.
-         end if
-      end do
-   end do
+    do is = 1, bas1%nspec
+       do ia = 1, bas1%spec(is)%num
+          ltmp1 = .false.
+          do ja = 1, bas2%spec(is)%num
+             if( &
+                  all( &
+                       abs( &
+                            bas1%spec(is)%atom(ia,:3) - &
+                            bas2%spec(is)%atom(ja,:3) - &
+                            ceiling( &
+                                 bas1%spec(is)%atom(ia,:3) - &
+                                 bas2%spec(is)%atom(ja,:3) - &
+                                 0.5_real32 &
+                            ) &
+                       ) .lt. 2._real32 * tolerance + 1.E-6_real32 &
+                  ) &
+             ) ltmp1 = .true.
+          end do
+          if(.not. ltmp1) then
+             write(0,*) 'Generator failed to produce expected atom: ', is, ia
+             write(0,*) bas1%spec(is)%atom(ia,:3), bas2%spec(is)%atom(ia,:3)
+             output = .false.
+          end if
+       end do
+    end do
 
   end function compare_bas
 
 !###############################################################################
 
   subroutine assert(condition, message, success)
-     implicit none
-     logical, intent(in) :: condition
-     character(len=*), intent(in) :: message
-     logical, intent(inout) :: success
-     if (.not. condition) then
+    implicit none
+    logical, intent(in) :: condition
+    character(len=*), intent(in) :: message
+    logical, intent(inout) :: success
+    if (.not. condition) then
        write(0,*) "Test failed: ", message
        success = .false.
-     end if
-   end subroutine assert
+    end if
+  end subroutine assert
 
 end program test_generator

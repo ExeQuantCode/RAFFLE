@@ -153,8 +153,9 @@ contains
 
 
 !###############################################################################
-  pure function get_dihedral_angle_from_points(point1, point2, point3, point4) &
-         result(angle)
+  pure function get_dihedral_angle_from_points( &
+       point1, point2, point3, point4 &
+  ) result(angle)
     !! Return the dihedral angle between two planes.
     !!
     !! The dihedral angle is the angle between the plane defined by four points.
@@ -172,15 +173,15 @@ contains
 
 !###############################################################################
   pure function get_improper_dihedral_angle_from_vectors( &
-       vector1, vector2, vector3 ) &
-       result(angle)
+       vector1, vector2, vector3 &
+  ) result(angle)
     !! Return the improper dihedral angle between two planes.
     !!
     !! The improper dihedral angle is the angle between two planes made by
     !! three vectors.
     !! i.e. ( vector1 x vector2 ) . ( vector2 x vector3 )
-       !! alt. angle between plane vector1vector2 and vector2vector3
-       implicit none
+    !! alt. angle between plane vector1vector2 and vector2vector3
+    implicit none
     real(real32), dimension(3), intent(in) :: vector1, vector2, vector3
     real(real32) :: angle
 
@@ -198,8 +199,8 @@ contains
 
 !###############################################################################
   pure function get_improper_dihedral_angle_from_points( &
-       point1, point2, point3, point4 ) &
-       result(angle)
+       point1, point2, point3, point4 &
+  ) result(angle)
     !! Return the improper dihedral angle between two planes.
     !!
     !! The dihedral angle is the angle between the plane defined by four points.
@@ -212,7 +213,7 @@ contains
 
     angle = get_angle( &
          cross(point2 - point1, point3 - point1), &
-          cross(point3 - point1, point4 - point1) &
+         cross(point3 - point1, point4 - point1) &
     )
 
   end function get_improper_dihedral_angle_from_points

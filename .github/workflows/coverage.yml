@@ -2,18 +2,25 @@ name: run-code-coverage
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - "main"
     paths:
       - ".github/workflows/coverage.yml"
       - "CMakeLists.txt"
       - "**.f90"
+      - "**.F90"
       - "**.cmake"
   pull_request:
-    branches: ["main"]
+    branches:
+      - "main"
+    types:
+      - opened
+      - synchronize
     paths:
       - ".github/workflows/coverage.yml"
       - "CMakeLists.txt"
       - "**.f90"
+      - "**.F90"
       - "**.cmake"
   workflow_dispatch:
 
@@ -64,7 +71,7 @@ jobs:
           cmake --version
           mkdir -p build
           cd build
-          cmake -DCMAKE_BUILD_TYPE=Debug -DBUILD_PYTHON=Off -DBUILD_EXECUTABLE=Off ..
+          cmake -DCMAKE_BUILD_TYPE=Coverage -DBUILD_PYTHON=Off -DBUILD_EXECUTABLE=Off ..
           make
       
       - name: Run coverage tests

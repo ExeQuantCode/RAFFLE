@@ -29,7 +29,7 @@ module raffle__geom_rw
   integer :: igeom_output = 1
   !! geometry output file format
 
-  type species_type
+  type :: species_type
      !! Derived type to store information about a species/element.
      real(real32), allocatable ,dimension(:,:) :: atom
      !! The atomic positions of the species.
@@ -44,7 +44,7 @@ module raffle__geom_rw
      integer :: num
      !! The number of atoms of this species.
   end type species_type
-  type basis_type
+  type :: basis_type
      !! Derived type to store information about a basis.
      type(species_type), allocatable, dimension(:) :: spec
      !! Information about each species in the basis.
@@ -75,13 +75,13 @@ module raffle__geom_rw
 
 
   interface basis_type
-    module function init_basis_type(basis) result(output)
-      !! Initialise the basis type.
-      type(basis_type), intent(in), optional :: basis
-      !! Optional. Basis to copy.
-      type(basis_type) :: output
-      !! The basis to initialise.
-    end function init_basis_type
+     module function init_basis_type(basis) result(output)
+       !! Initialise the basis type.
+       type(basis_type), intent(in), optional :: basis
+       !! Optional. Basis to copy.
+       type(basis_type) :: output
+       !! The basis to initialise.
+     end function init_basis_type
   end interface basis_type
 
 
@@ -215,8 +215,8 @@ contains
        if(present(iostat)) iostat = 0
     end if
     if(length_.eq.4)then
-       do i=1,basis%nspec
-         basis%spec(i)%atom(:,4)=1._real32
+       do i = 1, basis%nspec
+          basis%spec(i)%atom(:,4)=1._real32
        end do
     end if
     do i = 1, basis%nspec
@@ -242,8 +242,8 @@ contains
     class(basis_type), intent(in) :: basis
     !! The basis to write the geometry from.
 
-! MAKE IT CHANGE HERE IF USER SPECIFIES LCART OR NOT
-! AND GIVE IT THE CASTEP AND QE OPTION OF LABC !
+    ! MAKE IT CHANGE HERE IF USER SPECIFIES LCART OR NOT
+    ! AND GIVE IT THE CASTEP AND QE OPTION OF LABC !
 
     select case(igeom_output)
     case(1)
@@ -323,7 +323,7 @@ contains
     !---------------------------------------------------------------------------
     ! read lattice
     !---------------------------------------------------------------------------
-    do i=1,3
+    do i = 1, 3
        read(UNIT,*) (basis%lat(i,j),j=1,3)
     end do
     basis%lat=scal*basis%lat
@@ -350,7 +350,7 @@ contains
 
        read(UNIT,*) (basis%spec(j)%num,j=1,basis%nspec)
     else !only numbers
-       do count=1,basis%nspec
+       do count = 1, basis%nspec
           write(basis%spec(count)%name,'(I0)') count
        end do
        read(lspec,*) (basis%spec(j)%num,j=1,basis%nspec)
@@ -370,10 +370,10 @@ contains
     !---------------------------------------------------------------------------
     ! read basis
     !---------------------------------------------------------------------------
-    do i=1,basis%nspec
+    do i = 1, basis%nspec
        allocate(basis%spec(i)%atom(basis%spec(i)%num,length_))
        basis%spec(i)%atom(:,:)=0._real32
-       do j=1,basis%spec(i)%num
+       do j = 1, basis%spec(i)%num
           read(UNIT,*) (basis%spec(i)%atom(j,k),k=1,3)
        end do
     end do
@@ -388,9 +388,9 @@ contains
     !---------------------------------------------------------------------------
     ! normalise basis to between 0 and 1 in direct coordinates
     !---------------------------------------------------------------------------
-    do i=1,basis%nspec
-       do j=1,basis%spec(i)%num
-          do k=1,3
+    do i = 1, basis%nspec
+       do j = 1, basis%spec(i)%num
+          do k = 1, 3
              basis%spec(i)%atom(j,k)=&
                   basis%spec(i)%atom(j,k)-floor(basis%spec(i)%atom(j,k))
           end do
@@ -433,7 +433,7 @@ contains
 
     write(UNIT,'(A)') trim(adjustl(basis%sysname))
     write(UNIT,'(F15.9)') 1._real32
-    do i=1,3
+    do i = 1, 3
        write(UNIT,'(3(F15.9))') basis%lat(i,:)
     end do
     write(fmt,'("(",I0,"(A,1X))")') basis%nspec
@@ -441,8 +441,8 @@ contains
     write(fmt,'("(",I0,"(I0,5X))")') basis%nspec
     write(UNIT,trim(adjustl(fmt))) (basis%spec(j)%num,j=1,basis%nspec)
     write(UNIT,'(A)') trim(adjustl(string))
-    do i=1,basis%nspec
-       do j=1,basis%spec(i)%num
+    do i = 1, basis%nspec
+       do j = 1, basis%spec(i)%num
           write(UNIT,'(3(F15.9))') basis%spec(i)%atom(j,1:3)
        end do
     end do
@@ -517,7 +517,7 @@ contains
           exit cellparam
        end if
     end do cellparam
-    do i=1,3
+    do i = 1, 3
        read(UNIT,*) (basis%lat(i,j),j=1,3)
     end do
 
@@ -633,16 +633,16 @@ contains
 
 
     write(UNIT,'("CELL_PARAMETERS angstrom")')
-    do i=1,3
+    do i = 1, 3
        write(UNIT,'(3(F15.9))') basis%lat(i,:)
     end do
     write(UNIT,'("ATOMIC_SPECIES")')
-    do i=1,basis%nspec
+    do i = 1, basis%nspec
        write(UNIT,'(A)') trim(adjustl(basis%spec(i)%name))
     end do
     write(UNIT,'("ATOMIC_POSITIONS",1X,A)') trim(adjustl(string))
-    do i=1,basis%nspec
-       do j=1,basis%spec(i)%num
+    do i = 1, basis%nspec
+       do j = 1, basis%spec(i)%num
           write(UNIT,'(A5,1X,3(F15.9))') &
                basis%spec(i)%name,basis%spec(i)%atom(j,1:3)
        end do
@@ -878,7 +878,7 @@ contains
           goto 10
        end if
     end if
-    do i=1,3
+    do i = 1, 3
        write(UNIT,'(3(F15.9))') basis%lat(i,:)
     end do
 
@@ -886,9 +886,10 @@ contains
 
     write(UNIT,*)
     write(UNIT,'("%block POSITIONS_",A)') trim(string_bas)
-    do i=1,basis%nspec
-       do j=1,basis%spec(i)%num
-          write(UNIT,'(A5,1X,3(F15.9))') basis%spec(i)%name,basis%spec(i)%atom(j,1:3)
+    do i = 1, basis%nspec
+       do j = 1, basis%spec(i)%num
+          write(UNIT,'(A5,1X,3(F15.9))') &
+               basis%spec(i)%name,basis%spec(i)%atom(j,1:3)
        end do
     end do
     write(UNIT,'("%endblock POSITIONS_",A)') trim(string_bas)
@@ -982,7 +983,7 @@ contains
     ! done to allow for correct allocation of number of and per species
     !---------------------------------------------------------------------------
     allocate(basis%spec(basis%nspec))
-    do i=1,basis%nspec
+    do i = 1, basis%nspec
        basis%spec(i)%name = tmp_spec(i)
        basis%spec(i)%num  = tmp_num(i)
        allocate(basis%spec(i)%atom(tmp_num(i),length_))
@@ -1014,8 +1015,8 @@ contains
 
     write(UNIT,'("I0")') basis%natom
     write(UNIT,'("A")') basis%sysname
-    do i=1,basis%nspec
-       do j=1,basis%spec(i)%num
+    do i = 1, basis%nspec
+       do j = 1, basis%spec(i)%num
           write(UNIT,'(A5,1X,3(F15.9))') &
                basis%spec(i)%name,basis%spec(i)%atom(j,1:3)
        end do
@@ -1168,17 +1169,17 @@ contains
     write(UNIT,'(A,F0.8)', advance="no") ' free_energy=',basis%energy
     write(UNIT,'(A)', advance="no") ' pbc="T T T"'
     if(basis%lcart)then
-       do i=1,basis%nspec
-          do j=1,basis%spec(i)%num
+       do i = 1, basis%nspec
+          do j = 1, basis%spec(i)%num
              write(UNIT,'(A8,3(1X, F16.8))') &
-                basis%spec(i)%name,basis%spec(i)%atom(j,1:3)
+                  basis%spec(i)%name,basis%spec(i)%atom(j,1:3)
           end do
        end do
     else
-       do i=1,basis%nspec
-          do j=1,basis%spec(i)%num
+       do i = 1, basis%nspec
+          do j = 1, basis%spec(i)%num
              write(UNIT,'(A8,3(1X, F16.8))') basis%spec(i)%name, &
-                matmul(basis%spec(i)%atom(j,1:3),basis%lat)
+                  matmul(basis%spec(i)%atom(j,1:3),basis%lat)
           end do
        end do
     end if
@@ -1188,143 +1189,141 @@ contains
 
 
 !###############################################################################
-! convert basis using latconv transformation matrix
-!###############################################################################
   subroutine convert(this)
-   !! Convert the basis between direct and cartesian coordinates.
-   implicit none
+    !! Convert the basis between direct and cartesian coordinates.
+    implicit none
    
-   ! Arguments
-   class(basis_type), intent(inout) :: this
-   !! Parent. The basis to convert.
+    ! Arguments
+    class(basis_type), intent(inout) :: this
+    !! Parent. The basis to convert.
 
-   ! Local variables
-   integer :: is, ia
-   !! Loop index.
-   real(real32), dimension(3,3) :: lattice
-   !! The reciprocal lattice vectors.
+    ! Local variables
+    integer :: is, ia
+    !! Loop index.
+    real(real32), dimension(3,3) :: lattice
+    !! The reciprocal lattice vectors.
 
    
-   if(this%lcart)then
-      lattice = inverse_3x3( this%lat )
-   else
-      lattice = this%lat
-   end if
+    if(this%lcart)then
+       lattice = inverse_3x3( this%lat )
+    else
+       lattice = this%lat
+    end if
 
-   this%lcart = .not.this%lcart
-   do is = 1, this%nspec
-      do ia = 1, this%spec(is)%num
-         this%spec(is)%atom(ia,1:3) = &
-              matmul( this%spec(is)%atom(ia,1:3), lattice )
-      end do
-   end do
+    this%lcart = .not.this%lcart
+    do is = 1, this%nspec
+       do ia = 1, this%spec(is)%num
+          this%spec(is)%atom(ia,1:3) = &
+               matmul( this%spec(is)%atom(ia,1:3), lattice )
+       end do
+    end do
    
   end subroutine convert
 !###############################################################################
 
 
 !#############################################################################
- function convert_abc_to_lat(abc,angle,radians) result(lattice)
-   !! Convert the lattice from abc and αβγ to lattice matrix.
-   implicit none
+  function convert_abc_to_lat(abc,angle,radians) result(lattice)
+    !! Convert the lattice from abc and αβγ to lattice matrix.
+    implicit none
 
-   ! Arguments
-   real(real32), dimension(3), intent(in) :: abc, angle
-   !! lattice constants
-   logical, intent(in), optional :: radians
-   !! Optional. Boolean whether angles are in radians.
-   real(real32), dimension(3,3) :: lattice
-   !! The lattice matrix.
+    ! Arguments
+    real(real32), dimension(3), intent(in) :: abc, angle
+    !! lattice constants
+    logical, intent(in), optional :: radians
+    !! Optional. Boolean whether angles are in radians.
+    real(real32), dimension(3,3) :: lattice
+    !! The lattice matrix.
 
-   ! Local variables
-   real(real32), dimension(3) :: in_angle
-   !! The lattice angles in radians.
+    ! Local variables
+    real(real32), dimension(3) :: in_angle
+    !! The lattice angles in radians.
 
 
 
-   in_angle = angle
-   if(present(radians))then
-      if(.not.radians) in_angle = angle*pi/180._real32
-   end if
+    in_angle = angle
+    if(present(radians))then
+       if(.not.radians) in_angle = angle*pi/180._real32
+    end if
 
-   lattice=0._real32
+    lattice=0._real32
 
-   lattice(1,1)=abc(1)
-   lattice(2,:2)=(/abc(2)*cos(in_angle(3)),abc(2)*sin(in_angle(3))/)
+    lattice(1,1)=abc(1)
+    lattice(2,:2)=(/abc(2)*cos(in_angle(3)),abc(2)*sin(in_angle(3))/)
 
-   lattice(3,1) = abc(3)*cos(in_angle(2))
-   lattice(3,2) = abc(3)*(cos(in_angle(1)) - cos(in_angle(2))*&
-        cos(in_angle(3)))/sin(in_angle(3))
-   lattice(3,3) = sqrt(abc(3)**2._real32 - &
-        lattice(3,1)**2._real32 - &
-        lattice(3,2)**2._real32)
+    lattice(3,1) = abc(3)*cos(in_angle(2))
+    lattice(3,2) = abc(3)*(cos(in_angle(1)) - cos(in_angle(2))*&
+         cos(in_angle(3)))/sin(in_angle(3))
+    lattice(3,3) = sqrt(abc(3)**2._real32 - &
+         lattice(3,1)**2._real32 - &
+         lattice(3,2)**2._real32)
 
- end function convert_abc_to_lat
+  end function convert_abc_to_lat
 !###############################################################################
 
 
 !###############################################################################
- function convert_lat_to_abc(lattice, radians) result(abc_angle)
-   !! Convert the lattice from lattice matrix to abc and αβγ.
-   implicit none
+  function convert_lat_to_abc(lattice, radians) result(abc_angle)
+    !! Convert the lattice from lattice matrix to abc and αβγ.
+    implicit none
 
-   ! Arguments
-   real(real32), dimension(3,3), intent(in) :: lattice
-   !! The lattice matrix.
-   logical, intent(in), optional :: radians
-   !! Optional. Boolean whether to return angles in radians.
-   real(real32), dimension(2,3) :: abc_angle
-   !! The lattice constants and angles.
+    ! Arguments
+    real(real32), dimension(3,3), intent(in) :: lattice
+    !! The lattice matrix.
+    logical, intent(in), optional :: radians
+    !! Optional. Boolean whether to return angles in radians.
+    real(real32), dimension(2,3) :: abc_angle
+    !! The lattice constants and angles.
 
-   ! Local variables
-   integer :: i
-   !! Loop index.
+    ! Local variables
+    integer :: i
+    !! Loop index.
 
 
-   do i=1,3
-      abc_angle(1,i)=modu(lattice(i,:))
-   end do
-   do i=1,3
-   end do
-   abc_angle(2,1)=acos(dot_product(lattice(2,:),lattice(3,:))/&
-        (abc_angle(1,2)*abc_angle(1,3)))
-   abc_angle(2,3)=acos(dot_product(lattice(1,:),lattice(3,:))/&
-        (abc_angle(1,1)*abc_angle(1,3)))
-   abc_angle(2,3)=acos(dot_product(lattice(1,:),lattice(2,:))/&
-        (abc_angle(1,1)*abc_angle(1,2)))
+    do i = 1, 3
+       abc_angle(1,i)=modu(lattice(i,:))
+    end do
+    do i = 1, 3
+    end do
+    abc_angle(2,1)=acos(dot_product(lattice(2,:),lattice(3,:))/&
+         (abc_angle(1,2)*abc_angle(1,3)))
+    abc_angle(2,3)=acos(dot_product(lattice(1,:),lattice(3,:))/&
+         (abc_angle(1,1)*abc_angle(1,3)))
+    abc_angle(2,3)=acos(dot_product(lattice(1,:),lattice(2,:))/&
+         (abc_angle(1,1)*abc_angle(1,2)))
 
-   if(present(radians))then
-      if(.not.radians) abc_angle(2,:)=abc_angle(2,:)*180._real32/pi
-   end if
+    if(present(radians))then
+       if(.not.radians) abc_angle(2,:)=abc_angle(2,:)*180._real32/pi
+    end if
 
- end function convert_lat_to_abc
+  end function convert_lat_to_abc
 !###############################################################################
 
 
 !###############################################################################
- function get_lattice_constants(this, radians) result(output)
-   !! Convert the lattice from lattice matrix to abc and αβγ.
-   implicit none
+  function get_lattice_constants(this, radians) result(output)
+    !! Convert the lattice from lattice matrix to abc and αβγ.
+    implicit none
 
-   ! Arguments
-   class(basis_type), intent(in) :: this
-   !! Parent. The basis.
-   logical, intent(in), optional :: radians
-   !! Optional. Boolean whether to return angles in radians.
-   real(real32), dimension(2,3) :: output
-   !! The lattice constants and angles.
+    ! Arguments
+    class(basis_type), intent(in) :: this
+    !! Parent. The basis.
+    logical, intent(in), optional :: radians
+    !! Optional. Boolean whether to return angles in radians.
+    real(real32), dimension(2,3) :: output
+    !! The lattice constants and angles.
 
-   ! Local variables
-   logical :: radians_
-   !! Boolean whether to return angles in radians.
+    ! Local variables
+    logical :: radians_
+    !! Boolean whether to return angles in radians.
 
 
-   radians_ = .true.
-   if(present(radians)) radians_ = radians
+    radians_ = .true.
+    if(present(radians)) radians_ = radians
 
-   output = convert_lat_to_abc(this%lat, radians_)
+    output = convert_lat_to_abc(this%lat, radians_)
 
- end function get_lattice_constants
+  end function get_lattice_constants
 !###############################################################################
 
 
@@ -1364,7 +1363,7 @@ contains
     ! if already allocated, deallocates output basis
     !---------------------------------------------------------------------------
     if(allocated(this%spec))then
-       do i=1,this%nspec
+       do i = 1, this%nspec
           if(allocated(this%spec(i)%atom)) deallocate(this%spec(i)%atom)
        end do
        deallocate(this%spec)
@@ -1395,7 +1394,6 @@ contains
        this%spec(i)%charge = basis%spec(i)%charge
        this%spec(i)%radius = basis%spec(i)%radius
     end do
-!    this = basis !using this will reallocate this to basis
     this%nspec = basis%nspec
     this%natom = basis%natom
     this%lcart = basis%lcart
@@ -1404,7 +1402,7 @@ contains
     this%lat = basis%lat
     this%pbc = basis%pbc
 
- end subroutine copy
+  end subroutine copy
 !###############################################################################
 
 

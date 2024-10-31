@@ -15,7 +15,7 @@ iteration*
 doc/html
 docs/html
 settings.json
-example/example_files/database*
+example/**/database*.xyz
 **/POSCAR*
 iteration/
 *.traj

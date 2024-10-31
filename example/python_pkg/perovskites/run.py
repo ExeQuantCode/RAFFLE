@@ -27,7 +27,7 @@ generator = raffle_generator()
 
 # read the host structure from a POSCAR file
 print("Reading host")
-host = read("../example_files/POSCAR_host_perovskites")
+host = read("POSCAR_host")
 generator.set_host(host)
 print("Host read")
 
@@ -47,7 +47,7 @@ generator.distributions.set_element_energies(
 
 # set the distribution function widths (2-body, 3-body, 4-body)
 print("Reading database")
-database = read("../example_files/database_perovskites/database.xyz", index=":")
+database = read("database.xyz", index=":")
 
 
 # create the distribution functions

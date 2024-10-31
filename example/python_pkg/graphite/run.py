@@ -27,7 +27,7 @@ generator = raffle_generator()
 
 # read the host structure from a POSCAR file
 print("Reading host")
-host = read("../example_files/POSCAR_graphite_missing_layer")
+host = read("POSCAR_host_missing_layer")
 host.calc = calculator
 print("host energy: ", host.get_potential_energy())
 
@@ -109,8 +109,10 @@ generator.distributions.set_radius_distance_tol([1.5, 2.5, 3.0, 6.0])
 # read in the database of structures to use for generating the distribution functions
 print("Reading database")
 use_database = False
+# By default, the database is not used as it needs to be downloaded manually from the Materials Project.
+# A script to download the database can be found in tools/database.py (or a notebook in tools/database.ipynb)
 if use_database:
-    database = read("../example_files/database_carbon/database.xyz", index=":")
+    database = read("database.xyz", index=":")
     for i, atoms in enumerate(database):
         # reset energy to use CHGNet
         atoms.calc = calculator

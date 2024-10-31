@@ -1,0 +1,5 @@
+.. graphite:
+
+=================
+Graphite tutorial
+=================

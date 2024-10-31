@@ -5,6 +5,7 @@
 [![MIT workflow](https://img.shields.io/badge/License-GPLv3-yellow.svg)](https://www.gnu.org/licenses/gpl-3.0.en.html "View GPLv3 license")
 [![Latest Release](https://img.shields.io/github/v/release/nedtaylor/RAFFLE?sort=semver)](https://github.com/nedtaylor/RAFFLE/releases "View on GitHub")
 [![Paper](https://img.shields.io/badge/Paper-Phys_Rev_B-blue.svg)](https://link.aps.org/doi/10.1103/PhysRevLett.132.066201)
+[![Documentation Status](https://readthedocs.org/projects/raffle-fortran/badge/?version=latest)](https://raffle-fortran.readthedocs.io/en/latest/?badge=latest)
 [![FPM](https://img.shields.io/badge/fpm-0.10.1-purple)](https://github.com/fortran-lang/fpm "View Fortran Package Manager")
 [![CMAKE](https://img.shields.io/badge/cmake-3.27.7-red)](https://github.com/Kitware/CMake/releases/tag/v3.27.7 "View cmake")
 [![GCC compatibility](https://img.shields.io/badge/gcc-14.1.0-green)](https://gcc.gnu.org/gcc-14/ "View GCC")
@@ -20,6 +21,13 @@ RAFFLE can interface with the [Atomic Simulation Environment (ASE)](https://gitl
 
 RAFFLE is both a Fortran and a Python library, with the option of a Fortran executable.
 The code heavily relies on features of Fortran 2018 and above, so there is no backwards compatibility with Fortran95.
+
+## Documentation
+
+Tutorials and documentation are provided on the [docs](http://raffle-fortran.readthedocs.io/) website.
+The methodology is detailed in the [Phys Rev B paper](https://link.aps.org/doi/10.1103/PhysRevLett.132.066201).
+The software package will be submitted for publication soon.
+
 
 ## Requirements
 

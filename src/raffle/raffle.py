@@ -1054,9 +1054,9 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             # _raffle.f90wrap_raffle__dc__evolve__binding__dc_type(this=self._handle, \
             #     system=None if system is None else system._handle)
         
-        def write(self, file):
+        def write_gdfs(self, file):
             """
-            write__binding__dc_type(self, file)
+            write_gdfs__binding__dc_type(self, file)
             
             
             Defined at ../fortran/lib/mod_distribs_container.f90 \
@@ -1068,12 +1068,12 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             file : str
             
             """
-            _raffle.f90wrap_raffle__dc__write__binding__dc_type(this=self._handle, \
+            _raffle.f90wrap_raffle__dc__write_gdfs__binding__dc_type(this=self._handle, \
                 file=file)
         
-        def read(self, file):
+        def read_gdfs(self, file):
             """
-            read__binding__dc_type(self, file)
+            read_gdfs__binding__dc_type(self, file)
             
             
             Defined at ../fortran/lib/mod_distribs_container.f90 \
@@ -1085,7 +1085,41 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             file : str
             
             """
-            _raffle.f90wrap_raffle__dc__read__binding__dc_type(this=self._handle, \
+            _raffle.f90wrap_raffle__dc__read_gdfs__binding__dc_type(this=self._handle, \
+                file=file)
+
+        def write_dfs(self, file):
+            """
+            write_dfs__binding__dc_type(self, file)
+            
+            
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                lines 510-559
+            
+            Parameters
+            ----------
+            this : unknown
+            file : str
+            
+            """
+            _raffle.f90wrap_raffle__dc__write_dfs__binding__dc_type(this=self._handle, \
+                file=file)
+        
+        def read_dfs(self, file):
+            """
+            read_dfs__binding__dc_type(self, file)
+            
+            
+            Defined at ../fortran/lib/mod_distribs_container.f90 \
+                lines 563-620
+            
+            Parameters
+            ----------
+            this : unknown
+            file : str
+            
+            """
+            _raffle.f90wrap_raffle__dc__read_dfs__binding__dc_type(this=self._handle, \
                 file=file)
         
         def write_2body(self, file):

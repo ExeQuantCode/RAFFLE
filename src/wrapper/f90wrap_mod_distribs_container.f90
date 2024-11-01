@@ -789,7 +789,7 @@ end subroutine f90wrap_raffle__dc__evolve__binding__dc_type
 !###############################################################################
 ! read and write distribution functions to file
 !###############################################################################
-subroutine f90wrap_raffle__dc__read__binding__dc_type( &
+subroutine f90wrap_raffle__dc__read_gdfs__binding__dc_type( &
      this, file &
 )
     use raffle__distribs_container, only: distribs_container_type
@@ -802,10 +802,10 @@ subroutine f90wrap_raffle__dc__read__binding__dc_type( &
     integer, intent(in), dimension(2) :: this
     character*(*), intent(in) :: file
     this_ptr = transfer(this, this_ptr)
-    call this_ptr%p%read(file=file)
-end subroutine f90wrap_raffle__dc__read__binding__dc_type
+    call this_ptr%p%read_gdfs(file=file)
+end subroutine f90wrap_raffle__dc__read_gdfs__binding__dc_type
 
-subroutine f90wrap_raffle__dc__write__binding__dc_type( &
+subroutine f90wrap_raffle__dc__write_gdfs__binding__dc_type( &
      this, file &
 )
     use raffle__distribs_container, only: distribs_container_type
@@ -818,8 +818,40 @@ subroutine f90wrap_raffle__dc__write__binding__dc_type( &
     integer, intent(in), dimension(2) :: this
     character*(*), intent(in) :: file
     this_ptr = transfer(this, this_ptr)
-    call this_ptr%p%write(file=file)
-end subroutine f90wrap_raffle__dc__write__binding__dc_type
+    call this_ptr%p%write_gdfs(file=file)
+end subroutine f90wrap_raffle__dc__write_gdfs__binding__dc_type
+
+subroutine f90wrap_raffle__dc__read_dfs__binding__dc_type( &
+     this, file &
+)
+    use raffle__distribs_container, only: distribs_container_type
+    implicit none
+    
+    type distribs_container_type_ptr_type
+        type(distribs_container_type), pointer :: p => NULL()
+    end type distribs_container_type_ptr_type
+    type(distribs_container_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    character*(*), intent(in) :: file
+    this_ptr = transfer(this, this_ptr)
+    call this_ptr%p%read_dfs(file=file)
+end subroutine f90wrap_raffle__dc__read_dfs__binding__dc_type
+
+subroutine f90wrap_raffle__dc__write_dfs__binding__dc_type( &
+     this, file &
+)
+    use raffle__distribs_container, only: distribs_container_type
+    implicit none
+    
+    type distribs_container_type_ptr_type
+        type(distribs_container_type), pointer :: p => NULL()
+    end type distribs_container_type_ptr_type
+    type(distribs_container_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    character*(*), intent(in) :: file
+    this_ptr = transfer(this, this_ptr)
+    call this_ptr%p%write_dfs(file=file)
+end subroutine f90wrap_raffle__dc__write_dfs__binding__dc_type
 
 subroutine f90wrap_raffle__dc__write_2body__binding__dc_type( &
      this, file &

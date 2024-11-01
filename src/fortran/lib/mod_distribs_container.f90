@@ -151,9 +151,13 @@ module raffle__distribs_container
      !! Set the generalised distribution function to the default value.
      procedure, pass(this) :: evolve
      !! Evolve the learned distribution function.
-     procedure, pass(this) :: write
+     procedure, pass(this) :: write_gdfs
+     !! Write the generalised distribution functions to a file.
+     procedure, pass(this) :: read_gdfs
+     !! Read the generalised distribution functions from a file.
+     procedure, pass(this) :: write_dfs
      !! Write all distribution functions to a file.
-     procedure, pass(this) :: read
+     procedure, pass(this) :: read_dfs
      !! Read all distribution functions from a file.
      procedure, pass(this) :: write_2body
      !! Write the learned 2-body distribution function to a file.
@@ -576,7 +580,195 @@ contains
 
 
 !###############################################################################
-  subroutine write(this, file)
+  subroutine write_gdfs(this, file)
+    !! Write the generalised distribution functions to a file.
+    implicit none
+
+    ! Arguments
+    class(distribs_container_type), intent(in) :: this
+    !! Parent. Instance of distribution functions container.
+    character(*), intent(in) :: file
+    !! Filename to write the generalised distribution functions to.
+
+    ! Local variables
+    integer :: unit
+    !! File unit.
+    integer :: i
+    !! Loop index.
+    character(256) :: fmt
+    !! Format string.
+    character(256) :: stop_msg
+    !! Error message.
+
+    if(.not.allocated(this%gdf%df_2body))then
+       write(stop_msg,*) &
+            "Generalised distribution functions are not allocated." // &
+            achar(13) // achar(10) // &
+            "create() or read() must be called before writing the " // &
+            "generalised distribution functions."
+       call stop_program( stop_msg )
+       return
+    end if
+    open(newunit=unit, file=file)
+    write(unit, '("# nbins",3(1X,I0))') this%nbins
+    write(unit, '("# width",3(1X,ES0.4))') this%width
+    write(unit, '("# sigma",3(1X,ES0.4))') this%sigma
+    write(unit, '("# cutoff_min",3(1X,ES0.4))') this%cutoff_min
+    write(unit, '("# cutoff_max",3(1X,ES0.4))') this%cutoff_max
+    write(unit, '("# radius_distance_tol",4(1X,ES0.4))') &
+         this%radius_distance_tol
+    write(fmt, '("(""# "",A,",I0,"(1X,A))")') size(this%element_info)
+    write(unit, fmt) "elements", this%element_info(:)%name
+    write(fmt, '("(""# "",A,",I0,"(1X,ES0.4))")') size(this%element_info)
+    write(unit, fmt) "energies", this%element_info(:)%energy
+    write(unit, fmt) "best_energy_per_element", this%best_energy_per_species
+    write(unit, fmt) "3-body_norm", this%norm_3body
+    write(unit, fmt) "4-body_norm", this%norm_4body
+    write(fmt, '("(""# "",A,",I0,"(1X,L1))")') size(this%element_info)
+    write(unit, fmt) "in_dataset_3body", this%in_dataset_3body
+    write(unit, fmt) "in_dataset_4body", this%in_dataset_4body
+    write(fmt, '("(""# "",A,",I0,"(1X,A))")') size(this%bond_info)
+    write(unit, fmt) "element_pairs", &
+         ( &
+              trim(this%bond_info(i)%element(1)) // "-" // &
+              trim(this%bond_info(i)%element(2)), &
+              i = 1, size(this%bond_info) &
+         )
+    write(fmt, '("(""# "",A,",I0,"(1X,ES0.4))")') size(this%bond_info)
+    write(unit, fmt) "radii", this%bond_info(:)%radius_covalent
+    write(unit, fmt) "best_energy_per_pair", this%best_energy_pair
+    write(unit, fmt) "2-body_norm", this%norm_2body
+    write(fmt, '("(""# "",A,",I0,"(1X,L1))")') size(this%bond_info)
+    write(unit, fmt) "in_dataset_2body", this%in_dataset_2body
+    write(unit, *)
+    write(unit, '("# 2-body")')
+    write(fmt,'("(""# bond-length "",",I0,"(1X,A))")') size(this%bond_info)
+    write(unit, fmt) &
+         ( &
+              trim(this%bond_info(i)%element(1)) // "-" // &
+              trim(this%bond_info(i)%element(2)), &
+              i = 1, size(this%bond_info) &
+         )
+    do i = 1, this%nbins(1)
+       write(unit, *) &
+            this%cutoff_min(1) + this%width(1) * ( i - 1 ), &
+            this%gdf%df_2body(i,:)
+    end do
+    write(unit, *)
+    write(unit, '("# 3-body")')
+    write(fmt,'("(""# bond-angle "",",I0,"(1X,A))")') size(this%bond_info)
+    write(unit, fmt) this%element_info(:)%name
+    do i = 1, this%nbins(2)
+       write(unit, *) &
+            this%cutoff_min(2) + this%width(2) * ( i - 1 ), &
+            this%gdf%df_3body(i,:)
+    end do
+    write(unit, *)
+    write(unit, '("# 4-body")')
+    write(fmt,'("(""# dihedral-angle "",",I0,"(1X,A))")') size(this%bond_info)
+    write(unit, fmt) this%element_info(:)%name
+    do i = 1, this%nbins(3)
+       write(unit, *) &
+            this%cutoff_min(2) + this%width(2) * ( i - 1 ), &
+            this%gdf%df_4body(i,:)
+    end do
+    close(unit)
+
+  end subroutine write_gdfs
+!###############################################################################
+
+
+!###############################################################################
+  subroutine read_gdfs(this, file)
+    !! Read the generalised distribution functions from a file.
+    implicit none
+
+    ! Arguments
+    class(distribs_container_type), intent(inout) :: this
+    !! Parent. Instance of distribution functions container.
+    character(*), intent(in) :: file
+    !! Filename to read the generalised distribution functions from.
+
+    ! Local variables
+    integer :: unit
+    !! File unit.
+
+    integer :: i
+    !! Loop index.
+    integer :: iostat
+    !! I/O status.
+    integer :: nspec
+    !! Number of species.
+    character(256) :: buffer, buffer1, buffer2
+    !! Buffer for reading lines.
+
+    open(newunit=unit, file=file)
+    read(unit, *) buffer1, buffer2, this%nbins
+    read(unit, *) buffer1, buffer2, this%width
+    read(unit, *) buffer1, buffer2, this%sigma
+    read(unit, *) buffer1, buffer2, this%cutoff_min
+    read(unit, *) buffer1, buffer2, this%cutoff_max
+    read(unit, *) buffer1, buffer2, this%radius_distance_tol
+    read(unit, '(A)') buffer
+    nspec = icount(buffer(index(buffer,"elements")+8:))
+    allocate(this%element_info(nspec))
+    read(buffer, *) buffer1, buffer2, this%element_info(:)%name
+    read(unit, *) buffer1, buffer2, this%element_info(:)%energy
+    do i = 1, nspec
+       call this%set_element_energy( &
+            this%element_info(i)%name, &
+            this%element_info(i)%energy &
+       )
+       call this%element_info(i)%set(this%element_info(i)%name)
+    end do
+    call this%update_bond_info()
+    allocate(this%best_energy_per_species(nspec))
+    allocate(this%norm_3body(nspec))
+    allocate(this%norm_4body(nspec))
+    allocate(this%in_dataset_3body(nspec))
+    allocate(this%in_dataset_4body(nspec))
+    read(unit, *) buffer1, buffer2, this%best_energy_per_species
+    read(unit, *) buffer1, buffer2, this%norm_3body
+    read(unit, *) buffer1, buffer2, this%norm_4body
+    read(unit, *) buffer1, buffer2, this%in_dataset_3body
+    read(unit, *) buffer1, buffer2, this%in_dataset_4body
+    read(unit, *)
+    allocate(this%best_energy_pair(size(this%bond_info)))
+    allocate(this%norm_2body(size(this%bond_info)))
+    allocate(this%in_dataset_2body(size(this%bond_info)))
+    read(unit, *) buffer1, buffer2, this%bond_info(:)%radius_covalent
+    read(unit, *) buffer1, buffer2, this%best_energy_pair
+    read(unit, *) buffer1, buffer2, this%norm_2body
+    read(unit, *) buffer1, buffer2, this%in_dataset_2body
+    read(unit, *)
+    read(unit, *)
+    read(unit, *)
+    allocate(this%gdf%df_2body(this%nbins(1),size(this%bond_info)))
+    do i = 1, this%nbins(1)
+       read(unit, *) buffer, this%gdf%df_2body(i,:)
+    end do
+    read(unit, *)
+    read(unit, *)
+    read(unit, *)
+    allocate(this%gdf%df_3body(this%nbins(2),nspec))
+    do i = 1, this%nbins(2)
+       read(unit, *) buffer, this%gdf%df_3body(i,:)
+    end do
+    read(unit, *)
+    read(unit, *)
+    read(unit, *)
+    allocate(this%gdf%df_4body(this%nbins(3),nspec))
+    do i = 1, this%nbins(3)
+       read(unit, *) buffer, this%gdf%df_4body(i,:)
+    end do
+    close(unit)
+
+  end subroutine read_gdfs
+!###############################################################################
+
+
+!###############################################################################
+  subroutine write_dfs(this, file)
     !! Write all distribution functions for each system to a file.
     implicit none
 
@@ -630,12 +822,12 @@ contains
     end do
     close(unit)
 
-  end subroutine write
+  end subroutine write_dfs
 !###############################################################################
 
 
 !###############################################################################
-  subroutine read(this, file)
+  subroutine read_dfs(this, file)
     !! Read all distribution functions for each system from a file.
     implicit none
 
@@ -703,7 +895,7 @@ contains
     end do
     close(unit)
 
-  end subroutine read
+  end subroutine read_dfs
 !###############################################################################
 
 

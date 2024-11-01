@@ -5,7 +5,7 @@ module raffle__geom_rw
   !! It also contains the derived types used to store the geometry data.
   use raffle__constants, only: pi,real32
   use raffle__io_utils, only: stop_program
-  use raffle__misc, only: to_upper, to_lower, jump, icount
+  use raffle__misc, only: to_upper, to_lower, jump, icount, strip_null
   use raffle__misc_linalg, only: modu, inverse_3x3
   implicit none
 
@@ -1388,7 +1388,7 @@ contains
           this%spec(i)%atom(:,4) = 1._real32
        end if
        this%spec(i)%num = basis%spec(i)%num
-       this%spec(i)%name = basis%spec(i)%name
+       this%spec(i)%name = strip_null(basis%spec(i)%name)
 
        this%spec(i)%mass = basis%spec(i)%mass
        this%spec(i)%charge = basis%spec(i)%charge

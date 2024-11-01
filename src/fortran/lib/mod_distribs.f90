@@ -237,7 +237,7 @@ contains
     i = 0
     allocate(bond_info(num_pairs))
     allocate(pair_index(basis%nspec,basis%nspec))
-    do is = 1, basis%nspec
+    do is = 1, basis%nspec, 1
        do js = is, basis%nspec, 1
           i = i + 1
           pair_index(js,is) = i
@@ -655,6 +655,10 @@ contains
        ! get the bin closest to the value
        !------------------------------------------------------------------------
        bin = nint( ( value_list(i) - cutoff_min ) / width ) + 1
+       if( &
+            bin .lt. 1 - max_num_steps .or. &
+            bin .gt. nbins + max_num_steps &
+       ) cycle
 
 
        !------------------------------------------------------------------------

@@ -501,6 +501,14 @@ contains
                      )
              end do
           end do
+          ! a NaN in the angle refers to one where two of the vectors are
+          ! parallel, so the angle is undefined
+          do i = 1, size(angle_list)
+             if(isnan(angle_list(i)))then
+                angle_list(i) = -huge(1._real32)
+                distance(i) =  1._real32
+             end if
+          end do
           this%df_3body(:,is) = this%df_3body(:,is) + &
                get_distrib( &
                     angle_list, &
@@ -544,6 +552,14 @@ contains
                      modu(neighbour_basis%image_spec(1)%atom(la,:3)) ** 2
              end do
           end do
+          ! a NaN in the angle refers to one where two of the vectors are
+          ! parallel, so the angle is undefined
+          do i = 1, size(angle_list)
+             if(isnan(angle_list(i)))then
+                angle_list(i) = -huge(1._real32)
+                distance(i) =  1._real32
+             end if
+          end do
           this%df_4body(:,is) = this%df_4body(:,is) + &
                get_distrib( &
                     angle_list, &
@@ -581,6 +597,20 @@ contains
           this%df_4body(:,is) = this%df_4body(:,is) / sum(this%df_4body(:,is))
        end if
     end do
+
+
+    !---------------------------------------------------------------------------
+    ! check for NaN in the distribution functions
+    !---------------------------------------------------------------------------
+    if(any(isnan(this%df_2body)))then
+       call stop_program('NaN in 2-body distribution function')
+    end if
+    if(any(isnan(this%df_3body)))then
+       call stop_program('NaN in 3-body distribution function')
+    end if
+    if(any(isnan(this%df_4body)))then
+       call stop_program('NaN in 4-body distribution function')
+    end if
 
   end subroutine calculate
 !###############################################################################

@@ -42,8 +42,6 @@ module raffle__distribs_container
      !! Boolean whether to weight the distribution functions by the energy
      !! above the hull. If false, the formation energy from the element
      !! reference energies is used.
-     integer, dimension(:), allocatable :: host_to_df_species_map
-     !! Mapping of host species to distribution function species.
      real(real32) :: &
           viability_3body_default = 0.1_real32, &
           viability_4body_default = 0.1_real32

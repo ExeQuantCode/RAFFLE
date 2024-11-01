@@ -162,10 +162,7 @@ contains
     !! Loop index.
 
 
-    this%host = host
-    do i = 1, this%host%nspec
-       this%host%spec(i)%name = strip_null(this%host%spec(i)%name)
-    end do
+    call this%host%copy(host)
     call this%distributions%host_system%set(this%host)
 
     call this%set_grid()

@@ -15,6 +15,7 @@ Whilst RAFFLE is a random sturcture search package designed primarlily for inter
    :maxdepth: 2
    :caption: Tutorials:
 
+   databases_tutorial
    diamond_tutorial
    graphite_tutorial
    BaTiO3_tutorial

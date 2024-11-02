@@ -174,6 +174,8 @@ contains
        exit atom_loop
     end do atom_loop
 
+    viable = .true.
+
   end function place_method_rand
 !###############################################################################
 

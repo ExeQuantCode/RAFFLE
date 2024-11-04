@@ -48,3 +48,4 @@ An example
    about
    install
    tutorials/index
+   raffle

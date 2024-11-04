@@ -12,7 +12,7 @@ However, this process can be applied to any set of elements in the Materials Pro
 
     The guide is written for the Materials Project API v0.41.2.
     The guide provided on this page might be out of date.
-    If you encounter issues, please refer to the `Materials Project website <https://next-gen.materialsproject.org/api>`_ for the most up-to-date information.
+    If you encounter issues, please refer to the `Materials Project API <https://next-gen.materialsproject.org/api>`_ for the most up-to-date information.
     From our experience, it seems that the API still undergoes regular changes, so it is important to check the website for the most recent information.
 
 A script is provided to obtain a database of carbon structures from the Materials Project database, which can be found in the following directory:

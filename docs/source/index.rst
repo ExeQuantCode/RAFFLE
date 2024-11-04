@@ -48,4 +48,11 @@ An example
    about
    install
    tutorials/index
-   raffle
+   Python API <modules>
+
+.. Indices and tables
+.. ==================
+
+.. * :ref:`genindex`
+.. * :ref:`modindex`
+.. * :ref:`search`

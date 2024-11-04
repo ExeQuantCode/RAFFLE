@@ -5,7 +5,13 @@ import datetime
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath('../src/raffle'))  # Sets the base path to find your modules
+from unittest.mock import Mock
+
+MOCK_MODULES = ["raffle._raffle"]  # List any other modules if needed
+sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
+print("LOOK HERE",sys.executable)
+
+sys.path.insert(0, os.path.abspath(os.path.join('..', '..', 'src', 'raffle')))  # Sets the base path to find your modules
 
 project = 'RAFFLE'
 copyright = f'{datetime.date.today().year}, RAFFLE-developers'
@@ -21,6 +27,8 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
     'sphinx.ext.intersphinx',
+    'sphinx.ext.napoleon',
+    'sphinx.ext.viewcode',
 ]
 
 intersphinx_mapping = {
@@ -31,6 +39,9 @@ intersphinx_disabled_domains = ['std']
 
 templates_path = ['_templates']
 
+exclude_patterns = ['_build', '.DS_Store', 'build']
+
+
 # -- Options for HTML output
 
 html_theme = 'sphinx_rtd_theme'
@@ -39,12 +50,10 @@ html_theme = 'sphinx_rtd_theme'
 epub_show_urls = 'footnote'
 
 html_theme = 'sphinx_rtd_theme'
-html_static_path = ['_static']
 html_logo = "RAFFLE_logo_no_background.png"
 # html_favicon = 'favicon.ico'
 html_theme_options = {
     'logo_only': False,
-    'display_version': False,
     'prev_next_buttons_location': 'bottom',
     'style_external_links': False,
     'vcs_pageview_mode': '',
@@ -57,5 +66,16 @@ html_theme_options = {
     'sticky_navigation': True,
     'navigation_depth': 4,
     'includehidden': True,
-    'titles_only': False
+    'titles_only': False,
 }
+
+
+html_context = {
+    "display_github": True,
+    "github_repo": "RAFFLE",
+    "github_user": "nedtaylor",
+    "github_version": "development",
+    "conf_py_path": "/docs/source",
+}
+
+autoclass_content="both"

@@ -45,3 +45,10 @@ del types
 del raffle
 
 __all__ = ['__version__', 'generator', 'geom']
+
+def __getattr__(name):
+    if name == "generator":
+        return generator
+    elif name == "geom":
+        return geom
+    raise AttributeError(f"module {__name__} has no attribute {name}")

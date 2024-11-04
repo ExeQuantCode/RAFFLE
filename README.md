@@ -1,5 +1,5 @@
 <p align="center">
-<img src="docs/RAFFLE_logo_no_background.png" width="250"/>
+<img src="docs/source/RAFFLE_logo_no_background.png" width="250"/>
 </p>
 
 [![MIT workflow](https://img.shields.io/badge/License-GPLv3-yellow.svg)](https://www.gnu.org/licenses/gpl-3.0.en.html "View GPLv3 license")

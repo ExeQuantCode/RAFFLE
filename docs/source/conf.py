@@ -2,6 +2,10 @@
 
 # -- Project information
 import datetime
+import os
+import sys
+
+sys.path.insert(0, os.path.abspath('../src/raffle'))  # Sets the base path to find your modules
 
 project = 'RAFFLE'
 copyright = f'{datetime.date.today().year}, RAFFLE-developers'

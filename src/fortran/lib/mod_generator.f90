@@ -8,7 +8,7 @@ module raffle__generator
   use raffle__io_utils, only: stop_program
   use raffle__constants, only: real32
   use raffle__misc_linalg, only: modu
-  use raffle__misc, only: strip_null, set, shuffle
+  use raffle__misc, only: strip_null, set, shuffle, sort1D
   use raffle__geom_rw, only: basis_type
   use raffle__geom_extd, only: extended_basis_type
   use raffle__distribs_container, only: distribs_container_type
@@ -78,6 +78,10 @@ module raffle__generator
      !! Procedure to generate a single random structure.
      procedure, pass(this) :: get_structures
      !! Procedure to return the generated structures.
+     procedure, pass(this) :: set_structures
+     !! Procedure to set the array of generated structures.
+     procedure, pass(this) :: remove_structure
+     !! Procedure to remove a structure from the array of generated structures.
      procedure, pass(this) :: evaluate
      !! Procedure to evaluate the viability of a structure.
   end type raffle_generator_type
@@ -710,21 +714,77 @@ contains
 
 
 !###############################################################################
-  function evaluate(this, basis) result(viability)
-    !! Evaluate the viability of the generated structures.
+  subroutine set_structures(this, structures)
+    !! Set the generated structures.
+    !!
+    !! This procedure overwrites the array of generated structures with the
+    !! input array.
+    !! This can be useful for removing structures that are not viable from the
+    !! array.
     implicit none
     ! Arguments
-    class(raffle_generator_type), intent(in) :: this
+    class(raffle_generator_type), intent(inout) :: this
     !! Instance of the raffle generator.
-    type(basis_type), intent(in) :: basis
-    !! Basis of the structure to evaluate.
-    real(real32) :: viability
-    !! Viability of the generated structures.
+    type(basis_type), dimension(..), allocatable, intent(in) :: structures
+    !! Array of structures to set.
 
-    viability = 0.0_real32
-    call stop_program("Evaluate procedure not yet set up")
-    return
-  end function evaluate
+    select rank(structures)
+    rank(0)
+       this%structures = [ structures ]
+    rank(1)
+       this%structures = structures
+    rank default
+       call stop_program("Invalid rank for structures")
+    end select
+    this%num_structures = size(this%structures)
+  end subroutine set_structures
+!###############################################################################
+
+
+!###############################################################################
+  subroutine remove_structure(this, index)
+    !! Remove structures from the generated structures.
+    !!
+    !! This procedure removes structures from the array of generated structures
+    !! at the specified indices.
+    implicit none
+    ! Arguments
+    class(raffle_generator_type), intent(inout) :: this
+    !! Instance of the raffle generator.
+    integer, dimension(..), intent(in) :: index
+    !! Indices of the structures to remove.
+
+    ! Local variables
+    integer :: i
+    !! Loop index.
+    integer, dimension(:), allocatable :: index_
+    !! Indices of the structures to keep.
+
+    select rank(index)
+    rank(0)
+       index_ = [ index ]
+    rank(1)
+       index_ = index
+    rank default
+       call stop_program("Invalid rank for index")
+    end select
+
+    if(any(index_.lt.1) .or. any(index_.gt.this%num_structures))then
+       call stop_program("Invalid index")
+       return
+    end if
+
+    call sort1D(index_, reverse=.true.)
+
+    do i = 1, size(index_)
+       this%structures = [ &
+            this%structures(:index_(i)-1:1), &
+            this%structures(index_(i)+1:this%num_structures:1) &
+       ]
+       this%num_structures = this%num_structures - 1
+    end do
+
+   end subroutine remove_structure
 !###############################################################################
 
 
@@ -742,6 +802,54 @@ contains
     allocate(this%structures(num_structures))
     this%num_structures = num_structures
   end subroutine allocate_structures
+!###############################################################################
+
+
+!###############################################################################
+  function evaluate(this, basis) result(viability)
+    !! Evaluate the viability of the generated structures.
+    use raffle__evaluator, only: evaluate_point
+    implicit none
+    ! Arguments
+    class(raffle_generator_type), intent(in) :: this
+    !! Instance of the raffle generator.
+    type(basis_type), intent(in) :: basis
+    !! Basis of the structure to evaluate.
+    real(real32) :: viability
+    !! Viability of the generated structures.
+
+    ! Local variables
+    integer :: is, ia, species
+    !! Loop indices.
+    integer, dimension(1,2) :: atom_ignore
+    !! Atom to ignore.
+    type(extended_basis_type) :: basis_extd
+    !! Extended basis for the structure to evaluate.
+
+
+    call basis_extd%copy(basis)
+    call basis_extd%create_images( &
+         max_bondlength = this%distributions%cutoff_max(1) &
+    )
+    viability = 0.0_real32
+    do is = 1, basis%nspec
+       species = this%distributions%get_element_index( basis%spec(is)%name )
+       if(species.eq.0)then
+          call stop_program("Species not found in distribution functions")
+          return
+       end if
+       do ia = 1, basis%spec(is)%num
+          atom_ignore(1,:) = [is,ia]
+          viability = viability + &
+               evaluate_point( this%distributions, &
+                    basis%spec(is)%atom(ia,1:3), &
+                    species, basis_extd, &
+                    atom_ignore, &
+                    [ this%distributions%bond_info(:)%radius_covalent ] &
+               )
+       end do
+    end do
+  end function evaluate
 !###############################################################################
 
 end module raffle__generator

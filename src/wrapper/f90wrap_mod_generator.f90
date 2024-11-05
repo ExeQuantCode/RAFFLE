@@ -807,27 +807,6 @@ subroutine f90wrap_generator__generate__binding__rgt( &
     )
 end subroutine f90wrap_generator__generate__binding__rgt
 
-subroutine f90wrap_generator__evaluate__binding__rgt(this, ret_viability, basis)
-    use raffle__geom_rw, only: basis_type
-    use raffle__generator, only: raffle_generator_type
-    implicit none
-    
-    type raffle_generator_type_ptr_type
-        type(raffle_generator_type), pointer :: p => NULL()
-    end type raffle_generator_type_ptr_type
-    type basis_type_ptr_type
-        type(basis_type), pointer :: p => NULL()
-    end type basis_type_ptr_type
-    type(raffle_generator_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
-    real(4), intent(out) :: ret_viability
-    type(basis_type_ptr_type) :: basis_ptr
-    integer, intent(in), dimension(2) :: basis
-    this_ptr = transfer(this, this_ptr)
-    basis_ptr = transfer(basis, basis_ptr)
-    ret_viability = this_ptr%p%evaluate(basis=basis_ptr%p)
-end subroutine f90wrap_generator__evaluate__binding__rgt
-
 subroutine f90wrap_generator__get_structures__binding__rgt(this, ret_structures)
     use raffle__geom_rw, only: basis_type
     use raffle__generator, only: raffle_generator_type
@@ -853,6 +832,69 @@ subroutine f90wrap_generator__get_structures__binding__rgt(this, ret_structures)
     ret_structures_ptr%p%items = this_ptr%p%get_structures()
     ret_structures = transfer(ret_structures_ptr,ret_structures)
 end subroutine f90wrap_generator__get_structures__binding__rgt
+
+subroutine f90wrap_generator__set_structures__binding__rgt(this, structures)
+    use raffle__geom_rw, only: basis_type
+    use raffle__generator, only: raffle_generator_type
+    implicit none
+
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+
+    type basis_type_xnum_array
+        type(basis_type), dimension(:), allocatable :: items
+    end type basis_type_xnum_array
+
+    type basis_type_xnum_array_ptr_type
+        type(basis_type_xnum_array), pointer :: p => NULL()
+    end type basis_type_xnum_array_ptr_type
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(2) :: structures
+    type(basis_type_xnum_array_ptr_type) :: structures_ptr
+
+    this_ptr = transfer(this, this_ptr)
+    structures_ptr = transfer(structures, structures_ptr)
+    call this_ptr%p%set_structures(structures_ptr%p%items)
+end subroutine f90wrap_generator__set_structures__binding__rgt
+
+subroutine f90wrap_generator__remove_structure__binding__rgt(this, index_bn, n0)
+    use raffle__generator, only: raffle_generator_type
+    implicit none
+    
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    integer, dimension(n0), intent(in) :: index_bn
+    integer :: n0
+    !f2py intent(hide), depend(energy_above_hull_list) :: n0 = shape(energy_above_hull_list,0)
+    this_ptr = transfer(this, this_ptr)
+    call this_ptr%p%remove_structure(index=index_bn)
+end subroutine f90wrap_generator__remove_structure__binding__rgt
+
+subroutine f90wrap_generator__evaluate__binding__rgt(this, ret_viability, basis)
+    use raffle__geom_rw, only: basis_type
+    use raffle__generator, only: raffle_generator_type
+    implicit none
+    
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    type basis_type_ptr_type
+        type(basis_type), pointer :: p => NULL()
+    end type basis_type_ptr_type
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    real(4), intent(out) :: ret_viability
+    type(basis_type_ptr_type) :: basis_ptr
+    integer, intent(in), dimension(2) :: basis
+    this_ptr = transfer(this, this_ptr)
+    basis_ptr = transfer(basis, basis_ptr)
+    ret_viability = this_ptr%p%evaluate(basis=basis_ptr%p)
+end subroutine f90wrap_generator__evaluate__binding__rgt
 !###############################################################################
 
 ! End of module generator defined in file ../src/lib/mod_generator.f90

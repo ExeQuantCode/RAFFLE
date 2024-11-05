@@ -1526,7 +1526,31 @@ class Generator(f90wrap.runtime.FortranModule):
             for structure in self.structures:
                 atoms.append(structure.toase(calculator))
             return atoms
+        
+        def set_structures(self, structures):
+            """
+            Set the list of generated structures.
 
+            Parameters:
+                structures (list of geom_rw.basis or list of ase.Atoms):
+                    The list of structures to set.
+            """
+            structures = geom_rw.basis_array(atoms=structures)
+            _raffle.f90wrap_generator__set_structures__binding__rgt(this=self._handle, \
+                structures=structures._handle)            
+        
+        def remove_structure(self, index):
+            """
+            Remove the structure at the given indices from the generator.
+            
+            Parameters:
+                index (int or list of int):
+                    The indices of the structure to remove.            
+            """
+            index_list = [index] if isinstance(index, int) else index
+            index_list = [ i + 1 for i in index_list ]
+            _raffle.f90wrap_generator__remove_structure__binding__rgt(this=self._handle, \
+                index_bn=index_list)
 
         def evaluate(self, basis):
             """

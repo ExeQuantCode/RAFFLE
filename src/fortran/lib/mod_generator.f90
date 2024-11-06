@@ -849,6 +849,8 @@ contains
                )
        end do
     end do
+
+    viability = viability / real(basis%natom, real32)
   end function evaluate
 !###############################################################################
 

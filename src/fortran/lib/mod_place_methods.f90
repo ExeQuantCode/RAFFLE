@@ -164,17 +164,17 @@ contains
           if( &
                get_min_dist_between_point_and_species( &
                     basis, point, &
-                    species = atom_ignore_list(1,1), &
+                    species = js, &
                     ignore_list = atom_ignore_list &
-               ) .lt. radius_list(pair_index(atom_ignore_list(1,1),js)) &
+               ) .lt. radius_list(pair_index(atom_ignore_list(1,1),js)) * &
+               distribs_container%radius_distance_tol(1) &
           )then
              cycle atom_loop
           end if
        end do
+       viable = .true.
        exit atom_loop
     end do atom_loop
-
-    viable = .true.
 
   end function place_method_rand
 !###############################################################################
@@ -285,6 +285,7 @@ contains
             test_vector, atom_ignore_list(1,1), basis, &
             atom_ignore_list, radius_list &
        )
+       if(test_value.lt.1.E-6) cycle walk_loop
        !------------------------------------------------------------------------
        ! if viability of test point is less than current point, then we
        ! are stuck at the current point and need to try again
@@ -463,6 +464,7 @@ contains
             test_vector, atom_ignore_list(1,1), basis, &
             atom_ignore_list, radius_list &
        )
+       if(test_value.lt.1.E-6) cycle walk_loop
        !------------------------------------------------------------------------
        ! if viability of test point is less than current point, then we
        ! are stuck at the current point and need to try again

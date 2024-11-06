@@ -369,6 +369,9 @@ contains
     !---------------------------------------------------------------------------
     ! ensure host element map is set
     !---------------------------------------------------------------------------
+    call this%distributions%set_element_map( &
+         [ basis_template%spec(:)%name ] &
+    )
     call this%distributions%host_system%set_element_map( &
          this%distributions%element_info &
     )

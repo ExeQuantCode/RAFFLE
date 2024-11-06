@@ -83,6 +83,8 @@ module raffle__distribs_container
      !! Generalised distribution functions for all systems.
      !! Generated from combining the energy-weighted distribution functions
      !! of all systems
+     integer, dimension(:), allocatable :: element_map
+     !! Mapping of host elements to distribution function elements.
      type(distribs_host_type) :: host_system
      !! Host structure for the distribution functions.
      type(distribs_type), dimension(:), allocatable :: system
@@ -128,6 +130,9 @@ module raffle__distribs_container
      !! Return the energies of elements in the container.
      !! Used in Python interface.
 
+
+     procedure, pass(this) :: set_element_map
+     !! Set the mapping of elements to distribution function elements.
      procedure, pass(this), private :: set_bond_info
      !! Set the 2-body bond information for the container.
      procedure, pass(this), private :: update_bond_info
@@ -151,6 +156,8 @@ module raffle__distribs_container
      !! Set the generalised distribution function to the default value.
      procedure, pass(this) :: evolve
      !! Evolve the learned distribution function.
+
+
      procedure, pass(this) :: write_gdfs
      !! Write the generalised distribution functions to a file.
      procedure, pass(this) :: read_gdfs
@@ -1122,6 +1129,45 @@ contains
        this%system = [ this%system, system ]
     end if
   end subroutine add_basis
+!###############################################################################
+
+
+!###############################################################################
+  subroutine set_element_map(this, element_list)
+    !! Set the element map for the container.
+    implicit none
+
+    ! Arguments
+    class(distribs_container_type), intent(inout) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
+    character(3), dimension(:), intent(in) :: element_list
+    !! Element information.
+
+    ! Local variables
+    integer :: is
+    !! Loop index.
+    integer :: idx
+    !! Index of the element in the element_info array.
+    character(256) :: stop_msg
+    !! Error message.
+
+    if(allocated(this%element_map)) deallocate(this%element_map)
+    allocate(this%element_map(size(element_list)))
+    do is = 1, size(element_list)
+       idx = findloc( &
+            [ this%element_info(:)%name ], element_list(is), dim=1 &
+       )
+       if(idx.eq.0)then
+          write(stop_msg,*) "Element not found in element_info array" // &
+               achar(13) // achar(10) // &
+               "Element: ", element_list(is)
+          call stop_program( stop_msg )
+          return
+       end if
+       this%element_map(is) = idx
+    end do
+
+  end subroutine set_element_map
 !###############################################################################
 
 

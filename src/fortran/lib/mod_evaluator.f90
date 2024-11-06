@@ -393,7 +393,7 @@ contains
              output = output * &
                   distribs_container%gdf%df_3body( &
                        bin, &
-                       distribs_container%host_system%element_map(species) &
+                       distribs_container%element_map(species) &
                   ) ** ( 1._real32 / real( num_3body_local, real32 ) )
           end associate
        end do atom_loop
@@ -451,7 +451,7 @@ contains
              output = output * &
                   distribs_container%gdf%df_4body( &
                        bin, &
-                       distribs_container%host_system%element_map(species) &
+                       distribs_container%element_map(species) &
                   ) ** ( 1._real32 / real( num_4body_local, real32 ) )
           end associate
        end do atom_loop

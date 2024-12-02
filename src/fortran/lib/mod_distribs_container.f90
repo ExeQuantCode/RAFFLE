@@ -1921,6 +1921,11 @@ contains
           end do
        end do
        deallocate(idx_list)
+       if( this%best_energy_pair(j) .lt. -1.E1 )then
+          write(warn_msg,'("Best energy pair is less than -10 eV, &
+               &this is likely to be unphysical. Check the energy values.")')
+          call print_warning(warn_msg)
+       end if
             
     end do
 
@@ -2120,6 +2125,7 @@ contains
     !! Temporary array for the distribution functions.
     logical, dimension(:), allocatable :: tmp_in_dataset
 
+    character(256) :: err_msg
     integer, dimension(:), allocatable :: host_idx_list
 
 
@@ -2406,6 +2412,14 @@ contains
        end if
        this%gdf%df_2body(:,j) = &
             this%gdf%df_2body(:,j) / this%norm_2body(j)
+       if(any(isnan(this%gdf%df_2body(:,j))))then
+          write(err_msg,'("NaN in 2-body distribution function for ",A,"-",A,&
+               &" with norm of ",F0.3)') &
+               this%bond_info(j)%element(1), this%bond_info(j)%element(2), &
+               this%norm_2body(j)
+          call stop_program( err_msg )
+          return
+       end if
     end do
     allocate(this%norm_3body(size(this%element_info)))
     allocate(this%norm_4body(size(this%element_info)))
@@ -2424,6 +2438,20 @@ contains
             this%gdf%df_3body(:,is) / this%norm_3body(is)
        this%gdf%df_4body(:,is) = &
             this%gdf%df_4body(:,is) / this%norm_4body(is)
+
+       if(any(isnan(this%gdf%df_3body(:,is))))then
+          write(err_msg,'("NaN in 3-body distribution function for ",A,&
+               &" with norm of ",F0.3)') &
+               this%element_info(is)%name, this%norm_3body(is)
+          call stop_program( err_msg )
+          return
+       elseif(any(isnan(this%gdf%df_4body(:,is))))then
+          write(err_msg,'("NaN in 4-body distribution function for ",A,&
+               &" with norm of ",F0.3)') &
+               this%element_info(is)%name, this%norm_4body(is)
+          call stop_program( err_msg )
+          return
+       end if
     end do
 
     this%num_evaluated_allocated = size(this%system)

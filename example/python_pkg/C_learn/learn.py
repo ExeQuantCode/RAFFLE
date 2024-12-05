@@ -139,7 +139,7 @@ if __name__ == "__main__":
 
             # print the number of structures generated
             print("Total number of structures generated: ", generator.num_structures)
-            generated_structures = generator.get_structures()
+            generated_structures = generator.get_structures(calc)
             num_structures_new = len(generated_structures)
 
             # check if directory iteration[iter] exists, if not create it
@@ -150,6 +150,9 @@ if __name__ == "__main__":
             # set up list of energies
             energy_unrlxd = np.zeros(num_structures_new - num_structures_old)
             energy_rlxd = np.zeros(num_structures_new - num_structures_old)
+            for i in range(num_structures_new - num_structures_old):
+                write(iterdir+f"POSCAR_unrlxd_{i}", generated_structures[num_structures_old + i])
+                print(f"Structure {i} energy per atom: {generated_structures[num_structures_old + i].get_potential_energy() / len(generated_structures[num_structures_old + i])}")
 
             # Parallel execution
             with ProcessPoolExecutor() as executor:

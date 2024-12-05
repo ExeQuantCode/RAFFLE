@@ -55,9 +55,12 @@ contains
     real(real32), dimension(3) :: point
     integer, dimension(:,:), allocatable :: atom_ignore_list
     real(real32), dimension(3) :: tolerance
+    real(real32), dimension(2,3) :: bounds
 
     ! Initialise test data
     grid = [10, 10, 10]
+    bounds(1,:) = 0.0_real32
+    bounds(2,:) = 1.0_real32
     allocate(atom_ignore_list(1, 2))  ! No atoms to ignore
     atom_ignore_list(1,:) = [1,2]
     grid_offset = [0.5_real32, 0.5_real32, 0.5_real32]
@@ -67,7 +70,7 @@ contains
 
     ! Call the void subroutine
     point = place_method_void( &
-         grid, grid_offset, basis_copy, &
+         grid, grid_offset, bounds, basis_copy, &
          atom_ignore_list, &
          viable &
     )

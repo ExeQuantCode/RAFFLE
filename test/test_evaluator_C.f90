@@ -185,6 +185,7 @@ program test_evaluator
   gridpoints = get_gridpoints_and_viability( &
        generator%distributions, &
        generator%grid, &
+       generator%bounds, &
        basis_host, &
        [ 1 ], &
        [ generator%distributions%bond_info(:)%radius_covalent ], &

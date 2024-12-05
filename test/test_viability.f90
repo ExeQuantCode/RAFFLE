@@ -57,9 +57,12 @@ contains
     real(real32) :: lowtol
     real(real32), dimension(:,:), allocatable :: points
     real(real32), dimension(3) :: grid_offset
+    real(real32), dimension(2,3) :: bounds
 
     ! Initialise test data
     grid = [10, 10, 10]
+    bounds(1,:) = 0.0_real32
+    bounds(2,:) = 1.0_real32
     allocate(atom_ignore_list(1, 2))  ! No atoms to ignore
     atom_ignore_list(1,:) = [1,2]
     allocate(radius_list(1))
@@ -84,7 +87,8 @@ contains
     ! Call the function to test
     points = get_gridpoints_and_viability( &
          distribs_container, &
-         grid, basis_copy, &
+         grid, bounds, & 
+         basis_copy, &
          [ 1 ], &
          radius_list, &
          atom_ignore_list, &
@@ -123,9 +127,12 @@ contains
     real(real32) :: lowtol
     real(real32), dimension(:,:), allocatable :: points
     real(real32), dimension(3) :: grid_offset
+    real(real32), dimension(2,3) :: bounds
 
     ! Initialise test data
     grid = [10, 10, 10]
+    bounds(1,:) = 0.0_real32
+    bounds(2,:) = 1.0_real32
     allocate(atom_ignore_list(1, 2))  ! No atoms to ignore
     atom_ignore_list(1,:) = [1,2]
     allocate(radius_list(1))
@@ -150,7 +157,8 @@ contains
     ! Call the function to test
     points = get_gridpoints_and_viability( &
          distribs_container, &
-         grid, basis_copy, &
+         grid, bounds, &
+         basis_copy, &
          [ 1 ], &
          radius_list, &
          atom_ignore_list, &

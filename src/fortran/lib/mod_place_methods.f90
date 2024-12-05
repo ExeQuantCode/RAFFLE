@@ -32,7 +32,7 @@ contains
 
 !###############################################################################
   function place_method_void( &
-       grid, grid_offset, basis, atom_ignore_list, viable &
+       grid, grid_offset, bounds, basis, atom_ignore_list, viable &
   ) result(point)
     !! VOID placement method.
     !!
@@ -47,6 +47,8 @@ contains
     !! Number of gridpoints in each direction.
     real(real32), dimension(3), intent(in) :: grid_offset
     !! Offset for gridpoints.
+    real(real32), dimension(2,3), intent(in) :: bounds
+    !! Bounds of the unit cell.
     integer, dimension(:,:), intent(in) :: atom_ignore_list
     !! List of atoms to ignore (i.e. indices of atoms not yet placed).
     logical, intent(out) :: viable
@@ -76,11 +78,9 @@ contains
     do i = 0, grid(1) - 1, 1
        do j = 0, grid(2) - 1, 1
           do k = 0, grid(3) - 1, 1
-             tmpvector = [ &
-                  i + grid_offset(1), &
-                  j + grid_offset(2), &
-                  k + grid_offset(3) &
-             ] / real(grid,real32)
+             tmpvector = bounds(1,:) + &
+                  ( bounds(2,:) - bounds(1,:) ) * &
+                  ( [ i, j, k ] + grid_offset ) / real(grid,real32)
              smallest_bond = modu(get_min_dist(&
                   basis, tmpvector, .false., &
                   ignore_list = atom_ignore_list))
@@ -105,6 +105,7 @@ contains
 
 !###############################################################################
   function place_method_rand( distribs_container, &
+       bounds, &
        basis, atom_ignore_list, radius_list, max_attempts, viable &
   ) result(point)
     !! Random placement method.
@@ -115,6 +116,8 @@ contains
     ! Arguments
     type(distribs_container_type), intent(in) :: distribs_container
     !! Distribution function (gvector) container.
+    real(real32), dimension(2,3), intent(in) :: bounds
+    !! Bounds of the unit cell.
     type(extended_basis_type), intent(inout) :: basis
     !! Structure to add atom to.
     integer, dimension(:,:), intent(in) :: atom_ignore_list
@@ -129,10 +132,12 @@ contains
     !! Point to add atom to.
 
     ! Local variables
-    integer :: i, j, is, js
+    integer :: i, is, js
     !! Loop indices.
     real(real32) :: rtmp1
     !! random number.
+    real(real32), dimension(3) :: rvec1
+    !! random vector.
     integer, dimension(basis%nspec,basis%nspec) :: pair_index
 
 
@@ -156,10 +161,8 @@ contains
     ! find a random gridpoint that is not too close to any other atom
     !---------------------------------------------------------------------------
     atom_loop: do i = 1, max_attempts
-       do j = 1, 3
-          call random_number(rtmp1)
-          point(j) = rtmp1
-       end do
+       call random_number(rvec1)
+       point = bounds(1,:) + ( bounds(2,:) - bounds(1,:) ) * rvec1
        do js = 1, basis%nspec
           if( &
                get_min_dist_between_point_and_species( &
@@ -182,6 +185,7 @@ contains
 
 !###############################################################################
   function place_method_walk( distribs_container, &
+       bounds, &
        basis, atom_ignore_list, &
        radius_list, max_attempts, &
        step_size_coarse, step_size_fine, &
@@ -201,6 +205,8 @@ contains
     ! Arguments
     type(distribs_container_type), intent(in) :: distribs_container
     !! Distribution function (gvector) container.
+    real(real32), dimension(2,3), intent(in) :: bounds
+    !! Bounds of the unit cell.
     type(extended_basis_type), intent(inout) :: basis
     !! Structure to add atom to.
     integer, intent(in) :: max_attempts
@@ -217,7 +223,7 @@ contains
     !! Point to add atom to.
 
     ! Local variables
-    integer :: i
+    integer :: i, j
     !! Loop indices.
     integer :: nattempt, nstuck
     !! Number of attempts and number of times stuck at same site
@@ -243,8 +249,10 @@ contains
     end do
     i = 0
     random_loop : do 
-       i = i + 1      
+       i = i + 1    
+       if(i.gt.max_attempts) return  
        call random_number(site_vector)
+       site_vector = bounds(1,:) + ( bounds(2,:) - bounds(1,:) ) * site_vector
 
        site_value = evaluate_point( distribs_container, &
             site_vector, atom_ignore_list(1,1), basis, &
@@ -253,7 +261,6 @@ contains
        call random_number(rtmp1)
        if(rtmp1.lt.site_value) exit random_loop
  
-       if(i.ge.max_attempts) return
     end do random_loop
 
 
@@ -263,7 +270,10 @@ contains
     nattempt = 0
     nstuck = 0
     crude_norm = 0.5_real32
+    i = 0
     walk_loop : do
+       i = i + 1
+       if(i.gt.max_attempts) return
        !------------------------------------------------------------------------
        ! if we have tried 10 times, then we need to reduce the step size
        ! get the new test point and map it back into the unit cell
@@ -277,6 +287,10 @@ contains
                ( rvec1 * 2._real32 - 1._real32 ) * step_size_coarse / abc
        end if
        test_vector = test_vector - floor(test_vector)
+       do j = 1, 3
+          if(test_vector(j).lt.bounds(1,j) .or. test_vector(j).ge.bounds(2,j)) &
+               cycle walk_loop
+       end do
 
        !------------------------------------------------------------------------
        ! evaluate the test point
@@ -327,6 +341,7 @@ contains
 !###############################################################################
   function place_method_growth( distribs_container, &
        prior_point, prior_species, &
+       bounds, &
        basis, atom_ignore_list, &
        radius_list, max_attempts, &
        step_size_coarse, step_size_fine, &
@@ -350,6 +365,8 @@ contains
     !! Point to start walk from.
     integer, intent(in) :: prior_species
     !! Species of last atom placed.
+    real(real32), dimension(2,3), intent(in) :: bounds
+    !! Bounds of the unit cell.
     type(extended_basis_type), intent(inout) :: basis
     !! Structure to add atom to.
     integer, intent(in) :: max_attempts
@@ -366,7 +383,7 @@ contains
     !! Point to add atom to.
 
     ! Local variables
-    integer :: i, idx
+    integer :: i, j, idx
     !! Loop indices.
     integer :: nattempt, nstuck
     !! Number of attempts and number of times stuck at same site
@@ -410,6 +427,7 @@ contains
     i = 0
     shell_loop: do
        i = i + 1
+       if(i.gt.max_attempts) return
        call random_number(rvec1)
        ! map rvec1(1) to ring between min_radius and min_radius + 1.0
        rvec1(1) = rvec1(1) + min_radius ! r
@@ -424,6 +442,10 @@ contains
        ! convert from cartesian to direct
        rvec1 = matmul(rvec1, inverse_lattice)
        site_vector = prior_point + rvec1
+       do j = 1, 3
+          if(site_vector(j).lt.bounds(1,j) .or. site_vector(j).ge.bounds(2,j)) &
+               cycle shell_loop
+       end do
        ! now evaluate the point and check if it passes the initial criteria
        site_value = evaluate_point( distribs_container, &
             site_vector, atom_ignore_list(1,1), basis, &
@@ -432,7 +454,6 @@ contains
        call random_number(rtmp1)
        if(rtmp1.lt.site_value) exit shell_loop
 
-       if(i.ge.max_attempts) return
     end do shell_loop
 
 
@@ -442,7 +463,10 @@ contains
     nattempt = 0
     nstuck = 0
     crude_norm = 0.5_real32
+    i = 0
     walk_loop : do
+       i = i + 1
+       if(i.gt.max_attempts) return
        !------------------------------------------------------------------------
        ! if we have tried 10 times, then we need to reduce the step size
        ! get the new test point and map it back into the unit cell
@@ -456,6 +480,10 @@ contains
                ( rvec1 * 2._real32 - 1._real32 ) * step_size_coarse / abc
        end if 
        test_vector = test_vector - floor(test_vector)
+       do j = 1, 3
+          if(test_vector(j).lt.bounds(1,j) .or. test_vector(j).ge.bounds(2,j)) &
+               cycle walk_loop
+       end do
 
        !------------------------------------------------------------------------
        ! evaluate the test point

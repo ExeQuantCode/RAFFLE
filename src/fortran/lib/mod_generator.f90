@@ -55,8 +55,9 @@ module raffle__generator
      !! Spacing of the gridpoints.
      real(real32), dimension(2,3) :: bounds = reshape( &
           (/ &
-               0.0_real32, 0.0_real32, 0.0_real32, &
-               1.0_real32, 1.0_real32, 1.0_real32 &
+               0.0_real32, 1.0_real32, &
+               0.0_real32, 1.0_real32, &
+               0.0_real32, 1.0_real32 &
           /), [2,3] &
      )
      !! Bounds for atom placement.
@@ -570,6 +571,7 @@ contains
     call set(species_index_list)
 
 
+    write(*,*) "BOUNDS", this%bounds(1,:), this%bounds(2,:)
     !---------------------------------------------------------------------------
     ! check for viable gridpoints
     !---------------------------------------------------------------------------

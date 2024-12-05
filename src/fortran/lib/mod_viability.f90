@@ -20,7 +20,8 @@ module raffle__viability
 contains
 
 !###############################################################################
-  function get_gridpoints_and_viability(distribs_container, grid, basis, &
+  function get_gridpoints_and_viability(distribs_container, grid, bounds, &
+       basis, &
        species_index_list, &
        radius_list, atom_ignore_list, grid_offset) result(points)
     !! Return a list of viable gridpoints and their viability for each species.
@@ -35,6 +36,8 @@ contains
     !! Structure to add atom to.
     integer, dimension(3), intent(in) :: grid
     !! Number of gridpoints in each direction.
+    real(real32), dimension(2,3), intent(in) :: bounds
+    !! Bounds of the unit cell.
     real(real32), dimension(:), intent(in) :: radius_list
     !! List of radii for each pair of elements.
     integer, dimension(:), intent(in) :: species_index_list
@@ -53,6 +56,8 @@ contains
     !! Number of gridpoints.
     real(real32) :: min_radius
     !! Minimum radius.
+    real(real32), dimension(3) :: point
+    !! Gridpoint.
     real(real32), dimension(:,:), allocatable :: points_tmp
     !! Temporary list of gridpoints.
 
@@ -68,6 +73,9 @@ contains
     grid_loop1: do i = 0, grid(1) - 1, 1
        grid_loop2: do j = 0, grid(2) - 1, 1
           grid_loop3: do k = 0, grid(3) - 1, 1
+             point = bounds(1,:) + &
+                  ( bounds(2,:) - bounds(1,:) ) * &
+                  ( [ i, j, k ] + grid_offset ) / real(grid,real32)
              do is = 1, basis%nspec
                 atom_loop: do ia = 1, basis%spec(is)%num
                    do l = 1, size(atom_ignore_list,dim=1), 1
@@ -76,11 +84,7 @@ contains
                    if( &
                         get_min_dist_between_point_and_atom( &
                              basis, &
-                             [ &
-                                  i + grid_offset(1), &
-                                  j + grid_offset(2), &
-                                  k + grid_offset(3) &
-                             ] / real(grid,real32), &
+                             point, &
                              [is,ia] &
                         ) .lt. &
                         min_radius &
@@ -88,11 +92,7 @@ contains
                 end do atom_loop
              end do
              num_points = num_points + 1
-             points_tmp(:,num_points) = [ &
-                  i + grid_offset(1), &
-                  j + grid_offset(2), &
-                  k + grid_offset(3) &
-             ] / real(grid,real32)
+             points_tmp(:,num_points) = point
           end do grid_loop3
        end do grid_loop2
     end do grid_loop1

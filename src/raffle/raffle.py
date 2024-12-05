@@ -1469,6 +1469,25 @@ class Generator(f90wrap.runtime.FortranModule):
             """
             _raffle.f90wrap_generator__reset_grid__binding__raffle_generator_type(this=self._handle)
         
+        def set_bounds(self, bounds=None):
+            """
+            Set the bounding box for the generation.
+
+            Parameters:
+                bounds (list of list of float):
+                    The bounding box within which to constrain placement of atoms.
+                    In the form [[a_min, a_max], [b_min, b_max], [c_min, c_max]].
+                    Values given in direct (crystal) coordinates, ranging from 0 to 1.
+            """
+            _raffle.f90wrap_generator__set_bounds__binding__rgt(this=self._handle, \
+                bounds=bounds)
+            
+        def reset_bounds(self):
+            """
+            Reset the bounding box to the full host structure.
+            """
+            _raffle.f90wrap_generator__reset_bounds__binding__rgt(this=self._handle)
+
         def generate(self, num_structures, stoichiometry, method_probab={"void": 0.0, "rand": 0.0, "walk": 0.0, "grow": 0.0, "min": 0.0}, seed=None, verbose=0):
             """
             Generate structures using the RAFFLE method.
@@ -1652,7 +1671,27 @@ class Generator(f90wrap.runtime.FortranModule):
         def grid_spacing(self, grid_spacing):
             _raffle.f90wrap_raffle_generator_type__set__grid_spacing(self._handle, \
                 grid_spacing)
+                
+        @property
+        def bounds(self):
+            """
+            The bounds in direct coordinates of the host cell for the generation.
+            """
+            array_ndim, array_type, array_shape, array_handle = \
+                _raffle.f90wrap_raffle_generator_type__array__bounds(self._handle)
+            if array_handle in self._arrays:
+                bounds = self._arrays[array_handle]
+            else:
+                bounds = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                        self._handle,
+                                        _raffle.f90wrap_raffle_generator_type__array__bounds)
+                self._arrays[array_handle] = bounds
+            return bounds
         
+        @bounds.setter
+        def bounds(self, bounds):
+            self.bounds[...] = bounds
+
         @property
         def distributions(self):
             """
@@ -1764,6 +1803,8 @@ class Generator(f90wrap.runtime.FortranModule):
             ret.append(repr(self.grid_offset))
             ret.append(',\n    grid_spacing : ')
             ret.append(repr(self.grid_spacing))
+            ret.append(',\n    bounds : ')
+            ret.append(repr(self.bounds))
             ret.append(',\n    distributions : ')
             ret.append(repr(self.distributions))
             ret.append(',\n    max_attempts : ')

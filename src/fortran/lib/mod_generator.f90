@@ -53,6 +53,13 @@ module raffle__generator
      !! Offset of the gridpoints.
      real(real32) :: grid_spacing = 0.1_real32
      !! Spacing of the gridpoints.
+     real(real32), dimension(2,3) :: bounds = reshape( &
+          (/ &
+               0.0_real32, 0.0_real32, 0.0_real32, &
+               1.0_real32, 1.0_real32, 1.0_real32 &
+          /), [2,3] &
+     )
+     !! Bounds for atom placement.
      type(distribs_container_type) :: distributions
      !! Distribution function container for the 2-, 3-, and 4-body interactions.
      integer :: max_attempts = 10000
@@ -72,6 +79,10 @@ module raffle__generator
      !! Procedure to set the grid for the raffle generator.
      procedure, pass(this) :: reset_grid
      !! Procedure to reset the grid for the raffle generator.
+     procedure, pass(this) :: set_bounds
+     !! Procedure to set the bounds for the raffle generator.
+     procedure, pass(this) :: reset_bounds
+     !! Procedure to reset the bounds for the raffle generator.
      procedure, pass(this) :: generate
      !! Procedure to generate random structures.
      procedure, pass(this), private :: generate_structure
@@ -214,7 +225,10 @@ contains
     if(all(this%grid.eq.0))then
        if(allocated(this%host%spec))then
           do i = 1, 3
-             this%grid(i) = nint( modu(this%host%lat(i,:)) / this%grid_spacing )
+             this%grid(i) = nint( &
+                  ( this%bounds(2,i) - this%bounds(1,i) ) * &
+                  modu(this%host%lat(i,:)) / this%grid_spacing &
+             )
           end do
        end if
     end if
@@ -235,6 +249,43 @@ contains
     this%grid = 0
   end subroutine reset_grid
 !###############################################################################
+
+
+!###############################################################################
+  subroutine set_bounds(this, bounds)
+   !! Set the bounds for the raffle generator.
+   !!
+   !! This procedure sets the bounds for the raffle generator. The bounds are
+   !! used to determine the placement of atoms in the host structure.
+   implicit none
+
+   ! Arguments
+   class(raffle_generator_type), intent(inout) :: this
+   !! Instance of the raffle generator.
+   real(real32), dimension(2,3), intent(in) :: bounds
+   !! Bounds for atom placement.
+
+   this%bounds = bounds
+   call this%set_grid()
+
+ end subroutine set_bounds
+!###############################################################################
+
+
+!###############################################################################
+  subroutine reset_bounds(this)
+   !! Reset the grid for the raffle generator.
+   implicit none
+
+   ! Arguments
+   class(raffle_generator_type), intent(inout) :: this
+   !! Instance of the raffle generator.
+
+   this%bounds(1,:) = 0.0_real32
+   this%bounds(2,:) = 1.0_real32
+ end subroutine reset_bounds
+!###############################################################################
+
 
 
 !###############################################################################
@@ -527,6 +578,7 @@ contains
        gridpoint_viability = get_gridpoints_and_viability( &
             this%distributions, &
             this%grid, &
+            this%bounds, &
             basis, &
             species_index_list, &
             [ this%distributions%bond_info(:)%radius_covalent ], &
@@ -585,6 +637,7 @@ contains
           if(verbose.gt.0) write(*,*) "Add Atom Void"
           point = place_method_void( this%grid, &
                this%grid_offset, &
+               this%bounds, &
                basis, &
                placement_list_shuffled(iplaced+1:,:), viable &
           )
@@ -592,6 +645,7 @@ contains
           if(verbose.gt.0) write(*,*) "Add Atom Random"
           point = place_method_rand( &
                this%distributions, &
+               this%bounds, &
                basis, &
                placement_list_shuffled(iplaced+1:,:), &
                [ this%distributions%bond_info(:)%radius_covalent ], &
@@ -603,6 +657,7 @@ contains
           if(verbose.gt.0) write(*,*) "Add Atom Walk"
           point = place_method_walk( &
                this%distributions, &
+               this%bounds, &
                basis, &
                placement_list_shuffled(iplaced+1:,:), &
                [ this%distributions%bond_info(:)%radius_covalent ], &
@@ -616,6 +671,7 @@ contains
              if(verbose.gt.0) write(*,*) "Add Atom Random (growth seed)"
              point = place_method_rand( &
                   this%distributions, &
+                  this%bounds, &
                   basis, &
                   placement_list_shuffled(iplaced+1:,:), &
                   [ this%distributions%bond_info(:)%radius_covalent ], &
@@ -630,6 +686,7 @@ contains
                        placement_list_shuffled(iplaced,2),:3 &
                   ), &
                   placement_list_shuffled(iplaced,1), &
+                  this%bounds, &
                   basis, &
                   placement_list_shuffled(iplaced+1:,:), &
                   [ this%distributions%bond_info(:)%radius_covalent ], &
@@ -672,7 +729,7 @@ contains
        if(.not. viable) then
           if(void_ticker.gt.10) &
                point = place_method_void( &
-                    this%grid, this%grid_offset, basis, &
+                    this%grid, this%grid_offset, this%bounds, basis, &
                     placement_list_shuffled(iplaced+1:,:), viable &
                )
           void_ticker = 0

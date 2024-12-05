@@ -405,6 +405,29 @@ subroutine f90wrap_raffle_generator_type__set__grid_spacing( &
     this_ptr = transfer(this, this_ptr)
     this_ptr%p%grid_spacing = f90wrap_grid_spacing
 end subroutine f90wrap_raffle_generator_type__set__grid_spacing
+
+subroutine f90wrap_raffle_generator_type__array__bounds( &
+     this, nd, dtype, dshape, dloc &
+)
+    use raffle__generator, only: raffle_generator_type
+    use, intrinsic :: iso_c_binding, only : c_int
+    implicit none
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    integer(c_int), intent(in) :: this(2)
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer(c_int), intent(out) :: nd
+    integer(c_int), intent(out) :: dtype
+    integer(c_int), dimension(10), intent(out) :: dshape
+    integer*8, intent(out) :: dloc
+    
+    nd = 2
+    dtype = 11
+    this_ptr = transfer(this, this_ptr)
+    dshape(1:2) = shape(this_ptr%p%bounds)
+    dloc = loc(this_ptr%p%bounds)
+end subroutine f90wrap_raffle_generator_type__array__bounds
 !###############################################################################
 
 
@@ -768,6 +791,33 @@ subroutine f90wrap_generator__reset_grid__binding__raffle_generator_type(this)
     this_ptr = transfer(this, this_ptr)
     call this_ptr%p%reset_grid()
 end subroutine f90wrap_generator__reset_grid__binding__raffle_generator_type
+
+subroutine f90wrap_generator__set_bounds__binding__rgt(this, bounds)
+    use raffle__generator, only: raffle_generator_type
+    implicit none
+    
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    real(4), dimension(2,3), intent(in) :: bounds
+    this_ptr = transfer(this, this_ptr)
+    call this_ptr%p%set_bounds(bounds=bounds)
+end subroutine f90wrap_generator__set_bounds__binding__rgt
+
+subroutine f90wrap_generator__reset_bounds__binding__rgt(this)
+    use raffle__generator, only: raffle_generator_type
+    implicit none
+    
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    this_ptr = transfer(this, this_ptr)
+    call this_ptr%p%reset_bounds()
+end subroutine f90wrap_generator__reset_bounds__binding__rgt
 
 subroutine f90wrap_generator__generate__binding__rgt( &
        this, num_structures, stoichiometry, &

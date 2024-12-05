@@ -571,7 +571,6 @@ contains
     call set(species_index_list)
 
 
-    write(*,*) "BOUNDS", this%bounds(1,:), this%bounds(2,:)
     !---------------------------------------------------------------------------
     ! check for viable gridpoints
     !---------------------------------------------------------------------------

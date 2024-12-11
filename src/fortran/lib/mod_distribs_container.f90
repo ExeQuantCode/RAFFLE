@@ -706,9 +706,19 @@ contains
     !! I/O status.
     integer :: nspec
     !! Number of species.
+    logical :: exist
+    !! Boolean whether the file exists.
     character(256) :: buffer, buffer1, buffer2
     !! Buffer for reading lines.
 
+    ! check if file exists
+    inquire(file=file, exist=exist)
+    if(.not.exist)then
+       call stop_program( "File does not exist" )
+       return
+    end if
+
+    ! read the file
     open(newunit=unit, file=file)
     read(unit, *) buffer1, buffer2, this%nbins
     read(unit, *) buffer1, buffer2, this%width

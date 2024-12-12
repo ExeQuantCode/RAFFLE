@@ -821,7 +821,7 @@ end subroutine f90wrap_generator__reset_bounds__binding__rgt
 
 subroutine f90wrap_generator__generate__binding__rgt( &
        this, num_structures, stoichiometry, &
-    method_probab, seed, verbose)
+    method_probab, seed, settings_out_file, verbose)
     use raffle__generator, only: raffle_generator_type, stoichiometry_type
     implicit none
     
@@ -843,6 +843,7 @@ subroutine f90wrap_generator__generate__binding__rgt( &
     type(stoichiometry_type_xnum_array_ptr_type) :: stoichiometry_ptr
     integer, intent(in), dimension(2) :: stoichiometry
     real(4), intent(in), optional, dimension(5) :: method_probab
+    character*(*), intent(in), optional :: settings_out_file
     integer, intent(in), optional :: seed
     integer, intent(in), optional :: verbose
 
@@ -853,6 +854,7 @@ subroutine f90wrap_generator__generate__binding__rgt( &
          stoichiometry=stoichiometry_ptr%p%items, &
          method_probab=method_probab, &
          seed=seed, &
+         settings_out_file=settings_out_file, &
          verbose=verbose &
     )
 end subroutine f90wrap_generator__generate__binding__rgt
@@ -945,6 +947,23 @@ subroutine f90wrap_generator__evaluate__binding__rgt(this, ret_viability, basis)
     basis_ptr = transfer(basis, basis_ptr)
     ret_viability = this_ptr%p%evaluate(basis=basis_ptr%p)
 end subroutine f90wrap_generator__evaluate__binding__rgt
+
+
+subroutine f90wrap_generator__print_settings__binding__rgt( &
+    this, file &
+)
+   use raffle__generator, only: raffle_generator_type
+   implicit none
+   
+   type raffle_generator_type_ptr_type
+       type(raffle_generator_type), pointer :: p => NULL()
+   end type raffle_generator_type_ptr_type
+   type(raffle_generator_type_ptr_type) :: this_ptr
+   integer, intent(in), dimension(2) :: this
+   character*(*), intent(in) :: file
+   this_ptr = transfer(this, this_ptr)
+   call this_ptr%p%print_settings(file=file)
+end subroutine f90wrap_generator__print_settings__binding__rgt
 !###############################################################################
 
 ! End of module generator defined in file ../src/lib/mod_generator.f90

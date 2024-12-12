@@ -1488,7 +1488,7 @@ class Generator(f90wrap.runtime.FortranModule):
             """
             _raffle.f90wrap_generator__reset_bounds__binding__rgt(this=self._handle)
 
-        def generate(self, num_structures, stoichiometry, method_probab={"void": 0.0, "rand": 0.0, "walk": 0.0, "grow": 0.0, "min": 0.0}, seed=None, verbose=0):
+        def generate(self, num_structures, stoichiometry, method_probab={"void": 0.0, "rand": 0.0, "walk": 0.0, "grow": 0.0, "min": 0.0}, seed=None, settings_out_file=None, verbose=0):
             """
             Generate structures using the RAFFLE method.
 
@@ -1501,6 +1501,8 @@ class Generator(f90wrap.runtime.FortranModule):
                     The probabilities of using each method to generate a structure.
                 seed (int):
                     The seed for the random number generator.
+                print_settings (bool):
+                    Boolean whether to print the settings for the generation.
                 verbose (int):
                     The verbosity level for the generation.
             """
@@ -1525,13 +1527,17 @@ class Generator(f90wrap.runtime.FortranModule):
                     this=self._handle,
                     num_structures=num_structures,
                     stoichiometry=stoichiometry._handle,
-                    method_probab=method_probab_list, seed=seed, verbose=verbose)
+                    method_probab=method_probab_list, 
+                    settings_out_file=settings_out_file,
+                    seed=seed, verbose=verbose)
             else:
                 _raffle.f90wrap_generator__generate__binding__rgt(
                     this=self._handle,
                     num_structures=num_structures,
                     stoichiometry=stoichiometry._handle,
-                    method_probab=method_probab_list, verbose=verbose)
+                    method_probab=method_probab_list,
+                    settings_out_file=settings_out_file,
+                    verbose=verbose)
             
         def get_structures(self, calculator=None):
             """
@@ -1590,6 +1596,17 @@ class Generator(f90wrap.runtime.FortranModule):
                 basis=basis._handle)
             return viability
         
+        def print_settings(self, file):
+            """
+            Print the settings for the generation to a file.
+
+            Parameters:
+                file (str):
+                    Name of the file to write the settings to.
+            """
+            _raffle.f90wrap_generator__print_settings__binding__rgt(this=self._handle, \
+                file=file)
+
         @property
         def num_structures(self):
             """

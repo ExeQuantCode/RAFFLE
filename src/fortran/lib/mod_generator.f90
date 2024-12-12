@@ -96,6 +96,11 @@ module raffle__generator
      !! Procedure to remove a structure from the array of generated structures.
      procedure, pass(this) :: evaluate
      !! Procedure to evaluate the viability of a structure.
+
+     procedure, pass(this) :: print_settings => print_generator_settings
+     !! Procedure to print the raffle generator settings.
+     procedure, pass(this) :: read_settings => read_generator_settings
+     !! Procedure to read the raffle generator settings.
   end type raffle_generator_type
 
   interface raffle_generator_type
@@ -291,7 +296,9 @@ contains
 
 !###############################################################################
   subroutine generate(this, num_structures, &
-       stoichiometry, method_probab, seed, verbose)
+       stoichiometry, method_probab, seed, settings_out_file, &
+       verbose &
+  )
     !! Generate random structures.
     !!
     !! This procedure generates random structures from the contained host
@@ -311,6 +318,8 @@ contains
     !! Probability of each placement method.
     integer, intent(in), optional :: seed
     !! Seed for the random number generator.
+    character(*), intent(in), optional :: settings_out_file
+    !! File to print the settings to.
     integer, intent(in), optional :: verbose
     !! Verbosity level.
 
@@ -349,7 +358,12 @@ contains
     ! set the placement method probabilities
     !---------------------------------------------------------------------------
     if(verbose_.gt.0) write(*,*) "Setting method probabilities"
-    if(present(method_probab)) method_probab_ = method_probab
+    if(present(method_probab))then
+       method_probab_ = method_probab
+    else
+       method_probab_ = this%method_probab
+    end if
+    this%method_probab = method_probab_
     total_probab = real(sum(method_probab_), real32)
     method_probab_ = method_probab_ / total_probab
     do i = 2, 5, 1
@@ -359,6 +373,15 @@ contains
          "Method probabilities (void, rand, walk, grow, min): ", &
          method_probab_
 
+
+    !---------------------------------------------------------------------------
+    ! print the settings to a file
+    !---------------------------------------------------------------------------
+    if(present(settings_out_file))then
+       if(trim(settings_out_file).ne."")then
+          call this%print_settings(settings_out_file)
+       end if
+    end if
 
     !---------------------------------------------------------------------------
     ! set the random seed
@@ -913,6 +936,134 @@ contains
 
     viability = viability / real(basis%natom, real32)
   end function evaluate
+!###############################################################################
+
+
+!###############################################################################
+  subroutine print_generator_settings(this, file)
+    !! Print the raffle generator settings.
+    implicit none
+
+    ! Arguments
+    class(raffle_generator_type), intent(in) :: this
+    !! Instance of the raffle generator.
+    character(*), intent(in) :: file
+    !! Filename to write the settings to.
+
+    ! Local variables
+    integer :: i
+    !! Loop index.
+    integer :: newunit
+    !! Unit number for the file.
+
+    ! Open the file
+    open(unit=newunit, file=file)
+
+    write(newunit,'("# RAFFLE Generator Settings")')
+     !print host lattice
+    write(newunit,'("# GENERATOR SETTINGS")')
+    write(newunit,'("HOST_LATTICE # not a setting, just for reference")')
+    write(newunit,'("  ",3(1X,F5.2))') this%host%lat(1,:)
+    write(newunit,'("  ",3(1X,F5.2))') this%host%lat(2,:)
+    write(newunit,'("  ",3(1X,F5.2))') this%host%lat(3,:)
+    write(newunit,'("END HOST_LATTICE")')
+
+    write(newunit,'("GRID =",3(1X,I0))') this%grid
+    write(newunit,'("GRID_OFFSET =",3(1X,F5.2))') this%grid_offset
+    write(newunit,'("GRID_SPACING = ",F5.2)') this%grid_spacing
+    write(newunit,'("BOUNDS_LW =",3(1X,F5.2))') this%bounds(1,:)
+    write(newunit,'("BOUNDS_UP =",3(1X,F5.2))') this%bounds(2,:)
+
+    write(newunit,'("MAX_ATTEMPTS =",I0)') this%max_attempts
+    write(newunit,'("WALK_STEP_SIZE_COARSE = ",F5.2)') this%walk_step_size_coarse
+    write(newunit,'("WALK_STEP_SIZE_FINE = ",F5.2)') this%walk_step_size_fine
+    write(newunit,'("METHOD_VOID = ",F7.4)') this%method_probab(1)
+    write(newunit,'("METHOD_RANDOM = ",F7.4)') this%method_probab(2)
+    write(newunit,'("METHOD_WALK = ",F7.4)') this%method_probab(3)
+    write(newunit,'("METHOD_GROW = ",F7.4)') this%method_probab(4)
+    write(newunit,'("METHOD_MIN = ",F7.4)') this%method_probab(5)
+
+    write(newunit,'("# DISTRIBUTION SETTINGS")')
+    write(newunit,'("KBT = ",F5.2)') this%distributions%kbt
+    write(newunit,'("SIGMA =",3(1X,F7.4))') this%distributions%sigma
+    write(newunit,'("WIDTH =",3(1X,F7.4))') this%distributions%width
+    write(newunit,'("CUTOFF_MIN =",3(1X,F7.4))') this%distributions%cutoff_min
+    write(newunit,'("CUTOFF_MAX =",3(1X,F7.4))') this%distributions%cutoff_max
+    write(newunit,'("RADIUS_DISTANCE_TOLERANCE = ",F7.4)') &
+         this%distributions%radius_distance_tol
+    write(newunit,'("ELEMENT_INFO # element : energy")')
+    do i = 1, size(this%distributions%element_info)
+       write(newunit,'("  ",A," : ",F15.9)') &
+            this%distributions%element_info(i)%name, &
+            this%distributions%element_info(i)%energy
+    end do
+    write(newunit,'("END ELEMENT_INFO")')
+    write(newunit,'("BOND_INFO # element1 element2 : radius")')
+    do i = 1, size(this%distributions%bond_info)
+       write(newunit,'("  ",A," ",A," : ",F7.4)') &
+             this%distributions%bond_info(i)%element(1), &
+             this%distributions%bond_info(i)%element(2), &
+             this%distributions%bond_info(i)%radius_covalent
+    end do
+    write(newunit,'("END BOND_INFO")')
+
+    close(newunit)
+
+  end subroutine print_generator_settings
+!###############################################################################
+
+
+!###############################################################################
+  subroutine read_generator_settings(this, file)
+    !! Read the raffle generator settings.
+    implicit none
+
+    ! Arguments
+    class(raffle_generator_type), intent(inout) :: this
+    !! Instance of the raffle generator.
+    character(*), intent(in) :: file
+    !! Filename to read the settings from.
+
+    ! Local variables
+    integer :: i
+    !! Loop index.
+    integer :: newunit
+    !! Unit number for the file.
+    logical :: exist
+    !! Boolean for file existence.
+    character(len=256) :: line, buffer
+    !! Line from the file.
+
+    ! Check if the file exists
+    inquire(file=file, exist=exist)
+    if(.not.exist)then
+       call stop_program("File does not exist")
+       return
+    end if
+
+    call stop_program("Code not implemented")
+    return
+
+    ! Open the file
+    open(unit=newunit, file=file)
+
+    do
+       read(newunit,*) line
+       if(index(line,'#').gt.0) line = line(1:index(line,'#')-1)
+       line = trim(adjustl(line))
+       if(len(trim(line)).eq.0) cycle
+
+       read(line,*) buffer
+       if(buffer.eq.'HOST_LATTICE')then
+          do i = 1, 4
+             read(newunit,*)
+          end do
+       end if
+    end do
+
+  close(newunit)
+
+  end subroutine read_generator_settings
 !###############################################################################
 
 end module raffle__generator

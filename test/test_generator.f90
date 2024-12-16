@@ -10,9 +10,11 @@ program test_generator
   class(raffle_generator_type), allocatable :: generator_var
   type(basis_type) :: basis_host, basis_host_expected
   type(basis_type), dimension(1) :: database
+  integer, dimension(3) :: grid
   character(3), dimension(1) :: element_symbols
   real(real32), dimension(1) :: element_energies
   real(real32), dimension(3) :: tolerance
+  real(real32), dimension(2, 3) :: bounds
 
   logical :: success = .true.
 
@@ -220,6 +222,72 @@ program test_generator
        success &
   )
 
+  call generator%reset_grid()
+
+
+  !-----------------------------------------------------------------------------
+  ! set up bounds
+  !-----------------------------------------------------------------------------
+
+  ! check initial bounds
+  bounds(1,:) = [ 0.0, 0.0, 0.0 ]
+  bounds(2,:) = [ 1.0, 1.0, 1.0 ]
+  call assert( &
+       all( &
+            abs( &
+                 generator%bounds - &
+                 bounds &
+            ) .lt. 1.E-6_real32 &
+       ), &
+       'Generator failed to handle bounds', &
+       success &
+  )
+
+  ! check bounds setting
+  bounds(1,:) = [ 0.3, 0.4, 0.5 ]
+  bounds(2,:) = [ 0.6, 0.7, 0.8 ]
+  call generator%set_bounds( bounds = bounds )
+  call assert( &
+       all( &
+            abs( &
+                 generator%bounds - &
+                 bounds &
+            ) .lt. 1.E-6_real32 &
+       ), &
+       'Generator failed to handle bounds', &
+       success &
+  )
+
+  ! check bounds resetting
+  call generator%reset_bounds()
+  bounds(1,:) = [ 0.0, 0.0, 0.0 ]
+  bounds(2,:) = [ 1.0, 1.0, 1.0 ]
+  call assert( &
+       all( &
+            abs( &
+                 generator%bounds - &
+                 bounds &
+            ) .lt. 1.E-6_real32 &
+       ), &
+       'Generator failed to handle bounds', &
+       success &
+  )
+
+  ! check grid setting with bounds
+  bounds(1,:) = [ 0.0, 0.25, 0.5 ]
+  bounds(2,:) = [ 1.0, 1.0, 1.0 ]
+  call generator%set_bounds( bounds = bounds )
+  call generator%set_grid( grid_spacing = 0.2 )
+  grid(1) = nint( generator%host%lat(1,1) / 0.2 )
+  grid(2) = nint( 0.75 * generator%host%lat(2,2) / 0.2 )
+  grid(3) = nint( 0.5 * generator%host%lat(3,3) / 0.2 )
+  call assert( &
+        all( generator%grid .eq. grid ), &
+        'Generator failed to handle grid_spacing with bounds', &
+        success &
+  )
+
+  call generator%reset_bounds()
   call generator%reset_grid()
 
 

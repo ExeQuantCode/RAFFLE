@@ -53,10 +53,10 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/nedtaylor/raffle"
+Homepage = "https://github.com/ExeQuantCode/raffle"
 Documentation = "https://raffle-fortran.readthedocs.io/"
-Repository = "https://github.com/nedtaylor/raffle"
-Issues = "https://github.com/nedtaylor/raffle/issues"
+Repository = "https://github.com/ExeQuantCode/raffle"
+Issues = "https://github.com/ExeQuantCode/raffle/issues"
 
 [project.optional-dependencies]
 ase = ["ase>=3.23.0"]

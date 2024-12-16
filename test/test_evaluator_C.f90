@@ -176,6 +176,12 @@ program test_evaluator
        basis_list = database, &
        deallocate_systems = .true. &
   )
+  call generator%distributions%set_element_map( &
+       [ "C  "] &
+  )
+  call generator%distributions%host_system%set_element_map( &
+       generator%distributions%element_info &
+  )
 
 
   !-----------------------------------------------------------------------------

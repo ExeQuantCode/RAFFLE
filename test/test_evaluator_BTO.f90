@@ -192,6 +192,12 @@ program test_evaluator_BTO
        basis_list = database, &
        deallocate_systems = .true. &
   )
+  call generator%distributions%set_element_map( &
+       [ "Ba ", "Ti ", "O  "] &
+  )
+  call generator%distributions%host_system%set_element_map( &
+       generator%distributions%element_info &
+  )
 
 
   !-----------------------------------------------------------------------------

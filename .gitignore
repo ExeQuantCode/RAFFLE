@@ -33,3 +33,4 @@ fort.*
 *.eps
 *.pyc
 *.xyz
+.coverage

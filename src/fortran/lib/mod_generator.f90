@@ -7,8 +7,9 @@ module raffle__generator
   !! provided host structure.
   use raffle__io_utils, only: stop_program
   use raffle__constants, only: real32
+  use raffle__tools_infile, only: assign_val, assign_vec
   use raffle__misc_linalg, only: modu
-  use raffle__misc, only: strip_null, set, shuffle, sort1D
+  use raffle__misc, only: strip_null, set, shuffle, sort1D, to_upper
   use raffle__geom_rw, only: basis_type
   use raffle__geom_extd, only: extended_basis_type
   use raffle__distribs_container, only: distribs_container_type
@@ -953,61 +954,61 @@ contains
     ! Local variables
     integer :: i
     !! Loop index.
-    integer :: newunit
+    integer :: unit
     !! Unit number for the file.
 
     ! Open the file
-    open(unit=newunit, file=file)
+    open(newunit=unit, file=file)
 
-    write(newunit,'("# RAFFLE Generator Settings")')
+    write(unit,'("# RAFFLE Generator Settings")')
      !print host lattice
-    write(newunit,'("# GENERATOR SETTINGS")')
-    write(newunit,'("HOST_LATTICE # not a setting, just for reference")')
-    write(newunit,'("  ",3(1X,F5.2))') this%host%lat(1,:)
-    write(newunit,'("  ",3(1X,F5.2))') this%host%lat(2,:)
-    write(newunit,'("  ",3(1X,F5.2))') this%host%lat(3,:)
-    write(newunit,'("END HOST_LATTICE")')
+    write(unit,'("# GENERATOR SETTINGS")')
+    write(unit,'("HOST_LATTICE # not a setting, just for reference")')
+    write(unit,'("  ",3(1X,F5.2))') this%host%lat(1,:)
+    write(unit,'("  ",3(1X,F5.2))') this%host%lat(2,:)
+    write(unit,'("  ",3(1X,F5.2))') this%host%lat(3,:)
+    write(unit,'("END HOST_LATTICE")')
 
-    write(newunit,'("GRID =",3(1X,I0))') this%grid
-    write(newunit,'("GRID_OFFSET =",3(1X,F5.2))') this%grid_offset
-    write(newunit,'("GRID_SPACING = ",F5.2)') this%grid_spacing
-    write(newunit,'("BOUNDS_LW =",3(1X,F5.2))') this%bounds(1,:)
-    write(newunit,'("BOUNDS_UP =",3(1X,F5.2))') this%bounds(2,:)
+    write(unit,'("GRID =",3(1X,I0))') this%grid
+    write(unit,'("GRID_OFFSET =",3(1X,F15.9))') this%grid_offset
+    write(unit,'("GRID_SPACING = ",F15.9)') this%grid_spacing
+    write(unit,'("BOUNDS_LW =",3(1X,F15.9))') this%bounds(1,:)
+    write(unit,'("BOUNDS_UP =",3(1X,F15.9))') this%bounds(2,:)
 
-    write(newunit,'("MAX_ATTEMPTS =",I0)') this%max_attempts
-    write(newunit,'("WALK_STEP_SIZE_COARSE = ",F5.2)') this%walk_step_size_coarse
-    write(newunit,'("WALK_STEP_SIZE_FINE = ",F5.2)') this%walk_step_size_fine
-    write(newunit,'("METHOD_VOID = ",F7.4)') this%method_probab(1)
-    write(newunit,'("METHOD_RANDOM = ",F7.4)') this%method_probab(2)
-    write(newunit,'("METHOD_WALK = ",F7.4)') this%method_probab(3)
-    write(newunit,'("METHOD_GROW = ",F7.4)') this%method_probab(4)
-    write(newunit,'("METHOD_MIN = ",F7.4)') this%method_probab(5)
+    write(unit,'("MAX_ATTEMPTS =",I0)') this%max_attempts
+    write(unit,'("WALK_STEP_SIZE_COARSE = ",F15.9)') this%walk_step_size_coarse
+    write(unit,'("WALK_STEP_SIZE_FINE = ",F15.9)') this%walk_step_size_fine
+    write(unit,'("METHOD_VOID = ",F15.9)') this%method_probab(1)
+    write(unit,'("METHOD_RANDOM = ",F15.9)') this%method_probab(2)
+    write(unit,'("METHOD_WALK = ",F15.9)') this%method_probab(3)
+    write(unit,'("METHOD_GROW = ",F15.9)') this%method_probab(4)
+    write(unit,'("METHOD_MIN = ",F15.9)') this%method_probab(5)
 
-    write(newunit,'("# DISTRIBUTION SETTINGS")')
-    write(newunit,'("KBT = ",F5.2)') this%distributions%kbt
-    write(newunit,'("SIGMA =",3(1X,F7.4))') this%distributions%sigma
-    write(newunit,'("WIDTH =",3(1X,F7.4))') this%distributions%width
-    write(newunit,'("CUTOFF_MIN =",3(1X,F7.4))') this%distributions%cutoff_min
-    write(newunit,'("CUTOFF_MAX =",3(1X,F7.4))') this%distributions%cutoff_max
-    write(newunit,'("RADIUS_DISTANCE_TOLERANCE = ",F7.4)') &
+    write(unit,'("# DISTRIBUTION SETTINGS")')
+    write(unit,'("KBT = ",F5.2)') this%distributions%kbt
+    write(unit,'("SIGMA =",3(1X,F15.9))') this%distributions%sigma
+    write(unit,'("WIDTH =",3(1X,F15.9))') this%distributions%width
+    write(unit,'("CUTOFF_MIN =",3(1X,F15.9))') this%distributions%cutoff_min
+    write(unit,'("CUTOFF_MAX =",3(1X,F15.9))') this%distributions%cutoff_max
+    write(unit,'("RADIUS_DISTANCE_TOLERANCE =",4(1X,F15.9))') &
          this%distributions%radius_distance_tol
-    write(newunit,'("ELEMENT_INFO # element : energy")')
+    write(unit,'("ELEMENT_INFO # element : energy")')
     do i = 1, size(this%distributions%element_info)
-       write(newunit,'("  ",A," : ",F15.9)') &
+       write(unit,'("  ",A," : ",F15.9)') &
             this%distributions%element_info(i)%name, &
             this%distributions%element_info(i)%energy
     end do
-    write(newunit,'("END ELEMENT_INFO")')
-    write(newunit,'("BOND_INFO # element1 element2 : radius")')
+    write(unit,'("END ELEMENT_INFO")')
+    write(unit,'("BOND_INFO # element1 element2 : radius")')
     do i = 1, size(this%distributions%bond_info)
-       write(newunit,'("  ",A," ",A," : ",F7.4)') &
+       write(unit,'("  ",A," ",A," : ",F15.9)') &
              this%distributions%bond_info(i)%element(1), &
              this%distributions%bond_info(i)%element(2), &
              this%distributions%bond_info(i)%radius_covalent
     end do
-    write(newunit,'("END BOND_INFO")')
+    write(unit,'("END BOND_INFO")')
 
-    close(newunit)
+    close(unit)
 
   end subroutine print_generator_settings
 !###############################################################################
@@ -1027,12 +1028,18 @@ contains
     ! Local variables
     integer :: i
     !! Loop index.
-    integer :: newunit
+    integer :: itmp1, status
+    !! Temporary integer.
+    integer :: unit
     !! Unit number for the file.
     logical :: exist
     !! Boolean for file existence.
-    character(len=256) :: line, buffer
+    character(len=256) :: line, buffer, tag
     !! Line from the file.
+    character(3), dimension(2) :: elements
+    !! Element symbols.
+    real(real32) :: rtmp1
+    !! Temporary real number.
 
     ! Check if the file exists
     inquire(file=file, exist=exist)
@@ -1041,27 +1048,95 @@ contains
        return
     end if
 
-    call stop_program("Code not implemented")
-    return
-
     ! Open the file
-    open(unit=newunit, file=file)
+    open(newunit=unit, file=file)
 
+    if(allocated(this%distributions%element_info)) &
+         deallocate(this%distributions%element_info)
+    if(allocated(this%distributions%bond_info)) &
+         deallocate(this%distributions%bond_info)
+    itmp1 = 0
     do
-       read(newunit,*) line
+       read(unit, '(A)', iostat = status) line
+       ! encounter end of line
+       if(status.ne.0) exit
+
        if(index(line,'#').gt.0) line = line(1:index(line,'#')-1)
-       line = trim(adjustl(line))
+       line = to_upper(trim(adjustl(line)))
        if(len(trim(line)).eq.0) cycle
 
-       read(line,*) buffer
-       if(buffer.eq.'HOST_LATTICE')then
+       tag=trim(adjustl(line))
+       if(scan(line,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
+
+       select case(trim(adjustl(tag)))
+       case("HOST_LATTICE")
           do i = 1, 4
-             read(newunit,*)
+             read(unit,*)
           end do
-       end if
+       case("GRID")
+          call assign_vec(line, this%grid, itmp1)
+       case("GRID_OFFSET")
+          call assign_vec(line, this%grid_offset, itmp1)
+       case("GRID_SPACING")
+          call assign_val(line, this%grid_spacing, itmp1)
+       case("BOUNDS_LW")
+          call assign_vec(line, this%bounds(1,:), itmp1)
+       case("BOUNDS_UP")
+          call assign_vec(line, this%bounds(2,:), itmp1)
+       case("MAX_ATTEMPTS")
+          call assign_val(line, this%max_attempts, itmp1)
+       case("WALK_STEP_SIZE_COARSE")
+          call assign_val(line, this%walk_step_size_coarse, itmp1)
+       case("WALK_STEP_SIZE_FINE")
+          call assign_val(line, this%walk_step_size_fine, itmp1)
+       case("METHOD_VOID")
+          call assign_val(line, this%method_probab(1), itmp1)
+       case("METHOD_RANDOM")
+          call assign_val(line, this%method_probab(2), itmp1)
+       case("METHOD_WALK")
+          call assign_val(line, this%method_probab(3), itmp1)
+       case("METHOD_GROW")
+          call assign_val(line, this%method_probab(4), itmp1)
+       case("METHOD_MIN")
+          call assign_val(line, this%method_probab(5), itmp1)
+       case("KBT")
+          call assign_val(line, this%distributions%kbt, itmp1)
+       case("SIGMA")
+          call assign_vec(line, this%distributions%sigma, itmp1)
+       case("WIDTH")
+          call assign_vec(line, this%distributions%width, itmp1)
+       case("CUTOFF_MIN")
+          call assign_vec(line, this%distributions%cutoff_min, itmp1)
+       case("CUTOFF_MAX")
+          call assign_vec(line, this%distributions%cutoff_max, itmp1)
+       case("RADIUS_DISTANCE_TOLERANCE")
+          call assign_vec(line, this%distributions%radius_distance_tol, itmp1)
+       case("ELEMENT_INFO")
+          do
+             read(unit,'(A)') line
+             if(index(line,'#').gt.0) line = line(1:index(line,'#')-1)
+             line = to_upper(trim(adjustl(line)))
+             if(len(trim(line)).eq.0) exit
+             if(index(line,'END').gt.0) exit
+             read(line(:scan(line,":")-1),*) elements(1)
+             read(line(scan(line,":")+1:),*) rtmp1
+             call this%distributions%set_element_energy(elements(1), rtmp1)
+          end do
+       case("BOND_INFO")
+          do
+             read(unit,'(A)') line
+             if(index(line,'#').gt.0) line = line(1:index(line,'#')-1)
+             line = to_upper(trim(adjustl(line)))
+             if(len(trim(line)).eq.0) exit
+             if(index(line,'END').gt.0) exit
+             read(line(:scan(line,":")-1),*) elements(1), elements(2)
+             read(line(scan(line,":")+1:),*) rtmp1
+             call this%distributions%set_bond_radius(elements, rtmp1)
+          end do
+       end select
     end do
 
-  close(newunit)
+  close(unit)
 
   end subroutine read_generator_settings
 !###############################################################################

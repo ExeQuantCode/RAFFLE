@@ -73,7 +73,7 @@ html_theme_options = {
 html_context = {
     "display_github": True,
     "github_repo": "RAFFLE",
-    "github_user": "nedtaylor",
+    "github_user": "ExeQuantCode",
     "github_version": "development",
     "conf_py_path": "/docs/source",
 }

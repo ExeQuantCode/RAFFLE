@@ -18,8 +18,8 @@ sort: permission-alpha
 author: Ned Thaddeus Taylor
 print_creation_date: true
 creation_date: %Y-%m-%d %H:%M %z
-project_github: https://github.com/nedtaylor/raffle
-project_download: https://github.com/nedtaylor/raffle/releases
-github: https://github.com/nedtaylor
+project_github: https://github.com/ExeQuantCode/raffle
+project_download: https://github.com/ExeQuantCode/raffle/releases
+github: https://github.com/ExeQuantCode
 
 {!README.md!}

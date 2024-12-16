@@ -11,13 +11,13 @@ All versions rely on the core Fortran code, with the Python package and standalo
     Currently, RAFFLE is not available on any hosted package manager (e.g. PyPI, conda-forge or fpm), so you will need to download it manually from the Git repository.
 
 
-The code is hosted on `GitHub <https://github.com/nedtaylor/raffle>`_.
+The code is hosted on `GitHub <https://github.com/ExeQuantCode/raffle>`_.
 
 This can be done by cloning the repository:
 
 .. code-block:: bash
 
-    git clone https://github.com/nedtaylor/RAFFLE
+    git clone https://github.com/ExeQuantCode/RAFFLE
     cd RAFFLE
 
 .. note::
@@ -136,7 +136,7 @@ This can also be set up as a dependency in your own fpm project by adding the fo
 .. code-block:: toml
 
     [dependencies]
-    raffle = { git = "https://github.com/nedtaylor/RAFFLE" }
+    raffle = { git = "https://github.com/ExeQuantCode/RAFFLE" }
 
 Installation using cmake
 ------------------------

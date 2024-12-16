@@ -29,6 +29,7 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
+    'sphinx_rtd_theme',
 ]
 
 intersphinx_mapping = {
@@ -44,7 +45,7 @@ exclude_patterns = ['_build', '.DS_Store', 'build']
 
 # -- Options for HTML output
 
-html_theme = 'sphinx-rtd-theme'
+html_theme = 'sphinx_rtd_theme'
 
 # -- Options for EPUB output
 epub_show_urls = 'footnote'

@@ -5,9 +5,11 @@ program test_generator
   use raffle__generator, only: raffle_generator_type, stoichiometry_type
   implicit none
 
-  integer :: i
+  integer :: i, newunit
   real(real32) :: rtmp1
-  type(raffle_generator_type) :: generator
+  logical :: exists
+  character(len=100) :: filename
+  type(raffle_generator_type) :: generator, generator2
   class(raffle_generator_type), allocatable :: generator_var
   type(basis_type) :: basis_host, basis_host_expected
   type(basis_type), dimension(1) :: database
@@ -365,28 +367,140 @@ program test_generator
   ! handle structures
   !-----------------------------------------------------------------------------
   structures_store = generator%get_structures()
-  if(size(structures_store) .ne. 3) then
-     write(0,*) 'Generator failed to get structures'
-     success = .false.
-  end if
+  call assert( &
+       size(structures_store) .eq. 3, &
+       'Generator failed to get structures', &
+       success &
+  )
   call generator%remove_structure(1)
   structures = generator%get_structures()
-  if(size(structures) .ne. 2) then
-     write(0,*) 'Generator failed to remove structure'
-     success = .false.
-  end if
+  call assert( &
+       size(structures) .eq. 2, &
+       'Generator failed to remove structure', &
+       success &
+  )
   call generator%set_structures( structures_store )
   structures = generator%get_structures()
-  if(size(structures) .ne. 3) then
-     write(0,*) 'Generator failed to set structures'
-     success = .false.
-  end if
+  call assert( &
+       size(structures) .eq. 3, &
+       'Generator failed to set structures', &
+       success &
+  )
   rtmp1 = generator%evaluate( structures_store(1) )
-  if(rtmp1 .lt. 0.0) then
-     write(0,*) 'Generator failed to evaluate structure'
-     success = .false.
-  end if
+  call assert( &
+       rtmp1 .gt. 0.0, &
+       'Generator failed to evaluate structure', &
+       success &
+  )
 
+
+  !-----------------------------------------------------------------------------
+  ! test generator printing and reading
+  !-----------------------------------------------------------------------------
+  filename = '.raffle_unit_test_settings.txt'
+  do i = 1, 100
+     inquire(file=filename, exist=exists)
+     if(exists) then
+        write(filename,'(A,I0,A)') '.raffle_unit_test_settings', i, '.txt'
+        cycle
+     elseif(i.ge.100)then
+        write(0,*) 'Generator failed to find a unique filename'
+        write(0,*) 'Will not write over existing file, so test cannot continue'
+        write(0,*) 'Please remove the file: ', filename
+        write(0,*) 'This is a test error, not a failure'
+        success = .false.
+        stop 1
+     end if
+     exit
+  end do
+
+  call generator%print_settings(filename)
+  inquire(file=filename, exist=exists)
+  call assert( &
+       exists, &
+       'Generator failed to print settings', &
+       success &
+  )
+
+  call generator2%read_settings(filename)
+  call assert( &
+       all( generator2%grid .eq. generator%grid), &
+       'Generator failed to read grid settings', &
+       success &
+  )
+  call assert( &
+       all( abs( generator2%bounds - generator%bounds ) .lt. 1.E-6 ), &
+       'Generator failed to read bounds settings', &
+       success &
+  )
+  call assert( &
+       generator2%max_attempts .eq. generator%max_attempts, &
+       'Generator failed to read max_attempts settings', &
+       success &
+  )
+  call assert( &
+       abs( &
+            generator2%walk_step_size_coarse - &
+            generator%walk_step_size_coarse &
+       ) .lt. 1.E-6, &
+       'Generator failed to read walk_step_size_coarse settings', &
+       success &
+  )
+  call assert( &
+       abs( &
+            generator2%walk_step_size_fine - generator%walk_step_size_fine &
+       ) .lt. 1.E-6, &
+       'Generator failed to read walk_step_size_fine settings', &
+       success &
+  )
+  call assert( &
+       abs( &
+            generator2%distributions%kBT - generator%distributions%kBT &
+       ) .lt. 1.E-6, &
+       'Generator failed to read kBT settings', &
+       success &
+  )
+  call assert( &
+       all( abs( &
+            generator2%distributions%width - generator%distributions%width &
+       ) .lt. 1.E-6 ), &
+       'Generator failed to read width settings', &
+       success &
+  )
+  call assert( &
+       all( abs( &
+            generator2%distributions%sigma - generator%distributions%sigma &
+       ) .lt. 1.E-6 ), &
+       'Generator failed to read sigma settings', &
+       success &
+  )
+  call assert( &
+       all( abs( &
+            generator2%distributions%cutoff_min - &
+            generator%distributions%cutoff_min &
+       ) .lt. 1.E-6 ), &
+       'Generator failed to read cutoff_min settings', &
+       success &
+  )
+  call assert( &
+       all( abs( &
+            generator2%distributions%cutoff_max - &
+            generator%distributions%cutoff_max &
+       ) .lt. 1.E-6 ), &
+       'Generator failed to read cutoff_max settings', &
+       success &
+  )
+  call assert( &
+       all( abs( &
+            generator2%distributions%radius_distance_tol - &
+            generator%distributions%radius_distance_tol &
+       ) .lt. 1.E-6 ), &
+       'Generator failed to read radius_distance_tol settings', &
+       success &
+  )
+
+  open(newunit=newunit, file=filename, status='old')
+  close(newunit, status='delete')
 
 
   !-----------------------------------------------------------------------------

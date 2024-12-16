@@ -15,6 +15,7 @@ foreach(execid
     evaluator_BTO
     generator
     io_utils
+    tools_infile
   )
   add_executable(test_${execid} test_${execid}.f90)
   # # Specify the include directories

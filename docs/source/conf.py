@@ -44,12 +44,11 @@ exclude_patterns = ['_build', '.DS_Store', 'build']
 
 # -- Options for HTML output
 
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'sphinx-rtd-theme'
 
 # -- Options for EPUB output
 epub_show_urls = 'footnote'
 
-html_theme = 'sphinx_rtd_theme'
 html_logo = "RAFFLE_logo_no_background.png"
 # html_favicon = 'favicon.ico'
 html_theme_options = {

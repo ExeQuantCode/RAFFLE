@@ -2,7 +2,7 @@
 <img src="docs/source/RAFFLE_logo_no_background.png" width="250"/>
 </p>
 
-[![MIT workflow](https://img.shields.io/badge/License-GPLv3-yellow.svg)](https://www.gnu.org/licenses/gpl-3.0.en.html "View GPLv3 license")
+[![GPLv3 workflow](https://img.shields.io/badge/License-GPLv3-yellow.svg)](https://www.gnu.org/licenses/gpl-3.0.en.html "View GPLv3 license")
 [![Latest Release](https://img.shields.io/github/v/release/ExeQuantCode/RAFFLE?sort=semver)](https://github.com/ExeQuantCode/RAFFLE/releases "View on GitHub")
 [![Paper](https://img.shields.io/badge/Paper-Phys_Rev_B-blue.svg)](https://link.aps.org/doi/10.1103/PhysRevLett.132.066201)
 [![Documentation Status](https://readthedocs.org/projects/raffle-fortran/badge/?version=latest)](https://raffle-fortran.readthedocs.io/en/latest/?badge=latest "RAFFLE ReadTheDocs")
@@ -174,6 +174,22 @@ The code will then output any generated structures to increment1/strucXXX/POSCAR
 
 It seems that the void finder works. I don't think that scan or pseudo-random walk work at all (and neither should they as they look for the old directory space to calculated distribution function contributions, instead of using the new gvectors).
 -->
+
+
+Contributing
+------------
+
+If you have any questions, bug reports, or feature requests, please post then in [issues](https://github.com/ExeQuantCode/RAFFLE/issues).
+
+
+License
+-------
+This work is licensed under a [GPL v3 license]([https://opensource.org/license/mit/](https://www.gnu.org/licenses/gpl-3.0.en.html)).
+
+Code Coverage
+-------------
+
+Automated reporting on unit test code coverage in the README is achieved through utilising the [cmake-modules](https://github.com/rpavlik/cmake-modules) and [dynamic-badges-action](https://github.com/Schneegans/dynamic-badges-action?tab=readme-ov-file) projects.
 
 
 ## References

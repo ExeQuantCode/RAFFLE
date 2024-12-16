@@ -1606,6 +1606,17 @@ class Generator(f90wrap.runtime.FortranModule):
             """
             _raffle.f90wrap_generator__print_settings__binding__rgt(this=self._handle, \
                 file=file)
+        
+        def read_settings(self, file):
+            """
+            Read the settings for the generation from a file.
+
+            Parameters:
+                file (str):
+                    Name of the file to read the settings from.
+            """
+            _raffle.f90wrap_generator__read_settings__binding__rgt(this=self._handle, \
+                file=file)
 
         @property
         def num_structures(self):

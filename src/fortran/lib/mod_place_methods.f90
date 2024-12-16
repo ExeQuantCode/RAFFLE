@@ -249,7 +249,7 @@ contains
     end do
     i = 0
     random_loop : do 
-       i = i + 1    
+       i = i + 1
        if(i.gt.max_attempts) return  
        call random_number(site_vector)
        site_vector = bounds(1,:) + ( bounds(2,:) - bounds(1,:) ) * site_vector

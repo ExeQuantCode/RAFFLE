@@ -1,0 +1,35 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: >-
+  RAFFLE: pseudoRandom Approach For Finding Local Energy
+  minima
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Ned Thaddeus
+    family-names: Taylor
+    orcid: 'https://orcid.org/0000-0002-9134-9712'
+    affiliation: University of Exeter
+  - given-names: Joe
+    family-names: Pitfield
+    orcid: 'https://orcid.org/0000-0002-9758-5230'
+    affiliation: Aarhus Universitet
+  - given-names: Steven Paul
+    family-names: Hepplestone
+    orcid: 'https://orcid.org/0000-0002-2528-1270'
+    affiliation: University of Exeter
+repository-code: 'https://github.com/ExeQuantCode/RAFFLE'
+keywords:
+  - materials science
+  - interfaces
+  - material interfaces
+  - structure prediction
+  - random structure search
+license: GPL-3.0
+commit: 696eae36488d0861001597e9aa848968a26cdd85
+version: 0.4.0
+date-released: '2024-10-23'

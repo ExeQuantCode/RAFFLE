@@ -61,6 +61,10 @@ Issues = "https://github.com/ExeQuantCode/raffle/issues"
 [project.optional-dependencies]
 ase = ["ase>=3.23.0"]
 no-ase = []
+tests = [
+    "pytest",
+    "pytest-cov",
+]
 
 [tool.scikit-build.metadata.version]
 provider = "scikit_build_core.metadata.regex"

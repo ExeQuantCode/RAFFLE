@@ -72,6 +72,7 @@ set(LIB_FILES
 	mod_io_utils.F90
 	mod_constants.f90
 	mod_misc.f90
+    mod_tools_infile.f90
 	mod_misc_maths.f90
 	mod_misc_linalg.f90
 	mod_dist_calcs.f90

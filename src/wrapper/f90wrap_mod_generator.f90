@@ -964,6 +964,23 @@ subroutine f90wrap_generator__print_settings__binding__rgt( &
    this_ptr = transfer(this, this_ptr)
    call this_ptr%p%print_settings(file=file)
 end subroutine f90wrap_generator__print_settings__binding__rgt
+
+
+subroutine f90wrap_generator__read_settings__binding__rgt( &
+    this, file &
+)
+   use raffle__generator, only: raffle_generator_type
+   implicit none
+   
+   type raffle_generator_type_ptr_type
+       type(raffle_generator_type), pointer :: p => NULL()
+   end type raffle_generator_type_ptr_type
+   type(raffle_generator_type_ptr_type) :: this_ptr
+   integer, intent(in), dimension(2) :: this
+   character*(*), intent(in) :: file
+   this_ptr = transfer(this, this_ptr)
+   call this_ptr%p%read_settings(file=file)
+end subroutine f90wrap_generator__read_settings__binding__rgt
 !###############################################################################
 
 ! End of module generator defined in file ../src/lib/mod_generator.f90

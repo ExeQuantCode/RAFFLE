@@ -6,10 +6,12 @@ program test_generator
   implicit none
 
   integer :: i
+  real(real32) :: rtmp1
   type(raffle_generator_type) :: generator
   class(raffle_generator_type), allocatable :: generator_var
   type(basis_type) :: basis_host, basis_host_expected
   type(basis_type), dimension(1) :: database
+  type(basis_type), dimension(:), allocatable :: structures, structures_store
   integer, dimension(3) :: grid
   character(3), dimension(1) :: element_symbols
   real(real32), dimension(1) :: element_energies
@@ -357,6 +359,34 @@ program test_generator
        'Generator failed to add a new structure', &
        success &
   )
+
+
+  !-----------------------------------------------------------------------------
+  ! handle structures
+  !-----------------------------------------------------------------------------
+  structures_store = generator%get_structures()
+  if(size(structures_store) .ne. 3) then
+     write(0,*) 'Generator failed to get structures'
+     success = .false.
+  end if
+  call generator%remove_structure(1)
+  structures = generator%get_structures()
+  if(size(structures) .ne. 2) then
+     write(0,*) 'Generator failed to remove structure'
+     success = .false.
+  end if
+  call generator%set_structures( structures_store )
+  structures = generator%get_structures()
+  if(size(structures) .ne. 3) then
+     write(0,*) 'Generator failed to set structures'
+     success = .false.
+  end if
+  rtmp1 = generator%evaluate( structures_store(1) )
+  if(rtmp1 .lt. 0.0) then
+     write(0,*) 'Generator failed to evaluate structure'
+     success = .false.
+  end if
+
 
 
   !-----------------------------------------------------------------------------

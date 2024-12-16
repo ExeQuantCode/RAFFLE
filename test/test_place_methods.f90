@@ -5,12 +5,53 @@ program test_place_methods
   use raffle__constants, only: real32
   use raffle__geom_rw, only: basis_type
   use raffle__geom_extd, only: extended_basis_type
+  use raffle__generator, only: raffle_generator_type
   implicit none
 
+  integer :: num_seed, seed
+  logical :: viable = .true.
   type(basis_type) :: basis
+  type(extended_basis_type) :: basis_extd
+  type(raffle_generator_type) :: generator
+  real(real32), dimension(3) :: point
+  real(real32), dimension(2, 3) :: bounds
+  character(3), dimension(1) :: element_symbols
+  real(real32), dimension(1) :: element_energies
+
+  integer, dimension(:), allocatable :: seed_arr
+  type(basis_type), allocatable :: database(:)
+  integer, dimension(:,:), allocatable :: atom_ignore_list
+  
   logical :: success = .true.
 
+
   test_error_handling = .true.
+
+
+  !-----------------------------------------------------------------------------
+  ! set up database
+  !-----------------------------------------------------------------------------
+  allocate(database(1))
+  database(1)%nspec = 1
+  database(1)%natom = 8
+  allocate(database(1)%spec(database(1)%nspec))
+  database(1)%spec(1)%num = 8
+  database(1)%spec(1)%name = 'C'
+  allocate(database(1)%spec(1)%atom(database(1)%spec(1)%num, 3))
+  database(1)%spec(1)%atom(1, :3) = [0.0, 0.0, 0.0]
+  database(1)%spec(1)%atom(2, :3) = [0.5, 0.5, 0.0]
+  database(1)%spec(1)%atom(3, :3) = [0.5, 0.0, 0.5]
+  database(1)%spec(1)%atom(4, :3) = [0.0, 0.5, 0.5]
+  database(1)%spec(1)%atom(5, :3) = [0.25, 0.25, 0.25]
+  database(1)%spec(1)%atom(6, :3) = [0.75, 0.75, 0.25]
+  database(1)%spec(1)%atom(7, :3) = [0.75, 0.25, 0.75]
+  database(1)%spec(1)%atom(8, :3) = [0.25, 0.75, 0.75]
+
+  database(1)%lat(1,:) = [3.5607451090903233, 0.0, 0.0]
+  database(1)%lat(2,:) = [0.0, 3.5607451090903233, 0.0]
+  database(1)%lat(3,:) = [0.0, 0.0, 3.5607451090903233]
+  database(1)%energy = -72.213492
+
 
   ! Initialise basis
   basis%nspec = 1
@@ -26,7 +67,123 @@ program test_place_methods
   basis%lat(3,3) = 5.0_real32
 
 
+  !-----------------------------------------------------------------------------
+  ! test place_method_void
+  !-----------------------------------------------------------------------------
   call test_place_method_void(basis, success)
+
+
+  !-----------------------------------------------------------------------------
+  ! set up distribution functions
+  !-----------------------------------------------------------------------------
+  bounds(1,:) = 0.25_real32
+  bounds(2,:) = 0.75_real32
+  call generator%set_host( basis )
+  element_symbols(1) = 'C'
+  element_energies(1) = -9.0266865
+  call generator%distributions%set_element_energies( &
+       element_symbols, &
+       element_energies &
+  )
+  call generator%distributions%create( &
+       basis_list = database, &
+       deallocate_systems = .true. &
+  )
+  call generator%distributions%set_element_map( &
+       [ "C  "] &
+  )
+  call generator%distributions%host_system%set_element_map( &
+       generator%distributions%element_info &
+  )
+  allocate(atom_ignore_list(1, 2))
+  atom_ignore_list(1,:) = [1,2]
+  seed = 0
+  call random_seed(size=num_seed)
+  allocate(seed_arr(num_seed))
+  seed_arr = seed 
+  call random_seed(put=seed_arr)
+  call basis_extd%copy(basis)
+  call basis_extd%create_images( &
+       max_bondlength = 6._real32, &
+       atom_ignore_list = atom_ignore_list &
+  )
+
+
+  !-----------------------------------------------------------------------------
+  ! test place_method_rand
+  !-----------------------------------------------------------------------------
+  viable = .true.
+  point = place_method_rand( &
+       generator%distributions, &
+       bounds, &
+       basis_extd, &
+       atom_ignore_list, &
+       radius_list = [ 0.5_real32 ], &
+       max_attempts = 1000, &
+       viable = viable &
+  )
+  if(.not. viable) then
+     write(*,*) "test_place_method_rand failed"
+     success = .false.
+  end if
+  if( any( point .gt. 0.75_real32 ) .or. any( point .lt. 0.25_real32 ) ) then
+     write(*,*) "test_place_method_rand failed"
+     success = .false.
+  end if
+
+
+  !-----------------------------------------------------------------------------
+  ! test place_method_walk
+  !-----------------------------------------------------------------------------
+  viable = .true.
+  point = place_method_walk( &
+       generator%distributions, &
+       bounds, &
+       basis_extd, &
+       atom_ignore_list, &
+       radius_list = [ 0.5_real32 ], &
+       max_attempts = 1000, &
+       step_size_fine = 0.1_real32, &
+       step_size_coarse = 0.5_real32, &
+       viable = viable &
+  )
+  if(.not. viable) then
+     write(*,*) "test_place_method_walk failed, viable = ", viable
+     success = .false.
+  end if
+  if( any( point .gt. 0.75_real32 ) .or. any( point .lt. 0.25_real32 ) ) then
+     write(*,*) "test_place_method_walk failed, point = ", point
+     success = .false.
+  end if
+
+
+  !-----------------------------------------------------------------------------
+  ! test place_method_growth
+  !-----------------------------------------------------------------------------
+  viable = .true.
+  point = place_method_growth( &
+       generator%distributions, &
+       prior_point = [0.45_real32, 0.45_real32, 0.45_real32], &
+       prior_species = 1, &
+       bounds = bounds, &
+       basis = basis_extd, &
+       atom_ignore_list = atom_ignore_list, &
+       radius_list = [ 0.5_real32 ], &
+       max_attempts = 1000, &
+       step_size_fine = 0.1_real32, &
+       step_size_coarse = 0.5_real32, &
+       viable = viable &
+  )
+  if(.not. viable) then
+     write(*,*) "test_place_method_growth failed, viable = ", viable
+     success = .false.
+  end if
+  if( any( point .gt. 0.75_real32 ) .or. any( point .lt. 0.25_real32 ) ) then
+     write(*,*) "test_place_method_growth failed, point = ", point
+     success = .false.
+  end if
+
+
 
 
   !-----------------------------------------------------------------------------

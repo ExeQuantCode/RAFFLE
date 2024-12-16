@@ -174,7 +174,10 @@ program test_generator
   ! set up host
   !-----------------------------------------------------------------------------
   call generator%set_host( basis_host )
-  call assert(compare_bas(generator%host, basis_host), &
+  do i = 1, 3
+     tolerance(i) = 1.E-6_real32 / modu(basis_host%lat(i,:))
+  end do
+  call assert(compare_bas(generator%host, basis_host, tolerance), &
        'Generator failed to set host structure', &
        success &
   )
@@ -336,7 +339,8 @@ program test_generator
   !-----------------------------------------------------------------------------
   ! compare the generated host structure
   !-----------------------------------------------------------------------------
-  call assert(compare_bas(generator%structures(1), basis_host_expected), &
+  call assert(&
+       compare_bas(generator%structures(1), basis_host_expected, tolerance), &
        'Generated host structure does not match expected host structure', &
        success &
   )
@@ -516,8 +520,10 @@ program test_generator
 
 contains
 
-  function compare_bas(bas1, bas2) result(output)
+  function compare_bas(bas1, bas2, tolerance) result(output)
+    implicit none
     type(basis_type), intent(in) :: bas1, bas2
+    real(real32), dimension(3), intent(in) :: tolerance
     logical :: output
 
     integer :: is, ia, ja

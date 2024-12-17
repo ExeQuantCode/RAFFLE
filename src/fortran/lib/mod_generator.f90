@@ -260,37 +260,37 @@ contains
 
 !###############################################################################
   subroutine set_bounds(this, bounds)
-   !! Set the bounds for the raffle generator.
-   !!
-   !! This procedure sets the bounds for the raffle generator. The bounds are
-   !! used to determine the placement of atoms in the host structure.
-   implicit none
+    !! Set the bounds for the raffle generator.
+    !!
+    !! This procedure sets the bounds for the raffle generator. The bounds are
+    !! used to determine the placement of atoms in the host structure.
+    implicit none
 
-   ! Arguments
-   class(raffle_generator_type), intent(inout) :: this
-   !! Instance of the raffle generator.
-   real(real32), dimension(2,3), intent(in) :: bounds
-   !! Bounds for atom placement.
+    ! Arguments
+    class(raffle_generator_type), intent(inout) :: this
+    !! Instance of the raffle generator.
+    real(real32), dimension(2,3), intent(in) :: bounds
+    !! Bounds for atom placement.
 
-   this%bounds = bounds
-   call this%set_grid()
+    this%bounds = bounds
+    call this%set_grid()
 
- end subroutine set_bounds
+  end subroutine set_bounds
 !###############################################################################
 
 
 !###############################################################################
   subroutine reset_bounds(this)
-   !! Reset the grid for the raffle generator.
-   implicit none
+    !! Reset the grid for the raffle generator.
+    implicit none
 
-   ! Arguments
-   class(raffle_generator_type), intent(inout) :: this
-   !! Instance of the raffle generator.
+    ! Arguments
+    class(raffle_generator_type), intent(inout) :: this
+    !! Instance of the raffle generator.
 
-   this%bounds(1,:) = 0.0_real32
-   this%bounds(2,:) = 1.0_real32
- end subroutine reset_bounds
+    this%bounds(1,:) = 0.0_real32
+    this%bounds(2,:) = 1.0_real32
+  end subroutine reset_bounds
 !###############################################################################
 
 
@@ -869,7 +869,7 @@ contains
        this%num_structures = this%num_structures - 1
     end do
 
-   end subroutine remove_structure
+  end subroutine remove_structure
 !###############################################################################
 
 
@@ -961,7 +961,6 @@ contains
     open(newunit=unit, file=file)
 
     write(unit,'("# RAFFLE Generator Settings")')
-     !print host lattice
     write(unit,'("# GENERATOR SETTINGS")')
     write(unit,'("HOST_LATTICE # not a setting, just for reference")')
     write(unit,'("  ",3(1X,F5.2))') this%host%lat(1,:)
@@ -1002,9 +1001,9 @@ contains
     write(unit,'("BOND_INFO # element1 element2 : radius")')
     do i = 1, size(this%distributions%bond_info)
        write(unit,'("  ",A," ",A," : ",F15.9)') &
-             this%distributions%bond_info(i)%element(1), &
-             this%distributions%bond_info(i)%element(2), &
-             this%distributions%bond_info(i)%radius_covalent
+            this%distributions%bond_info(i)%element(1), &
+            this%distributions%bond_info(i)%element(2), &
+            this%distributions%bond_info(i)%radius_covalent
     end do
     write(unit,'("END BOND_INFO")')
 
@@ -1136,7 +1135,7 @@ contains
        end select
     end do
 
-  close(unit)
+    close(unit)
 
   end subroutine read_generator_settings
 !###############################################################################

@@ -1932,8 +1932,10 @@ contains
        end do
        deallocate(idx_list)
        if( this%best_energy_pair(j) .lt. -1.E1 )then
-          write(warn_msg,'("Best energy pair is less than -10 eV, &
-               &this is likely to be unphysical. Check the energy values.")')
+          write(warn_msg, &
+               '("Best energy pair is less than -10 eV, &
+               &this is likely to be unphysical. Check the energy values.")' &
+          )
           call print_warning(warn_msg)
        end if
             
@@ -2423,9 +2425,12 @@ contains
        this%gdf%df_2body(:,j) = &
             this%gdf%df_2body(:,j) / this%norm_2body(j)
        if(any(isnan(this%gdf%df_2body(:,j))))then
-          write(err_msg,'("NaN in 2-body distribution function for ",A,"-",A,&
-               &" with norm of ",F0.3)') &
-               this%bond_info(j)%element(1), this%bond_info(j)%element(2), &
+          write(err_msg, &
+               '("NaN in 2-body distribution function for ",A,"-",A,&
+               &" with norm of ",F0.3)' &
+          ) &
+               this%bond_info(j)%element(1), &
+               this%bond_info(j)%element(2), &
                this%norm_2body(j)
           call stop_program( err_msg )
           return
@@ -2451,13 +2456,15 @@ contains
 
        if(any(isnan(this%gdf%df_3body(:,is))))then
           write(err_msg,'("NaN in 3-body distribution function for ",A,&
-               &" with norm of ",F0.3)') &
+               &" with norm of ",F0.3)' &
+          ) &
                this%element_info(is)%name, this%norm_3body(is)
           call stop_program( err_msg )
           return
        elseif(any(isnan(this%gdf%df_4body(:,is))))then
           write(err_msg,'("NaN in 4-body distribution function for ",A,&
-               &" with norm of ",F0.3)') &
+               &" with norm of ",F0.3)' &
+          ) &
                this%element_info(is)%name, this%norm_4body(is)
           call stop_program( err_msg )
           return

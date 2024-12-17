@@ -34,6 +34,7 @@ def check_indentation(file_path):
     inside_associate_arguments = False
     inside_do_concurrent_limits = False
     interface_block = False
+    readwrite_line = False
 
     expected_indent = 0  # Default expected indentation
     continuation_line = False  # Flag to indicate if the previous line was a continuation
@@ -140,7 +141,7 @@ def check_indentation(file_path):
                 num_double_quotes = 0
 
             # Check if line starts with close bracket, if so, update the indentation
-            if re.match(r'^\s*[)\]]', stripped_line_excld_quote):
+            if re.match(r'^\s*(\)|/\)|\])', stripped_line_excld_quote):
                 continued_indent = expected_indent + ( unbalanced_brackets - 1 ) * continuation_indent
 
             # Count open and close brackets
@@ -151,6 +152,8 @@ def check_indentation(file_path):
             if stripped_line_excld_quote.count('(') + stripped_line_excld_quote.count('[') < \
                     stripped_line_excld_quote.count(')') + stripped_line_excld_quote.count(']'):
                 unbalanced_brackets -= 1
+                if readwrite_line:
+                    unbalanced_brackets += 1
             elif stripped_line_excld_quote.count('(') + stripped_line_excld_quote.count('[') > \
                     stripped_line_excld_quote.count(')') + stripped_line_excld_quote.count(']'):
                 unbalanced_brackets += 1
@@ -248,6 +251,8 @@ def check_indentation(file_path):
                 if inside_associate_arguments:
                     inside_associate_arguments = False
                     expected_indent += loop_conditional_indent
+                if readwrite_line:
+                    readwrite_line = False
                     
 
             # Reset from contains line
@@ -338,6 +343,9 @@ def check_indentation(file_path):
                 expected_indent += loop_conditional_indent
                 inside_select = True
 
+            # Detect read/write statement
+            if re.match(r'^\s*(read|write)\(\b', stripped_line, re.IGNORECASE):
+                readwrite_line = True
 
 
     return success

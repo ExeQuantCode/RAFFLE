@@ -132,7 +132,10 @@ program test_generator
   ! test generator setup with host
   !-----------------------------------------------------------------------------
   generator_var = raffle_generator_type(host = basis_host)
-  call assert(compare_bas(generator_var%host, basis_host), &
+  do i = 1, 3
+     tolerance(i) = 1.E-6_real32 / modu(basis_host%lat(i,:))
+  end do
+  call assert(compare_bas(generator_var%host, basis_host, tolerance), &
        'Generator failed to set host structure', &
        success &
   )

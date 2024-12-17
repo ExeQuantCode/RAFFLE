@@ -149,7 +149,7 @@ contains
     !! List of atoms to ignore (i.e. indices of atoms not yet placed).
 
     ! Local variables
-    integer :: i, j, is
+    integer :: i, j, k, is
     !! Loop indices.
     integer :: num_points
     !! Number of gridpoints.
@@ -179,7 +179,6 @@ contains
              viable(i) = .false.
              cycle
           elseif( distance .gt. distribs_container%cutoff_max(1) )then
-             points(4:,i) = 0._real32
              cycle
           end if
           do is = 1, size(species_index_list,1)
@@ -199,16 +198,30 @@ contains
     end if
     allocate(points_tmp(3+basis%nspec,num_points))
 
-    i = 0
-    j = 0
-    do while (i .lt. num_points)
-       j = j + 1
-       if(.not.viable(j)) cycle
-       i = i + 1
-       points_tmp(:,i) = points(:,j)
+    !  j = 0
+    !  do i = 1, size(viable)
+    !     if(.not.viable(i)) cycle
+    !     j = j + 1
+    !     points_tmp(:,j) = points(:,i)
+    !  end do
+
+    i = findloc(viable, .true., 1)
+    j = 1
+    do while (j .le. num_points)
+       k = findloc(viable(i+1:), .false., 1)
+       select case(k)
+       case(0)
+          points_tmp(:,j:) = points(:,i:)
+          exit
+       case default
+          points_tmp(:,j:j+k-1) = points(:,i:i+k-1)
+          i = i + k - 1 + findloc(viable(i+k:), .true., 1)
+          j = j + k
+       end select
     end do
+
     deallocate(points)
-    allocate(points, source = points_tmp)
+    call move_alloc(points_tmp, points)
 
   end subroutine update_gridpoints_and_viability
 !###############################################################################

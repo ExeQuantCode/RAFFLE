@@ -86,15 +86,15 @@ def process_structure(i, atoms, num_structures_old, calc_params, optimise_struct
 if __name__ == "__main__":
 
     calc_params = {
-        "model": "medium",
+        "model": "large",
         "dispersion": False,
         "default_dtype": "float32",
         "device": 'cpu'
     }
-    calc = mace_mp(model="medium", dispersion=False, default_dtype="float32", device='cpu')
+    calc = mace_mp(**calc_params)
 
     crystal_structures = [
-        'orthorhombic', 'diamond',
+        'orthorhombic', #'diamond',
         # 'bct', 'sc',
         # 'fcc', 'bcc', 'hcp',
     ]
@@ -102,7 +102,7 @@ if __name__ == "__main__":
     hosts = []
     for crystal_structure in crystal_structures:
         print(f'Crystal structure: {crystal_structure}')
-        for a in [5.0, 6.0, 7.0, 8.0, 9.0, 10.0]:
+        for a in np.linspace(3.3, 4.3, num=7):
             b = a
             c = a
             atom = build.bulk(
@@ -235,6 +235,7 @@ if __name__ == "__main__":
                 generator.distributions.write_2body(iterdir+"df2.txt")
                 generator.distributions.write_3body(iterdir+"df3.txt")
                 generator.distributions.write_4body(iterdir+"df4.txt")
+                generator.distributions.deallocate_systems()
 
                 # update the number of structures generated
                 num_structures_old = num_structures_new
@@ -253,3 +254,5 @@ if __name__ == "__main__":
     with open("energies_ordered.txt", "w") as energy_file:
         for entry in energies:
             energy_file.write(f"{int(entry[0])} {float(entry[1])}\n")
+
+    print("Learning complete")

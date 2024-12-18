@@ -12,8 +12,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Build distribution 📦
+  build_wheel:
+    name: Build wheel distribution 📦
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -60,19 +60,21 @@ jobs:
         name: raffle-wheels-${{ matrix.python-version }}-${{ matrix.os }}-${{ matrix.toolchain.fortran-compiler }}${{ matrix.toolchain.fc-version }}
         path: dist/*.whl
 
-    - name: Store the distribution tars
+  build_sdist:
+    name: Build wheel distribution 📦
+    runs-on: ubuntu-latest
+    steps:
+    - name: checkout repo
+      uses: actions/checkout@v4
+  
+    - name: Build sdist
+      run: pipx run build --sdist
+  
+    - name: Store the source distribution
       uses: actions/upload-artifact@v4
       with:
-        name: raffle-sdist-${{ matrix.python-version }}-${{ matrix.os }}-${{ matrix.toolchain.fortran-compiler }}${{ matrix.toolchain.fc-version }}
+        name: raffle-sdist
         path: dist/*.tar.gz
-    
-    - name: Release assets
-      uses: softprops/action-gh-release@v2
-      if: startsWith(github.ref, 'refs/tags/')
-      with:
-        files: dist/*
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   publish-to-pypi:
     name: >-
@@ -96,7 +98,6 @@ jobs:
         merge-multiple: true
     - name: Publish distribution 📦 to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
-
 
 
   github-release:

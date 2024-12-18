@@ -19,7 +19,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python-version: [ "3.11", "3.12" ]
+        python-version: [ "3.11", "3.12", "3.13" ]
         toolchain:
         - {fortran-compiler: gcc, fc-version: 13}
 
@@ -57,7 +57,7 @@ jobs:
     - name: Store the distribution packages
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ matrix.python-version }}-${{ matrix.os }}-${{ matrix.toolchain.fortran-compiler }}${{ matrix.toolchain.fc-version }}
+        name: raffle-dist-${{ matrix.python-version }}-${{ matrix.os }}-${{ matrix.toolchain.fortran-compiler }}${{ matrix.toolchain.fc-version }}
         path: dist/
     
     - name: Release assets
@@ -85,8 +85,9 @@ jobs:
     - name: Download all the dists
       uses: actions/download-artifact@v4
       with:
-        name: python-package-distributions
+        pattern: raffle-dist-*
         path: dist/
+        merge-multiple: true
     - name: Publish distribution 📦 to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
 
@@ -108,8 +109,9 @@ jobs:
     - name: Download all the dists
       uses: actions/download-artifact@v4
       with:
-        name: python-package-distributions
+        pattern: raffle-dist-*
         path: dist/
+        merge-multiple: true
     - name: Sign the dists with Sigstore
       uses: sigstore/gh-action-sigstore-python@v3.0.0
       with:
@@ -152,8 +154,9 @@ jobs:
     - name: Download all the dists
       uses: actions/download-artifact@v4
       with:
-        name: python-package-distributions
+        pattern: raffle-dist-*
         path: dist/
+        merge-multiple: true
     - name: Publish distribution 📦 to TestPyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:

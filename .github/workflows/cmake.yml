@@ -34,7 +34,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python-version: [ "3.11", "3.12" ]
+        python-version: [ "3.11", "3.12", "3.13" ]
         toolchain:
         - {fortran-compiler: gcc, fc-version: 13}
         # - {fortran-compiler: intel, fc-version: '2024.1'}
@@ -101,7 +101,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python-version: [ "3.11", "3.12" ]
+        python-version: [ "3.11", "3.12", "3.13" ]
         toolchain:
         - {fortran-compiler: gcc, fc-version: 13}
         # - {fortran-compiler: intel, fc-version: '2024.1'}

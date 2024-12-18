@@ -1,7 +1,7 @@
 [build-system]
 requires = [
-    "f90wrap>=0.2.14,<=0.2.15",
-    "numpy>=1.26.4,<=2.1.2",
+    "f90wrap>=0.2.14,<=0.2.16",
+    "numpy>=1.26.4,<=2.2",
     "meson~=1.6.0",
     "cython~=3.0.11",
     "scikit-build-core",
@@ -30,10 +30,10 @@ build.verbose = false
 name = "raffle"
 dynamic = ["version"]
 dependencies = [
-    "numpy>=1.26.4,<=2.1.2",
-    "f90wrap>=0.2.14,<=0.2.15",
+    "numpy>=1.26.4,<=2.2",
+    "f90wrap>=0.2.14,<=0.2.16",
 ]
-requires-python = ">=3.11,<=3.12.7"
+requires-python = ">=3.11,<=3.12"
 authors = [
     { name = "Ned Thaddeus Taylor", email = "n.t.taylor@exeter.ac.uk" },
     { name = "Joe Pitfield", email = "joepitfield@gmail.com" },
@@ -47,7 +47,7 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Programming Language :: Fortran :: Fortran 2018", 
+    "Programming Language :: Fortran", 
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Operating System :: OS Independent",
 ]

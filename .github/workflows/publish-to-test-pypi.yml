@@ -14,7 +14,7 @@ on:
 jobs:
   build_wheel:
     name: Build wheel distribution 📦
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.platform[0] }}
     strategy:
       fail-fast: false
       matrix:

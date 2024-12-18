@@ -189,8 +189,27 @@ target_link_libraries(${PROJECT_NAME} PUBLIC)
 # replace ".f90" with ".mod"
 string(REGEX REPLACE "\\.[^.]*$" ".mod" MODULE_FILES "${SRC_FILES}")
 
+set(ETC_MODULE_FILES "")
+# Loop through each Fortran file
+foreach(FILE ${PREPENDED_LIB_FILES})
+    # Read the content of the Fortran file
+    file(READ "${FILE}" FILE_CONTENTS)
+
+    # Use a regular expression to extract the module name
+    string(REGEX MATCH "^module[ \t]+([a-zA-Z0-9_]+)" MATCH "${FILE_CONTENTS}")
+
+    # If a match is found, extract the module name (the first capture group)
+    if(MATCH)
+        string(REGEX REPLACE "module[ \t]+([a-zA-Z0-9_]+)" "\\1" MODULE_NAME "${MATCH}")
+
+        # Append the module name with .mod to the list
+        list(APPEND ETC_MODULE_FILES "${MODULE_DIR}/${MODULE_NAME}.mod")
+    endif()
+endforeach()
+
 # installation
 install(FILES ${MODULE_DIR}/${MODULE_FILES} DESTINATION ${SKBUILD_PROJECT_NAME}/include)
+install(FILES ${ETC_MODULE_FILES} DESTINATION ${SKBUILD_PROJECT_NAME}/etc)
 install(TARGETS ${PROJECT_NAME} DESTINATION ${SKBUILD_PROJECT_NAME}/lib)
 
 # set compile options based on different build configurations

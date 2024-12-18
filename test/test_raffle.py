@@ -1,7 +1,61 @@
 import unittest
+from parameterized import parameterized
 import os
 from raffle.raffle import Geom_Rw, Raffle__Distribs_Container, Generator
+import raffle
 from ase import Atoms
+import subprocess
+
+
+
+fc = os.getenv("FORTRAN_COMPILER")
+temp_test_dir = os.path.join("build", ".temp_test")
+dirname = os.path.dirname(raffle.__file__)
+include_dir = os.path.join(dirname, "include")
+etc_dir = os.path.join(dirname, "etc")
+lib_dir = os.path.join(dirname, "lib")
+
+with open("test/CMakeLists.txt", "r") as file:
+    lines = file.readlines()
+
+test_names = []
+read_names = False
+for line in lines:
+    if line.startswith("foreach(execid"):
+        read_names = True
+    elif line.strip().startswith(")"):
+        read_names = False
+        break
+    elif read_names:
+        print(line)
+        test_name = line.split()[0]
+        test_names.append(test_name)
+
+def build_fortran_test(test_name):
+    os.makedirs(temp_test_dir, exist_ok=True)
+    # make using a fortran compiler
+    # point to raffle's pip install include and lib to include during compilation
+
+    build_result = subprocess.run(
+        [
+            fc, "-o", test_name+".o",
+            "../../test/test_io_utils.f90",
+            "-I", include_dir,
+            "-I", etc_dir,
+            "-L", lib_dir,
+            "-lraffle"
+        ],
+        cwd=temp_test_dir
+    )
+    return build_result
+
+def run_fortran_test(test_name):
+    run_result = subprocess.run(
+        ["./"+test_name+".o"],
+        cwd=temp_test_dir
+    )
+    return run_result
+
 
 class TestGeomRw(unittest.TestCase):
 
@@ -94,6 +148,7 @@ class TestRaffleDistribsContainer(unittest.TestCase):
         distribs_container = Raffle__Distribs_Container.distribs_container_type()
         distribs_container.set_radius_distance_tol([0.1, 0.2, 0.3, 0.4])
         self.assertTrue( ( abs(distribs_container.radius_distance_tol - [0.1, 0.2, 0.3, 0.4]) < 1e-6 ).all() )
+
 
 class TestGenerator(unittest.TestCase):
 
@@ -207,6 +262,15 @@ class TestGenerator(unittest.TestCase):
         self.assertTrue(len(settings) > 0)
         os.remove(filename)
 
+
+class TestFortranUnits(unittest.TestCase):
+
+    @parameterized.expand([(test_name) for test_name in test_names])
+    def test_fortran(self, test_name):
+        build_result = build_fortran_test(test_name)
+        self.assertEqual(build_result.returncode, 0)
+        run_result = run_fortran_test(test_name)
+        self.assertEqual(run_result.returncode, 0)
 
 if __name__ == '__main__':
     unittest.main()

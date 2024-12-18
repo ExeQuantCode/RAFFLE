@@ -242,3 +242,13 @@ To run the test suite, run:
 
     ctest
 
+Testing with pytest
+------------------
+
+To test the installation of the Python library, navigate to the repository root directory and run:
+
+.. code-block:: bash
+
+    pytest
+
+This will run the unit tests for the Python wrapper, as well as compile and run the Fortran unit tests.

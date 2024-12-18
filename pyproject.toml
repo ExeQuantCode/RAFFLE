@@ -64,6 +64,8 @@ no-ase = []
 tests = [
     "pytest",
     "pytest-cov",
+    "parameterized",
+    "uinttest",
 ]
 
 [tool.scikit-build.metadata.version]

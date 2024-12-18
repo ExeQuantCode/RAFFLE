@@ -7,7 +7,8 @@ title: >-
   minima
 message: >-
   If you use this software, please cite it using the
-  metadata from this file.
+  metadata from this file and the following paper:
+  https://link.aps.org/doi/10.1103/PhysRevLett.132.066201
 type: software
 authors:
   - given-names: Ned Thaddeus
@@ -30,6 +31,6 @@ keywords:
   - structure prediction
   - random structure search
 license: GPL-3.0
-commit: 696eae36488d0861001597e9aa848968a26cdd85
+commit: 4cdf115d5d43d6f97037f6cb15c036dc9615eacb
 version: 0.5.0
-date-released: '2024-10-23'
+date-released: '2024-12-18'

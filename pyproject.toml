@@ -21,6 +21,7 @@ cmake.args = [
 sdist.cmake = true
 wheel.cmake = true
 build-dir="build/{wheel_tag}"
+wheel.expand-macos-universal-tags = true
 ninja.make-fallback = true
 sdist.reproducible = true
 # dev purposes only

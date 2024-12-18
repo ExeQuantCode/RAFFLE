@@ -533,11 +533,11 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
         def __init__(self, handle=None):
             """
             Create a ``Distribs_Container_Type`` object.
-
+            
             
             Returns:
-            distribution_container (Distribs_Container_Type):
-            	Object to be constructed
+                distribution_container (Distribs_Container_Type):
+                    Object to be constructed
             """
             f90wrap.runtime.FortranDerivedType.__init__(self)
             result = \
@@ -820,9 +820,9 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             Set the bond radii for the distribution functions.
             
             Parameters:
-            radius_dict (dict):
-                Dictionary of bond radii.
-                The keys are a tuple of the two element symbols and the values are the bond radii.
+                radius_dict (dict):
+                    Dictionary of bond radii.
+                    The keys are a tuple of the two element symbols and the values are the bond radii.
             """
 
             # convert radius_list to elements and radii

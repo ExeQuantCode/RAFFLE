@@ -11,7 +11,7 @@ def update_version(new_version):
     # Update Fortran module
     with open('src/fortran/lib/mod_io_utils.F90', 'r') as file:
         content = file.read()
-    content = re.sub(r'character\(len=\*\), parameter :: version = "\d+\.\d+\.\d+"', f'character(len=*), parameter :: version = "{new_version}"', content)
+    content = re.sub(r'character\(len=\*\), parameter :: raffle__version__ = "\d+\.\d+\.\d+"', f'character(len=*), parameter :: raffle__version__ = "{new_version}"', content)
     with open('src/fortran/lib/mod_io_utils.F90', 'w') as file:
         file.write(content)
 

@@ -19,17 +19,18 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
+        python-version: [ "3.11", "3.12" ]
         toolchain:
-        - {compiler: gcc, version: 13}
+        - {fortran-compiler: gcc, fc-version: 13}
 
     steps:
     - name: checkout repo
       uses: actions/checkout@v4
       
-    - name: actions-setup-python
+    - name: actions-setup-python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
-        python-version: '3.12' 
+        python-version: ${{ matrix.python-version }}
 
     - name: actions-setup-cmake
       uses: jwlawson/actions-setup-cmake@v2.0.1
@@ -39,8 +40,8 @@ jobs:
     - uses: fortran-lang/setup-fortran@v1
       id: setup-fortran
       with:
-        compiler: ${{ matrix.compiler }}
-        version: ${{ matrix.version }}
+        compiler: ${{ matrix.toolchain.fortran-compiler }}
+        version: ${{ matrix.toolchain.fc-version }}
           
     - name: Install python dependencies
       run: |
@@ -56,7 +57,7 @@ jobs:
     - name: Store the distribution packages
       uses: actions/upload-artifact@v4
       with:
-        name: python-package-distributions
+        name: ${{ matrix.python-version }}-${{ matrix.os }}-${{ matrix.toolchain.fortran-compiler }}${{ matrix.toolchain.fc-version }}
         path: dist/
     
     - name: Release assets

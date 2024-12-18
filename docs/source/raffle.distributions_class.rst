@@ -1,4 +1,4 @@
-raffle.distributions module
+raffle.distributions Class
 ===========================
 
 .. .. automodule:: raffle.Raffle__Distribs_Container
@@ -6,7 +6,7 @@ raffle.distributions module
 ..    :undoc-members:
 ..    :show-inheritance:
 
-.. autoclass:: raffle.Raffle__Distribs_Container
+.. autoclass:: raffle.raffle.Raffle__Distribs_Container
    :members:
    :undoc-members:
    :show-inheritance:

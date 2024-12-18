@@ -1,4 +1,4 @@
-raffle.generator module
+raffle.Generator Class
 =======================
 
 .. .. automodule:: raffle.Generator
@@ -6,8 +6,7 @@ raffle.generator module
 ..    :undoc-members:
 ..    :show-inheritance:
 
-
-.. autoclass:: raffle.Generator
+.. autoclass:: raffle.raffle.Generator
    :members:
    :undoc-members:
    :show-inheritance:

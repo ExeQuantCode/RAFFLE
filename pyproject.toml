@@ -66,7 +66,7 @@ tests = [
     "pytest",
     "pytest-cov",
     "parameterized",
-    "uinttest",
+    "unittest",
 ]
 
 [tool.scikit-build.metadata.version]

@@ -1,4 +1,4 @@
-raffle.geom_rw module
+raffle.Geom_Rw Class
 =======================
 
 .. .. automodule:: raffle.Geom_Rw
@@ -6,7 +6,7 @@ raffle.geom_rw module
 ..    :undoc-members:
 ..    :show-inheritance:
 
-.. autoclass:: raffle.Geom_Rw
+.. autoclass:: raffle.raffle.Geom_Rw
    :members:
    :undoc-members:
    :show-inheritance:

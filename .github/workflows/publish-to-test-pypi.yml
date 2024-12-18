@@ -50,15 +50,17 @@ jobs:
         python -m pip install build --user
         python -m piptools compile -o requirements.txt pyproject.toml --all-build-deps
         python -m pip install -r requirements.txt --user
+        python -m pip install cibuildwheel==2.22.0 --user
 
-    - name: Build a binary wheel and a source tarball
-      run: python3 -m build --wheel --sdist
+    - name: Build a binary wheel distribution
+      run: python -m cibuildwheel --output-dir wheelhouse #python -m build --wheel
 
     - name: Store the distribution wheels
       uses: actions/upload-artifact@v4
       with:
-        name: raffle-wheels-${{ matrix.python-version }}-${{ matrix.os }}-${{ matrix.toolchain.fortran-compiler }}${{ matrix.toolchain.fc-version }}
-        path: dist/*.whl
+        # name: raffle-wheels-${{ matrix.python-version }}-${{ matrix.os }}-${{ matrix.toolchain.fortran-compiler }}${{ matrix.toolchain.fc-version }}
+        name: raffle-wheels-${{ matrix.os }}-${{ strategy.job-index }}
+        path: wheelhouse/*.whl
 
   build_sdist:
     name: Build wheel distribution 📦

@@ -243,7 +243,7 @@ To run the test suite, run:
     ctest
 
 Testing with pytest
-------------------
+-------------------
 
 To test the installation of the Python library, navigate to the repository root directory and run:
 

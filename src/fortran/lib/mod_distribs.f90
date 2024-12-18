@@ -6,7 +6,7 @@ module raffle__distribs
   !! The distribution functions are used as fingerprints for atomic structures
   !! to identify similarities and differences between structures.
   use raffle__constants, only: real32, pi
-  use raffle__io_utils, only: stop_program
+  use raffle__io_utils, only: stop_program, print_warning
   use raffle__misc, only: strip_null, sort_str
   use raffle__misc_maths, only: triangular_number
   use raffle__misc_linalg, only: get_angle, get_improper_dihedral_angle, modu
@@ -81,12 +81,16 @@ contains
     !! Index of the elements in the element database.
     real(real32) :: radius, radius1, radius2
     !! Average of covalent radii.
+    character(256) :: warn_msg
 
 
-    write(0,*) 'WARNING: No bond data for element pair ', &
-         elements(1), ' and ', &
-         elements(2)
-    write(0,*) 'WARNING: Setting bond to average of covalent radii'
+
+    write(warn_msg,'("No bond data for element pair ",A," and ",A)') &
+         elements(1), elements(2)
+    warn_msg = trim(warn_msg) // &
+         achar(13) // achar(10) // &
+         "Setting bond to average of covalent radii"
+    call print_warning(warn_msg)
     if(.not.allocated(element_database)) allocate(element_database(0))
     idx1 = findloc([ element_database(:)%name ], &
          elements(1), dim=1)

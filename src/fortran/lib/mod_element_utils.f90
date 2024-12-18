@@ -7,6 +7,7 @@ module raffle__element_utils
   !! The element and bond types are used by other modules to store the
   !! properties relevant to an individual system.
   use raffle__constants, only: real32
+  use raffle__io_utils, only: print_warning
   implicit none
 
   private
@@ -133,6 +134,8 @@ contains
     ! Local variables
     integer :: i
     !! Loop index.
+    character(256) :: warn_msg
+    !! Warning message.
 
 
     if(present(in_database)) in_database = .false.
@@ -150,7 +153,8 @@ contains
        end do
     end if
 
-    write(0,*) 'WARNING: Element ', trim(name), ' not found in element database'
+    write(warn_msg,'("Element ",A," not found in element database")') trim(name)
+    call print_warning(warn_msg)
 
   end subroutine set_element
 !###############################################################################
@@ -176,6 +180,8 @@ contains
     ! Local variables
     integer :: i
     !! Loop index.
+    character(256) :: warn_msg
+    !! Warning message.
 
 
     if(present(in_database)) in_database = .false.
@@ -206,9 +212,11 @@ contains
        end do
     end if
 
-    write(0,*) &
-         'WARNING: Bond between ', trim(element_1), &
-         ' and ', trim(element_2), ' not found in bond database'
+    write(warn_msg, &
+         '("Bond between ",A," and ",A," not found in bond database")' &
+    ) &
+         trim(element_1), trim(element_2)
+    call print_warning(warn_msg)
 
   end subroutine set_bond
 !###############################################################################

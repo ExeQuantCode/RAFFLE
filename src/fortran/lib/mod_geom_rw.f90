@@ -4,7 +4,7 @@ module raffle__geom_rw
   !! This module contains the procedures to read and write geometry files.
   !! It also contains the derived types used to store the geometry data.
   use raffle__constants, only: pi,real32
-  use raffle__io_utils, only: stop_program
+  use raffle__io_utils, only: stop_program, print_warning
   use raffle__misc, only: to_upper, to_lower, jump, icount, strip_null
   use raffle__misc_linalg, only: modu, inverse_3x3
   implicit none
@@ -204,7 +204,7 @@ contains
        return
     case(5)
        call XYZ_geom_read(UNIT, basis, length_, iostat_)
-       write(0,'("WARNING: XYZ file format does not contain lattice data")')
+       call print_warning("XYZ file format does not contain lattice data")
     case(6)
        call extXYZ_geom_read(UNIT, basis, length_, iostat_)
     end select

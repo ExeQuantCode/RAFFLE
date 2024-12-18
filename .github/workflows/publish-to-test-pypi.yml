@@ -54,11 +54,17 @@ jobs:
     - name: Build a binary wheel and a source tarball
       run: python3 -m build --wheel --sdist
 
-    - name: Store the distribution packages
+    - name: Store the distribution wheels
       uses: actions/upload-artifact@v4
       with:
-        name: raffle-dist-${{ matrix.python-version }}-${{ matrix.os }}-${{ matrix.toolchain.fortran-compiler }}${{ matrix.toolchain.fc-version }}
-        path: dist/
+        name: raffle-wheels-${{ matrix.python-version }}-${{ matrix.os }}-${{ matrix.toolchain.fortran-compiler }}${{ matrix.toolchain.fc-version }}
+        path: dist/*.whl
+
+    - name: Store the distribution tars
+      uses: actions/upload-artifact@v4
+      with:
+        name: raffle-sdist-${{ matrix.python-version }}-${{ matrix.os }}-${{ matrix.toolchain.fortran-compiler }}${{ matrix.toolchain.fc-version }}
+        path: dist/*.tar.gz
     
     - name: Release assets
       uses: softprops/action-gh-release@v2
@@ -109,8 +115,8 @@ jobs:
     - name: Download all the dists
       uses: actions/download-artifact@v4
       with:
-        pattern: raffle-dist-*
-        path: dist/
+        pattern: raffle-*
+        path: dist
         merge-multiple: true
     - name: Sign the dists with Sigstore
       uses: sigstore/gh-action-sigstore-python@v3.0.0
@@ -154,8 +160,8 @@ jobs:
     - name: Download all the dists
       uses: actions/download-artifact@v4
       with:
-        pattern: raffle-dist-*
-        path: dist/
+        pattern: raffle-*
+        path: dist
         merge-multiple: true
     - name: Publish distribution 📦 to TestPyPI
       uses: pypa/gh-action-pypi-publish@release/v1

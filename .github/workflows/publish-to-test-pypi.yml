@@ -33,8 +33,12 @@ jobs:
 
     - name: Set MACOSX_DEPLOYMENT_TARGET
       if: startsWith(matrix.platform[0], 'macos')
-      run: echo "MACOSX_DEPLOYMENT_TARGET=10.14" >> $GITHUB_ENV
+      run: echo "MACOSX_DEPLOYMENT_TARGET=$(sw_vers -productVersion | cut -d '.' -f 1-2)" >> $GITHUB_ENV
       
+    - name: Check macOS deployment target
+      if: startsWith(matrix.platform[0], 'macos')
+      run: echo "Deployment target version is ${{ env.MACOSX_DEPLOYMENT_TARGET }} / ${MACOSX_DEPLOYMENT_TARGET}"
+
     - name: actions-setup-python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
@@ -68,20 +72,20 @@ jobs:
         python -m pip install build --user
         python -m piptools compile -o requirements.txt pyproject.toml --all-build-deps
         python -m pip install -r requirements.txt --user
-      #   python -m pip install cibuildwheel==2.22.0 --user
+        python -m pip install cibuildwheel==2.22.0 --user
 
     - name: Build a binary wheel distribution
-      run: python -m build --wheel
-      # run: python -m cibuildwheel --output-dir wheelhouse
+      # run: python -m build --wheel
+      run: python -m cibuildwheel --output-dir wheelhouse
 
     - name: Store the distribution wheels
       uses: actions/upload-artifact@v4
       with:
         name: raffle-wheels-${{ matrix.python-version }}-${{ matrix.platform[0] }}-${{ matrix.toolchain.fortran-compiler }}${{ matrix.toolchain.fc-version }}
-        path: dist/*.whl
+        # path: dist/*.whl
         # name: raffle-wheels-${{ matrix.os }}-${{ strategy.job-index }}
         # name: raffle-wheels-${{ matrix.platform[0] }}-${{ strategy.job-index }}
-        # path: ./wheelhouse/*.whl
+        path: ./wheelhouse/*.whl
 
   build_sdist:
     name: Build wheel distribution 📦

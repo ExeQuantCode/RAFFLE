@@ -21,7 +21,7 @@ jobs:
         platform:
         - [ubuntu-latest, manylinux, x86_64]
         - [macos-14, macosx, arm64]
-        python-version: [ "3.11", "3.12", "3.13" ]
+        python-version: [ "3.12" ] # cibuildwheel automatically runs on all versions of Python
         toolchain:
         - {fortran-compiler: gcc, fc-version: 13}
 
@@ -107,8 +107,8 @@ jobs:
     - name: Download all the dists
       uses: actions/download-artifact@v4
       with:
-        pattern: raffle-dist-*
-        path: dist/
+        pattern: raffle-*
+        path: dist
         merge-multiple: true
     - name: Publish distribution 📦 to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
@@ -158,29 +158,30 @@ jobs:
         '${{ github.ref_name }}' dist/**
         --repo '${{ github.repository }}'
 
-  publish-to-testpypi:
-    name: Publish Python 🐍 distribution 📦 to TestPyPI
-    needs:
-    - build_wheel
-    - build_sdist
-    runs-on: ubuntu-latest
+  # publish-to-testpypi:
+  #   name: Publish Python 🐍 distribution 📦 to TestPyPI
+  #   if: startsWith(github.ref, 'refs/tags/')  # only publish to PyPI on tag pushes
+  #   needs:
+  #   - build_wheel
+  #   - build_sdist
+  #   runs-on: ubuntu-latest
 
-    environment:
-      name: testpypi
-      url: https://test.pypi.org/p/raffle
+  #   environment:
+  #     name: testpypi
+  #     url: https://test.pypi.org/p/raffle
 
-    permissions:
-      id-token: write  # IMPORTANT: mandatory for trusted publishing
+  #   permissions:
+  #     id-token: write  # IMPORTANT: mandatory for trusted publishing
 
-    steps:
-    - name: Download all the dists
-      uses: actions/download-artifact@v4
-      with:
-        pattern: raffle-*
-        path: dist
-        merge-multiple: true
-    - name: Publish distribution 📦 to TestPyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        verbose: true
-        repository-url: https://test.pypi.org/legacy/
+  #   steps:
+  #   - name: Download all the dists
+  #     uses: actions/download-artifact@v4
+  #     with:
+  #       pattern: raffle-*
+  #       path: dist
+  #       merge-multiple: true
+  #   - name: Publish distribution 📦 to TestPyPI
+  #     uses: pypa/gh-action-pypi-publish@release/v1
+  #     with:
+  #       verbose: true
+  #       repository-url: https://test.pypi.org/legacy/

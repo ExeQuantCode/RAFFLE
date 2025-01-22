@@ -98,7 +98,6 @@ structure_data = database.get_all_structures_data()
 traj = []
 for structure in structure_data:
     traj.append(database.db_to_atoms(structure)) 
-print(traj)
 write("all.traj", traj)
 
 # database.restore_to_memory()

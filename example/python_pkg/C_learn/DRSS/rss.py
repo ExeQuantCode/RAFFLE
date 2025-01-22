@@ -80,7 +80,7 @@ random_generator = RandomGenerator(**environment.get_confinement(), environment=
 evaluator = LocalOptimizationEvaluator(
     calc,
     gets={"get_key": "candidates"},
-    optimizer_run_kwargs={"fmax": 0.05, "steps": 2},
+    optimizer_run_kwargs={"fmax": 0.05, "steps": 100},
     store_trajectory=False,
     order=2,
     constraints=environment.get_constraints(),
@@ -92,7 +92,7 @@ evaluator = LocalOptimizationEvaluator(
 
 agox = AGOX(random_generator, database, evaluator, seed=seed)
 
-agox.run(N_iterations=2)
+agox.run(N_iterations=100)
 
 structure_data = database.get_all_structures_data()
 traj = []

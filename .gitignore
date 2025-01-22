@@ -34,3 +34,15 @@ fort.*
 *.pyc
 *.xyz
 .coverage
+*CAR
+*.pckl
+.DS_Store
+fortranobject.c*
+*.db
+CHG
+EIGENVAL
+IBZKPT
+KPOINTS
+PCDAT
+REPORT
+vasprun.xml

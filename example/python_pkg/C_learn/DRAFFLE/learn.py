@@ -176,6 +176,7 @@ if __name__ == "__main__":
 
         num_structures_old = 0
         unrlxd_structures = []
+        rlxd_structures = []
         for iter in range(200):
             generator.generate(
                 num_structures = 5,
@@ -214,6 +215,7 @@ if __name__ == "__main__":
             # Wait for all futures to complete
             for j, result in enumerate(results):
                 generated_structures[j+num_structures_old], energy_unrlxd[j], energy_rlxd[j] = result
+                rlxd_structures.append(deepcopy(generated_structures[j+num_structures_old]))
             print("All futures completed")
 
             # Remove structures that failed the checks
@@ -222,6 +224,8 @@ if __name__ == "__main__":
                     energy_unrlxd = np.delete(energy_unrlxd, j-num_structures_old)
                     energy_rlxd = np.delete(energy_rlxd, j-num_structures_old)
                     del generated_structures[j]
+                    # del unrlxd_structures[j]
+                    del rlxd_structures[j]
                     generator.remove_structure(j)
             num_structures_new = len(generated_structures) 
 
@@ -267,7 +271,7 @@ if __name__ == "__main__":
                 energy_file.write(f"{int(entry[0])} {float(entry[1])}\n")
 
         write(f"unrlxd_structures_seed{seed}.traj", unrlxd_structures)
-        write(f"rlxd_structures_seed{seed}.traj", generated_structures)
+        write(f"rlxd_structures_seed{seed}.traj", rlxd_structures)
         print("All generated and relaxed structures written")
 
     print("Learning complete")

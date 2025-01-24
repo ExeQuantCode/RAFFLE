@@ -202,7 +202,8 @@ if __name__ == "__main__":
             for i in range(num_structures_new - num_structures_old):
                 write(iterdir+f"POSCAR_unrlxd_{i}", generated_structures[num_structures_old + i])
                 print(f"Structure {i} energy per atom: {generated_structures[num_structures_old + i].get_potential_energy() / len(generated_structures[num_structures_old + i])}")
-
+                unrlxd_structures.append(deepcopy(generated_structures[num_structures_old + i]))
+            
             # Start parallel execution
             print("Starting parallel execution")
             results = Parallel(n_jobs=5)(
@@ -212,7 +213,6 @@ if __name__ == "__main__":
 
             # Wait for all futures to complete
             for j, result in enumerate(results):
-                unrlxd_structures.append(generated_structures[j+num_structures_old])
                 generated_structures[j+num_structures_old], energy_unrlxd[j], energy_rlxd[j] = result
             print("All futures completed")
 
@@ -267,7 +267,7 @@ if __name__ == "__main__":
                 energy_file.write(f"{int(entry[0])} {float(entry[1])}\n")
 
         write(f"unrlxd_structures_seed{seed}.traj", unrlxd_structures)
-        write(f"rlxd_structures_seed{seed}.traj", generator.get_structures(calc))
+        write(f"rlxd_structures_seed{seed}.traj", generated_structures)
         print("All generated and relaxed structures written")
 
     print("Learning complete")

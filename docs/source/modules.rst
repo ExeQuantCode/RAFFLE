@@ -26,9 +26,20 @@ Submodules
 .. toctree:: 
    :maxdepth: 2
 
-   raffle.generator
-   raffle.geom
-   raffle.distributions
+   raffle.generator_module
+   raffle.geom_module
+
+Classes
+-------
+
+These are the main classes of the package (they are only indirectly accessible):
+
+.. toctree::
+   :maxdepth: 2
+
+   raffle.generator_class
+   raffle.geom_rw_class
+   raffle.distributions_class
 
 .. .. automodule:: raffle
 ..    :members:

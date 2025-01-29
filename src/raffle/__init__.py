@@ -16,12 +16,12 @@ from .raffle import geom_rw as _geom_rw_class
 # from .raffle import generator
 
 
-# Use the 'types' module to create a simulated 'generator' submodule
+# Use the 'types' module to create simulated 'generator' and 'geom submodules
 import types
 generator = types.ModuleType('generator')
 geom = types.ModuleType('geom')
 
-# Assign the class to the simulated 'generator' module
+# Assign the respective class to the simulated 'generator' and 'geom' modules
 generator.raffle_generator = _generator_class.raffle_generator
 generator.stoichiometry_array = _generator_class.stoichiometry_array
 
@@ -30,7 +30,7 @@ geom.basis_array = _geom_rw_class.basis_array
 geom.basis = _geom_rw_class.basis
 
 
-# Add the simulated 'generator' module to the current package
+# Add the simulated 'generator' and 'geom' module to the current package
 import sys
 sys.modules['raffle.generator'] = generator
 sys.modules['raffle.geom'] = geom

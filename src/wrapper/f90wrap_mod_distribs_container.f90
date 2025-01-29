@@ -473,7 +473,7 @@ end subroutine f90wrap_raffle__dc__set_radius_distance_tol__binding__dc_type
 ! create and update the generalised distribution functions
 !###############################################################################
 subroutine f90wrap_raffle__dc__create__binding__dc_type( &
-     this, basis_list, deallocate_systems, energy_above_hull_list, n0 &
+     this, basis_list, deallocate_systems, verbose, energy_above_hull_list, n0 &
 )
     use raffle__geom_rw, only: basis_type
     use raffle__distribs_container, only: distribs_container_type
@@ -495,6 +495,7 @@ subroutine f90wrap_raffle__dc__create__binding__dc_type( &
     type(basis_type_xnum_array_ptr_type) :: basis_list_ptr
     integer, intent(in), dimension(2) :: basis_list
     logical, intent(in), optional :: deallocate_systems
+    integer, intent(in), optional :: verbose
     real(4), dimension(n0), intent(in), optional :: energy_above_hull_list
     integer :: n0
     !f2py intent(hide), depend(energy_above_hull_list) :: n0 = shape(energy_above_hull_list,0)
@@ -504,13 +505,14 @@ subroutine f90wrap_raffle__dc__create__binding__dc_type( &
     call this_ptr%p%create( &
          basis_list=basis_list_ptr%p%items, &
          energy_above_hull_list=energy_above_hull_list, &
-         deallocate_systems=deallocate_systems &
+         deallocate_systems=deallocate_systems, &
+         verbose=verbose &
     )
 end subroutine f90wrap_raffle__dc__create__binding__dc_type
 
 subroutine f90wrap_raffle__dc__update__binding__dc_type( &
        this, basis_list, &
-         from_host, deallocate_systems, energy_above_hull_list, n0 &
+         from_host, deallocate_systems, verbose, energy_above_hull_list, n0 &
 )
     use raffle__geom_rw, only: basis_type
     use raffle__distribs_container, only: distribs_container_type
@@ -533,6 +535,7 @@ subroutine f90wrap_raffle__dc__update__binding__dc_type( &
     integer, intent(in), dimension(2) :: basis_list
     logical, intent(in), optional :: from_host
     logical, intent(in), optional :: deallocate_systems
+    integer, intent(in), optional :: verbose
     real(4), dimension(n0), intent(in), optional :: energy_above_hull_list
     integer :: n0
     !f2py intent(hide), depend(energy_above_hull_list) :: n0 = shape(energy_above_hull_list,0)
@@ -542,7 +545,8 @@ subroutine f90wrap_raffle__dc__update__binding__dc_type( &
     call this_ptr%p%update(basis_list=basis_list_ptr%p%items, &
          energy_above_hull_list=energy_above_hull_list, &
          from_host=from_host, &
-         deallocate_systems=deallocate_systems &
+         deallocate_systems=deallocate_systems, &
+         verbose=verbose &
     )
 end subroutine f90wrap_raffle__dc__update__binding__dc_type
 !###############################################################################

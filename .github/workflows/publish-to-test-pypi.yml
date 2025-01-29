@@ -1,0 +1,187 @@
+# Workflow developed from Python Package User Guide:
+# https://packaging.python.org/en/latest/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
+
+name: Publish Python 🐍 distribution 📦 to PyPI and TestPyPI
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - v*
+  workflow_dispatch:
+
+jobs:
+  build_wheel:
+    name: Build wheel distribution 📦
+    runs-on: ${{ matrix.platform[0] }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+        - [ubuntu-latest, manylinux, x86_64]
+        - [macos-14, macosx, arm64]
+        python-version: [ "3.12" ] # cibuildwheel automatically runs on all versions of Python
+        toolchain:
+        - {fortran-compiler: gcc, fc-version: 13}
+
+    steps:
+    - name: checkout repo
+      uses: actions/checkout@v4
+
+    - name: Set MACOSX_DEPLOYMENT_TARGET
+      if: startsWith(matrix.platform[0], 'macos')
+      run: echo "MACOSX_DEPLOYMENT_TARGET=$(sw_vers -productVersion | cut -d '.' -f 1-2)" >> $GITHUB_ENV
+      
+    - name: Check macOS deployment target
+      if: startsWith(matrix.platform[0], 'macos')
+      run: echo "Deployment target version is ${{ env.MACOSX_DEPLOYMENT_TARGET }} / ${MACOSX_DEPLOYMENT_TARGET}"
+
+    - name: actions-setup-python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: actions-setup-cmake
+      uses: jwlawson/actions-setup-cmake@v2.0.1
+      with:
+        cmake-version: '3.24.x'
+            
+    - name: actions-setup-fortran
+      uses: fortran-lang/setup-fortran@v1
+      id: setup-fortran
+      with:
+        compiler: ${{ matrix.toolchain.fortran-compiler }}
+        version: ${{ matrix.toolchain.fc-version }}
+          
+      
+    - name: Install python dependencies
+      run: |
+        python --version
+        python -m pip install pip-tools --user
+        python -m pip install build --user
+        python -m piptools compile -o requirements.txt pyproject.toml --all-build-deps
+        python -m pip install -r requirements.txt --user
+        python -m pip install cibuildwheel==2.22.0 --user
+
+    - name: Build a binary wheel distribution
+      run: python -m cibuildwheel --output-dir wheelhouse
+
+    - name: Store the distribution wheels
+      uses: actions/upload-artifact@v4
+      with:
+        name: raffle-wheels-${{ matrix.python-version }}-${{ matrix.platform[0] }}-${{ matrix.toolchain.fortran-compiler }}${{ matrix.toolchain.fc-version }}
+        path: ./wheelhouse/*.whl
+
+  build_sdist:
+    name: Build wheel distribution 📦
+    runs-on: ubuntu-latest
+    steps:
+    - name: checkout repo
+      uses: actions/checkout@v4
+  
+    - name: Build sdist
+      run: pipx run build --sdist
+  
+    - name: Store the source distribution
+      uses: actions/upload-artifact@v4
+      with:
+        name: raffle-sdist
+        path: dist/*.tar.gz
+
+  publish-to-pypi:
+    name: >-
+      Publish Python 🐍 distribution 📦 to PyPI
+    if: startsWith(github.ref, 'refs/tags/')  # only publish to PyPI on tag pushes
+    needs:
+    - build_wheel
+    - build_sdist
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/raffle
+    permissions:
+        id-token: write  # IMPORTANT: mandatory for trusted publishing
+
+    steps:
+    - name: Download all the dists
+      uses: actions/download-artifact@v4
+      with:
+        pattern: raffle-*
+        path: dist
+        merge-multiple: true
+    - name: Publish distribution 📦 to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+
+
+  github-release:
+    name: >-
+      Sign the Python 🐍 distribution 📦 with Sigstore
+      and upload them to GitHub Release
+    needs:
+    - publish-to-pypi
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write  # IMPORTANT: mandatory for making GitHub Releases
+      id-token: write  # IMPORTANT: mandatory for sigstore
+
+    steps:
+    - name: Download all the dists
+      uses: actions/download-artifact@v4
+      with:
+        pattern: raffle-*
+        path: dist
+        merge-multiple: true
+    - name: Sign the dists with Sigstore
+      uses: sigstore/gh-action-sigstore-python@v3.0.0
+      with:
+        inputs: >-
+          ./dist/*.tar.gz
+          ./dist/*.whl
+    - name: Create GitHub Release
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: >-
+        gh release create
+        '${{ github.ref_name }}'
+        --repo '${{ github.repository }}'
+        --notes ""
+    - name: Upload artifact signatures to GitHub Release
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        # Upload to GitHub Release using the `gh` CLI.
+        # `dist/` contains the built packages, and the
+        # sigstore-produced signatures and certificates.
+      run: >-
+        gh release upload
+        '${{ github.ref_name }}' dist/**
+        --repo '${{ github.repository }}'
+
+  # publish-to-testpypi:
+  #   name: Publish Python 🐍 distribution 📦 to TestPyPI
+  #   if: startsWith(github.ref, 'refs/tags/')  # only publish to PyPI on tag pushes
+  #   needs:
+  #   - build_wheel
+  #   - build_sdist
+  #   runs-on: ubuntu-latest
+
+  #   environment:
+  #     name: testpypi
+  #     url: https://test.pypi.org/p/raffle
+
+  #   permissions:
+  #     id-token: write  # IMPORTANT: mandatory for trusted publishing
+
+  #   steps:
+  #   - name: Download all the dists
+  #     uses: actions/download-artifact@v4
+  #     with:
+  #       pattern: raffle-*
+  #       path: dist
+  #       merge-multiple: true
+  #   - name: Publish distribution 📦 to TestPyPI
+  #     uses: pypa/gh-action-pypi-publish@release/v1
+  #     with:
+  #       verbose: true
+  #       repository-url: https://test.pypi.org/legacy/

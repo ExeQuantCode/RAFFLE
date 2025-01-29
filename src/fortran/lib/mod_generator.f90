@@ -5,7 +5,7 @@ module raffle__generator
   !! random structures from a host structure. The raffle generator uses
   !! distribution functions to determine the placement of atoms in the
   !! provided host structure.
-  use raffle__io_utils, only: stop_program
+  use raffle__io_utils, only: stop_program, print_warning, suppress_warnings
   use raffle__constants, only: real32
   use raffle__tools_infile, only: assign_val, assign_vec
   use raffle__misc_linalg, only: modu
@@ -335,7 +335,7 @@ contains
     !! Total probability of the placement methods.
     logical :: success
     !! Boolean comparison of element symbols.
-    integer :: verbose_ = 0
+    integer :: verbose_
     !! Verbosity level.
     type(basis_type) :: basis_template
     !! Basis of the structure to generate (i.e. allocated species and atoms).
@@ -353,7 +353,13 @@ contains
     !! List of possible atoms to place in the structure.
 
 
+    !---------------------------------------------------------------------------
+    ! Set the verbosity level
+    !---------------------------------------------------------------------------
+    verbose_ = 0
     if(present(verbose)) verbose_ = verbose
+    if(verbose_ .eq. 0) suppress_warnings = .true.
+
 
     !---------------------------------------------------------------------------
     ! set the placement method probabilities
@@ -509,7 +515,9 @@ contains
        this%num_structures = istructure
 
     end do structure_loop
-    if(verbose_.gt.0) write(*,*) "Finished generating structures"
+    if(verbose_ .gt. 0) write(*,*) "Finished generating structures"
+
+    if(verbose_ .eq. 0) suppress_warnings = .true.
 
   end subroutine generate
 !###############################################################################
@@ -566,7 +574,7 @@ contains
     !! List of species indices to add.
     real(real32), dimension(:,:), allocatable :: gridpoint_viability
     !! Viable gridpoints for placing atoms.
-    character(len=256) :: stop_msg
+    character(len=256) :: stop_msg, warn_msg
     !! Error message.
 
 
@@ -645,8 +653,11 @@ contains
              else if( &
                   abs( method_probab_(5) - method_probab_(4) ) .gt. 1.E-6 &
              ) then
-                write(*,*) "WARNING: No more viable gridpoints"
-                write(*,*) "Suppressing global minimum method"
+                write(warn_msg, '("No more viable gridpoints")')
+                warn_msg = trim(warn_msg) // &
+                     achar(13) // achar(10) // &
+                     "Suppressing global minimum method"
+                call print_warning(warn_msg)
                 method_probab_ = method_probab_ / method_probab_(4)
                 method_probab_(5) = method_probab_(4)
              end if
@@ -741,8 +752,11 @@ contains
              return
           elseif(.not. viable)then
              deallocate(gridpoint_viability)
-             write(*,*) "WARNING: No more viable gridpoints"
-             write(*,*) "Suppressing global minimum method"
+             write(warn_msg, '("No more viable gridpoints")')
+             warn_msg = trim(warn_msg) // &
+                  achar(13) // achar(10) // &
+                  "Suppressing global minimum method"
+             call print_warning(warn_msg)
              method_probab_ = method_probab_ / method_probab_(4)
              method_probab_(5) = method_probab_(4)
           end if

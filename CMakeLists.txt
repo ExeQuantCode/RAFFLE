@@ -21,14 +21,23 @@ set(CMAKE_C_COMPILER gcc
   CACHE STRING "Select C compiler." )  # Change this to your desired compiler
 set(CMAKE_Fortran_STANDARD 2018)
 
+# set the project version
+file(READ "fpm.toml" ver)
+string(REGEX MATCH "version = \"([0-9]+.[0-9]+.[0-9]+)\"" _ ${ver})
+set(PROJECT_VERSION ${CMAKE_MATCH_1})
+message(STATUS "Project version: ${PROJECT_VERSION}")
+
 # set the project name
-project(raffle LANGUAGES C Fortran)
+project(raffle
+    VERSION ${PROJECT_VERSION}
+    LANGUAGES C Fortran
+)
 
 # set the library name
 set( LIB_NAME ${PROJECT_NAME} )
 set( PROJECT_DESCRIPTION
   "Fortran neural network" )
-set( PROJECT_URL "https://github.com/nedtaylor/raffle" )
+set( PROJECT_URL "https://github.com/ExeQuantCode/raffle" )
 set( CMAKE_CONFIGURATION_TYPES "Release" "Parallel" "Serial" "Dev" "Debug" "Coverage"
   CACHE STRING "List of configurations types." )
 set( CMAKE_BUILD_TYPE "Release"
@@ -189,9 +198,29 @@ target_link_libraries(${PROJECT_NAME} PUBLIC)
 # replace ".f90" with ".mod"
 string(REGEX REPLACE "\\.[^.]*$" ".mod" MODULE_FILES "${SRC_FILES}")
 
+set(ETC_MODULE_FILES "")
+# Loop through each Fortran file
+foreach(FILE ${PREPENDED_LIB_FILES})
+    # Read the content of the Fortran file
+    file(READ "${FILE}" FILE_CONTENTS)
+
+    # Use a regular expression to extract the module name
+    string(REGEX MATCH "^module[ \t]+([a-zA-Z0-9_]+)" MATCH "${FILE_CONTENTS}")
+
+    # If a match is found, extract the module name (the first capture group)
+    if(MATCH)
+        string(REGEX REPLACE "module[ \t]+([a-zA-Z0-9_]+)" "\\1" MODULE_NAME "${MATCH}")
+
+        # Append the module name with .mod to the list
+        list(APPEND ETC_MODULE_FILES "${MODULE_DIR}/${MODULE_NAME}.mod")
+    endif()
+endforeach()
+
 # installation
 install(FILES ${MODULE_DIR}/${MODULE_FILES} DESTINATION ${SKBUILD_PROJECT_NAME}/include)
+install(FILES ${ETC_MODULE_FILES} DESTINATION ${SKBUILD_PROJECT_NAME}/etc)
 install(TARGETS ${PROJECT_NAME} DESTINATION ${SKBUILD_PROJECT_NAME}/lib)
+set_target_properties(${PROJECT_NAME} PROPERTIES VERSION ${PROJECT_VERSION})
 
 # set compile options based on different build configurations
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Release>:${OPTIMFLAGS}>")
@@ -216,6 +245,7 @@ if (BUILD_EXECUTABLE)
     target_compile_options(${PROJECT_NAME}_executable PUBLIC "$<$<CONFIG:Dev>:${DEVFLAGS}>")
     target_compile_options(${PROJECT_NAME}_executable PUBLIC "$<$<CONFIG:Debug>:${DEBUGFLAGS}>")
     target_compile_options(${PROJECT_NAME}_executable PUBLIC "$<$<CONFIG:Release>:${PYTHONFLAGS}>")
+    set_target_properties(${PROJECT_NAME}_executable PROPERTIES VERSION ${PROJECT_VERSION})
 endif()
 
 
@@ -277,7 +307,6 @@ if (BUILD_PYTHON)
         set(F90WRAP_REMAKE_FILE ${CMAKE_BUILD_DIR}/f90wrap_${PROJECT_NAME}.f90)
         add_custom_command(
             OUTPUT ${F90WRAP_REMAKE_FILE}
-            POST_BUILD
             COMMAND ${F90WRAP_EXECUTABLE}
             --default-to-inout
             -m ${PROJECT_NAME}
@@ -301,7 +330,6 @@ if (BUILD_PYTHON)
     # Create a Python module using f2py
     add_custom_command(
         OUTPUT ${F2PY_OUTPUT_FILE}
-        POST_BUILD
         COMMAND CC="${CMAKE_C_COMPILER}" LDFLAGS="-L${CMAKE_BUILD_DIR}" LIBS="-lraffle" ${F2PY_EXECUTABLE}
         -c
         -m _${PROJECT_NAME}

@@ -9,9 +9,9 @@ from unittest.mock import Mock
 
 MOCK_MODULES = ["raffle._raffle"]  # List any other modules if needed
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
-print("LOOK HERE",sys.executable)
 
-sys.path.insert(0, os.path.abspath(os.path.join('..', '..', 'src', 'raffle')))  # Sets the base path to find your modules
+# sys.path.insert(0, os.path.abspath(os.path.join('..', '..', 'src', 'raffle')))  # Sets the base path to find your modules
+sys.path.insert(0, os.path.abspath(os.path.join('..', '..', 'src')))  # Sets the base path to find your modules
 
 project = 'RAFFLE'
 copyright = f'{datetime.date.today().year}, RAFFLE-developers'
@@ -74,8 +74,8 @@ html_context = {
     "display_github": True,
     "github_repo": "RAFFLE",
     "github_user": "ExeQuantCode",
-    "github_version": "development",
-    "conf_py_path": "/docs/source",
+    "github_version": "main",
+    "conf_py_path": "/docs/source/",
 }
 
 autoclass_content="both"

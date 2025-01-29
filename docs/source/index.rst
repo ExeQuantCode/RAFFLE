@@ -38,7 +38,7 @@ An example
             stoichiometry = { 'C': 7 }
         )
         structures = generator.get_structures(calc)
-        generator.update(structures[num_structures_old:])
+        generator.distributions.update(structures[num_structures_old:])
         num_structures_old = len(structures)
 
 .. toctree::

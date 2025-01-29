@@ -251,13 +251,15 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
                 atoms.calc = calculator
             return atoms
         
-        def fromase(self, atoms):
+        def fromase(self, atoms, verbose=False):
             """
             Convert the ASE Atoms object to a basis object.
 
             Parameters:
                 atoms (ASE Atoms):
                     ASE Atoms object to be converted.
+                verbose (bool):
+                    Boolean whether to print warnings.
             """
             from ase.calculators.singlepoint import SinglePointCalculator
             
@@ -273,7 +275,8 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
 
             # check if calculator is present
             if atoms.calc is None:
-                print("WARNING: No calculator present, setting energy to 0.0")
+                if verbose:
+                    print("WARNING: No calculator present, setting energy to 0.0")
                 atoms.calc = SinglePointCalculator(atoms, energy=0.0)
             self.energy = atoms.get_potential_energy()
             
@@ -534,10 +537,10 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             """
             Create a ``Distribs_Container_Type`` object.
 
-            
             Returns:
-            distribution_container (Distribs_Container_Type):
-            	Object to be constructed
+                distribution_container (Distribs_Container_Type):
+                    Object to be constructed
+
             """
             f90wrap.runtime.FortranDerivedType.__init__(self)
             result = \
@@ -670,7 +673,7 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             _raffle.f90wrap_raffle__dc__set_radius_distance_tol__binding__dc_type(this=self._handle, \
                 radius_distance_tol=radius_distance_tol)
         
-        def create(self, basis_list, energy_above_hull_list=None, deallocate_systems=True):
+        def create(self, basis_list, energy_above_hull_list=None, deallocate_systems=True, verbose=None):
             """
             Create the distribution functions.
 
@@ -681,6 +684,8 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
                     List of energy above hull values for the atomic configurations.
                 deallocate_systems (bool):
                     Boolean whether to deallocate the atomic configurations after creating the distribution functions.
+                verbose (int):
+                    Verbosity level.
             """
             from ase import Atoms
             if isinstance(basis_list, Atoms):
@@ -692,10 +697,11 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             _raffle.f90wrap_raffle__dc__create__binding__dc_type(this=self._handle, \
                 basis_list=basis_list._handle, \
                 energy_above_hull_list=energy_above_hull_list, \
-                deallocate_systems=deallocate_systems \
+                deallocate_systems=deallocate_systems, \
+                verbose=verbose \
             )
             
-        def update(self, basis_list, energy_above_hull_list=None, from_host=True, deallocate_systems=True):
+        def update(self, basis_list, energy_above_hull_list=None, from_host=True, deallocate_systems=True, verbose=None):
             """
             Update the distribution functions.
 
@@ -708,6 +714,8 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
                     Boolean whether to deallocate the atomic configurations after creating the distribution functions.
                 from_host (bool):
                     Boolean whether the provided basis_list is based on the host.
+                verbose (int):
+                    Verbosity level.
             """
             from ase import Atoms
             if isinstance(basis_list, Atoms):
@@ -721,7 +729,8 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
                 basis_list=basis_list._handle, \
                 energy_above_hull_list=energy_above_hull_list, \
                 from_host=from_host, \
-                deallocate_systems=deallocate_systems \
+                deallocate_systems=deallocate_systems, \
+                verbose=verbose \
             )
             
         def deallocate_systems(self):
@@ -820,9 +829,9 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             Set the bond radii for the distribution functions.
             
             Parameters:
-            radius_dict (dict):
-                Dictionary of bond radii.
-                The keys are a tuple of the two element symbols and the values are the bond radii.
+                radius_dict (dict):
+                    Dictionary of bond radii.
+                    The keys are a tuple of the two element symbols and the values are the bond radii.
             """
 
             # convert radius_list to elements and radii

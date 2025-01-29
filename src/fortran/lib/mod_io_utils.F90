@@ -6,12 +6,13 @@ module raffle__io_utils
   implicit none
   logical :: test_error_handling = .false.
 
-  character(len=*), parameter :: raffle__version__ = "0.5.0"
+  logical :: suppress_warnings = .false.
+  character(len=*), parameter :: raffle__version__ = "0.5.1"
   
   private
 
   public :: raffle__version__
-  public :: test_error_handling
+  public :: test_error_handling, suppress_warnings
   public :: stop_program, print_warning
   public :: print_version, print_build_info
 
@@ -47,7 +48,9 @@ contains
     implicit none
     character(len=*), intent(in) :: message
 
-    write(0,*) 'WARNING: ', trim(message)
+    if(.not.suppress_warnings) then
+       write(0,*) 'WARNING: ', trim(message)
+    end if
   end subroutine print_warning
 !###############################################################################
 

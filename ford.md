@@ -7,6 +7,7 @@ output_dir: docs/html
 preprocess: false
 predocmark: !!
 fpp_extensions: f90
+                F90
 display: public
          protected
          private
@@ -15,7 +16,8 @@ graph: true
 md_extensions: markdown.extensions.toc
 coloured_edges: true
 sort: permission-alpha
-author: Ned Thaddeus Taylor
+author: RAFFLE developers
+github: https://github.com/ExeQuantCode
 print_creation_date: true
 creation_date: %Y-%m-%d %H:%M %z
 project_github: https://github.com/ExeQuantCode/raffle

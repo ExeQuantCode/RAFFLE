@@ -10,7 +10,7 @@ module raffle__distribs_container
   !! The generalised distribution functions are used to evaluate the viability
   !! of a new structure.
   use raffle__constants, only: real32, pi
-  use raffle__io_utils, only: stop_program, print_warning
+  use raffle__io_utils, only: stop_program, print_warning, suppress_warnings
   use raffle__misc, only: set, icount, strip_null, sort_str
   use raffle__misc_maths, only: triangular_number, set_difference
   use raffle__geom_rw, only: basis_type, get_element_properties
@@ -356,7 +356,8 @@ contains
 
 !###############################################################################
   subroutine create( &
-       this, basis_list, energy_above_hull_list, deallocate_systems &
+       this, basis_list, energy_above_hull_list, deallocate_systems, &
+       verbose &
   )
     !! create the distribution functions from the input file
     implicit none
@@ -368,14 +369,24 @@ contains
     real(real32), dimension(:), intent(in), optional :: energy_above_hull_list
     !! List of energies above the hull for the structures.
     logical, intent(in), optional :: deallocate_systems
-    !! Optional. Boolean whether to deallocate the systems after the 
+    !! Boolean whether to deallocate the systems after the 
     !! distribution functions are created.
+    integer, intent(in), optional :: verbose
+    !! Verbosity level.
 
     ! Local variables
     logical :: deallocate_systems_
     !! Boolean whether to deallocate the systems after the distribution
     character(256) :: stop_msg
     !! Error message.
+    integer :: verbose_
+    !! Verbosity level.
+
+
+    ! Set the verbosity level
+    verbose_ = 0
+    if(present(verbose)) verbose_ = verbose
+    if(verbose_ .eq. 0) suppress_warnings = .true.
     
     ! Check if element_database is allocated
     if(.not.allocated(element_database))then
@@ -442,13 +453,17 @@ contains
     if(this%host_system%defined) &
          call this%host_system%set_element_map(this%element_info)
     
+    if(verbose_ .eq. 0) suppress_warnings = .false.
+
   end subroutine create
 !###############################################################################
 
 
 !###############################################################################
   subroutine update( &
-       this, basis_list, energy_above_hull_list, from_host, deallocate_systems &
+       this, basis_list, energy_above_hull_list, from_host, &
+       deallocate_systems, &
+       verbose &
   )
     !! update the distribution functions from the input file
     implicit none
@@ -462,8 +477,10 @@ contains
     logical, intent(in), optional :: from_host
     !! Optional. Boolean whether structures are derived from the host.
     logical, intent(in), optional :: deallocate_systems
-    !! Optional. Boolean whether to deallocate the systems after the
+    !! Boolean whether to deallocate the systems after the
     !! distribution functions are created.
+    integer, intent(in), optional :: verbose
+    !! Verbosity level.
 
     ! Local variables
     integer :: i
@@ -474,7 +491,14 @@ contains
     !! Boolean whether structures are derived from the host.
     character(256) :: stop_msg
     !! Error message.
+    integer :: verbose_
+    !! Verbosity level.
 
+
+    ! Set the verbosity level
+    verbose_ = 0
+    if(present(verbose)) verbose_ = verbose
+    if(verbose_ .eq. 0) suppress_warnings = .true.
 
     ! Check if energy_above_hull_list and basis_list are the same size
     if(present(energy_above_hull_list))then
@@ -565,7 +589,9 @@ contains
     if(deallocate_systems_) call this%deallocate_systems()
     if(this%host_system%defined) &
          call this%host_system%set_element_map(this%element_info)
-    
+
+    if(verbose_ .eq. 0) suppress_warnings = .false.
+
   end subroutine update
 !###############################################################################
 
@@ -1510,12 +1536,15 @@ contains
     !! Index of the elements in the element database.
     real(real32) :: radius, radius1, radius2
     !! Average of covalent radii.
+    character(256) :: warn_msg
 
 
-    write(0,*) 'WARNING: No bond data for element pair ', &
-         elements(1), ' and ', &
-         elements(2)
-    write(0,*) 'WARNING: Setting bond to average of covalent radii'
+    write(warn_msg,'("No bond data for element pair ",A," and ",A)') &
+         elements(1), elements(2)
+    warn_msg = trim(warn_msg) // &
+         achar(13) // achar(10) // &
+         "Setting bond to average of covalent radii"
+    call print_warning(warn_msg)
     if(.not.allocated(element_database)) allocate(element_database(0))
     idx1 = findloc([ element_database(:)%name ], &
          elements(1), dim=1)

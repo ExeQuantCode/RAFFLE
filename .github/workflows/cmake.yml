@@ -34,23 +34,24 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
+        python-version: [ "3.11", "3.12", "3.13" ]
         toolchain:
-        - {compiler: gcc, version: 13}
-        # - {compiler: intel, version: '2024.1'}
-        # - {compiler: intel-classic, version: '2021.10'}
+        - {fortran-compiler: gcc, fc-version: 13}
+        # - {fortran-compiler: intel, fc-version: '2024.1'}
+        # - {fortran-compiler: intel-classic,fc- version: '2021.10'}
         # exclude:
         #   - os: macos-latest
-        #     toolchain: {compiler: intel, version: '2024.1'}
+        #     toolchain: {fortran-compiler: intel, fc-version: '2024.1'}
         #   - os: macos-latest
-        #     toolchain: {compiler: intel-classic, version: '2021.10'}
+        #     toolchain: {fortran-compiler: intel-classic,fc- version: '2021.10'}
     steps:
       - name: checkout repo
         uses: actions/checkout@v4
       
-      - name: actions-setup-python
+      - name: actions-setup-python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12' 
+          python-version: ${{ matrix.python-version }}
 
       - name: actions-setup-cmake
         uses: jwlawson/actions-setup-cmake@v2.0.1
@@ -60,8 +61,8 @@ jobs:
       - uses: fortran-lang/setup-fortran@v1
         id: setup-fortran
         with:
-          compiler: ${{ matrix.compiler }}
-          version: ${{ matrix.version }}
+          compiler: ${{ matrix.toolchain.fortran-compiler }}
+          version: ${{ matrix.toolchain.fc-version }}
           
       - name: Install gcovr
         run: |
@@ -100,23 +101,24 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
+        python-version: [ "3.11", "3.12", "3.13" ]
         toolchain:
-        - {compiler: gcc, version: 13}
-        # - {compiler: intel, version: '2024.1'}
-        # - {compiler: intel-classic, version: '2021.10'}
+        - {fortran-compiler: gcc, fc-version: 13}
+        # - {fortran-compiler: intel, fc-version: '2024.1'}
+        # - {fortran-compiler: intel-classic,fc- version: '2021.10'}
         # exclude:
         #   - os: macos-latest
-        #     toolchain: {compiler: intel, version: '2024.1'}
+        #     toolchain: {fortran-compiler: intel, fc-version: '2024.1'}
         #   - os: macos-latest
-        #     toolchain: {compiler: intel-classic, version: '2021.10'}
+        #     toolchain: {fortran-compiler: intel-classic,fc- version: '2021.10'}
     steps:
       - name: checkout repo
         uses: actions/checkout@v4
       
-      - name: actions-setup-python
+      - name: actions-setup-python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12' 
+          python-version: ${{ matrix.python-version }}
 
       - name: actions-setup-cmake
         uses: jwlawson/actions-setup-cmake@v2.0.1
@@ -126,8 +128,8 @@ jobs:
       - uses: fortran-lang/setup-fortran@v1
         id: setup-fortran
         with:
-          compiler: ${{ matrix.compiler }}
-          version: ${{ matrix.version }}
+          compiler: ${{ matrix.toolchain.fortran-compiler }}
+          version: ${{ matrix.toolchain.fc-version }}
           
       - name: Install python dependencies
         run: |

@@ -121,7 +121,7 @@ if __name__ == "__main__":
     hosts = []
     for crystal_structure in crystal_structures:
         print(f'Crystal structure: {crystal_structure}')
-        for a in np.linspace(3.0, 6.0, num=6):
+        for a in np.linspace(3.1, 5.4, num=6):
             b = a
             c = a
             atom = build.bulk(
@@ -150,7 +150,7 @@ if __name__ == "__main__":
         generator = raffle_generator()
         generator.distributions.set_element_energies(
             {
-                'C': 0.0
+                'Al': 0.0
             }
         )
         # set energy scale

@@ -78,14 +78,6 @@ def process_structure(i, atoms, num_structures_old, calc_params, optimise_struct
     
     return atoms, energy_unrlxd, energy_rlxd
 
-# crystal_structures = [
-#     'sc', 'fcc', 'bcc', 'hcp',
-#     'diamond', 'zincblende', 'rocksalt', 'cesiumchloride',
-#     'fluorite', 'wurtzite', 'tetragonal', 'orthorhombic',
-#     'bct', 'rhombohedral', 'mcl'
-# ]
-
-
 
 if __name__ == "__main__":
 
@@ -123,9 +115,9 @@ if __name__ == "__main__":
         # print(f'Crystal structure: {crystal_structure}')
         a = 3.19
         hosts.append(Atoms('Mo', positions=[(0, 0, 0)], cell=[
-            [a * 0.5, a * -2/np.sqrt(3), 0.0],
-            [a * 0.5, a * 2/np.sqrt(3), 0.0],
-            [0.0, 0.0, 13.37]
+            [a * 0.5, a * -np.sqrt(3.0)/2.0, 0.0],
+            [a * 0.5, a * np.sqrt(3.0)/2.0, 0.0],
+            [0.0, 0.0, 13.1]
             ], pbc=True, calculator=calc))
 
     optimise_structure = True
@@ -149,7 +141,7 @@ if __name__ == "__main__":
 
         Mo_bulk = read("../Mo.poscar")
         Mo_bulk.calc = calc
-        S_bulk = read("../S.zposcar")
+        S_bulk = read("../S.poscar")
         S_bulk.calc = calc
         initial_database = [Mo_bulk, S_bulk]
 
@@ -198,7 +190,7 @@ if __name__ == "__main__":
             for i in range(num_structures_new - num_structures_old):
                 write(iterdir+f"POSCAR_unrlxd_{i}", generated_structures[num_structures_old + i])
                 print(f"Structure {i} energy per atom: {generated_structures[num_structures_old + i].get_potential_energy() / len(generated_structures[num_structures_old + i])}")
-                unrlxd_structures.append(deepcopy(generated_structures[num_structures_old + i]))
+                unrlxd_structures.append(generated_structures[num_structures_old + i].copy())
             
             # Start parallel execution
             print("Starting parallel execution")
@@ -210,7 +202,10 @@ if __name__ == "__main__":
             # Wait for all futures to complete
             for j, result in enumerate(results):
                 generated_structures[j+num_structures_old], energy_unrlxd[j], energy_rlxd[j] = result
-                rlxd_structures.append(deepcopy(generated_structures[j+num_structures_old]))
+                if generated_structures[j+num_structures_old] is None:
+                    print("Structure failed the checks")
+                    continue
+                rlxd_structures.append(generated_structures[j+num_structures_old].copy())
             print("All futures completed")
 
             # Remove structures that failed the checks

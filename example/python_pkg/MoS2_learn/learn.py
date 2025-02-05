@@ -1,5 +1,8 @@
 # from mace.calculators import mace_mp
 # from ase.calculators.vasp import Vasp
+# from dftd3.ase import DFTD3
+from dftd4.ase import DFTD4
+from ase.calculators.mixing import SumCalculator
 from chgnet.model import CHGNetCalculator
 from raffle.generator import raffle_generator
 from ase import build, Atoms
@@ -8,35 +11,18 @@ from ase.io import write, read
 from ase.visualize import view
 import numpy as np
 import os
-from concurrent.futures import ProcessPoolExecutor, wait, as_completed
-from multiprocessing import Process
-from copy import deepcopy
-from multiprocessing import Queue
+# from concurrent.futures import ProcessPoolExecutor, wait, as_completed
+# import multiprocessing as mp
+# from multiprocessing import Process
+# from copy import deepcopy
+# from multiprocessing import Queue
 from joblib import Parallel, delayed
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
-def runInParallel(*fns):
-    proc = []
-    results = []
-    for fn in fns:
-        p = Process(target=fn)
-        p.start()
-        proc.append(p)
-    for p in proc:
-        results.append(p.join())
 
-    print("All processes finished")
-    print(results)
-
-
-def process_structure_with_queue(i, structure, num_old, calc_params, optimise_structure, iteration, queue):
-    # Perform the computation
-    result = process_structure(i, structure, num_old, calc_params, optimise_structure, iteration)
-    queue.put(result)  # Report completion
-
-def process_structure(i, atoms, num_structures_old, calc_params, optimise_structure, iteration):
+def process_structure(i, atoms, num_structures_old, calc_params, optimise_structure, iteration, calc):
     if i < num_structures_old:
         return
     
@@ -80,16 +66,24 @@ def process_structure(i, atoms, num_structures_old, calc_params, optimise_struct
 
 
 if __name__ == "__main__":
+    # mp.set_start_method('spawn')#, force=True)
 
     calc_params = {}
     calc = CHGNetCalculator()
+
     # calc_params = {
-    #     "model": "large",
-    #     "dispersion": False,
+    #     "model": "medium",
+    #     "dispersion": True,
     #     "default_dtype": "float32",
     #     "device": 'cpu'
     # }
     # calc = mace_mp(**calc_params)
+
+    # # d3_calc = DFTD3(method='PBE', damping='d3zero')
+    # chgnet_calc = CHGNetCalculator()
+    # d4_calc = DFTD4(method='PBE')
+    # calc = SumCalculator([chgnet_calc, d4_calc])
+
     # calc_params = {
     #     "command": "$HOME/DVASP/vasp.6.4.3/bin/vasp_std",
     #     # "label": "iteration",
@@ -194,8 +188,13 @@ if __name__ == "__main__":
             
             # Start parallel execution
             print("Starting parallel execution")
+            # ## for vdW calculators, as they are not parallelised, according to pickle errors
+            # results = []
+            # for i in range(num_structures_old, num_structures_new):
+            #     results.append(process_structure(i, generated_structures[i], num_structures_old, calc_params, optimise_structure, iteration=seed, calc=calc))
+
             results = Parallel(n_jobs=5)(
-                delayed(process_structure)(i, deepcopy(generated_structures[i]), num_structures_old, calc_params, optimise_structure, iteration=seed)
+                delayed(process_structure)(i, generated_structures[i], num_structures_old, calc_params, optimise_structure, iteration=seed, calc=calc)
                 for i in range(num_structures_old, num_structures_new)
             )
 

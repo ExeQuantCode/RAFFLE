@@ -1,49 +1,24 @@
-# from mace.calculators import mace_mp
-# from ase.calculators.vasp import Vasp
 from chgnet.model import CHGNetCalculator
 from raffle.generator import raffle_generator
 from ase import build, Atoms
-from ase.optimize import BFGS, FIRE
+from ase.optimize import FIRE
 from ase.io import write
-from ase.visualize import view
 import numpy as np
 import os
-from concurrent.futures import ProcessPoolExecutor, wait, as_completed
-from multiprocessing import Process
 from copy import deepcopy
-from multiprocessing import Queue
 from joblib import Parallel, delayed
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
-def runInParallel(*fns):
-    proc = []
-    results = []
-    for fn in fns:
-        p = Process(target=fn)
-        p.start()
-        proc.append(p)
-    for p in proc:
-        results.append(p.join())
-
-    print("All processes finished")
-    print(results)
-
-
-def process_structure_with_queue(i, structure, num_old, calc_params, optimise_structure, iteration, queue):
-    # Perform the computation
-    result = process_structure(i, structure, num_old, calc_params, optimise_structure, iteration)
-    queue.put(result)  # Report completion
-
 def process_structure(i, atoms, num_structures_old, calc_params, optimise_structure, iteration):
+    # Check if the structure has already been processed
     if i < num_structures_old:
         return
     
     # calc = Vasp(**calc_params, label=f"struct{i}", directory=f"iteration{iteration}/struct{i}/", txt=f"stdout{i}.o")
     inew = i - num_structures_old
     atoms.calc = calc
-    # positions_initial = atoms.get_positions()
 
     # Calculate and save the initial energy per atom
     energy_unrlxd = atoms.get_potential_energy() / len(atoms)
@@ -78,46 +53,19 @@ def process_structure(i, atoms, num_structures_old, calc_params, optimise_struct
     
     return atoms, energy_unrlxd, energy_rlxd
 
-# crystal_structures = [
-#     'sc', 'fcc', 'bcc', 'hcp',
-#     'diamond', 'zincblende', 'rocksalt', 'cesiumchloride',
-#     'fluorite', 'wurtzite', 'tetragonal', 'orthorhombic',
-#     'bct', 'rhombohedral', 'mcl'
-# ]
-
-
 
 if __name__ == "__main__":
 
+    # set up the calculator
     calc_params = {}
     calc = CHGNetCalculator()
-    # calc_params = {
-    #     "model": "large",
-    #     "dispersion": False,
-    #     "default_dtype": "float32",
-    #     "device": 'cpu'
-    # }
-    # calc = mace_mp(**calc_params)
-    # calc_params = {
-    #     "command": "$HOME/DVASP/vasp.6.4.3/bin/vasp_std",
-    #     # "label": "iteration",
-    #     # "txt": "stdout.o",
-    #     "xc": 'pbe',
-    #     "setups": {'C': ''},
-    #     "kpts": (3, 3, 3),
-    #     "encut": 400,
-    #     "istart": 0,
-    #     "icharg": 0,
-    # }
-    # ## DON'T FORGET TO EXPORT THE VASP_PP_PATH
-    # calc = Vasp(**calc_params, label="tmp", directory="tmp", txt="stdout.o")
 
+    # set up the hosts
     crystal_structures = [
         'orthorhombic', 'diamond',
         'bct', 'sc',
         'fcc', 'bcc', 'hcp',
     ]
-
     hosts = []
     for crystal_structure in crystal_structures:
         print(f'Crystal structure: {crystal_structure}')
@@ -132,16 +80,12 @@ if __name__ == "__main__":
                     c = c,
             )
             hosts.append(Atoms('Al', positions=[(0, 0, 0)], cell=atom.get_cell(), pbc=True, calculator=calc))
-            # hosts[-1].set_pbc(True)
-            # hosts[-1].calc = calc
-            print(hosts[-1])
-
     print("number of hosts: ", len(hosts))
 
+    # set the parameters for the generator
     optimise_structure = True
     mass = 26.9815385
     density = 1.61 # u/A^3
-    # num_atoms = 7
 
     for seed in range(1):
         print(f"Seed: {seed}")
@@ -158,11 +102,12 @@ if __name__ == "__main__":
         # set the distribution function widths (2-body, 3-body, 4-body)
         generator.distributions.set_width([0.025, np.pi/200.0, np.pi/200.0])
 
+        # set the initial database
         initial_database = [Atoms('Al', positions=[(0, 0, 0)], cell=[8, 8, 8], pbc=True)]
         initial_database[0].calc = calc
-
         generator.distributions.create(initial_database)
 
+        # check if the energies file exists, if not create it
         if os.path.exists(energies_rlxd_filename):
             with open(energies_rlxd_filename, "w") as energy_file:
                 pass
@@ -175,16 +120,18 @@ if __name__ == "__main__":
         else:
             open(energies_unrlxd_filename, "w").close()
 
-
+        # initialise the number of structures generated
         num_structures_old = 0
         unrlxd_structures = []
         rlxd_structures = []
         iter2 = 0
+        # start the iterations, loop over the hosts, then repeat the process X times
         for iter in range(10):
             for host in hosts:
                 generator.set_host(host)
                 volume = host.get_volume()
 
+                # calculate the number of atoms in the host to achieve the desired density
                 num_atoms = round(density * volume / mass) - 1
                 if(num_atoms < 1):
                     continue
@@ -192,6 +139,7 @@ if __name__ == "__main__":
                 print(f"Volume: {volume}")
                 print(f"Number of atoms: {num_atoms}")
     
+                # generate the structures
                 generator.generate(
                     num_structures = 5,
                     stoichiometry = { 'Al': num_atoms },
@@ -269,6 +217,7 @@ if __name__ == "__main__":
                 # update the number of structures generated
                 num_structures_old = num_structures_new
 
+        # Write the final distribution functions to a file
         generator.distributions.write_gdfs(f"gdfs_seed{seed}.txt")
 
         # Read energies from the file
@@ -284,6 +233,7 @@ if __name__ == "__main__":
             for entry in energies:
                 energy_file.write(f"{int(entry[0])} {float(entry[1])}\n")
 
+        # Write the structures to files
         write(f"unrlxd_structures_seed{seed}.traj", unrlxd_structures)
         write(f"rlxd_structures_seed{seed}.traj", rlxd_structures)
         print("All generated and relaxed structures written")

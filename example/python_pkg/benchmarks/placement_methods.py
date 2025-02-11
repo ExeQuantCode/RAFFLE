@@ -11,13 +11,13 @@ from raffle.generator import raffle_generator
     [0.025, np.pi/200.0, np.pi/200.0]
 ])
 @pytest.mark.parametrize("grid_spacing", [0.5, 0.25, 0.1, 0.075, 0.05])
-@pytest.mark.benchmark("method_probab", [
+@pytest.mark.parametrize("method_probab", [
   {'void': 0.0, 'rand': 0.0, 'walk': 0.0, 'grow': 0.0, 'min': 1.0},
   {'void': 0.0, 'rand': 0.0, 'walk': 0.0, 'grow': 1.0, 'min': 0.0},
   {'void': 0.0, 'rand': 0.0, 'walk': 1.0, 'grow': 0.0, 'min': 0.0},
   {'void': 0.0, 'rand': 1.0, 'walk': 0.0, 'grow': 0.0, 'min': 0.0},
   {'void': 1.0, 'rand': 0.0, 'walk': 0.0, 'grow': 0.0, 'min': 0.0}
-]
+])
 @pytest.mark.benchmark(
     group="min_placement",
     min_rounds=5,

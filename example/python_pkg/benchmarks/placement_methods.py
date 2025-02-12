@@ -19,13 +19,13 @@ from raffle.generator import raffle_generator
   {'void': 1.0, 'rand': 0.0, 'walk': 0.0, 'grow': 0.0, 'min': 0.0}
 ])
 @pytest.mark.benchmark(
-    group="min_placement",
+    group="placement_methods",
     min_rounds=5,
     timer=time.time,
     disable_gc=True,
     warmup=False
 )
-def test_min_placement(benchmark, grid_spacing, kBT, width, method_probab):
+def test_placement_methods(benchmark, grid_spacing, kBT, width, method_probab):
     
     calc = CHGNetCalculator()
     host = Atoms('C', positions=[(0, 0, 0)], cell=[3.567, 3.567, 3.567], pbc=True, calculator=calc)
@@ -73,7 +73,7 @@ if __name__ == '__main__':
 
     for grid_spacing in grid_spacings:
         for _ in range(5):  # Run the benchmark 5 times for each grid size
-            result = test_min_placement(lambda x: x, grid_spacing, 0.4, [0.025, np.pi/200.0, np.pi/200.0])
+            result = test_placement_methods(lambda x: x, grid_spacing, 0.4, [0.025, np.pi/200.0, np.pi/200.0])
             results.append({
                 'grid_spacing': grid_spacing,
                 'time': result

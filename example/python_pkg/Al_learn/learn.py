@@ -11,6 +11,7 @@ from joblib import Parallel, delayed
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
+# Function to relax a structure
 def process_structure(i, atoms, num_structures_old, calc_params, optimise_structure, iteration):
     # Check if the structure has already been processed
     if i < num_structures_old:
@@ -87,6 +88,7 @@ if __name__ == "__main__":
     mass = 26.9815385
     density = 1.61 # u/A^3
 
+    # loop over random seeds
     for seed in range(1):
         print(f"Seed: {seed}")
         energies_rlxd_filename = f"energies_rlxd_seed{seed}.txt"

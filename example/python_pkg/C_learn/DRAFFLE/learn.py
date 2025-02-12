@@ -1,49 +1,24 @@
-# from mace.calculators import mace_mp
-# from ase.calculators.vasp import Vasp
 from chgnet.model import CHGNetCalculator
 from raffle.generator import raffle_generator
 from ase import build, Atoms
-from ase.optimize import BFGS, FIRE
+from ase.optimize import FIRE
 from ase.io import write
-from ase.visualize import view
 import numpy as np
 import os
-from concurrent.futures import ProcessPoolExecutor, wait, as_completed
-from multiprocessing import Process
-from copy import deepcopy
-from multiprocessing import Queue
 from joblib import Parallel, delayed
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
-def runInParallel(*fns):
-    proc = []
-    results = []
-    for fn in fns:
-        p = Process(target=fn)
-        p.start()
-        proc.append(p)
-    for p in proc:
-        results.append(p.join())
-
-    print("All processes finished")
-    print(results)
-
-
-def process_structure_with_queue(i, structure, num_old, calc_params, optimise_structure, iteration, queue):
-    # Perform the computation
-    result = process_structure(i, structure, num_old, calc_params, optimise_structure, iteration)
-    queue.put(result)  # Report completion
-
+# Function to relax a structure
 def process_structure(i, atoms, num_structures_old, calc_params, optimise_structure, iteration):
+    # Check if the structure has already been processed
     if i < num_structures_old:
-        return
+        return None, None, None
     
     # calc = Vasp(**calc_params, label=f"struct{i}", directory=f"iteration{iteration}/struct{i}/", txt=f"stdout{i}.o")
     inew = i - num_structures_old
     atoms.calc = calc
-    # positions_initial = atoms.get_positions()
 
     # Calculate and save the initial energy per atom
     energy_unrlxd = atoms.get_potential_energy() / len(atoms)
@@ -78,44 +53,16 @@ def process_structure(i, atoms, num_structures_old, calc_params, optimise_struct
     
     return atoms, energy_unrlxd, energy_rlxd
 
-# crystal_structures = [
-#     'sc', 'fcc', 'bcc', 'hcp',
-#     'diamond', 'zincblende', 'rocksalt', 'cesiumchloride',
-#     'fluorite', 'wurtzite', 'tetragonal', 'orthorhombic',
-#     'bct', 'rhombohedral', 'mcl'
-# ]
-
-
 
 if __name__ == "__main__":
 
+    # set up the calculator
     calc_params = {}
     calc = CHGNetCalculator()
-    # calc_params = {
-    #     "model": "large",
-    #     "dispersion": False,
-    #     "default_dtype": "float32",
-    #     "device": 'cpu'
-    # }
-    # calc = mace_mp(**calc_params)
-    # calc_params = {
-    #     "command": "$HOME/DVASP/vasp.6.4.3/bin/vasp_std",
-    #     # "label": "iteration",
-    #     # "txt": "stdout.o",
-    #     "xc": 'pbe',
-    #     "setups": {'C': ''},
-    #     "kpts": (3, 3, 3),
-    #     "encut": 400,
-    #     "istart": 0,
-    #     "icharg": 0,
-    # }
-    # ## DON'T FORGET TO EXPORT THE VASP_PP_PATH
-    # calc = Vasp(**calc_params, label="tmp", directory="tmp", txt="stdout.o")
 
+    # set up the hosts
     crystal_structures = [
-        'orthorhombic', #'diamond',
-        # 'bct', 'sc',
-        # 'fcc', 'bcc', 'hcp',
+        'orthorhombic', # 'hcp',
     ]
 
     hosts = []
@@ -132,16 +79,18 @@ if __name__ == "__main__":
                     c = c,
             )
             hosts.append(Atoms('C', positions=[(0, 0, 0)], cell=atom.get_cell(), pbc=True, calculator=calc))
-            # hosts[-1].set_pbc(True)
-            # hosts[-1].calc = calc
             print(hosts[-1])
 
+    # set the parameters for the generator
     optimise_structure = True
     mass = 12.011
     num_atoms = 7
 
+    # Loop over random seeds
     for seed in range(20):
         print(f"Seed: {seed}")
+        
+        # set up file names
         energies_rlxd_filename = f"energies_rlxd_seed{seed}.txt"
         energies_unrlxd_filename = f"energies_unrlxd_seed{seed}.txt"
         generator = raffle_generator()
@@ -152,15 +101,19 @@ if __name__ == "__main__":
         )
         # set energy scale
         generator.distributions.set_kBT(0.4)
+
         # set the distribution function widths (2-body, 3-body, 4-body)
         generator.distributions.set_width([0.025, np.pi/200.0, np.pi/200.0])
 
+        # set the initial database
         initial_database = [Atoms('C', positions=[(0, 0, 0)], cell=[8, 8, 8], pbc=True)]
         initial_database[0].calc = calc
-
         generator.distributions.create(initial_database)
+
+        # set the host
         generator.set_host(hosts[0])
 
+        # check if the energies file exists, if not create it
         if os.path.exists(energies_rlxd_filename):
             with open(energies_rlxd_filename, "w") as energy_file:
                 pass
@@ -173,11 +126,14 @@ if __name__ == "__main__":
         else:
             open(energies_unrlxd_filename, "w").close()
 
-
+        # initialise the number of structures generated
         num_structures_old = 0
         unrlxd_structures = []
         rlxd_structures = []
+        # start the iterations
         for iter in range(200):
+
+            # generate the structures
             generator.generate(
                 num_structures = 5,
                 stoichiometry = { 'C': num_atoms },
@@ -203,19 +159,22 @@ if __name__ == "__main__":
             for i in range(num_structures_new - num_structures_old):
                 write(iterdir+f"POSCAR_unrlxd_{i}", generated_structures[num_structures_old + i])
                 print(f"Structure {i} energy per atom: {generated_structures[num_structures_old + i].get_potential_energy() / len(generated_structures[num_structures_old + i])}")
-                unrlxd_structures.append(deepcopy(generated_structures[num_structures_old + i]))
+                unrlxd_structures.append(generated_structures[num_structures_old + i].copy())
             
             # Start parallel execution
             print("Starting parallel execution")
             results = Parallel(n_jobs=5)(
-                delayed(process_structure)(i, deepcopy(generated_structures[i]), num_structures_old, calc_params, optimise_structure, iteration=seed)
+                delayed(process_structure)(i, generated_structures[i].copy(), num_structures_old, calc_params, optimise_structure, iteration=seed, calc=calc)
                 for i in range(num_structures_old, num_structures_new)
             )
 
             # Wait for all futures to complete
             for j, result in enumerate(results):
                 generated_structures[j+num_structures_old], energy_unrlxd[j], energy_rlxd[j] = result
-                rlxd_structures.append(deepcopy(generated_structures[j+num_structures_old]))
+                if generated_structures[j+num_structures_old] is None:
+                    print("Structure failed the checks")
+                    continue
+                rlxd_structures.append(generated_structures[j+num_structures_old].copy())
             print("All futures completed")
 
             # Remove structures that failed the checks
@@ -255,6 +214,7 @@ if __name__ == "__main__":
             # update the number of structures generated
             num_structures_old = num_structures_new
 
+        # Write the final distribution functions to a file
         generator.distributions.write_gdfs(f"gdfs_seed{seed}.txt")
 
         # Read energies from the file
@@ -270,6 +230,7 @@ if __name__ == "__main__":
             for entry in energies:
                 energy_file.write(f"{int(entry[0])} {float(entry[1])}\n")
 
+        # Write the structures to files
         write(f"unrlxd_structures_seed{seed}.traj", unrlxd_structures)
         write(f"rlxd_structures_seed{seed}.traj", rlxd_structures)
         print("All generated and relaxed structures written")

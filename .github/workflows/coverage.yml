@@ -106,12 +106,11 @@ jobs:
         if: ${{ github.ref == 'refs/heads/main' }}
         uses: actions/deploy-pages@v2
         id: deployment
-        with:
-          path: './build/coverage/'  # Use the same coverage directory
 
-      - name: deploy to GitHub Pages (non-main branch)
+
+      - name: deploy to Github Pages (development branch)
         if: ${{ github.ref != 'refs/heads/main' }}
-        uses: actions/deploy-pages@v2
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          path: './build/coverage/'  # Same local coverage directory
-          branch: gh-pages-${{ github.head_ref }}  # Deploy to a branch-specific GitHub Pages branch
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          destination_dir: development-branch/

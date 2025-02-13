@@ -71,6 +71,7 @@ jobs:
           python --version
           python -m pip install pip-tools
           python -m pip install pytest
+          python -m pip install parameterized
           python -m piptools compile -o requirements.txt pyproject.toml --all-build-deps
           python -m pip install -r requirements.txt
 

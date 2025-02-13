@@ -59,7 +59,7 @@ if __name__ == "__main__":
     calc = CHGNetCalculator()
     
     # read the host
-    host = read("../POSCAR_host")
+    host = read("../ScS2.vasp")
     host.calc = calc
     host_reference_energy = host.get_potential_energy() / len(host)
 

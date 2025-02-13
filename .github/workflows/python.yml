@@ -80,7 +80,7 @@ jobs:
           cmake --version
           python --version
           ${{ env.FC }} --version
-          python -m pip install .
+          python -m pip install '.[ase]'
 
       - name: Test
         run: |

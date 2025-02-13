@@ -35,6 +35,8 @@ concurrency:
 
 jobs:
   run-code-coverage:
+    # permissions:
+    #   contents: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }} 
@@ -107,10 +109,10 @@ jobs:
         uses: actions/deploy-pages@v2
         id: deployment
 
-
-      - name: deploy to Github Pages (development branch)
-        if: ${{ github.ref != 'refs/heads/main' }}
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          destination_dir: development-branch/
+      # - name: deploy to Github Pages (development branch)
+      #   if: ${{ github.ref != 'refs/heads/main' }}
+      #   uses: peaceiris/actions-gh-pages@v4
+      #   with:
+      #     publish_dir: ./build/coverage/
+      #     github_token: ${{ secrets.GITHUB_TOKEN }}
+      #     destination_dir: development-branch/

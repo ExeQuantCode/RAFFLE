@@ -935,7 +935,9 @@ contains
          [ basis_extd%spec(:)%name ] &
     )
     do is = 1, basis%nspec
-       species = this%distributions%get_element_index( basis_extd%spec(is)%name )
+       species = this%distributions%get_element_index( &
+            basis_extd%spec(is)%name &
+       )
        if(species.eq.0)then
           call stop_program( &
                "Species "//&

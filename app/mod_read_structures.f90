@@ -132,6 +132,7 @@ contains
     ! read the structures from the list of files
     !---------------------------------------------------------------------------
     num_structures = 0
+    allocate(basis_list(0))
     do i = 1, size(structure_list)
        write(*,*) "Reading structure: ", trim(adjustl(structure_list(i)))
        select case(ifile_format)
@@ -184,7 +185,7 @@ contains
                        trim(basis%spec(j)%name), basis%spec(j)%num, &
                        j=1, basis%nspec &
                   )
-             call distribs_container%add(basis)
+             basis_list = [ basis_list, basis ]
           end do
           cycle
        end select

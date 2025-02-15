@@ -183,7 +183,7 @@ if __name__ == "__main__":
                     energy_unrlxd = np.delete(energy_unrlxd, j-num_structures_old)
                     energy_rlxd = np.delete(energy_rlxd, j-num_structures_old)
                     del generated_structures[j]
-                    # del unrlxd_structures[j]
+                    del unrlxd_structures[j]
                     del rlxd_structures[j]
                     generator.remove_structure(j)
             num_structures_new = len(generated_structures) 

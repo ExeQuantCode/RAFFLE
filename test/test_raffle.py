@@ -149,7 +149,6 @@ class TestRaffleDistribsContainer(unittest.TestCase):
         distribs_container.set_radius_distance_tol([0.1, 0.2, 0.3, 0.4])
         self.assertTrue( ( abs(distribs_container.radius_distance_tol - [0.1, 0.2, 0.3, 0.4]) < 1e-6 ).all() )
 
-
 class TestGenerator(unittest.TestCase):
 
     def test_generator_initialization(self):
@@ -261,7 +260,6 @@ class TestGenerator(unittest.TestCase):
             settings = file.read()
         self.assertTrue(len(settings) > 0)
         os.remove(filename)
-
 
 class TestFortranUnits(unittest.TestCase):
 

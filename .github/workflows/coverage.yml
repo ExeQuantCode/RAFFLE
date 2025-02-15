@@ -35,6 +35,8 @@ concurrency:
 
 jobs:
   run-code-coverage:
+    # permissions:
+    #   contents: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }} 
@@ -97,7 +99,7 @@ jobs:
           minColorRange: 0
 
       - name: upload artifact
-        uses: actions/upload-pages-artifact@v1
+        uses: actions/upload-pages-artifact@v3
         with: 
           path: './build/coverage/'
 
@@ -106,12 +108,11 @@ jobs:
         if: ${{ github.ref == 'refs/heads/main' }}
         uses: actions/deploy-pages@v2
         id: deployment
-        with:
-          path: './build/coverage/'  # Use the same coverage directory
 
-      - name: deploy to GitHub Pages (non-main branch)
-        if: ${{ github.ref != 'refs/heads/main' }}
-        uses: actions/deploy-pages@v2
-        with:
-          path: './build/coverage/'  # Same local coverage directory
-          branch: gh-pages-${{ github.head_ref }}  # Deploy to a branch-specific GitHub Pages branch
+      # - name: deploy to Github Pages (development branch)
+      #   if: ${{ github.ref != 'refs/heads/main' }}
+      #   uses: peaceiris/actions-gh-pages@v4
+      #   with:
+      #     publish_dir: ./build/coverage/
+      #     github_token: ${{ secrets.GITHUB_TOKEN }}
+      #     destination_dir: development-branch/

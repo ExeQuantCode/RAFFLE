@@ -536,11 +536,11 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
         def __init__(self, handle=None):
             """
             Create a ``Distribs_Container_Type`` object.
-            
-            
+
             Returns:
                 distribution_container (Distribs_Container_Type):
                     Object to be constructed
+
             """
             f90wrap.runtime.FortranDerivedType.__init__(self)
             result = \
@@ -1593,13 +1593,17 @@ class Generator(f90wrap.runtime.FortranModule):
             WARNING: This function is not implemented yet.
             
             Parameters:
-                basis (geom_rw.basis):
+                basis (geom_rw.basis or Atoms):
                     The basis to use for the evaluation.
             
             Returns:
                 viability (float):
                     The viability of the structures.
             """
+            from ase import Atoms
+            if isinstance(basis, Atoms):
+                basis = geom_rw.basis(atoms=basis)
+
             viability = \
                 _raffle.f90wrap_generator__evaluate__binding__rgt(this=self._handle, \
                 basis=basis._handle)

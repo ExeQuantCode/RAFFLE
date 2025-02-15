@@ -159,6 +159,8 @@ contains
     !! Distance between atom and gridpoint.
     logical, dimension(size(points,dim=2)) :: viable
     !! Temporary list of gridpoints.
+    real(real32), dimension(3) :: diff
+    !! Difference between atom and gridpoint (direct coorindates).
     real(real32), dimension(:,:), allocatable :: points_tmp
     !! Temporary list of gridpoints.
 
@@ -173,7 +175,9 @@ contains
     min_radius = minval(radius_list) * distribs_container%radius_distance_tol(1)
     associate( atom_pos => [ basis%spec(atom(1))%atom(atom(2),1:3) ] )
        do i = 1, num_points
-          distance = modu( matmul( atom_pos - points(1:3,i), basis%lat ) )
+          diff = atom_pos - points(1:3,i)
+          diff = diff - ceiling(diff - 0.5_real32)
+          distance = modu( matmul( diff, basis%lat ) )
           if( distance .lt. min_radius )then
              points(4:,i) = 0._real32
              viable(i) = .false.

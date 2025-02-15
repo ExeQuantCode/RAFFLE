@@ -1,8 +1,8 @@
 &setup
-  task = 2,
-  filename_host = "../example_files/POSCAR_host",
+  task = 0,
+  filename_host = "../data/C-MgO_hosts/POSCAR_MgO_HEX",
   database_format = "xyz"
-  database = "../example_files/database/",
+  database = "./",
   seed = 1,
   grid_spacing = 0.05,
   verbose = 0,
@@ -19,7 +19,7 @@
 
 &structure
   num_structures=10,
-  stoichiometry="{C:8, Mg:8}",
+  stoichiometry="{Mg:8, O:8}",
 /
 
 &volume

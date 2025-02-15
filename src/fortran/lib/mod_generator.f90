@@ -910,7 +910,7 @@ contains
     use raffle__evaluator, only: evaluate_point
     implicit none
     ! Arguments
-    class(raffle_generator_type), intent(in) :: this
+    class(raffle_generator_type), intent(inout) :: this
     !! Instance of the raffle generator.
     type(basis_type), intent(in) :: basis
     !! Basis of the structure to evaluate.
@@ -931,10 +931,19 @@ contains
          max_bondlength = this%distributions%cutoff_max(1) &
     )
     viability = 0.0_real32
+    call this%distributions%set_element_map( &
+         [ basis_extd%spec(:)%name ] &
+    )
     do is = 1, basis%nspec
-       species = this%distributions%get_element_index( basis%spec(is)%name )
+       species = this%distributions%get_element_index( &
+            basis_extd%spec(is)%name &
+       )
        if(species.eq.0)then
-          call stop_program("Species not found in distribution functions")
+          call stop_program( &
+               "Species "//&
+               trim(basis_extd%spec(is)%name)//&
+               " not found in distribution functions" &
+          )
           return
        end if
        do ia = 1, basis%spec(is)%num

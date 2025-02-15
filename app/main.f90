@@ -11,7 +11,7 @@ program raffle_program
   use inputs
   use read_structures, only: get_gdfs_from_data
   use raffle, only: raffle_generator_type, distribs_container_type
-  use raffle__geom_rw, only: geom_read, geom_write
+  use raffle__geom_rw, only: geom_read, geom_write, basis_type
   implicit none
 
   ! Local variables
@@ -21,6 +21,7 @@ program raffle_program
   !! Buffer for strings
   character(:), allocatable :: next_dir
   !! Next directory name
+  type(basis_type) :: host
 
   real(real32), dimension(:), allocatable :: tmp_energies
   !! Temporary array for element energies
@@ -107,7 +108,8 @@ program raffle_program
   ! set the host structure
   !-----------------------------------------------------------------------------
   open(newunit=unit, file=filename_host, status='old')
-  call geom_read(unit, generator%host)
+  call geom_read(unit, host)
+  call generator%set_host(host)
   close(unit)
   if(grid_spacing.gt.1.E-6.and.all(grid.ne.0))then
      call stop_program('Cannot specify grid spacing and grid at the same time')

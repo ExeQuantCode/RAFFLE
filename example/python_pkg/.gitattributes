@@ -1,0 +1,4 @@
+# Auto-remove output from Jupyter notebooks
+# Follow the guide from this link to set up the filter:
+#   https://gist.github.com/33eyes/431e3d432f73371509d176d0dfb95b6e
+*.ipynb filter=strip-notebook-output

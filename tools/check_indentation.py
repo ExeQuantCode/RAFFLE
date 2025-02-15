@@ -171,7 +171,7 @@ def check_indentation(file_path):
 
 
             # Detect case, type, and rank statements within select, can be "PATTERN(", "PATTERN (" or "PATTERN default"
-            if ( inside_select and re.match(r'^\s*(case|type is|rank)\s*\(', stripped_line, re.IGNORECASE) ) or \
+            if ( inside_select and re.match(r'^\s*(case|class is|type is|rank)\s*\(', stripped_line, re.IGNORECASE) ) or \
                ( inside_select and re.match(r'^\s*(case|class|rank)\s+default\b', stripped_line, re.IGNORECASE) ):
                 prior_indent = expected_indent
                 expected_indent -= loop_conditional_indent

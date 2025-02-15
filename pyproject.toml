@@ -34,7 +34,7 @@ dependencies = [
     "numpy>=1.26.4,<=2.2",
     "f90wrap>=0.2.14,<=0.2.16",
 ]
-requires-python = ">=3.11,<=3.13.1"
+requires-python = ">=3.11,<3.14"
 authors = [
     { name = "Ned Thaddeus Taylor", email = "n.t.taylor@exeter.ac.uk" },
     { name = "Joe Pitfield", email = "joepitfield@gmail.com" },

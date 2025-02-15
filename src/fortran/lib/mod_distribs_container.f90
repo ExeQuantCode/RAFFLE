@@ -728,8 +728,6 @@ contains
 
     integer :: i
     !! Loop index.
-    integer :: iostat
-    !! I/O status.
     integer :: nspec
     !! Number of species.
     logical :: exist
@@ -1087,7 +1085,7 @@ contains
        select type(type_ptr => rank_ptr)
        type is (distribs_type)
           this%system = [ this%system, type_ptr ]
-       type is (basis_type)
+       class is (basis_type)
 #if defined(GFORTRAN)
           call this%add_basis(type_ptr)
 #else
@@ -1107,10 +1105,13 @@ contains
        end select
     rank(1)
        num_structures_previous = size(this%system)
+       if(.not.allocated(this%system))then
+          allocate(this%system(0))
+       end if
        select type(type_ptr => rank_ptr)
        type is (distribs_type)
           this%system = [ this%system, type_ptr ]
-       type is (basis_type)
+       class is (basis_type)
           do i = 1, size(type_ptr)
              call this%add_basis(type_ptr(i))
           end do

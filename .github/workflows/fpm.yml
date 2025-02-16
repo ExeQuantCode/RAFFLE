@@ -36,6 +36,7 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         toolchain:
         - {compiler: gcc, version: 13}
+        - {fortran-compiler: gcc, fc-version: 14}
         # - {compiler: intel, version: '2024.1'}
         # - {compiler: intel-classic, version: '2021.10'}
         # exclude:

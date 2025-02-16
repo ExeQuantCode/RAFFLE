@@ -51,12 +51,10 @@ jobs:
 
       - name: Comment on PR if script failed
         if: github.event_name == 'pull_request' && steps.run_format_checker.outcome != 'success'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: '⚠️ The format checker failed.
-              Please check the formatting of your code by running tools/check_indentation.py locally.'
-          })
+          gh pr comment ${{ github.event.pull_request.number }} --body "⚠️ The format checker failed.
+          Please check the formatting of your code by running tools/check_indentation.py locally."
+
   

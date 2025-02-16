@@ -37,6 +37,7 @@ jobs:
         python-version: [ "3.11", "3.12", "3.13" ]
         toolchain:
         - {fortran-compiler: gcc, fc-version: 13}
+        - {fortran-compiler: gcc, fc-version: 14}
         # - {fortran-compiler: intel, fc-version: '2024.1'}
         # - {fortran-compiler: intel-classic,fc- version: '2021.10'}
         # exclude:

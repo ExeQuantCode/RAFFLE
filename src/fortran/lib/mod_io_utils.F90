@@ -7,7 +7,7 @@ module raffle__io_utils
   logical :: test_error_handling = .false.
 
   logical :: suppress_warnings = .false.
-  character(len=*), parameter :: raffle__version__ = "0.5.1"
+  character(len=*), parameter :: raffle__version__ = "0.5.2"
   
   private
 

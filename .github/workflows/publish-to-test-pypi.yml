@@ -12,6 +12,37 @@ on:
   workflow_dispatch:
 
 jobs:
+  check-version-matches:
+    name: Check if version numbers match the GitHub tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract version from fpm.toml
+        id: fpm_version
+        run: echo "RAFFLE_FPM_VERSION=$(grep -oP '(?<=version = ")[^"]+' fpm.toml)" >> "$GITHUB_ENV"
+
+      - name: Extract version from mod_io_utils.F90
+        id: fortran_version
+        run: echo "RAFFLE_FORTRAN_VERSION=$(grep -oP '(?<=raffle__version__ = ")[^"]+' src/fortran/lib/mod_io_utils.F90)" >> "$GITHUB_ENV"
+
+      - name: Extract GitHub tag version
+        id: github_tag
+        run: echo "TAG_VERSION=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_ENV"
+
+      - name: Verify version consistency
+        run: |
+          if [[ "$FPM_VERSION" != "$TAG_VERSION" ]]; then
+            echo "❌ Version mismatch: fpm.toml ($FPM_VERSION) does not match GitHub tag ($TAG_VERSION)"
+            exit 1
+          fi
+          if [[ "$FORTRAN_VERSION" != "$TAG_VERSION" ]]; then
+            echo "❌ Version mismatch: mod_io_utils.F90 ($FORTRAN_VERSION) does not match GitHub tag ($TAG_VERSION)"
+            exit 1
+          fi
+          echo "✅ Version numbers match!"
+
   build_wheel:
     name: Build wheel distribution 📦
     runs-on: ${{ matrix.platform[0] }}
@@ -24,6 +55,8 @@ jobs:
         python-version: [ "3.12" ] # cibuildwheel automatically runs on all versions of Python
         toolchain:
         - {fortran-compiler: gcc, fc-version: 13}
+    needs:
+      - check-version-matches
 
     steps:
     - name: checkout repo

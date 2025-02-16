@@ -127,6 +127,14 @@ jobs:
       id-token: write  # IMPORTANT: mandatory for sigstore
 
     steps:
+    - name: Check if GitHub release already exists
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        if gh release view '${{ github.ref_name }}' --repo '${{ github.repository }}' > /dev/null 2>&1; then
+          echo "Release already exists for tag '${{ github.ref_name }}'. Skipping release creation."
+          exit 0
+        fi
     - name: Download all the dists
       uses: actions/download-artifact@v4
       with:

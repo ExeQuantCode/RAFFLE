@@ -101,13 +101,19 @@ jobs:
       - name: upload artifact
         uses: actions/upload-pages-artifact@v3
         with: 
-          path: './build/coverage/'
+          path: './build/coverage/'        
 
-      # Deploy to GitHub Pages: uniform pattern for all branches
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: run-code-coverage
+    if: ${{ github.ref == 'refs/heads/main' }}
+    steps:
       - name: deploy to Github Pages (main branch)
-        if: ${{ github.ref == 'refs/heads/main' }}
-        uses: actions/deploy-pages@v2
         id: deployment
+        uses: actions/deploy-pages@v4
 
       # - name: deploy to Github Pages (development branch)
       #   if: ${{ github.ref != 'refs/heads/main' }}

@@ -47,21 +47,38 @@ Python-specific installation:
 - ASE (optional)
 
 The library bas been developed and tested using the following Fortran compilers:
+- gfortran -- gcc 11.4.0
 - gfortran -- gcc 13.2.0
 - gfortran -- gcc 14.1.0
+- gfortran -- gcc 14.2.0
 
 The library is known to not currently work with the intel Fortran compilers.
 
 ## Installation
 
-To install RAFFLE, the source must be obtained from the git repository. Use the following commands to get started:
+For the Python library, the easiest method of installation is to install it directly from pip:
+
+```
+pip install raffle
+```
+
+or
+
+```
+pip install 'raffle[ase]'
+```
+
+Once this is done, RAFFLE is ready to be used.
+
+Alternatively, to download development versions or, if, for some reason, the pip method does not work, then RAFFLE can be installed from the source.
+To do so, the source must be obtained from the git repository.
+Use the following commands to get started:
 ```
  git clone https://github.com/ExeQuantCode/raffle.git
  cd raffle
 ```
 
-
-Depending on what language will be used in, installation will fary from this point.
+Depending on what language will be used in, installation will vary from this point.
 
 ### Python
 

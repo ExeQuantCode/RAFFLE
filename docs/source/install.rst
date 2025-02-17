@@ -4,6 +4,23 @@
 Installation
 ============
 
+For the Python library, the easiest method of installation is to install it directly from pip:
+
+.. code-block:: bash
+
+    pip install raffle
+
+or
+
+.. code-block:: bash
+    
+    pip install 'raffle[ase]'
+
+Once this is done, RAFFLE is ready to be used.
+
+Alternatively, to install RAFFLE from source, follow the instructions below.
+
+
 RAFFLE can be installed in one of three ways; as a Python package, as a Fortran library, or as a standalone Fortran executable.
 All versions rely on the core Fortran code, with the Python package and standalone executable wrapping this code in a Python and Fortran interface, respectively.
 

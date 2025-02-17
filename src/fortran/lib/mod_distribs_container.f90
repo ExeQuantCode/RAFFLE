@@ -2209,6 +2209,8 @@ contains
                this%gdf%df_3body(:,i) * exp( &
                     this%best_energy_per_species(i) / this%kBT &
                ) / exp( best_energy_per_species_old(i) / this%kBT )
+       end do
+       do i = 1, size(this%gdf%df_4body,2)
           this%gdf%df_4body(:,i) = &
                this%gdf%df_4body(:,i) * exp( &
                     this%best_energy_per_species(i) / this%kBT &

@@ -670,8 +670,13 @@ contains
        !------------------------------------------------------------------------
        loop_limits(:,1) = &
             [ min(nbins, bin), min(nbins, bin + max_num_steps), 1 ]
-       loop_limits(:,2) = &
-            [ max(1, bin - 1), max(1, bin - max_num_steps), -1 ]
+       if(bin.le.1) then
+          loop_limits(:,2) = &
+               [ 0, 1, -1 ]
+       else
+          loop_limits(:,2) = &
+               [ max(1, bin - 1), max(1, bin - max_num_steps), -1 ]
+       end if
 
 
        !------------------------------------------------------------------------

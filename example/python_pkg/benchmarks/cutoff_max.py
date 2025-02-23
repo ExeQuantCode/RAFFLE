@@ -13,7 +13,7 @@ from raffle.generator import raffle_generator
     [0.025, np.pi/200.0, np.pi/200.0]
 ])
 @pytest.mark.parametrize("grid_spacing", [0.1])
-@pytest.mark.parametrize("method_probab", [
+@pytest.mark.parametrize("method_ratio", [
   {'void': 0.0, 'rand': 0.0, 'walk': 0.0, 'grow': 0.0, 'min': 1.0}
 ])
 @pytest.mark.parametrize("cutoff_max", [4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0])
@@ -24,7 +24,7 @@ from raffle.generator import raffle_generator
     disable_gc=True,
     warmup=False
 )
-def test_cutoff_in_evaluator(benchmark, grid_spacing, kBT, width, method_probab, cutoff_max):
+def test_cutoff_in_evaluator(benchmark, grid_spacing, kBT, width, method_ratio, cutoff_max):
     
     calc = CHGNetCalculator()
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -61,7 +61,7 @@ def test_cutoff_in_evaluator(benchmark, grid_spacing, kBT, width, method_probab,
         "kBT": kBT,
         "width": width,
         "grid_spacing": grid_spacing,
-        "method_probab": method_probab,
+        "method_ratio": method_ratio,
         "cutoff_max": cutoff_max
     }
 
@@ -76,7 +76,7 @@ def test_cutoff_in_evaluator(benchmark, grid_spacing, kBT, width, method_probab,
     [0.025, np.pi/200.0, np.pi/200.0]
 ])
 @pytest.mark.parametrize("grid_spacing", [0.1])
-@pytest.mark.parametrize("method_probab", [
+@pytest.mark.parametrize("method_ratio", [
   {'void': 0.0, 'rand': 0.0, 'walk': 0.0, 'grow': 0.0, 'min': 1.0}
 ])
 @pytest.mark.parametrize("cutoff_max", [4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0])
@@ -87,7 +87,7 @@ def test_cutoff_in_evaluator(benchmark, grid_spacing, kBT, width, method_probab,
     disable_gc=True,
     warmup=False
 )
-def test_cutoff_in_database(benchmark, grid_spacing, kBT, width, method_probab, cutoff_max):
+def test_cutoff_in_database(benchmark, grid_spacing, kBT, width, method_ratio, cutoff_max):
     
     calc = CHGNetCalculator()
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -122,7 +122,7 @@ def test_cutoff_in_database(benchmark, grid_spacing, kBT, width, method_probab, 
         "kBT": kBT,
         "width": width,
         "grid_spacing": grid_spacing,
-        "method_probab": method_probab,
+        "method_ratio": method_ratio,
         "cutoff_max": cutoff_max
     }
 

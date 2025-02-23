@@ -126,7 +126,7 @@ program raffle_program
   write(*,*) "Generating structures"
   call generator%generate( num_structures, &
        stoich, &
-       method_probab )
+       method_ratio )
   write(*,*) "Structures have been successfully generated"
 
 

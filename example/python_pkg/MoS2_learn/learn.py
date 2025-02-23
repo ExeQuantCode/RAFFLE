@@ -125,7 +125,7 @@ if __name__ == "__main__":
                 num_structures = 5,
                 stoichiometry = { 'Mo': 1 , 'S': 4 },
                 seed = seed*1000+iter,
-                method_probab = {"void": 0.5, "rand": 0.05, "walk": 0.5, "grow": 0.0, "min": 1.0},
+                method_ratio = {"void": 0.5, "rand": 0.05, "walk": 0.5, "grow": 0.0, "min": 1.0},
                 verbose = 0,
             )
 

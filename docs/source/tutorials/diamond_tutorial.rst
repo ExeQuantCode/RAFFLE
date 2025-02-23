@@ -124,7 +124,7 @@ We are now ready to generate structures using the database of structures.
     generator.generate(
         num_structures = 1,
         stoichiometry = { 'C': 8 },
-        method_probab = {"void":0.0001, "min":1.0},
+        method_ratio = {"void":0.0001, "min":1.0},
     )
     structures = generator.get_structures(calc)
 

@@ -165,7 +165,7 @@ program test_evaluator
   generator%distributions%kBT = 0.2
   call generator%set_host(basis_host)
   call generator%set_grid( grid_spacing = 0.2, grid_offset = [0.0, 0.0, 0.0] )
-  generator%distributions%radius_distance_tol = [1.5, 2.5, 3.0, 6.0]
+  generator%distributions%radius_distance_tol = [1.5, 2.5, 3.0, 5.0]
   call generator%distributions%set_width([0.025, pi/200.0, pi/200.0])
 
 

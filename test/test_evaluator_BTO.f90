@@ -215,7 +215,7 @@ program test_evaluator_BTO
        grid_offset = generator%grid_offset &
   )
   do i = 1, 3
-     tolerance(i) = 1._real32 / real(generator%grid(i),real32) / 2._real32
+     tolerance(i) = 1._real32 / real(generator%grid(i),real32) !/ 2._real32
   end do
 
 

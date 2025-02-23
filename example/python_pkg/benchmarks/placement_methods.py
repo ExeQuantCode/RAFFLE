@@ -11,7 +11,7 @@ from raffle.generator import raffle_generator
     [0.025, np.pi/200.0, np.pi/200.0]
 ])
 @pytest.mark.parametrize("grid_spacing", [0.5, 0.25, 0.1, 0.075, 0.05])
-@pytest.mark.parametrize("method_probab", [
+@pytest.mark.parametrize("method_ratio", [
   {'void': 0.0, 'rand': 0.0, 'walk': 0.0, 'grow': 0.0, 'min': 1.0},
   {'void': 0.0, 'rand': 0.0, 'walk': 0.0, 'grow': 1.0, 'min': 0.0},
   {'void': 0.0, 'rand': 0.0, 'walk': 1.0, 'grow': 0.0, 'min': 0.0},
@@ -25,7 +25,7 @@ from raffle.generator import raffle_generator
     disable_gc=True,
     warmup=False
 )
-def test_placement_methods(benchmark, grid_spacing, kBT, width, method_probab):
+def test_placement_methods(benchmark, grid_spacing, kBT, width, method_ratio):
     
     calc = CHGNetCalculator()
     host = Atoms('C', positions=[(0, 0, 0)], cell=[3.567, 3.567, 3.567], pbc=True, calculator=calc)
@@ -53,7 +53,7 @@ def test_placement_methods(benchmark, grid_spacing, kBT, width, method_probab):
         "kBT": kBT,
         "width": width,
         "grid_spacing": grid_spacing,
-        "method_probab": method_probab
+        "method_ratio": method_ratio
     }
 
     # Measure time for distributions.create()
@@ -61,7 +61,7 @@ def test_placement_methods(benchmark, grid_spacing, kBT, width, method_probab):
         num_structures = 1,
         stoichiometry = {'C': 1},
         seed = 0,
-        method_probab = method_probab,
+        method_ratio = method_ratio,
         verbose = 0
     )
 

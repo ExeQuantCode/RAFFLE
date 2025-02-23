@@ -49,3 +49,5 @@ vasprun.xml
 DVASP_MACE_comparison/
 pca_model*.pkl
 .benchmarks/
+.local-pre-commit-config.yaml
+*.tgz

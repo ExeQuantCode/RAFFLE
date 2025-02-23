@@ -70,8 +70,8 @@ module raffle__generator
           walk_step_size_coarse = 1._real32, &
           walk_step_size_fine = 0.1_real32
      !! Step size for the walk and grow methods.
-     real(real32), dimension(5) :: method_probab
-     !! Probability of each placement method.
+     real(real32), dimension(5) :: method_ratio
+     !! Ratio of each placement method.
      type(basis_type), dimension(:), allocatable :: structures
      !! Generated structures.
    contains
@@ -297,7 +297,7 @@ contains
 
 !###############################################################################
   subroutine generate(this, num_structures, &
-       stoichiometry, method_probab, seed, settings_out_file, &
+       stoichiometry, method_ratio, seed, settings_out_file, &
        verbose &
   )
     !! Generate random structures.
@@ -305,7 +305,7 @@ contains
     !! This procedure generates random structures from the contained host
     !! structure and the stoichiometry argument. The number of structures to
     !! generate is specified by the num_structures argument.
-    !! The ratio of placement methods to be sampled is defined by method_probab.
+    !! The ratio of placement methods to be sampled is defined by method_ratio.
     implicit none
 
     ! Arguments
@@ -315,8 +315,8 @@ contains
     !! Number of structures to generate.
     type(stoichiometry_type), dimension(:), intent(in) :: stoichiometry
     !! Stoichiometry of the structures to generate.
-    real(real32), dimension(5), intent(in), optional :: method_probab
-    !! Probability of each placement method.
+    real(real32), dimension(5), intent(in), optional :: method_ratio
+    !! Ratio of each placement method.
     integer, intent(in), optional :: seed
     !! Seed for the random number generator.
     character(*), intent(in), optional :: settings_out_file
@@ -331,8 +331,8 @@ contains
     !! Number of seeds for the random number generator.
     integer :: num_insert_atoms, num_insert_species
     !! Number of atoms and species to insert (from stoichiometry).
-    real(real32) :: total_probab
-    !! Total probability of the placement methods.
+    real(real32) :: ratio_norm
+    !! Normalisation factor for the method ratios.
     logical :: success
     !! Boolean comparison of element symbols.
     integer :: verbose_
@@ -340,9 +340,9 @@ contains
     type(basis_type) :: basis_template
     !! Basis of the structure to generate (i.e. allocated species and atoms).
     real(real32), dimension(5) :: &
-         method_probab_ = &
+         method_rand_limit = &
          [1.0_real32, 0.1_real32, 0.5_real32, 0.5_real32, 1.0_real32]
-    !! Default probability of each placement method.
+    !! Default ratio of each placement method.
 
     integer, dimension(:), allocatable :: seed_arr
     !! Array of seeds for the random number generator.
@@ -362,27 +362,27 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! set the placement method probabilities
+    ! Set the placement method selection limit numbers
     !---------------------------------------------------------------------------
-    if(verbose_.gt.0) write(*,*) "Setting method probabilities"
-    if(present(method_probab))then
-       method_probab_ = method_probab
+    if(verbose_.gt.0) write(*,*) "Setting method ratios"
+    if(present(method_ratio))then
+       method_rand_limit = method_ratio
     else
-       method_probab_ = this%method_probab
+       method_rand_limit = this%method_ratio
     end if
-    this%method_probab = method_probab_
-    total_probab = real(sum(method_probab_), real32)
-    method_probab_ = method_probab_ / total_probab
+    this%method_ratio = method_rand_limit
+    ratio_norm = real(sum(method_rand_limit), real32)
+    method_rand_limit = method_rand_limit / ratio_norm
     do i = 2, 5, 1
-       method_probab_(i) = method_probab_(i) + method_probab_(i-1)
+       method_rand_limit(i) = method_rand_limit(i) + method_rand_limit(i-1)
     end do
     if(verbose_.gt.0) write(*,*) &
-         "Method probabilities (void, rand, walk, grow, min): ", &
-         method_probab_
+         "Method random limits (void, rand, walk, grow, min): ", &
+         method_rand_limit
 
 
     !---------------------------------------------------------------------------
-    ! print the settings to a file
+    ! Print the settings to a file
     !---------------------------------------------------------------------------
     if(present(settings_out_file))then
        if(trim(settings_out_file).ne."")then
@@ -391,7 +391,7 @@ contains
     end if
 
     !---------------------------------------------------------------------------
-    ! set the random seed
+    ! Set the random seed
     !---------------------------------------------------------------------------
     if(present(seed))then
        call random_seed(size=num_seed)
@@ -508,7 +508,7 @@ contains
             this%generate_structure( &
                  basis_template, &
                  placement_list, &
-                 method_probab_, &
+                 method_rand_limit, &
                  verbose_ &
             ) &
        )
@@ -527,7 +527,7 @@ contains
   function generate_structure( &
        this, &
        basis_initial, &
-       placement_list, method_probab, verbose &
+       placement_list, method_rand_limit, verbose &
   ) result(basis)
     !! Generate a single random structure.
     !!
@@ -545,8 +545,8 @@ contains
     !! Initial basis to build upon.
     integer, dimension(:,:), intent(in) :: placement_list
     !! List of possible placements.
-    real(real32), dimension(5) :: method_probab
-    !! Probability of each placement method.
+    real(real32), dimension(5) :: method_rand_limit
+    !! Upper limit of the random number to call each placement method.
     type(extended_basis_type) :: basis
     !! Generated basis.
     integer, intent(in) :: verbose
@@ -566,9 +566,9 @@ contains
     !! Shuffled placement list.
     real(real32), dimension(3) :: point
     !! Coordinate of the atom to place.
-    real(real32), dimension(5) :: method_probab_
-    !! Temporary probability of each placement method.
-    !! This is used to update the probability of the global minimum method if
+    real(real32), dimension(5) :: method_rand_limit_
+    !! Temporary random limit of each placement method.
+    !! This is used to update the contribution of the global minimum method if
     !! no viable gridpoints are found.
     integer, dimension(:), allocatable :: species_index_list
     !! List of species indices to add.
@@ -606,8 +606,8 @@ contains
     !---------------------------------------------------------------------------
     ! check for viable gridpoints
     !---------------------------------------------------------------------------
-    method_probab_ = method_probab
-    if(abs( method_probab_(5) - method_probab_(4) ) .gt. 1.E-3)then
+    method_rand_limit_ = method_rand_limit
+    if(abs( method_rand_limit(5) - method_rand_limit(4) ) .gt. 1.E-3)then
        gridpoint_viability = get_gridpoints_and_viability( &
             this%distributions, &
             this%grid, &
@@ -622,7 +622,7 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! place the atoms according to the method probabilities
+    ! place the atoms according to the method ratios
     !---------------------------------------------------------------------------
     iplaced = 0
     void_ticker = 0
@@ -643,7 +643,7 @@ contains
                     placement_list_shuffled(iplaced+1:,:) &
                )
           if(.not.allocated(gridpoint_viability))then
-             if(abs(method_probab_(4)).lt.1.E-6)then
+             if(abs(method_rand_limit(4)).lt.1.E-6)then
                 call stop_program( &
                      "No viable gridpoints" // &
                      achar(13) // achar(10) // &
@@ -651,25 +651,27 @@ contains
                 )
                 return
              else if( &
-                  abs( method_probab_(5) - method_probab_(4) ) .gt. 1.E-6 &
+                  abs( &
+                       method_rand_limit(5) - method_rand_limit(4) &
+                  ) .gt. 1.E-6 &
              ) then
                 write(warn_msg, '("No more viable gridpoints")')
                 warn_msg = trim(warn_msg) // &
                      achar(13) // achar(10) // &
                      "Suppressing global minimum method"
                 call print_warning(warn_msg)
-                method_probab_ = method_probab_ / method_probab_(4)
-                method_probab_(5) = method_probab_(4)
+                method_rand_limit = method_rand_limit / method_rand_limit(4)
+                method_rand_limit(5) = method_rand_limit(4)
              end if
           end if
        end if
        viable = .false.
        !------------------------------------------------------------------------
-       ! choose a placement method
-       ! call a random number and query the method probabilities
+       ! Choose a placement method
+       ! call a random number and query the method ratios
        !------------------------------------------------------------------------
        call random_number(rtmp1)
-       if(rtmp1.le.method_probab_(1)) then
+       if(rtmp1.le.method_rand_limit(1)) then
           if(verbose.gt.0) write(*,*) "Add Atom Void"
           point = place_method_void( this%grid, &
                this%grid_offset, &
@@ -677,7 +679,7 @@ contains
                basis, &
                placement_list_shuffled(iplaced+1:,:), viable &
           )
-       else if(rtmp1.le.method_probab_(2)) then
+       else if(rtmp1.le.method_rand_limit(2)) then
           if(verbose.gt.0) write(*,*) "Add Atom Random"
           point = place_method_rand( &
                this%distributions, &
@@ -689,7 +691,7 @@ contains
                viable &
           )
           if(.not. viable) cycle placement_loop
-       else if(rtmp1.le.method_probab_(3)) then
+       else if(rtmp1.le.method_rand_limit(3)) then
           if(verbose.gt.0) write(*,*) "Add Atom Walk"
           point = place_method_walk( &
                this%distributions, &
@@ -702,7 +704,7 @@ contains
                viable &
           )
           if(.not. viable) void_ticker = void_ticker + 1
-       else if(rtmp1.le.method_probab_(4)) then
+       else if(rtmp1.le.method_rand_limit(4)) then
           if(iplaced.eq.0)then
              if(verbose.gt.0) write(*,*) "Add Atom Random (growth seed)"
              point = place_method_rand( &
@@ -732,14 +734,14 @@ contains
              )
           end if
           if(.not. viable) void_ticker = void_ticker + 1
-       else if(rtmp1.le.method_probab_(5)) then
+       else if(rtmp1.le.method_rand_limit(5)) then
           if(verbose.gt.0) write(*,*) "Add Atom Minimum"
           point = place_method_min( gridpoint_viability, &
                placement_list_shuffled(iplaced+1,1), &
                species_index_list, &
                viable &
           )
-          if(.not. viable .and. abs(method_probab_(4)).lt.1.E-6)then
+          if(.not. viable .and. abs(method_rand_limit(4)).lt.1.E-6)then
              write(stop_msg,*) &
                   "No viable gridpoints" // &
                   achar(13) // achar(10) // &
@@ -757,8 +759,8 @@ contains
                   achar(13) // achar(10) // &
                   "Suppressing global minimum method"
              call print_warning(warn_msg)
-             method_probab_ = method_probab_ / method_probab_(4)
-             method_probab_(5) = method_probab_(4)
+             method_rand_limit = method_rand_limit / method_rand_limit(4)
+             method_rand_limit(5) = method_rand_limit(4)
           end if
        end if
        !------------------------------------------------------------------------
@@ -950,7 +952,7 @@ contains
           atom_ignore(1,:) = [is,ia]
           viability = viability + &
                evaluate_point( this%distributions, &
-                    basis%spec(is)%atom(ia,1:3), &
+                    [ basis%spec(is)%atom(ia,1:3) ], &
                     species, basis_extd, &
                     atom_ignore, &
                     [ this%distributions%bond_info(:)%radius_covalent ] &
@@ -1000,11 +1002,11 @@ contains
     write(unit,'("MAX_ATTEMPTS =",I0)') this%max_attempts
     write(unit,'("WALK_STEP_SIZE_COARSE = ",F15.9)') this%walk_step_size_coarse
     write(unit,'("WALK_STEP_SIZE_FINE = ",F15.9)') this%walk_step_size_fine
-    write(unit,'("METHOD_VOID = ",F15.9)') this%method_probab(1)
-    write(unit,'("METHOD_RANDOM = ",F15.9)') this%method_probab(2)
-    write(unit,'("METHOD_WALK = ",F15.9)') this%method_probab(3)
-    write(unit,'("METHOD_GROW = ",F15.9)') this%method_probab(4)
-    write(unit,'("METHOD_MIN = ",F15.9)') this%method_probab(5)
+    write(unit,'("METHOD_VOID = ",F15.9)') this%method_ratio(1)
+    write(unit,'("METHOD_RANDOM = ",F15.9)') this%method_ratio(2)
+    write(unit,'("METHOD_WALK = ",F15.9)') this%method_ratio(3)
+    write(unit,'("METHOD_GROW = ",F15.9)') this%method_ratio(4)
+    write(unit,'("METHOD_MIN = ",F15.9)') this%method_ratio(5)
 
     write(unit,'("# DISTRIBUTION SETTINGS")')
     write(unit,'("KBT = ",F5.2)') this%distributions%kbt
@@ -1112,15 +1114,15 @@ contains
        case("WALK_STEP_SIZE_FINE")
           call assign_val(line, this%walk_step_size_fine, itmp1)
        case("METHOD_VOID")
-          call assign_val(line, this%method_probab(1), itmp1)
+          call assign_val(line, this%method_ratio(1), itmp1)
        case("METHOD_RANDOM")
-          call assign_val(line, this%method_probab(2), itmp1)
+          call assign_val(line, this%method_ratio(2), itmp1)
        case("METHOD_WALK")
-          call assign_val(line, this%method_probab(3), itmp1)
+          call assign_val(line, this%method_ratio(3), itmp1)
        case("METHOD_GROW")
-          call assign_val(line, this%method_probab(4), itmp1)
+          call assign_val(line, this%method_ratio(4), itmp1)
        case("METHOD_MIN")
-          call assign_val(line, this%method_probab(5), itmp1)
+          call assign_val(line, this%method_ratio(5), itmp1)
        case("KBT")
           call assign_val(line, this%distributions%kbt, itmp1)
        case("SIGMA")

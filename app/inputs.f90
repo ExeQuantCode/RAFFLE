@@ -9,11 +9,11 @@ module inputs
   use raffle__constants, only: real32, pi
   use raffle__io_utils
   implicit none
-  
+
 
   private
 
-  public :: grid, grid_spacing, method_probab
+  public :: grid, grid_spacing, method_ratio
   public :: seed
   public :: num_structures, task
   public :: stoich
@@ -60,9 +60,9 @@ module inputs
   !! Grid dimensions.
   real(real32) :: grid_spacing = 0._real32
   !! Grid spacing.
-  real(real32), dimension(5) :: method_probab = &
+  real(real32), dimension(5) :: method_ratio = &
        [1._real32, 0.1_real32, 0.5_real32, 0.5_real32, 1._real32]
-  !! Placement method probabilities.
+  !! Placement method ratios.
 
   character(1024), dimension(:), allocatable :: database_list
   !! List of directories containing input database.
@@ -93,7 +93,7 @@ contains
     !! Character variables.
     logical :: skip, empty
     !! Logical variables.
-    integer, dimension(:), allocatable :: seed_arr 
+    integer, dimension(:), allocatable :: seed_arr
     !! Random seed array.
 
 
@@ -126,7 +126,7 @@ contains
              write(0,'("&
                   &ERROR: No input filename supplied, &
                   &but the flag ''-f'' was used&
-             &")')
+                  &")')
              infilename_do: do j = 1, 3
                 write(6,'("Please supply an input filename:")')
                 read(5,'(A)') input_file
@@ -157,7 +157,7 @@ contains
           write(6,'("-----------------FILE-NAME-FLAGS-----------------")')
           write(6,'(2X,"-f<STR>         : Input structure file name (&
                &Default = (empty)&
-          &).")')
+               &).")')
           stop
        end if
     end do flagloop
@@ -217,7 +217,7 @@ contains
     real(real32), dimension(3) :: width, sigma
     !! Width and sigma values for distribution functions.
     real(real32) :: void, rand, walk, grow, min
-    !! Placement method probabilities.
+    !! Placement method ratios.
     character(50), dimension(3) :: cutoff_min, cutoff_max
     !! Cutoff values for distribution functions.
 
@@ -308,9 +308,9 @@ contains
        end do
     end if
 
-    method_probab = [void, rand, walk, grow, min]
-    if(all(abs(method_probab).lt.1.E-6))then
-       method_probab = &
+    method_ratio = [void, rand, walk, grow, min]
+    if(all(abs(method_ratio).lt.1.E-6))then
+       method_ratio = &
             [1._real32, 0.1_real32, 0.5_real32, 0.5_real32, 1._real32]
     end if
 
@@ -370,11 +370,11 @@ contains
        end do
     end if
 
-    
+
     do i = 1, 3
        cutoff_min_list(i) = read_value_from_string(cutoff_min(i))
-       cutoff_max_list(i) = read_value_from_string(cutoff_max(i))   
-       write(*,*) "Cutoff: ",cutoff_min_list(i),cutoff_max_list(i)    
+       cutoff_max_list(i) = read_value_from_string(cutoff_max(i))
+       write(*,*) "Cutoff: ",cutoff_min_list(i),cutoff_max_list(i)
     end do
 
     width_list = width

@@ -584,7 +584,7 @@ end subroutine f90wrap_raffle_generator_type__set__walk_step_size_fine
 !###############################################################################
 ! placement method ratio
 !###############################################################################
-subroutine f90wrap_raffle_generator_type__array__method_probab( &
+subroutine f90wrap_raffle_generator_type__array__method_ratio( &
      this, nd, dtype, dshape, dloc &
 )
     use raffle__generator, only: raffle_generator_type
@@ -603,9 +603,9 @@ subroutine f90wrap_raffle_generator_type__array__method_probab( &
     nd = 1
     dtype = 11
     this_ptr = transfer(this, this_ptr)
-    dshape(1:1) = shape(this_ptr%p%method_probab)
-    dloc = loc(this_ptr%p%method_probab)
-end subroutine f90wrap_raffle_generator_type__array__method_probab
+    dshape(1:1) = shape(this_ptr%p%method_ratio)
+    dloc = loc(this_ptr%p%method_ratio)
+end subroutine f90wrap_raffle_generator_type__array__method_ratio
 !###############################################################################
 
 
@@ -821,7 +821,7 @@ end subroutine f90wrap_generator__reset_bounds__binding__rgt
 
 subroutine f90wrap_generator__generate__binding__rgt( &
        this, num_structures, stoichiometry, &
-    method_probab, seed, settings_out_file, verbose)
+    method_ratio, seed, settings_out_file, verbose)
     use raffle__generator, only: raffle_generator_type, stoichiometry_type
     implicit none
     
@@ -842,7 +842,7 @@ subroutine f90wrap_generator__generate__binding__rgt( &
     integer, intent(in) :: num_structures
     type(stoichiometry_type_xnum_array_ptr_type) :: stoichiometry_ptr
     integer, intent(in), dimension(2) :: stoichiometry
-    real(4), intent(in), optional, dimension(5) :: method_probab
+    real(4), intent(in), optional, dimension(5) :: method_ratio
     character*(*), intent(in), optional :: settings_out_file
     integer, intent(in), optional :: seed
     integer, intent(in), optional :: verbose
@@ -852,7 +852,7 @@ subroutine f90wrap_generator__generate__binding__rgt( &
     call this_ptr%p%generate( &
          num_structures=num_structures, &
          stoichiometry=stoichiometry_ptr%p%items, &
-         method_probab=method_probab, &
+         method_ratio=method_ratio, &
          seed=seed, &
          settings_out_file=settings_out_file, &
          verbose=verbose &

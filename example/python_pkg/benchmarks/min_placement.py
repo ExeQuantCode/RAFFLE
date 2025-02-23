@@ -54,7 +54,7 @@ def test_min_placement(benchmark, grid_spacing, kBT, width):
         num_structures = 1,
         stoichiometry = {'C': 1},
         seed = 0,
-        method_probab = {
+        method_ratio = {
             'void': 0.0,
             'rand': 0.0,
             'walk': 0.0,

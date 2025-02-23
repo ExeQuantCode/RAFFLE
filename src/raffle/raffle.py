@@ -3,6 +3,8 @@ import raffle._raffle as _raffle
 import f90wrap.runtime
 import logging
 import numpy
+import warnings
+
 
 class Geom_Rw(f90wrap.runtime.FortranModule):
     """
@@ -1497,7 +1499,12 @@ class Generator(f90wrap.runtime.FortranModule):
             """
             _raffle.f90wrap_generator__reset_bounds__binding__rgt(this=self._handle)
 
-        def generate(self, num_structures, stoichiometry, method_probab={"void": 0.0, "rand": 0.0, "walk": 0.0, "grow": 0.0, "min": 0.0}, seed=None, settings_out_file=None, verbose=0):
+        def generate( 
+                self, num_structures, stoichiometry,
+                method_ratio={"void": 0.0, "rand": 0.0, "walk": 0.0, "grow": 0.0, "min": 0.0},
+                method_ratio=None,
+                seed=None, settings_out_file=None, verbose=0
+        ):
             """
             Generate structures using the RAFFLE method.
 
@@ -1506,8 +1513,10 @@ class Generator(f90wrap.runtime.FortranModule):
                     The number of structures to generate.
                 stoichiometry (stoichiometry_array or dict):
                     The stoichiometry of the structures to generate.
-                method_probab (dict):
-                    The probabilities of using each method to generate a structure.
+                method_ratio (dict):
+                    The ratio of using each method to generate a structure.
+                method_ratio (dict):
+                    DEPRECATED - The ratio of using each method to generate a structure.
                 seed (int):
                     The seed for the random number generator.
                 print_settings (bool):
@@ -1516,16 +1525,24 @@ class Generator(f90wrap.runtime.FortranModule):
                     The verbosity level for the generation.
             """
             
-            method_probab_list = []
-            method_probab_list.append(method_probab.get("void", 0.0))
-            method_probab_list.append(method_probab.get("rand", 0.0)) # or method_probab.get("random", 0.0))
-            method_probab_list.append(method_probab.get("walk", 0.0))
-            method_probab_list.append(method_probab.get("grow", 0.0)) # or method_probab.get("growth", 0.0))
-            method_probab_list.append(method_probab.get("min", 0.0))  # or method_probab.get("minimum", 0.0) or method_probab.get("global", 0.0))
+            # check if method_ratio is provided, if so, use it only if method_ratio is not provided
+            if method_ratio is not None and method_ratio == {"void": 0.0, "rand": 0.0, "walk": 0.0, "grow": 0.0, "min": 0.0}:
+                method_ratio = method_ratio
+                warnings.warn("method_ratio is deprecated, use method_ratio instead", DeprecationWarning)
+            elif method_ratio is not None:
+                warnings.warn("method_ratio is deprecated, use method_ratio instead", DeprecationWarning)
+                # break if both method_ratio and method_ratio are provided
+                raise ValueError("Both method_ratio and method_ratio are provided, use only one (method_ratio)")
+            method_ratio_list = []
+            method_ratio_list.append(method_ratio.get("void", 0.0))
+            method_ratio_list.append(method_ratio.get("rand", 0.0)) # or method_ratio.get("random", 0.0))
+            method_ratio_list.append(method_ratio.get("walk", 0.0))
+            method_ratio_list.append(method_ratio.get("grow", 0.0)) # or method_ratio.get("growth", 0.0))
+            method_ratio_list.append(method_ratio.get("min", 0.0))  # or method_ratio.get("minimum", 0.0) or method_ratio.get("global", 0.0))
             
             # check if all values are 0.0, if so, set them to the default of all 1.0
-            if all([probab < 1E-6 for probab in method_probab_list]):
-                method_probab_list = [1.0, 0.1, 0.5, 0.5, 1.0]
+            if all([val < 1E-6 for val in method_ratio_list]):
+                method_ratio_list = [1.0, 0.1, 0.5, 0.5, 1.0]
 
             # if stoichiometry is a dictionary, convert it to a stoichiometry_array
             if isinstance(stoichiometry, dict):
@@ -1536,7 +1553,7 @@ class Generator(f90wrap.runtime.FortranModule):
                     this=self._handle,
                     num_structures=num_structures,
                     stoichiometry=stoichiometry._handle,
-                    method_probab=method_probab_list, 
+                    method_ratio=method_ratio_list, 
                     settings_out_file=settings_out_file,
                     seed=seed, verbose=verbose)
             else:
@@ -1544,7 +1561,7 @@ class Generator(f90wrap.runtime.FortranModule):
                     this=self._handle,
                     num_structures=num_structures,
                     stoichiometry=stoichiometry._handle,
-                    method_probab=method_probab_list,
+                    method_ratio=method_ratio_list,
                     settings_out_file=settings_out_file,
                     verbose=verbose)
             
@@ -1793,24 +1810,24 @@ class Generator(f90wrap.runtime.FortranModule):
                 walk_step_size_fine)
         
         @property
-        def method_probab(self):
+        def method_ratio(self):
             """
-            The probabilities of using each method to generate a structure.            
+            The ratio of methods to employ to generate a structure.            
             """
             array_ndim, array_type, array_shape, array_handle = \
-                _raffle.f90wrap_raffle_generator_type__array__method_probab(self._handle)
+                _raffle.f90wrap_raffle_generator_type__array__method_ratio(self._handle)
             if array_handle in self._arrays:
-                method_probab = self._arrays[array_handle]
+                method_ratio = self._arrays[array_handle]
             else:
-                method_probab = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                method_ratio = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
                                         self._handle,
-                                        _raffle.f90wrap_raffle_generator_type__array__method_probab)
-                self._arrays[array_handle] = method_probab
-            return method_probab
+                                        _raffle.f90wrap_raffle_generator_type__array__method_ratio)
+                self._arrays[array_handle] = method_ratio
+            return method_ratio
         
-        @method_probab.setter
-        def method_probab(self, method_probab):
-            self.method_probab[...] = method_probab
+        @method_ratio.setter
+        def method_ratio(self, method_ratio):
+            self.method_ratio[...] = method_ratio
         
         def _init_array_structures(self):
             """
@@ -1850,8 +1867,8 @@ class Generator(f90wrap.runtime.FortranModule):
             ret.append(repr(self.distributions))
             ret.append(',\n    max_attempts : ')
             ret.append(repr(self.max_attempts))
-            ret.append(',\n    method_probab : ')
-            ret.append(repr(self.method_probab))
+            ret.append(',\n    method_ratio : ')
+            ret.append(repr(self.method_ratio))
             ret.append(',\n    structures : ')
             ret.append(repr(self.structures))
             ret.append('}')

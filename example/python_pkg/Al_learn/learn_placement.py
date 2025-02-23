@@ -133,7 +133,7 @@ if __name__ == "__main__":
     lattice_constants = np.linspace(3.1, 5.4, num=6)
 
     """
-    This needs to be changed to set the values of the method_probab.
+    This needs to be changed to set the values of the method_ratio.
     """
     #void_val; rand_val; walk_val; grow_val; min_val
     ##############[  V,   R,   W,   G,   M]    
@@ -219,7 +219,7 @@ if __name__ == "__main__":
                     num_structures = 5,
                     stoichiometry = { 'Al': num_atoms },
                     seed = seed*1000+iter,
-                    method_probab = {"void": method_val[0], "rand": method_val[1], "walk": method_val[2], "grow": method_val[3], "min": method_val[4]},
+                    method_ratio = {"void": method_val[0], "rand": method_val[1], "walk": method_val[2], "grow": method_val[3], "min": method_val[4]},
                     verbose = 0,
                 )
 

@@ -28,6 +28,9 @@ Tutorials and documentation are provided on the [docs](http://raffle-fortran.rea
 The methodology is detailed in the [Phys Rev B paper](https://link.aps.org/doi/10.1103/PhysRevLett.132.066201).
 The software package will be submitted for publication soon.
 
+Refer to the [API Documentation section](#api-documentation) later in this document to see how to access the API-specific documentation.
+
+
 
 ## Requirements
 
@@ -167,36 +170,31 @@ Now follow the instructions for the [Python](#python) build methods.
 
 After the library has been installed, a set of example programs can be found in the `example` directory (note, the `test` directory is for unit tests to ensure each procedure in the library produces expected outputs after compilation, they are not really needed to be looked at by potential users).
 
-The `example/executable` example uses a shell script to run the Fortran installed application.
+The `example/fortran_exe` example uses a shell script to run the Fortran installed application.
 It uses a user-editable input file `param.in` in the same directory to change values of the RAFFLE generator and provided database.
 
-The `example/wrapper` directory contains a set of `run_*.py` files that show how RAFFLE can be called using Python to implement it into existing random structure search workflows.
+The `example/python_pkg` directory contains a set of subdirectories `MATERIAL_learn` that show how RAFFLE can be called using Python to implement it into existing structure search workflows.
 These examples are the recommended ones to run.
-To successfully run them, follow the above installation instructions for Python, then go to the `example/wrapper` directory and run one of the scripts.
+To successfully run them, follow the above installation instructions for Python, then go to the `example/python_pkg` directory and run one of the scripts.
 
 
-<!-- 
-Next, after the code is compiled, the way to run it is as follows:
+API documentation
+-----------------
+
+API documentation can be generated using FORD (Fortran Documenter).
+To do so, follow the installation guide on the [FORD website](https://forddocs.readthedocs.io/en/stable/) to ensure FORD is installed.
+Once FORD is installed, run the following command in the root directory of the git repository:
+
 ```
-<PATH TO RAFFLE DIRECTORY>/bin/raffle -f <PARAMETER_FILE>
+  ford ford.md
 ```
-
-An example parameter file is provided in the repository. This is `param.in`. filename_host is the host structure filename, found in the execution directory. stoichiometry is the number of each element to be added to the structure. elements is a list of the names of chemical elements. It must be the same size as stoichiometry and its size must match the value provided in the num_species tag (this'll be tidied up later).
-
-The code will search for a directory called "database/" and read any enclosing directories for POSCARs and OUTCARs (will be moving to vasprun.xml once the code works). The structure is obtained from the POSCAR, the energy is obtained from the OUTCAR. These structures are used to seed the gvectors (distribution functions). NOTE TO JOE: Ned has added a cutoff function to the 2-body exactly as found in the original Behler and Parrinello paper.
-
-For testing purposes, the code will output the 2-, 3-, and 4-body gvectors to files 2body.txt, 3body.txt, and 4body.txt, respectively, for plotting purposes. For the most part, they look all right right now. Lots more testing needs to be done to ensure they are stable.
-
-The code will then output any generated structures to increment1/strucXXX/POSCAR. Note, if you rerun, the code will likely break as it won't want to write over existing files.
-
-It seems that the void finder works. I don't think that scan or pseudo-random walk work at all (and neither should they as they look for the old directory space to calculated distribution function contributions, instead of using the new gvectors).
--->
-
 
 Contributing
 ------------
 
-If you have any questions, bug reports, or feature requests, please post then in [issues](https://github.com/ExeQuantCode/RAFFLE/issues).
+Please note that this project adheres to the [Contributing Guide](CONTRIBUTING.md).
+If you want to contribute to this project, please first read through the guide.
+If you have any questions, bug reports, or feature requests, please either discuss then in [issues](https://github.com/nedtaylor/athena/issues).
 
 
 License

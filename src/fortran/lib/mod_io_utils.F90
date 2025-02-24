@@ -7,8 +7,8 @@ module raffle__io_utils
   logical :: test_error_handling = .false.
 
   logical :: suppress_warnings = .false.
-  character(len=*), parameter :: raffle__version__ = "0.5.2"
-  
+  character(len=*), parameter :: raffle__version__ = "1.0.0-dev0"
+
   private
 
   public :: raffle__version__
@@ -64,7 +64,7 @@ contains
   end subroutine print_version
 !###############################################################################
 
-  
+
 !###############################################################################
   subroutine print_build_info()
     !! Print the build information of the program.

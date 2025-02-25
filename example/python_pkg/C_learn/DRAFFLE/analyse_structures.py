@@ -142,12 +142,10 @@ for seed in range(1):
     # %%
     plt.figure(figsize=(10, 6))
     plt.scatter(X_reduced[:, 0], X_reduced[:, 1], c=delta_en_per_atom_pca, cmap="viridis")
-    plt.xlabel('Principal Component 1')
-    plt.ylabel('Principal Component 2')
+    plt.xlabel('Principal component 1')
+    plt.ylabel('Principal component 2')
     plt.title('PCA of Unique Structures ('+rlxd_string+', seed'+str(seed)+')')
     plt.xlim(-6, 10)
     plt.ylim(-6, 10)
     plt.colorbar(label='Energy above diamond (eV/atom)')
     plt.savefig('RAFFLE_pca_unique_structures_'+rlxd_string+'_seed'+str(seed)+'.png')
-
-

@@ -71,7 +71,7 @@ contains
     implicit none
 
     write(*,'("RAFFLE: pseudoRandom Approach For Finding Local Energy minima")')
-    write(*,'(" version: ",A)') raffle__version__
+    call print_version()
     write(*,'(" (build ",A,1X,A,")")') __DATE__, __TIME__
 
   end subroutine print_build_info

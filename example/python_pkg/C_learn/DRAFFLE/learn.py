@@ -11,11 +11,11 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 # Function to relax a structure
-def process_structure(i, atoms, num_structures_old, calc_params, optimise_structure, iteration):
+def process_structure(i, atoms, num_structures_old, calc_params, optimise_structure, iteration, calc):
     # Check if the structure has already been processed
     if i < num_structures_old:
         return None, None, None
-    
+
     # calc = Vasp(**calc_params, label=f"struct{i}", directory=f"iteration{iteration}/struct{i}/", txt=f"stdout{i}.o")
     inew = i - num_structures_old
     atoms.calc = calc
@@ -32,7 +32,7 @@ def process_structure(i, atoms, num_structures_old, calc_params, optimise_struct
         except Exception as e:
             print(f"Optimisation failed: {e}")
             return None, None, None
-    
+
     # Save the optimised structure and its energy per atom
     energy_rlxd = atoms.get_potential_energy() / len(atoms)
 
@@ -46,11 +46,11 @@ def process_structure(i, atoms, num_structures_old, calc_params, optimise_struct
     if distances.min() < 1.0:
         print(f"Distance too small: {atoms.get_all_distances(mic=True).min()}")
         return None, None, None
-    
+
     if abs(energy_rlxd - energy_unrlxd) > 10.0:
         print(f"Energy difference too large: {energy_rlxd} vs {energy_unrlxd}")
         return None, None, None
-    
+
     return atoms, energy_unrlxd, energy_rlxd
 
 
@@ -89,7 +89,7 @@ if __name__ == "__main__":
     # Loop over random seeds
     for seed in range(20):
         print(f"Seed: {seed}")
-        
+
         # set up file names
         energies_rlxd_filename = f"energies_rlxd_seed{seed}.txt"
         energies_unrlxd_filename = f"energies_unrlxd_seed{seed}.txt"
@@ -160,7 +160,7 @@ if __name__ == "__main__":
                 write(iterdir+f"POSCAR_unrlxd_{i}", generated_structures[num_structures_old + i])
                 print(f"Structure {i} energy per atom: {generated_structures[num_structures_old + i].get_potential_energy() / len(generated_structures[num_structures_old + i])}")
                 unrlxd_structures.append(generated_structures[num_structures_old + i].copy())
-            
+
             # Start parallel execution
             print("Starting parallel execution")
             results = Parallel(n_jobs=5)(
@@ -186,7 +186,7 @@ if __name__ == "__main__":
                     del unrlxd_structures[j]
                     del rlxd_structures[j]
                     generator.remove_structure(j)
-            num_structures_new = len(generated_structures) 
+            num_structures_new = len(generated_structures)
 
             # write the structures to files
             for i in range(num_structures_new - num_structures_old):

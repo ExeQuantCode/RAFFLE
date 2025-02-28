@@ -1503,7 +1503,8 @@ class Generator(f90wrap.runtime.FortranModule):
                 self, num_structures, stoichiometry,
                 method_ratio={"void": 0.0, "rand": 0.0, "walk": 0.0, "grow": 0.0, "min": 0.0},
                 method_probab=None,
-                seed=None, settings_out_file=None, verbose=0
+                seed=None, settings_out_file=None, verbose=0,
+                calc=None
         ):
             """
             Generate structures using the RAFFLE method.
@@ -1519,10 +1520,12 @@ class Generator(f90wrap.runtime.FortranModule):
                     DEPRECATED - The ratio of using each method to generate a structure.
                 seed (int):
                     The seed for the random number generator.
-                print_settings (bool):
-                    Boolean whether to print the settings for the generation.
+                settings_out_file (str):
+                    The file to write the settings to.
                 verbose (int):
                     The verbosity level for the generation.
+                calc (ASE calculator):
+                    The calculator to use for the generated structures.
                 
             Returns:
                 structures (geom_rw.basis_array):
@@ -1565,7 +1568,7 @@ class Generator(f90wrap.runtime.FortranModule):
                 settings_out_file=settings_out_file,
                 seed=seed, verbose=verbose)
                 
-            structures = self.get_structures(self)[-num_structures:]
+            structures = self.get_structures(self, calc)[-num_structures:]
             return structures, exit_code
 
         def get_structures(self, calculator=None):

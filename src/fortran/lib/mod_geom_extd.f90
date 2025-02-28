@@ -92,8 +92,8 @@ contains
        image_species(is)%radius = this%spec(is)%radius
        image_species(is)%name = this%spec(is)%name
        atom_loop: do ia = 1, this%spec(is)%num
-          do i = 1, size(atom_ignore_list_,1), 1
-             if(all(atom_ignore_list_(i,:).eq.[is,ia])) cycle atom_loop
+          do i = 1, size(atom_ignore_list_,2), 1
+             if(all(atom_ignore_list_(:,i).eq.[is,ia])) cycle atom_loop
           end do
           do i=-amax,amax+1,1
              vtmp1(1) = this%spec(is)%atom(ia,1) + real(i, real32)

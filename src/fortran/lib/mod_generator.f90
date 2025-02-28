@@ -467,7 +467,7 @@ contains
     ! ... basis_template
     !---------------------------------------------------------------------------
     if(verbose_.gt.0) write(*,*) "Generating placement list"
-    allocate(placement_list(num_insert_atoms,2))
+    allocate(placement_list(2, num_insert_atoms))
     k = 0
     spec_loop1: do i = 1, basis_template%nspec
        success = .false.
@@ -481,15 +481,15 @@ contains
        if(i.gt.this%host%nspec)then
           do j = 1, basis_template%spec(i)%num
              k = k + 1
-             placement_list(k,1) = i
-             placement_list(k,2) = j
+             placement_list(1,k) = i
+             placement_list(2,k) = j
           end do
        else
           do j = 1, basis_template%spec(i)%num
              if(j.le.this%host%spec(i)%num) cycle
              k = k + 1
-             placement_list(k,1) = i
-             placement_list(k,2) = j
+             placement_list(1,k) = i
+             placement_list(2,k) = j
           end do
        end if
     end do spec_loop1
@@ -593,13 +593,13 @@ contains
     ! shuffle the placement list
     !---------------------------------------------------------------------------
     placement_list_shuffled = placement_list
-    call shuffle(placement_list_shuffled,1)
+    call shuffle(placement_list_shuffled,2)
 
 
     !---------------------------------------------------------------------------
     ! generate species index list to add
     !---------------------------------------------------------------------------
-    species_index_list = placement_list_shuffled(:,1)
+    species_index_list = placement_list_shuffled(1,:)
     call set(species_index_list)
 
 
@@ -638,9 +638,9 @@ contains
                     this%distributions, &
                     basis, &
                     species_index_list, &
-                    [ placement_list_shuffled(iplaced,:) ], &
+                    [ placement_list_shuffled(:,iplaced) ], &
                     [ this%distributions%bond_info(:)%radius_covalent ], &
-                    placement_list_shuffled(iplaced+1:,:) &
+                    placement_list_shuffled(:,iplaced+1:) &
                )
           if(.not.allocated(gridpoint_viability))then
              if(abs(method_rand_limit(4)).lt.1.E-6)then
@@ -677,7 +677,7 @@ contains
                this%grid_offset, &
                this%bounds, &
                basis, &
-               placement_list_shuffled(iplaced+1:,:), viable &
+               placement_list_shuffled(:,iplaced+1:), viable &
           )
        else if(rtmp1.le.method_rand_limit(2)) then
           if(verbose.gt.0) write(*,*) "Add Atom Random"
@@ -685,7 +685,7 @@ contains
                this%distributions, &
                this%bounds, &
                basis, &
-               placement_list_shuffled(iplaced+1:,:), &
+               placement_list_shuffled(:,iplaced+1:), &
                [ this%distributions%bond_info(:)%radius_covalent ], &
                this%max_attempts, &
                viable &
@@ -697,7 +697,7 @@ contains
                this%distributions, &
                this%bounds, &
                basis, &
-               placement_list_shuffled(iplaced+1:,:), &
+               placement_list_shuffled(:,iplaced+1:), &
                [ this%distributions%bond_info(:)%radius_covalent ], &
                this%max_attempts, &
                this%walk_step_size_coarse, this%walk_step_size_fine, &
@@ -711,7 +711,7 @@ contains
                   this%distributions, &
                   this%bounds, &
                   basis, &
-                  placement_list_shuffled(iplaced+1:,:), &
+                  placement_list_shuffled(:,iplaced+1:), &
                   [ this%distributions%bond_info(:)%radius_covalent ], &
                   this%max_attempts, &
                   viable &
@@ -720,13 +720,13 @@ contains
              if(verbose.gt.0) write(*,*) "Add Atom Growth"
              point = place_method_growth( &
                   this%distributions, &
-                  basis%spec(placement_list_shuffled(iplaced,1))%atom( &
-                       placement_list_shuffled(iplaced,2),:3 &
+                  basis%spec(placement_list_shuffled(1,iplaced))%atom( &
+                       placement_list_shuffled(2,iplaced),:3 &
                   ), &
-                  placement_list_shuffled(iplaced,1), &
+                  placement_list_shuffled(1,iplaced), &
                   this%bounds, &
                   basis, &
-                  placement_list_shuffled(iplaced+1:,:), &
+                  placement_list_shuffled(:,iplaced+1:), &
                   [ this%distributions%bond_info(:)%radius_covalent ], &
                   this%max_attempts, &
                   this%walk_step_size_coarse, this%walk_step_size_fine, &
@@ -737,7 +737,7 @@ contains
        else if(rtmp1.le.method_rand_limit(5)) then
           if(verbose.gt.0) write(*,*) "Add Atom Minimum"
           point = place_method_min( gridpoint_viability, &
-               placement_list_shuffled(iplaced+1,1), &
+               placement_list_shuffled(1,iplaced+1), &
                species_index_list, &
                viable &
           )
@@ -771,7 +771,7 @@ contains
           if(void_ticker.gt.10) &
                point = place_method_void( &
                     this%grid, this%grid_offset, this%bounds, basis, &
-                    placement_list_shuffled(iplaced+1:,:), viable &
+                    placement_list_shuffled(:,iplaced+1:), viable &
                )
           void_ticker = 0
           if(.not.viable) cycle placement_loop
@@ -780,12 +780,13 @@ contains
        ! place the atom and update the image atoms in the basis
        !------------------------------------------------------------------------
        iplaced = iplaced + 1
-       basis%spec(placement_list_shuffled(iplaced,1))%atom( &
-            placement_list_shuffled(iplaced,2),:3) = point(:3)
+      !  max_attempts = 0
+       basis%spec(placement_list_shuffled(1,iplaced))%atom( &
+            placement_list_shuffled(2,iplaced),:3) = point(:3)
        call basis%update_images( &
             max_bondlength = this%distributions%cutoff_max(1), &
-            is = placement_list_shuffled(iplaced,1), &
-            ia = placement_list_shuffled(iplaced,2) &
+            is = placement_list_shuffled(1,iplaced), &
+            ia = placement_list_shuffled(2,iplaced) &
        )
        if(verbose.gt.0)then
           write(*,'(A)',ADVANCE='NO') achar(13)

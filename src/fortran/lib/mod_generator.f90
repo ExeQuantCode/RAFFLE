@@ -298,7 +298,7 @@ contains
 !###############################################################################
   subroutine generate(this, num_structures, &
        stoichiometry, method_ratio, seed, settings_out_file, &
-       verbose &
+       verbose, exit_code &
   )
     !! Generate random structures.
     !!
@@ -323,10 +323,14 @@ contains
     !! File to print the settings to.
     integer, intent(in), optional :: verbose
     !! Verbosity level.
+    integer, intent(out), optional :: exit_code
+    !! Exit code.
 
     ! Local variables
     integer :: i, j, k, istructure, num_structures_old, num_structures_new
     !! Loop counters.
+    integer :: exit_code_
+    !! Exit code.
     integer :: num_seed
     !! Number of seeds for the random number generator.
     integer :: num_insert_atoms, num_insert_species
@@ -356,6 +360,7 @@ contains
     !---------------------------------------------------------------------------
     ! Set the verbosity level
     !---------------------------------------------------------------------------
+    exit_code_ = 0
     verbose_ = 0
     if(present(verbose)) verbose_ = verbose
     if(verbose_ .eq. 0) suppress_warnings = .true.
@@ -509,7 +514,8 @@ contains
                  basis_template, &
                  placement_list, &
                  method_rand_limit, &
-                 verbose_ &
+                 verbose_, &
+                 exit_code_ &
             ) &
        )
        this%num_structures = istructure
@@ -519,6 +525,12 @@ contains
 
     if(verbose_ .eq. 0) suppress_warnings = .true.
 
+    if(present(exit_code))then
+       exit_code = exit_code_
+    elseif(exit_code_ .ne. 0)then
+       call stop_program("Error generating structures", exit_code_)
+    end if
+
   end subroutine generate
 !###############################################################################
 
@@ -527,7 +539,8 @@ contains
   function generate_structure( &
        this, &
        basis_initial, &
-       placement_list, method_rand_limit, verbose &
+       placement_list, method_rand_limit, verbose, &
+       exit_code &
   ) result(basis)
     !! Generate a single random structure.
     !!
@@ -551,6 +564,8 @@ contains
     !! Generated basis.
     integer, intent(in) :: verbose
     !! Verbosity level.
+    integer, intent(inout) :: exit_code
+    !! Exit code.
 
     ! Local variables
     integer :: iplaced, void_ticker
@@ -561,6 +576,8 @@ contains
     !! Random number.
     logical :: viable
     !! Boolean for viable placement.
+    logical :: placement_aborted
+    !! Boolean for aborted placement.
     integer, dimension(size(placement_list,1),size(placement_list,2)) :: &
          placement_list_shuffled
     !! Shuffled placement list.
@@ -627,6 +644,7 @@ contains
     iplaced = 0
     void_ticker = 0
     viable = .false.
+    placement_aborted = .false.
     placement_loop: do while (iplaced.lt.num_insert_atoms)
        !------------------------------------------------------------------------
        ! check if there are any viable gridpoints remaining
@@ -644,13 +662,9 @@ contains
                )
           if(.not.allocated(gridpoint_viability))then
              if(abs(method_rand_limit(4)).lt.1.E-6)then
-                call stop_program( &
-                     "No viable gridpoints" // &
-                     achar(13) // achar(10) // &
-                     "No placement methods available" &
-                )
-                return
-             else if( &
+                placement_aborted = .true.
+                exit placement_loop
+             elseif( &
                   abs( &
                        method_rand_limit(5) - method_rand_limit(4) &
                   ) .gt. 1.E-6 &
@@ -678,7 +692,7 @@ contains
                basis, &
                placement_list_shuffled(:,iplaced+1:), viable &
           )
-       else if(rtmp1.le.method_rand_limit(2)) then
+       elseif(rtmp1.le.method_rand_limit(2)) then
           if(verbose.gt.0) write(*,*) "Add Atom Random"
           point = place_method_rand( &
                this%distributions, &
@@ -689,8 +703,7 @@ contains
                this%max_attempts, &
                viable &
           )
-          if(.not. viable) cycle placement_loop
-       else if(rtmp1.le.method_rand_limit(3)) then
+       elseif(rtmp1.le.method_rand_limit(3)) then
           if(verbose.gt.0) write(*,*) "Add Atom Walk"
           point = place_method_walk( &
                this%distributions, &
@@ -702,8 +715,7 @@ contains
                this%walk_step_size_coarse, this%walk_step_size_fine, &
                viable &
           )
-          if(.not. viable) void_ticker = void_ticker + 1
-       else if(rtmp1.le.method_rand_limit(4)) then
+       elseif(rtmp1.le.method_rand_limit(4)) then
           if(iplaced.eq.0)then
              if(verbose.gt.0) write(*,*) "Add Atom Random (growth seed)"
              point = place_method_rand( &
@@ -732,8 +744,7 @@ contains
                   viable &
              )
           end if
-          if(.not. viable) void_ticker = void_ticker + 1
-       else if(rtmp1.le.method_rand_limit(5)) then
+       elseif(rtmp1.le.method_rand_limit(5)) then
           if(verbose.gt.0) write(*,*) "Add Atom Minimum"
           point = place_method_min( gridpoint_viability, &
                placement_list_shuffled(1,iplaced+1), &
@@ -741,16 +752,8 @@ contains
                viable &
           )
           if(.not. viable .and. abs(method_rand_limit(4)).lt.1.E-6)then
-             write(stop_msg,*) &
-                  "No viable gridpoints" // &
-                  achar(13) // achar(10) // &
-                  "Min method is the only method, but cannot place another &
-                  &atom" // &
-                  achar(13) // achar(10) // &
-                  "Species to place now: ", &
-                  basis%spec(placement_list_shuffled(iplaced+1,1))%name
-             call stop_program(stop_msg)
-             return
+             placement_aborted = .true.
+             exit placement_loop
           elseif(.not. viable)then
              deallocate(gridpoint_viability)
              write(warn_msg, '("No more viable gridpoints")')
@@ -766,13 +769,18 @@ contains
        ! check if the placement method returned a viable point
        ! if not, cycle the loop
        !------------------------------------------------------------------------
-       if(.not. viable) then
-          if(void_ticker.gt.10) &
-               point = place_method_void( &
-                    gridpoint_viability, basis, &
-                    placement_list_shuffled(:,iplaced+1:), viable &
-               )
-          void_ticker = 0
+       if(.not. viable)then
+          void_ticker = void_ticker + 1
+          if(void_ticker.gt.10.and..not.allocated(gridpoint_viability))then
+             placement_aborted = .true.
+             exit placement_loop
+          elseif(void_ticker.gt.10)then
+             point = place_method_void( &
+                  gridpoint_viability, basis, &
+                  placement_list_shuffled(:,iplaced+1:), viable &
+             )
+             void_ticker = 0
+          end if
           if(.not.viable) cycle placement_loop
        end if
        !------------------------------------------------------------------------
@@ -793,6 +801,16 @@ contains
        end if
 
     end do placement_loop
+    
+    if(placement_aborted)then
+       call stop_program( &
+            "Placement routine aborted, not all atoms placed", &
+            block_stop = .true. &
+       )
+       exit_code = 1
+       call basis%remove_atoms(placement_list_shuffled(:,iplaced+1:))
+    end if
+
     if(allocated(gridpoint_viability)) deallocate(gridpoint_viability)
 
   end function generate_structure

@@ -1523,7 +1523,16 @@ class Generator(f90wrap.runtime.FortranModule):
                     Boolean whether to print the settings for the generation.
                 verbose (int):
                     The verbosity level for the generation.
+                
+            Returns:
+                structures (geom_rw.basis_array):
+                    The generated structures.
+                exit_code (int):
+                    The exit code from the generation.
             """
+
+            exit_code = 0
+            structures = None
 
             # check if method_ratio is provided, if so, use it only if method_ratio is not provided
             if method_probab is not None and method_ratio == {"void": 0.0, "rand": 0.0, "walk": 0.0, "grow": 0.0, "min": 0.0}:
@@ -1548,22 +1557,16 @@ class Generator(f90wrap.runtime.FortranModule):
             if isinstance(stoichiometry, dict):
                 stoichiometry = Generator.stoichiometry_array(dict=stoichiometry)
 
-            if seed is not None:
-                _raffle.f90wrap_generator__generate__binding__rgt(
-                    this=self._handle,
-                    num_structures=num_structures,
-                    stoichiometry=stoichiometry._handle,
-                    method_ratio=method_ratio_list,
-                    settings_out_file=settings_out_file,
-                    seed=seed, verbose=verbose)
-            else:
-                _raffle.f90wrap_generator__generate__binding__rgt(
-                    this=self._handle,
-                    num_structures=num_structures,
-                    stoichiometry=stoichiometry._handle,
-                    method_ratio=method_ratio_list,
-                    settings_out_file=settings_out_file,
-                    verbose=verbose)
+            exit_code = _raffle.f90wrap_generator__generate__binding__rgt(
+                this=self._handle,
+                num_structures=num_structures,
+                stoichiometry=stoichiometry._handle,
+                method_ratio=method_ratio_list,
+                settings_out_file=settings_out_file,
+                seed=seed, verbose=verbose)
+                
+            structures = self.get_structures(self)[-num_structures:]
+            return structures, exit_code
 
         def get_structures(self, calculator=None):
             """

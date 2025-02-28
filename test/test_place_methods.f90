@@ -68,12 +68,6 @@ program test_place_methods
 
 
   !-----------------------------------------------------------------------------
-  ! test place_method_void
-  !-----------------------------------------------------------------------------
-  call test_place_method_void(basis, success)
-
-
-  !-----------------------------------------------------------------------------
   ! set up distribution functions
   !-----------------------------------------------------------------------------
   bounds(1,:) = 0.25_real32
@@ -107,6 +101,12 @@ program test_place_methods
        max_bondlength = 6._real32, &
        atom_ignore_list = atom_ignore_list &
   )
+
+
+  !-----------------------------------------------------------------------------
+  ! test place_method_void
+  !-----------------------------------------------------------------------------
+  call test_place_method_void(generator%distributions, basis, success)
 
 
   !-----------------------------------------------------------------------------
@@ -199,10 +199,12 @@ program test_place_methods
 
 contains
 
-  subroutine test_place_method_void(basis, success)
+  subroutine test_place_method_void(distributions, basis, success)
+    use raffle__viability, only: get_gridpoints_and_viability
     implicit none
     logical, intent(inout) :: success
     type(basis_type), intent(in) :: basis
+    type(distribs_container_type), intent(in) :: distributions
 
     integer :: i
     type(extended_basis_type) :: basis_copy
@@ -213,6 +215,7 @@ contains
     integer, dimension(:,:), allocatable :: atom_ignore_list
     real(real32), dimension(3) :: tolerance
     real(real32), dimension(2,3) :: bounds
+    real(real32), dimension(:,:), allocatable :: gridpoints, viability_grid
 
     ! Initialise test data
     grid = [10, 10, 10]
@@ -225,9 +228,23 @@ contains
     ! Initialise basis
     call basis_copy%copy(basis)
 
+    !---------------------------------------------------------------------------
+    ! set up gridpoints
+    !---------------------------------------------------------------------------
+    gridpoints = get_gridpoints_and_viability( &
+         distributions, &
+         grid, &
+         bounds, &
+         basis_copy, &
+         [ 1 ], &
+         [ distributions%bond_info(:)%radius_covalent ], &
+         atom_ignore_list, &
+         grid_offset = grid_offset &
+    )
+
     ! Call the void subroutine
     point = place_method_void( &
-         grid, grid_offset, bounds, basis_copy, &
+         gridpoints, basis_copy, &
          atom_ignore_list, &
          viable &
     )

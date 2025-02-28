@@ -673,9 +673,8 @@ contains
        call random_number(rtmp1)
        if(rtmp1.le.method_rand_limit(1)) then
           if(verbose.gt.0) write(*,*) "Add Atom Void"
-          point = place_method_void( this%grid, &
-               this%grid_offset, &
-               this%bounds, &
+          point = place_method_void( &
+               gridpoint_viability, &
                basis, &
                placement_list_shuffled(:,iplaced+1:), viable &
           )
@@ -770,7 +769,7 @@ contains
        if(.not. viable) then
           if(void_ticker.gt.10) &
                point = place_method_void( &
-                    this%grid, this%grid_offset, this%bounds, basis, &
+                    gridpoint_viability, basis, &
                     placement_list_shuffled(:,iplaced+1:), viable &
                )
           void_ticker = 0

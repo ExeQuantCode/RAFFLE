@@ -1,4 +1,4 @@
-.. diamond:
+.. _diamond:
 
 ================
 Diamond tutorial
@@ -20,7 +20,7 @@ This will be used to initialise the generalised distribution functions, which wi
 Here, we detail two routes: 1) using an ASE object of bulk diamond and 2) using the Materials Project database.
 
 Here, we will simply use the ASE object of bulk diamond.
-If you wish to use the Materials Project database, please refer to the `Databases tutorial <databases>`_.
+If you wish to use the Materials Project database, please refer to the :doc:`Databases tutorial </tutorials/databases_tutorial>`.
 
 First, we must import the required packages:
 

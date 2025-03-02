@@ -1,4 +1,5 @@
 from chgnet.model import CHGNetCalculator
+from ase.calculators.singlepoint import SinglePointCalculator
 from raffle.generator import raffle_generator
 from ase import build, Atoms
 from ase.optimize import FIRE
@@ -160,6 +161,11 @@ if __name__ == "__main__":
                 write(iterdir+f"POSCAR_unrlxd_{i}", generated_structures[num_structures_old + i])
                 print(f"Structure {i} energy per atom: {generated_structures[num_structures_old + i].get_potential_energy() / len(generated_structures[num_structures_old + i])}")
                 unrlxd_structures.append(generated_structures[num_structures_old + i].copy())
+                unrlxd_structures[-1].calc = SinglePointCalculator(
+                    generated_structures[num_structures_old + i],
+                    energy=generated_structures[num_structures_old + i].get_potential_energy(),
+                    forces=generated_structures[num_structures_old + i].get_forces()
+                )
 
             # Start parallel execution
             print("Starting parallel execution")
@@ -170,11 +176,16 @@ if __name__ == "__main__":
 
             # Wait for all futures to complete
             for j, result in enumerate(results):
-                generated_structures[j+num_structures_old], energy_unrlxd[j], energy_rlxd[j] = result
-                if generated_structures[j+num_structures_old] is None:
+                generated_structures[num_structures_old + j], energy_unrlxd[j], energy_rlxd[j] = result
+                if generated_structures[num_structures_old + j] is None:
                     print("Structure failed the checks")
                     continue
-                rlxd_structures.append(generated_structures[j+num_structures_old].copy())
+                rlxd_structures.append(generated_structures[num_structures_old + j].copy())
+                rlxd_structures[-1].calc = SinglePointCalculator(
+                    generated_structures[j+num_structures_old],
+                    energy=generated_structures[num_structures_old + j].get_potential_energy(),
+                    forces=generated_structures[num_structures_old + j].get_forces()
+                )
             print("All futures completed")
 
             # Remove structures that failed the checks

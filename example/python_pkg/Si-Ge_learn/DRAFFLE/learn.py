@@ -1,16 +1,18 @@
-from chgnet.model import CHGNetCalculator
+from mace.calculators import mace_mp
 from ase.calculators.singlepoint import SinglePointCalculator
 from raffle.generator import raffle_generator
-from ase import build, Atoms
+from ase import build
 from ase.optimize import FIRE
-from ase.io import write, read
+from ase.io import write
 import numpy as np
 import os
 from joblib import Parallel, delayed
 
+import logging
+logging.basicConfig(level=logging.DEBUG)
 
 # Function to relax a structure
-def process_structure(i, atoms, num_structures_old, calc_params, optimise_structure, iteration):
+def process_structure(i, atoms, num_structures_old, calc_params, optimise_structure, iteration, calc):
     # Check if the structure has already been processed
     if i < num_structures_old:
         return None, None, None
@@ -56,117 +58,66 @@ def process_structure(i, atoms, num_structures_old, calc_params, optimise_struct
 if __name__ == "__main__":
 
     # set up the calculator
-    calc_params = {}
-    calc = CHGNetCalculator()
+    calc_params = { 'model': "../mace-mpa-0-medium.model" }
+    calc = mace_mp(**calc_params)
 
+    # set up the hosts
     hosts = []
-    # get all hosts in ../../data/C-MgO_hosts/ directory
-    for filename in os.listdir("../../data/C-MgO_hosts/"):
-        if filename.startswith("POSCAR"):
-            atoms = read(f"../../data/C-MgO_hosts/{filename}")
-            if not all(element == 'C' for element in set(atoms.get_chemical_symbols())):
-                print(f"Skipping {filename} as it has non-carbon atoms")
-                continue
-            elif len(atoms) > 20:
-                print(f"Skipping {filename} as it has more than 20 atoms (want to do smaller cells for now)")
-                continue
-            hosts.append(read(f"../../data/C-MgO_hosts/{filename}"))
-            hosts[-1].calc = calc
 
-    # set up element reference energies
-    C_reference = Atoms('C4', positions=[
-        [0.000000,    0.000000,    1.950768],
-        [0.000000,    0.000000,    5.852305],
-        [0.000000,    1.424491,    1.950768],
-        [1.233646,    0.712246,    5.852305],
-        ], cell=[[1.2336, -2.1367, 0.0], [1.2336, 2.1367, 0.0], [0.0, 0.0, 7.8031]], pbc=True)
-    C_reference.calc = calc
-    C_reference_energy = C_reference.get_potential_energy() / len(C_reference)
-    Mg_reference = Atoms("Mg2", positions=[
-            [0.000000,    1.831369,    1.285301],
-            [1.586012,    0.915684,    3.855904],
-        ], cell=[
-            [1.58601,   -2.7471,    0.0000],
-            [1.58601,    2.7471,    0.0000],
-            [0.00000,    0.0001,    5.1412],
-        ], pbc=True)
-    Mg_reference.calc = calc
-    Mg_reference_energy = Mg_reference.get_potential_energy() / len(Mg_reference)
-    O_reference = Atoms("O2", positions=[
-        [0.0, 0.0, 0.0],
-        [1.23, 0.0, 0.0]], cell=[10, 10, 10], pbc=False)
-    O_reference.calc = calc
-    O_reference_energy = O_reference.get_potential_energy() / len(O_reference)
+    Si_bulk = build.bulk("Si", crystalstructure="diamond", a=5.43)
+    Si_bulk.calc = calc
+    Si_reference_energy = Si_bulk.get_potential_energy() / len(Si_bulk)
+    Si_cubic = build.make_supercell(Si_bulk, [[-1, 1, 1], [1, -1, 1], [1, 1, -1]])
+    Ge_bulk = build.bulk("Ge", crystalstructure="diamond", a=5.65)
+    Ge_bulk.calc = calc
+    Ge_cubic = build.make_supercell(Ge_bulk, [[-1, 1, 1], [1, -1, 1], [1, 1, -1]])
+    Ge_reference_energy = Ge_bulk.get_potential_energy() / len(Ge_bulk)
 
+    Si_supercell = build.make_supercell(Si_cubic, [[2, 0, 0], [0, 2, 0], [0, 0, 1]])
+    Ge_supercell = build.make_supercell(Ge_cubic, [[2, 0, 0], [0, 2, 0], [0, 0, 1]])
+
+    Si_surface = build.surface(Si_supercell, indices=(0, 0, 1), layers=2)
+    Ge_surface = build.surface(Ge_supercell, indices=(0, 0, 1), layers=2)
+
+    Si_slab = build.surface(Si_supercell, indices=(0, 0, 1), layers=2, vacuum=12, periodic=True)
+    Si_slab.calc = calc
+    Ge_slab = build.surface(Ge_supercell, indices=(0, 0, 1), layers=2, vacuum=12, periodic=True)
+    Ge_slab.calc = calc
+
+    host = build.stack(Si_surface, Ge_surface, axis=2, distance= 5.43/2 + 5.65/2)
+    cell = host.get_cell()
+    print("Host cell: ", host.get_cell())
+    cell[2, 2] -= 3.8865 # (5.43 + 5.65) / 2 * 3/4
+    host.set_cell(cell, scale_atoms=False)
+
+    hosts.append(host)
+
+    # set the parameters for the generator
     generator = raffle_generator()
     generator.distributions.set_element_energies(
         {
-            'C': C_reference_energy,
-            'Mg': Mg_reference_energy,
-            'O': O_reference_energy
-        }
-    )
-
-    # set the covalent radii
-    generator . distributions . set_bond_radii (
-        {
-            ('C', 'Mg'): 1.4,
-            ('Mg', 'Mg'): 1.4,
-            ('C', 'O'): 1.4,
-            # ('C', 'Mg'): 1.15, # 2.3 = what Joe used https://github.com/ExeQuantCode/RAFFLE/blob/1cfdf2d220dce41f20ace4cce5a4135a37d1f1b1/chem.in
-            # ('C', 'O'): 0.587,
-            # ('Mg', 'Mg'): 1.592,
-            # INITIALISE O2 BOND TO LARGER VALUE
+            'Si': Si_reference_energy,
+            'Ge': Ge_reference_energy,
         }
     )
 
     # set energy scale
-    generator.distributions.set_kBT(0.4)
+    generator.distributions.set_kBT(0.2)
 
     # set the distribution function widths (2-body, 3-body, 4-body)
-    generator.distributions.set_width([0.025, np.pi/200.0, np.pi/200.0])
+    generator.distributions.set_width([0.04, np.pi/160.0, np.pi/160.0])
 
-    # generate MgO bulk
-    MgO_atom = Atoms("Mg4O4", positions=[
-            [0.0, 0.0, 0.0],
-            [0.0, 2.097, 2.097],
-            [2.097, 0.0, 2.097],
-            [2.097, 2.097, 0.0],
-            [0.0, 0.0, 2.097],
-            [0.0, 2.097, 0.0],
-            [2.097, 0.0, 0.0],
-            [2.097, 2.097, 2.097],
-        ], cell=[4.1940, 4.1940, 4.1940], pbc=True)
-    MgO_atom.calc = calc
-
-    # read C-Mg-O database, obtained from Materials Project
-    print("Reading database")
-    database = read("../database.xyz", index=":")
-
-    # set up the initial database
-    initial_database = []
-    for i, atoms in enumerate(database):
-        if atoms.calc is None:
-            database.remove(atoms)
-            continue
-        # check if any other species in the system other than C, Mg, O
-        if not all(element in ['C', 'Mg', 'O'] for element in set(atoms.get_chemical_symbols())):
-            print(f"Skipping structure {i} as it has non-C-Mg-O atoms")
-            continue
-        atoms.calc = calc
-        initial_database.append(atoms)
-    initial_database.append(C_reference)
-    initial_database.append(Mg_reference)
-    initial_database.append(O_reference)
-    initial_database.append(MgO_atom)
+    # set the initial database
+    initial_database = [Si_bulk, Ge_bulk]
     generator.distributions.create(initial_database, deallocate_systems=False)
 
-    # set parameters
+    # set the parameters for the generator
     seed = 0
 
     # check if the energies file exists, if not create it
     energies_rlxd_filename = f"energies_rlxd_seed{seed}.txt"
     energies_unrlxd_filename = f"energies_unrlxd_seed{seed}.txt"
+    
     if os.path.exists(energies_rlxd_filename):
         with open(energies_rlxd_filename, "w") as energy_file:
             pass
@@ -178,58 +129,29 @@ if __name__ == "__main__":
             pass
     else:
         open(energies_unrlxd_filename, "w").close()
-    
+        
     # initialise the number of structures generated
     iter = -1
-    num_structures_old = 0
     unrlxd_structures = []
     rlxd_structures = []
+    num_structures_old = 0
     optimise_structure = True
-    mass_C = 12.011
-    mass_Mg = 24.305
-    mass_O = 15.999
-    # loop over all hosts
-    for host in hosts:
-        print("setting host")
-        generator.set_host(host)
-        volume = host.get_volume()
-        num_atoms_C = len(host)
-    
-        host_positions = host.get_scaled_positions(wrap=True)
-        host_height = np.linalg.norm(host.get_cell()[2, :])
-        print(f"host_height: {host_height}")
+    # start the iterations, loop over the hosts, then repeat the process X times
+    for ival in range(40):
+        for host in hosts:
+            print("setting host")
+            generator.set_host(host)
+            generator.set_bounds([[0, 0, 0.34], [1, 1, 0.52]])
 
-        # get all unique z values
-        z_values = np.unique(host_positions[:, 2])
-        print(f"z_values: {z_values}")
-        # return the two closes to 0.5 in the cell
-        z_values = z_values[np.argsort(np.abs(z_values - 0.5))[:2]]
-        print(f"z_values: {z_values}")
-        # set the bounds for the generator
-        z_min = min(z_values) + 1.0 / host_height
-        z_max = max(z_values) - 1.0 / host_height
-        generator.set_bounds([[0, 0, z_min], [1, 1, z_max]])
-
-        # loop over range of MgO densities to intercalate
-        for num_atoms in range(1, 50):
-
-            num_atoms_Mg = num_atoms
-            num_atoms_O = num_atoms
-            density = ( mass_C * num_atoms_C + mass_Mg * num_atoms_Mg + mass_O * num_atoms_O ) / volume
-            if density > 2.2:
-                # print("Density too high:", density, "u/A^3")
-                continue
-            elif density < 1.0:
-                # print("Density too low", density, "u/A^3")
-                continue
             iter += 1
+            print(f"Iteration {iter}")
 
-            # generate structures
+            # generate the structures
             generator.generate(
                 num_structures = 5,
-                stoichiometry = { 'Mg': num_atoms_Mg, 'O': num_atoms_O },
+                stoichiometry = { 'Si': 16, 'Ge': 16 },
                 seed = seed*1000+iter,
-                method_ratio = {"void": 1.0, "rand": 0.001, "walk": 1.0, "grow": 0.0, "min": 1.0},
+                method_ratio = {"void": 0.1, "rand": 0.01, "walk": 0.25, "grow": 0.25, "min": 1.0},
                 verbose = 0,
             )
 
@@ -250,16 +172,18 @@ if __name__ == "__main__":
             for i in range(num_structures_new - num_structures_old):
                 write(iterdir+f"POSCAR_unrlxd_{i}", generated_structures[num_structures_old + i])
                 print(f"Structure {i} energy per atom: {generated_structures[num_structures_old + i].get_potential_energy() / len(generated_structures[num_structures_old + i])}")
+                # print(f"Structure {i} energy per unit area: {( generated_structures[num_structures_old + i].get_potential_energy() - Si_slab.get_potential_energy() - Ge_slab.get_potential_energy() ) / (2 * ( cell[0, 0] * cell[1, 1] ) )}")
                 unrlxd_structures.append(generated_structures[num_structures_old + i].copy())
                 unrlxd_structures[-1].calc = SinglePointCalculator(
                     generated_structures[num_structures_old + i],
                     energy=generated_structures[num_structures_old + i].get_potential_energy(),
                     forces=generated_structures[num_structures_old + i].get_forces()
+                )
             
             # Start parallel execution
             print("Starting parallel execution")
             results = Parallel(n_jobs=5)(
-                delayed(process_structure)(i, generated_structures[i].copy(), num_structures_old, calc_params, optimise_structure, iteration=seed)
+                delayed(process_structure)(i, generated_structures[i].copy(), num_structures_old, calc_params, optimise_structure, iteration=seed, calc=calc)
                 for i in range(num_structures_old, num_structures_new)
             )
 
@@ -315,6 +239,7 @@ if __name__ == "__main__":
 
             # update the number of structures generated
             num_structures_old = num_structures_new
+
 
     # Write the final distribution functions to a file
     generator.distributions.write_gdfs(f"gdfs_seed{seed}.txt")

@@ -5,7 +5,7 @@ Graphite tutorial
 =================
 
 This tutorial will guide you through the process of reconstructing graphite from a defected graphite cell (one missing layer).
-This tutorial follows the same structure as the `Diamond tutorial <diamond>`_.
+This tutorial follows the same structure as the :doc:`Diamond tutorial </tutorials/diamond_tutorial>`.
 
 The tutorial is designed to show how RAFFLE learns from a database and uses this information to generate structures.
 This is not an expected use-case of RAFFLE, but merely a demonstration of its capabilities to rebuild a structure from a defected cell.
@@ -21,7 +21,7 @@ This will be used to initialise the generalised distribution functions, which wi
 Here, we detail two routes: 1) using an ASE object of bulk graphite and 2) using the Materials Project database.
 
 Here, we will simply use the ASE object of bulk graphite.
-If you wish to use the Materials Project database, please refer to the `Databases tutorial <databases>`_.
+If you wish to use the Materials Project database, please refer to the :doc:`Databases tutorial </tutorials/databases_tutorial>`.
 
 First, we must import the required packages:
 

@@ -59,7 +59,7 @@ target_energy = -9.064090728759766
 # %%
 for seed in range(1):
   for rlxd_string in ["unrlxd", "rlxd"]:
-    structures = read("DTMP/"+rlxd_string+"_structures_seed"+str(seed)+".traj", index=":")
+    structures = read("DOutput/"+rlxd_string+"_structures_seed"+str(seed)+".traj", index=":")
     for structure in structures:
       structure.calc = calc
 

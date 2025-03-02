@@ -15,7 +15,7 @@ python_pkg/
     └── DRSS          # Directory containing example random structure search script using AGOX
         ├── rss.py    # Script to run RSS
         └── pca.ipynb # Notebook to plot principal component analysis of RSS results
-    ├── learn.ipynb   # Script to run RSS generating and learning
+    ├── learn.ipynb   # Script to run RAFFLE generating and learning
     └── pca.py        # Notebook to plot principal component analysis of RAFFLE results
 ```
 
@@ -31,8 +31,8 @@ To run a RAFFLE example and analyse the results, the following order must be per
 1. Move to the desired `SYSTEM_learn/` directory (other than `C_learn/`, where this will instead be in `C_learn/DRAFFLE/`) and create a directory to work in:
    ```bash
    cd SYSTEM_learn
-   mkdir DTMP
-   cd DTMP
+   mkdir DOutput
+   cd DOutput
    ```
 
 2. Run the `learn.py` script:

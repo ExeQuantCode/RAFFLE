@@ -1503,7 +1503,8 @@ class Generator(f90wrap.runtime.FortranModule):
                 self, num_structures, stoichiometry,
                 method_ratio={"void": 0.0, "rand": 0.0, "walk": 0.0, "grow": 0.0, "min": 0.0},
                 method_probab=None,
-                seed=None, settings_out_file=None, verbose=0
+                seed=None, settings_out_file=None, verbose=0,
+                calc=None
         ):
             """
             Generate structures using the RAFFLE method.
@@ -1519,11 +1520,22 @@ class Generator(f90wrap.runtime.FortranModule):
                     DEPRECATED - The ratio of using each method to generate a structure.
                 seed (int):
                     The seed for the random number generator.
-                print_settings (bool):
-                    Boolean whether to print the settings for the generation.
+                settings_out_file (str):
+                    The file to write the settings to.
                 verbose (int):
                     The verbosity level for the generation.
+                calc (ASE calculator):
+                    The calculator to use for the generated structures.
+                
+            Returns:
+                structures (geom_rw.basis_array):
+                    The generated structures.
+                exit_code (int):
+                    The exit code from the generation.
             """
+
+            exit_code = 0
+            structures = None
 
             # check if method_ratio is provided, if so, use it only if method_ratio is not provided
             if method_probab is not None and method_ratio == {"void": 0.0, "rand": 0.0, "walk": 0.0, "grow": 0.0, "min": 0.0}:
@@ -1548,22 +1560,16 @@ class Generator(f90wrap.runtime.FortranModule):
             if isinstance(stoichiometry, dict):
                 stoichiometry = Generator.stoichiometry_array(dict=stoichiometry)
 
-            if seed is not None:
-                _raffle.f90wrap_generator__generate__binding__rgt(
-                    this=self._handle,
-                    num_structures=num_structures,
-                    stoichiometry=stoichiometry._handle,
-                    method_ratio=method_ratio_list,
-                    settings_out_file=settings_out_file,
-                    seed=seed, verbose=verbose)
-            else:
-                _raffle.f90wrap_generator__generate__binding__rgt(
-                    this=self._handle,
-                    num_structures=num_structures,
-                    stoichiometry=stoichiometry._handle,
-                    method_ratio=method_ratio_list,
-                    settings_out_file=settings_out_file,
-                    verbose=verbose)
+            exit_code = _raffle.f90wrap_generator__generate__binding__rgt(
+                this=self._handle,
+                num_structures=num_structures,
+                stoichiometry=stoichiometry._handle,
+                method_ratio=method_ratio_list,
+                settings_out_file=settings_out_file,
+                seed=seed, verbose=verbose)
+                
+            structures = self.get_structures(self, calc)[-num_structures:]
+            return structures, exit_code
 
         def get_structures(self, calculator=None):
             """

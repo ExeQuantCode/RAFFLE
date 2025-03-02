@@ -32,7 +32,7 @@ contains
 
 !###############################################################################
   function place_method_void( &
-       grid, grid_offset, bounds, basis, atom_ignore_list, viable &
+       points, basis, atom_ignore_list, viable &
   ) result(point)
     !! VOID placement method.
     !!
@@ -41,14 +41,10 @@ contains
     implicit none
 
     ! Arguments
+    real(real32), dimension(:,:), intent(in) :: points
+    !! List of gridpoints to consider.
     type(extended_basis_type), intent(inout) :: basis
     !! Structure to add atom to.
-    integer, dimension(3), intent(in) :: grid
-    !! Number of gridpoints in each direction.
-    real(real32), dimension(3), intent(in) :: grid_offset
-    !! Offset for gridpoints.
-    real(real32), dimension(2,3), intent(in) :: bounds
-    !! Bounds of the unit cell.
     integer, dimension(:,:), intent(in) :: atom_ignore_list
     !! List of atoms to ignore (i.e. indices of atoms not yet placed).
     logical, intent(out) :: viable
@@ -75,21 +71,14 @@ contains
     !---------------------------------------------------------------------------
     best_location = 0._real32
     best_location_bond = -huge(1._real32)
-    do i = 0, grid(1) - 1, 1
-       do j = 0, grid(2) - 1, 1
-          do k = 0, grid(3) - 1, 1
-             tmpvector = bounds(1,:) + &
-                  ( bounds(2,:) - bounds(1,:) ) * &
-                  ( [ i, j, k ] + grid_offset ) / real(grid,real32)
-             smallest_bond = modu(get_min_dist(&
-                  basis, tmpvector, .false., &
-                  ignore_list = atom_ignore_list))
-             if( smallest_bond .gt. best_location_bond ) then
-                best_location_bond = smallest_bond
-                best_location = tmpvector
-             end if
-          end do
-       end do
+    do i = 1, size(points,2)
+       smallest_bond = modu(get_min_dist(&
+            basis, [ points(1:3,i) ], .false., &
+            ignore_list = atom_ignore_list))
+       if( smallest_bond .gt. best_location_bond ) then
+          best_location_bond = smallest_bond
+          best_location = points(1:3,i)
+       end if
     end do
 
 

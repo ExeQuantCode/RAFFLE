@@ -15,8 +15,10 @@ An example
 
 .. code-block:: python
 
-    # A simple example of how to use RAFFLE to generate 10 structures of diamond
+    # A simple example of how to use RAFFLE to generate 10 structures of diamond and write them to a single file
     from ase import Atoms
+    from ase.io import write
+    from ase.calculators.singlepoint import SinglePointCalculator
     from raffle.generator import raffle_generator
     from mace.calculators import mace_mp
 
@@ -40,6 +42,16 @@ An example
         structures = generator.get_structures(calc)
         generator.distributions.update(structures[num_structures_old:])
         num_structures_old = len(structures)
+
+    structures = generator.get_structures(calc)
+    for structure in structures:
+        structure.calc = SinglePointCalculator(
+            structure,
+            energy=structure.get_potential_energy(),
+            forces=structure.get_forces()
+        )
+ 
+    write('structures.traj', structures)
 
 .. toctree::
    :maxdepth: 3

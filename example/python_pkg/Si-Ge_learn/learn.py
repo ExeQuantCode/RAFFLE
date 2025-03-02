@@ -1,4 +1,4 @@
-from chgnet.model import CHGNetCalculator
+from mace.calculators import mace_mp
 from raffle.generator import raffle_generator
 from ase import build
 from ase.optimize import FIRE
@@ -57,8 +57,8 @@ def process_structure(i, atoms, num_structures_old, calc_params, optimise_struct
 if __name__ == "__main__":
 
     # set up the calculator
-    calc_params = {}
-    calc = CHGNetCalculator()
+    calc_params = { 'model': "../mace-mpa-0-medium.model" }
+    calc = mace_mp(**calc_params)
 
     # set up the hosts
     hosts = []
@@ -136,7 +136,7 @@ if __name__ == "__main__":
     num_structures_old = 0
     optimise_structure = True
     # start the iterations, loop over the hosts, then repeat the process X times
-    for ival in range(20):
+    for ival in range(40):
         for host in hosts:
             print("setting host")
             generator.set_host(host)
@@ -150,7 +150,7 @@ if __name__ == "__main__":
                 num_structures = 5,
                 stoichiometry = { 'Si': 16, 'Ge': 16 },
                 seed = seed*1000+iter,
-                method_ratio = {"void": 0.3, "rand": 0.01, "walk": 0.3, "grow": 0.0, "min": 1.0},
+                method_ratio = {"void": 0.1, "rand": 0.01, "walk": 0.25, "grow": 0.25, "min": 1.0},
                 verbose = 0,
             )
 

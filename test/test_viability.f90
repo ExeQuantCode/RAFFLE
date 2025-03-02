@@ -63,8 +63,8 @@ contains
     grid = [10, 10, 10]
     bounds(1,:) = 0.0_real32
     bounds(2,:) = 1.0_real32
-    allocate(atom_ignore_list(1, 2))  ! No atoms to ignore
-    atom_ignore_list(1,:) = [1,2]
+    allocate(atom_ignore_list(2,1))  ! No atoms to ignore
+    atom_ignore_list(:,1) = [1,2]
     allocate(radius_list(1))
     radius_list = 1.0_real32
     lowtol = 0.5_real32
@@ -133,8 +133,8 @@ contains
     grid = [10, 10, 10]
     bounds(1,:) = 0.0_real32
     bounds(2,:) = 1.0_real32
-    allocate(atom_ignore_list(1, 2))  ! No atoms to ignore
-    atom_ignore_list(1,:) = [1,2]
+    allocate(atom_ignore_list(2,1))  ! No atoms to ignore
+    atom_ignore_list(:,1) = [1,2]
     allocate(radius_list(1))
     radius_list = 1.0_real32 !!! NO!!! USING CARBON RADIUS
     lowtol = 0.5_real32

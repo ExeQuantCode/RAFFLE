@@ -71,6 +71,10 @@ module raffle__geom_rw
      !! Procedure to copy the basis.
      procedure, pass(this) :: get_lattice_constants
      !! Procedure to get the lattice constants of the basis.
+     procedure, pass(this) :: remove_atom
+     !! Procedure to remove an atom from the basis.
+     procedure, pass(this) :: remove_atoms
+     !! Procedure to remove atoms from the basis.
   end type basis_type
 
 
@@ -1403,6 +1407,137 @@ contains
     this%pbc = basis%pbc
 
   end subroutine copy
+!###############################################################################
+
+
+!###############################################################################
+  subroutine remove_atom(this, ispec, iatom)
+    !! Remove an atom from the basis.
+    implicit none
+
+    ! Arguments
+    class(basis_type), intent(inout) :: this
+    !! Parent. The basis.
+    integer, intent(in) :: ispec, iatom
+    !! The species and atom to remove.
+
+    ! Local variables
+    integer :: i
+    !! Loop index.
+    real(real32), dimension(:,:), allocatable :: atom
+    !! Temporary array to store the atomic positions.
+
+
+    !---------------------------------------------------------------------------
+    ! remove atom from basis
+    !---------------------------------------------------------------------------
+    do i = 1, this%nspec
+       if(i.eq.ispec)then
+          if(iatom.gt.this%spec(i)%num)then
+             call stop_program("Atom to remove does not exist")
+             return
+          end if
+          allocate(atom(this%spec(i)%num-1,size(this%spec(i)%atom,2)))
+          atom(1:iatom-1:1,:) = this%spec(i)%atom(1:iatom-1:1,:)
+          atom(iatom:this%spec(i)%num-1:1,:) = &
+               this%spec(i)%atom(iatom+1:this%spec(i)%num:1,:)
+          this%spec(i)%atom = atom
+          deallocate(atom)
+          this%spec(i)%num = this%spec(i)%num - 1
+          this%natom = this%natom - 1
+          if(this%spec(i)%num.eq.0)then
+             deallocate(this%spec(i)%atom)
+             if(this%nspec.eq.0)then
+                deallocate(this%spec)
+                this%lcart = .true.
+                this%sysname = ""
+                this%energy = 0._real32
+                this%lat = 0._real32
+                this%pbc = .true.
+             end if
+          end if
+       end if
+    end do
+
+  end subroutine remove_atom
+!###############################################################################
+
+
+!###############################################################################
+  subroutine remove_atoms(this, atoms)
+    !! Remove atoms from the basis.
+    use raffle__misc, only: swap
+    implicit none
+
+    ! Arguments
+    class(basis_type), intent(inout) :: this
+    !! Parent. The basis.
+    integer, dimension(:,:), intent(in) :: atoms
+    !! The atoms to remove (2, number of atoms to remove)
+    !! 1st value of 1st dimension is the species number
+    !! 2nd value of 1st dimension is the atom number
+    !! 2nd dimension is the number of atoms to remove
+
+    ! Local variables
+    integer :: is, ia, i
+    !! Loop index.
+    integer :: n, m, start_idx, end_idx, loc
+    !! Index variables.
+    integer :: num_species
+    !! The number of species.
+    integer, dimension(:,:), allocatable :: atoms_ordered
+    !! The atoms to remove ordered by species and atom
+    real(real32), dimension(:,:), allocatable :: atom
+    !! Temporary array to store the atomic positions.
+
+
+    !---------------------------------------------------------------------------
+    ! reorder atoms to remove
+    !---------------------------------------------------------------------------
+    allocate(atoms_ordered, source=atoms)
+    n = size(atoms_ordered, 1)
+    m = size(atoms_ordered, 2)
+
+    do i = 1, m
+       loc = maxloc(atoms_ordered(1, i:n), dim=1) + i - 1
+       if (loc .ne. i) then
+          call swap(atoms_ordered(1, i), atoms_ordered(1, loc))
+          call swap(atoms_ordered(2, i), atoms_ordered(2, loc))
+       end if
+    end do
+    num_species = this%nspec
+    do is = 1, num_species
+       start_idx = findloc(atoms_ordered(1, :), is, dim=1)
+       end_idx   = findloc(atoms_ordered(1, :), is, dim=1, back=.true.)
+       if (start_idx .eq. 0) cycle
+       do ia = start_idx, end_idx, 1
+          loc = maxloc( &
+               atoms_ordered(2, ia:end_idx), &
+               dim=1 &
+          ) + ia - 1
+          if (loc .ne. ia) then
+             call swap(atoms_ordered(1, ia), atoms_ordered(1, loc))
+             call swap(atoms_ordered(2, ia), atoms_ordered(2, loc))
+          end if
+       end do
+    end do
+
+
+    !---------------------------------------------------------------------------
+    ! remove atoms from basis
+    !---------------------------------------------------------------------------
+    do i = 1, size(atoms_ordered, 2)
+       call this%remove_atom(atoms_ordered(1, i), atoms_ordered(2, i))
+    end do
+
+    do is = 1, this%nspec
+       if (this%spec(is)%num .eq. 0) then
+          this%spec = [ this%spec(1:is-1), this%spec(is+1:) ]
+          this%nspec = this%nspec - 1
+       end if
+    end do
+
+  end subroutine remove_atoms
 !###############################################################################
 
 

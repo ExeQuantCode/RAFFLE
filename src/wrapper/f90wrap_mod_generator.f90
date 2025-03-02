@@ -821,7 +821,9 @@ end subroutine f90wrap_generator__reset_bounds__binding__rgt
 
 subroutine f90wrap_generator__generate__binding__rgt( &
        this, num_structures, stoichiometry, &
-    method_ratio, seed, settings_out_file, verbose)
+       method_ratio, seed, settings_out_file, verbose, exit_code &
+)
+    use raffle__geom_rw, only: basis_type
     use raffle__generator, only: raffle_generator_type, stoichiometry_type
     implicit none
     
@@ -846,6 +848,7 @@ subroutine f90wrap_generator__generate__binding__rgt( &
     character*(*), intent(in), optional :: settings_out_file
     integer, intent(in), optional :: seed
     integer, intent(in), optional :: verbose
+    integer, intent(out), optional :: exit_code
 
     this_ptr = transfer(this, this_ptr)
     stoichiometry_ptr = transfer(stoichiometry, stoichiometry_ptr)
@@ -855,7 +858,8 @@ subroutine f90wrap_generator__generate__binding__rgt( &
          method_ratio=method_ratio, &
          seed=seed, &
          settings_out_file=settings_out_file, &
-         verbose=verbose &
+         verbose=verbose, &
+         exit_code=exit_code &
     )
 end subroutine f90wrap_generator__generate__binding__rgt
 

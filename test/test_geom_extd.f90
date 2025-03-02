@@ -88,10 +88,10 @@ contains
     logical, intent(inout) :: success
 
     type(extended_basis_type) :: basis_copy
-    integer, dimension(1,2) :: atom_ignore_list
+    integer, dimension(2,1) :: atom_ignore_list
 
     call basis_copy%copy(basis)
-    atom_ignore_list(1,:) = [1, 1]
+    atom_ignore_list(:,1) = [1, 1]
 
     ! Create images
     call basis_copy%create_images( &

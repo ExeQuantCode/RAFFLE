@@ -63,9 +63,7 @@ if __name__ == "__main__":
 
     # set up the hosts
     crystal_structures = [
-        'orthorhombic', 'diamond',
-        'bct', 'sc',
-        'fcc', 'bcc', 'hcp',
+        'orthorhombic', 'hcp',
     ]
     hosts = []
     for crystal_structure in crystal_structures:

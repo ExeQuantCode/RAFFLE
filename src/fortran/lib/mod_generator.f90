@@ -521,7 +521,8 @@ contains
        this%num_structures = istructure
 
     end do structure_loop
-    if(verbose_ .gt. 0) write(*,*) "Finished generating structures"
+    if(verbose_ .gt. 0 .and. exit_code_ .eq. 0) &
+         write(*,*) "Finished generating structures"
 
     if(verbose_ .eq. 0) suppress_warnings = .true.
 
@@ -940,7 +941,7 @@ contains
     ! Local variables
     integer :: is, ia, species
     !! Loop indices.
-    integer, dimension(1,2) :: atom_ignore
+    integer, dimension(2,1) :: atom_ignore
     !! Atom to ignore.
     type(extended_basis_type) :: basis_extd
     !! Extended basis for the structure to evaluate.
@@ -967,7 +968,7 @@ contains
           return
        end if
        do ia = 1, basis%spec(is)%num
-          atom_ignore(1,:) = [is,ia]
+          atom_ignore(:,1) = [is,ia]
           viability = viability + &
                evaluate_point( this%distributions, &
                     [ basis%spec(is)%atom(ia,1:3) ], &

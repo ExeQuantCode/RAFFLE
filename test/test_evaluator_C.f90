@@ -149,11 +149,11 @@ program test_evaluator
   basis_host%lat(3,:) = [0.0, 0.0, 7.121490218]
 
   ! set up atom_ignore_list
-  allocate(atom_ignore_list(8,2))
-  do i = 1, size(atom_ignore_list,1)
-     atom_ignore_list(i,1) = 1
-     atom_ignore_list(i,2) = &
-          basis_host%spec(1)%num - size(atom_ignore_list,1) + i
+  allocate(atom_ignore_list(2,8))
+  do i = 1, size(atom_ignore_list,2)
+     atom_ignore_list(1,i) = 1
+     atom_ignore_list(2,i) = &
+          basis_host%spec(1)%num - size(atom_ignore_list,2) + i
   end do
 
   call basis_host%create_images( &
@@ -220,8 +220,8 @@ program test_evaluator
      write(unit,fmt) basis_host%spec(:)%name
      do is = 1, basis_host%nspec
         atom_loop: do ia = 1, basis_host%spec(is)%num
-           do i = 1, size(atom_ignore_list,1)
-              if( all(atom_ignore_list(i,:).eq.[is,ia]) ) cycle atom_loop
+           do i = 1, size(atom_ignore_list,2)
+              if( all(atom_ignore_list(:,i).eq.[is,ia]) ) cycle atom_loop
            end do
            write(unit,*) basis_host%spec(is)%atom(ia,:3)
         end do atom_loop
@@ -241,24 +241,24 @@ program test_evaluator
   ! call evaluator
   !-----------------------------------------------------------------------------
   allocate(viability_grid(basis_host%nspec,size(gridpoints,2)))
-  do ia = 1, size(atom_ignore_list,1)
+  do ia = 1, size(atom_ignore_list,2)
      viability_grid(:,:) = 0._real32
      do i = 1, size(gridpoints,dim=2)
         viability_grid(1,i) = evaluate_point( generator%distributions, &
-             gridpoints(1:3,i), atom_ignore_list(ia,1), basis_host, &
-             atom_ignore_list(ia:,:), &
+             gridpoints(1:3,i), atom_ignore_list(1,ia), basis_host, &
+             atom_ignore_list(:,ia:), &
              [ generator%distributions%bond_info(:)%radius_covalent ] &
         )
      end do
-     best_loc = maxloc(viability_grid(atom_ignore_list(ia,1),:),dim=1)
+     best_loc = maxloc(viability_grid(atom_ignore_list(1,ia),:),dim=1)
      ! Check point is correct
      ltmp1 = .false.
-     do ja = ia, size(atom_ignore_list,1), 1
+     do ja = ia, size(atom_ignore_list,2), 1
         if( &
              all( &
                   abs( &
                        gridpoints(1:3,best_loc) - &
-                       basis_host%spec(1)%atom(atom_ignore_list(ja,2),:3) &
+                       basis_host%spec(1)%atom(atom_ignore_list(2,ja),:3) &
                   ) .lt. tolerance + 1.E-6_real32 &
              ) &
         ) ltmp1 = .true.
@@ -270,7 +270,7 @@ program test_evaluator
      )
      call basis_host%update_images( &
           max_bondlength = max_bondlength, &
-          is = 1, ia = atom_ignore_list(ia,2) &
+          is = 1, ia = atom_ignore_list(2,ia) &
      )
   end do
 

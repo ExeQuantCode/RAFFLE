@@ -89,8 +89,8 @@ program test_place_methods
   call generator%distributions%host_system%set_element_map( &
        generator%distributions%element_info &
   )
-  allocate(atom_ignore_list(1, 2))
-  atom_ignore_list(1,:) = [1,2]
+  allocate(atom_ignore_list(2,1))
+  atom_ignore_list(:,1) = [1,2]
   seed = 0
   call random_seed(size=num_seed)
   allocate(seed_arr(num_seed))
@@ -221,12 +221,16 @@ contains
     grid = [10, 10, 10]
     bounds(1,:) = 0.0_real32
     bounds(2,:) = 1.0_real32
-    allocate(atom_ignore_list(1, 2))  ! No atoms to ignore
-    atom_ignore_list(1,:) = [1,2]
+    allocate(atom_ignore_list(2,1))  ! No atoms to ignore
+    atom_ignore_list(:,1) = [1,2]
     grid_offset = [0.5_real32, 0.5_real32, 0.5_real32]
 
     ! Initialise basis
     call basis_copy%copy(basis)
+    call basis_copy%create_images( &
+         max_bondlength = 6._real32, &
+         atom_ignore_list = atom_ignore_list &
+    )
 
     !---------------------------------------------------------------------------
     ! set up gridpoints

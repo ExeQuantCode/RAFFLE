@@ -620,13 +620,14 @@ contains
        iother = 2
        i2s=1;i2e=size(arr,dim=iother)
        j2s=1;j2e=size(arr,dim=iother)
+       allocate(tlist(1,size(arr,dim=iother)))
     else
        iother = 1
        i1s=1;i1e=size(arr,dim=iother)
        j1s=1;j1e=size(arr,dim=iother)
+       allocate(tlist(size(arr,dim=iother),1))
     end if
     istart=1
-    allocate(tlist(1,size(arr,dim=iother)))
     do k = 1, 2
        do i = 1, n_data
           call random_number(r)
@@ -638,9 +639,9 @@ contains
              i2s=i;i2e=i
              j2s=j;j2e=j
           end if
-          tlist(1:1,:) = arr(i1s:i1e,i2s:i2e)
+          tlist(:,:) = arr(i1s:i1e,i2s:i2e)
           arr(i1s:i1e,i2s:i2e) = arr(j1s:j1e,j2s:j2e)
-          arr(j1s:j1e,j2s:j2e) = tlist(1:1,:)
+          arr(j1s:j1e,j2s:j2e) = tlist(:,:)
        end do
     end do
 

@@ -107,8 +107,8 @@ contains
        atom_loop: do ia = 1, basis%spec(is)%num
           ! Check if the atom is in the ignore list
           ! If it is, skip the atom.
-          do i = 1, size(atom_ignore_list,dim=1), 1
-             if(all(atom_ignore_list(i,:).eq.[is,ia])) cycle atom_loop
+          do i = 1, size(atom_ignore_list,dim=2), 1
+             if(all(atom_ignore_list(:,i).eq.[is,ia])) cycle atom_loop
           end do
           associate( position_store => [ basis%spec(is)%atom(ia,1:3) ] )
              bondlength = modu( matmul(position - position_store, basis%lat) )

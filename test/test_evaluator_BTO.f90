@@ -164,12 +164,12 @@ program test_evaluator_BTO
   basis_host%lat(3,:) = [0.0, 0.0, 8.00]
 
   ! set up atom_ignore_list
-  allocate(atom_ignore_list(5,2))
-  atom_ignore_list(1,:) = [1, 2]
-  atom_ignore_list(2,:) = [3, 4]
-  atom_ignore_list(3,:) = [3, 5]
-  atom_ignore_list(4,:) = [3, 6]
-  atom_ignore_list(5,:) = [2, 2]
+  allocate(atom_ignore_list(2,5))
+  atom_ignore_list(:,1) = [1, 2]
+  atom_ignore_list(:,2) = [3, 4]
+  atom_ignore_list(:,3) = [3, 5]
+  atom_ignore_list(:,4) = [3, 6]
+  atom_ignore_list(:,5) = [2, 2]
 
   call basis_host%create_images( &
        max_bondlength = max_bondlength, &
@@ -236,8 +236,8 @@ program test_evaluator_BTO
      write(unit,fmt) basis_host%spec(:)%name
      do is = 1, basis_host%nspec
         atom_loop: do ia = 1, basis_host%spec(is)%num
-           do i = 1, size(atom_ignore_list,1)
-              if( all(atom_ignore_list(i,:).eq.[is,ia]) ) cycle atom_loop
+           do i = 1, size(atom_ignore_list,2)
+              if( all(atom_ignore_list(:,i).eq.[is,ia]) ) cycle atom_loop
            end do
            write(unit,*) basis_host%spec(is)%atom(ia,:3)
         end do atom_loop
@@ -257,29 +257,29 @@ program test_evaluator_BTO
   ! call evaluator
   !-----------------------------------------------------------------------------
   allocate(viability_grid(basis_host%nspec,size(gridpoints,2)))
-  do ia = 1, size(atom_ignore_list,1)
+  do ia = 1, size(atom_ignore_list,2)
      viability_grid(:,:) = 0._real32
      do is = 1, basis_host%nspec
         do i = 1, size(gridpoints,dim=2)
            viability_grid(is,i) = evaluate_point( generator%distributions, &
                 gridpoints(1:3,i), is, &
                 basis_host, &
-                atom_ignore_list(ia:,:), &
+                atom_ignore_list(:,ia:), &
                 [ generator%distributions%bond_info(:)%radius_covalent ] &
            )
         end do
      end do
-     best_loc = maxloc(viability_grid(atom_ignore_list(ia,1),:),dim=1)
+     best_loc = maxloc(viability_grid(atom_ignore_list(1,ia),:),dim=1)
      ltmp1 = .false.
-     if(any(viability_grid(atom_ignore_list(ia,1),:) .gt. 0._real32) )then
-        do ja = ia, size(atom_ignore_list,1), 1
-           if( atom_ignore_list(ja,1) .ne. atom_ignore_list(ia,1) ) cycle
+     if(any(viability_grid(atom_ignore_list(1,ia),:) .gt. 0._real32) )then
+        do ja = ia, size(atom_ignore_list,2), 1
+           if( atom_ignore_list(1,ja) .ne. atom_ignore_list(1,ia) ) cycle
            if( &
                 all( &
                      abs( &
                           gridpoints(1:3,best_loc) - &
-                          basis_host%spec(atom_ignore_list(ja,1))%atom( &
-                               atom_ignore_list(ja,2),:3 &
+                          basis_host%spec(atom_ignore_list(1,ja))%atom( &
+                               atom_ignore_list(2,ja),:3 &
                           ) &
                      ) .lt. tolerance + 1.E-6_real32 &
                 ) &
@@ -292,15 +292,15 @@ program test_evaluator_BTO
           success &
      )
      if( .not. ltmp1 ) then
-        write(*,*) "species: ", atom_ignore_list(ia,1)
+        write(*,*) "species: ", atom_ignore_list(1,ia)
         write(*,*) "Best location: ", best_loc
         write(*,*) "viability: ", &
-             viability_grid(atom_ignore_list(ia,1),best_loc)
+             viability_grid(atom_ignore_list(1,ia),best_loc)
         write(*,*) "Gridpoint: ", gridpoints(1:3,best_loc)
      end if
      call basis_host%update_images( &
           max_bondlength = max_bondlength, &
-          is = atom_ignore_list(ia,1), ia = atom_ignore_list(ia,2) &
+          is = atom_ignore_list(1,ia), ia = atom_ignore_list(2,ia) &
      )
   end do
   close(unit)

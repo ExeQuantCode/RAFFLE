@@ -126,7 +126,7 @@ contains
              write(0,'("&
                   &ERROR: No input filename supplied, &
                   &but the flag ''-f'' was used&
-                  &")')
+             &")')
              infilename_do: do j = 1, 3
                 write(6,'("Please supply an input filename:")')
                 read(5,'(A)') input_file
@@ -157,7 +157,7 @@ contains
           write(6,'("-----------------FILE-NAME-FLAGS-----------------")')
           write(6,'(2X,"-f<STR>         : Input structure file name (&
                &Default = (empty)&
-               &).")')
+          &).")')
           stop
        end if
     end do flagloop

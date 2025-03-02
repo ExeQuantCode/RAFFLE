@@ -51,3 +51,4 @@ pca_model*.pkl
 .benchmarks/
 .local-pre-commit-config.yaml
 *.tgz
+.ipynb_checkpoints

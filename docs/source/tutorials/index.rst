@@ -18,6 +18,5 @@ Whilst RAFFLE is a random sturcture search package designed primarlily for inter
    databases_tutorial
    diamond_tutorial
    graphite_tutorial
-   BaTiO3_tutorial
-   perovskites_tutorial
-   C-MgO_tutorial
+   aluminium_tutorial
+   Si-Ge_tutorial

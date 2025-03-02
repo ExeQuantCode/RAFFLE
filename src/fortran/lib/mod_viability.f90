@@ -78,8 +78,8 @@ contains
                   ( [ i, j, k ] + grid_offset ) / real(grid,real32)
              do is = 1, basis%nspec
                 atom_loop: do ia = 1, basis%spec(is)%num
-                   do l = 1, size(atom_ignore_list,dim=1), 1
-                      if(all(atom_ignore_list(l,:).eq.[is,ia])) cycle atom_loop
+                   do l = 1, size(atom_ignore_list,dim=2), 1
+                      if(all(atom_ignore_list(:,l).eq.[is,ia])) cycle atom_loop
                    end do
                    if( &
                         get_min_dist_between_point_and_atom( &

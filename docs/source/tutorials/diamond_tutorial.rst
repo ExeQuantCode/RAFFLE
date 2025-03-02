@@ -61,7 +61,6 @@ This is the base structure that will be added to in order to generate the struct
                 3.5607451090903233, 3.5607451090903233, 7.1214902182
             ], pbc=True
         )
-    )
 
     host.calc = calc
     generator.set_host(host)
@@ -121,12 +120,12 @@ We are now ready to generate structures using the database of structures.
 .. code-block:: python
 
     num_structures_old = 0
-    generator.generate(
+    structures, exit_code = generator.generate(
         num_structures = 1,
         stoichiometry = { 'C': 8 },
         method_ratio = {"void":0.0001, "min":1.0},
+        calc = calc
     )
-    structures = generator.get_structures(calc)
 
 We should now have a structure of diamond.
 This structure can be visualised using the ASE package.

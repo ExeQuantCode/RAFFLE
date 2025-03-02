@@ -84,8 +84,8 @@ contains
     do js = 1, basis%nspec
        atmloop: do ja = 1, basis%spec(js)%num
           if(present(ignore_list))then
-             do i = 1, size(ignore_list,1), 1
-                if(all(ignore_list(i,:).eq.[js,ja])) cycle atmloop
+             do i = 1, size(ignore_list,2), 1
+                if(all(ignore_list(:,i).eq.[js,ja])) cycle atmloop
              end do
           end if
           vdtmp1 = basis%spec(js)%atom(ja,:3) - loc
@@ -181,8 +181,8 @@ contains
     dist = huge(0._real32)
     atom_loop: do ia = 1,basis%spec(species)%num
        if(present(ignore_list))then
-          do i = 1, size(ignore_list,1), 1
-             if(all(ignore_list(i,:).eq.[species,ia])) cycle atom_loop
+          do i = 1, size(ignore_list,2), 1
+             if(all(ignore_list(:,i).eq.[species,ia])) cycle atom_loop
           end do
        end if
        vec = loc - basis%spec(species)%atom(ia,:3)

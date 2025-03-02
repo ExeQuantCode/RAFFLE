@@ -15,8 +15,6 @@ python_pkg/
     └── DRSS          # Directory containing example random structure search script using AGOX
         ├── rss.py    # Script to run RSS
         └── pca.ipynb # Notebook to plot principal component analysis of RSS results
-    ├── learn.ipynb   # Script to run RSS generating and learning
-    └── pca.py        # Notebook to plot principal component analysis of RAFFLE results
 ```
 
 ## File Descriptions
@@ -28,23 +26,27 @@ python_pkg/
 ## Execution Order
 
 To run a RAFFLE example and analyse the results, the following order must be performed.
-1. Move to the desired `SYSTEM_learn/` directory (other than `C_learn/`, where this will instead be in `C_learn/DRAFFLE/`) and create a directory to work in:
+1. Move to the desired `SYSTEM_learn/DRAFFLE` directory and create a directory to work in:
    ```bash
    cd SYSTEM_learn
-   mkdir DTMP
-   cd DTMP
+   mkdir DOutput
+   cd DOutput
    ```
 
 2. Run the `learn.py` script:
    ```bash
-   python learn.py
+   python ../learn.py
    ```
 
-3. Go to parent directory and open the notebook, run all the cells.
+3. Go to parent directory and open the notebook `pca.ipynb`, run all the cells.
 
 NOTE: for the `C_learn/DRSS/` example, the `pca.ipynb` notebook expects that the `C_learn/DRAFFLE/` example script and notebook have been fully run first.
 This is because it attempts to use the PCA fit to the RAFFLE results to transform its data.
 Doing so enables the two techniques to be properly compared.
+
+The `[un]rlxd_structures_seed0.traj` files are provided (as are the `energies_[un]rlxd+seed0.txt`) as the key outputs from the `learn.py` runs.
+For the `rss.py` scripts, the `[un]rlxd_structures_seed0.traj` files are provided.
+Whilst other output files are generated during the RAFFLE runs, these are optional files with mostly redundant data.
 
 ## Prerequisites
 
@@ -52,4 +54,3 @@ Doing so enables the two techniques to be properly compared.
 - raffle package installed (`pip install .`)
 - `ase` for handling atomic structure data
 - `CHGNet`, `MACE-0`, `VASP`, or some other `ase`-compatible calculator
-

@@ -6,17 +6,18 @@ from ase.optimize import FIRE
 from ase.io import write
 import numpy as np
 import os
+from copy import deepcopy
 from joblib import Parallel, delayed
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
 # Function to relax a structure
-def process_structure(i, atoms, num_structures_old, calc_params, optimise_structure, iteration, calc):
+def process_structure(i, atoms, num_structures_old, calc_params, optimise_structure, iteration):
     # Check if the structure has already been processed
     if i < num_structures_old:
-        return None, None, None
-
+        return
+    
     # calc = Vasp(**calc_params, label=f"struct{i}", directory=f"iteration{iteration}/struct{i}/", txt=f"stdout{i}.o")
     inew = i - num_structures_old
     atoms.calc = calc
@@ -33,7 +34,7 @@ def process_structure(i, atoms, num_structures_old, calc_params, optimise_struct
         except Exception as e:
             print(f"Optimisation failed: {e}")
             return None, None, None
-
+    
     # Save the optimised structure and its energy per atom
     energy_rlxd = atoms.get_potential_energy() / len(atoms)
 
@@ -47,11 +48,11 @@ def process_structure(i, atoms, num_structures_old, calc_params, optimise_struct
     if distances.min() < 1.0:
         print(f"Distance too small: {atoms.get_all_distances(mic=True).min()}")
         return None, None, None
-
+    
     if abs(energy_rlxd - energy_unrlxd) > 10.0:
         print(f"Energy difference too large: {energy_rlxd} vs {energy_unrlxd}")
         return None, None, None
-
+    
     return atoms, energy_unrlxd, energy_rlxd
 
 
@@ -62,54 +63,50 @@ if __name__ == "__main__":
     calc = CHGNetCalculator()
 
     # set up the hosts
+    crystal_structures = [
+        'orthorhombic', 'hcp',
+    ]
     hosts = []
-    atoms = build.bulk(
-        name = 'C',
-        crystalstructure = 'hcp',
-        a = 2.4670000076293945,
-        c = 7.8030729293823242
-    )
-    cell = atoms.get_cell()
-    cell[1] = cell[1] * 2
-    hosts.append(Atoms('C', positions=[(0, 0, 0)], cell=cell, pbc=True, calculator=calc))
-    atoms = build.bulk(
-        name = 'C',
-        crystalstructure = 'orthorhombic',
-        a = 3.567,
-        b = 3.567,
-        c = 3.567
-    )
-    hosts.append(Atoms('C', positions=[(0, 0, 0)], cell=atoms.get_cell(), pbc=True, calculator=calc))
+    for crystal_structure in crystal_structures:
+        print(f'Crystal structure: {crystal_structure}')
+        for a in np.linspace(3.1, 5.4, num=6):
+            b = a
+            c = a
+            atom = build.bulk(
+                    name = 'Al',
+                    crystalstructure = crystal_structure,
+                    a = a,
+                    b = b,
+                    c = c,
+            )
+            hosts.append(Atoms('Al', positions=[(0, 0, 0)], cell=atom.get_cell(), pbc=True, calculator=calc))
+    print("number of hosts: ", len(hosts))
 
     # set the parameters for the generator
     optimise_structure = True
-    mass = 12.011
-    num_atoms = 7
+    mass = 26.9815385
+    density = 1.61 # u/A^3
 
-    # Loop over random seeds
+    # loop over random seeds
     for seed in range(1):
         print(f"Seed: {seed}")
-
-        # set up file names
         energies_rlxd_filename = f"energies_rlxd_seed{seed}.txt"
         energies_unrlxd_filename = f"energies_unrlxd_seed{seed}.txt"
         generator = raffle_generator()
         generator.distributions.set_element_energies(
             {
-                'C': 0.0
+                'Al': 0.0
             }
         )
         # set energy scale
         generator.distributions.set_kBT(0.4)
-
         # set the distribution function widths (2-body, 3-body, 4-body)
         generator.distributions.set_width([0.025, np.pi/200.0, np.pi/200.0])
 
         # set the initial database
-        initial_database = [Atoms('C', positions=[(0, 0, 0)], cell=[8, 8, 8], pbc=True)]
+        initial_database = [Atoms('Al', positions=[(0, 0, 0)], cell=[8, 8, 8], pbc=True)]
         initial_database[0].calc = calc
         generator.distributions.create(initial_database)
-
 
         # check if the energies file exists, if not create it
         if os.path.exists(energies_rlxd_filename):
@@ -128,20 +125,27 @@ if __name__ == "__main__":
         num_structures_old = 0
         unrlxd_structures = []
         rlxd_structures = []
-        # loop over the hosts
-        for host in hosts:
-            # set the host
-            generator.set_host(host)
+        iter2 = 0
+        # start the iterations, loop over the hosts, then repeat the process X times
+        for iter in range(10):
+            for host in hosts:
+                generator.set_host(host)
+                volume = host.get_volume()
 
-            # start the iterations
-            for iter in range(50):
-
+                # calculate the number of atoms in the host to achieve the desired density
+                num_atoms = round(density * volume / mass) - 1
+                if(num_atoms < 1):
+                    continue
+                iter2 += 1
+                print(f"Volume: {volume}")
+                print(f"Number of atoms: {num_atoms}")
+    
                 # generate the structures
                 generator.generate(
                     num_structures = 5,
-                    stoichiometry = { 'C': num_atoms },
+                    stoichiometry = { 'Al': num_atoms },
                     seed = seed*1000+iter,
-                    method_ratio = {"void": 0.4, "rand": 0.001, "walk": 0.4, "grow": 0.2, "min": 1.0},
+                    method_ratio = {"void": 0.5, "rand": 0.001, "walk": 0.5, "grow": 0.0, "min": 1.0},
                     verbose = 0,
                 )
 
@@ -151,7 +155,7 @@ if __name__ == "__main__":
                 num_structures_new = len(generated_structures)
 
                 # check if directory iteration[iter] exists, if not create it
-                iterdir = f"iteration{iter}/"
+                iterdir = f"iteration{iter2}/"
                 if not os.path.exists(iterdir):
                     os.makedirs(iterdir)
                 generator.print_settings(iterdir+"generator_settings.txt")
@@ -168,11 +172,11 @@ if __name__ == "__main__":
                         energy=generated_structures[num_structures_old + i].get_potential_energy(),
                         forces=generated_structures[num_structures_old + i].get_forces()
                     )
-
+                
                 # Start parallel execution
                 print("Starting parallel execution")
                 results = Parallel(n_jobs=5)(
-                    delayed(process_structure)(i, generated_structures[i].copy(), num_structures_old, calc_params, optimise_structure, iteration=seed, calc=calc)
+                    delayed(process_structure)(i, generated_structures[i].copy(), num_structures_old, calc_params, optimise_structure, iteration=seed)
                     for i in range(num_structures_old, num_structures_new)
                 )
 
@@ -196,10 +200,10 @@ if __name__ == "__main__":
                         energy_unrlxd = np.delete(energy_unrlxd, j-num_structures_old)
                         energy_rlxd = np.delete(energy_rlxd, j-num_structures_old)
                         del generated_structures[j]
-                        # del unrlxd_structures[j]
+                        del unrlxd_structures[j]
                         del rlxd_structures[j]
                         generator.remove_structure(j)
-                num_structures_new = len(generated_structures)
+                num_structures_new = len(generated_structures) 
 
                 # write the structures to files
                 for i in range(num_structures_new - num_structures_old):

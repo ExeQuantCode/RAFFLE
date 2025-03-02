@@ -52,3 +52,5 @@ pca_model*.pkl
 .local-pre-commit-config.yaml
 *.tgz
 .ipynb_checkpoints
+*.model
+*.vasp

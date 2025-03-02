@@ -788,7 +788,6 @@ contains
        ! place the atom and update the image atoms in the basis
        !------------------------------------------------------------------------
        iplaced = iplaced + 1
-      !  max_attempts = 0
        basis%spec(placement_list_shuffled(1,iplaced))%atom( &
             placement_list_shuffled(2,iplaced),:3) = point(:3)
        call basis%update_images( &

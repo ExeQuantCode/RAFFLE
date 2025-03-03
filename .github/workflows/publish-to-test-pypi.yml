@@ -15,6 +15,7 @@ jobs:
   check-version-matches:
     name: Check if version numbers match the GitHub tag
     runs-on: ubuntu-latest
+    continue-on-error: ${{ github.event_name == 'workflow_dispatch' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -33,11 +34,11 @@ jobs:
 
       - name: Verify version consistency
         run: |
-          if [[ "$FPM_VERSION" != "$TAG_VERSION" ]]; then
+          if [[ "v$FPM_VERSION" != "$TAG_VERSION" ]]; then
             echo "❌ Version mismatch: fpm.toml ($FPM_VERSION) does not match GitHub tag ($TAG_VERSION)"
             exit 1
           fi
-          if [[ "$FORTRAN_VERSION" != "$TAG_VERSION" ]]; then
+          if [[ "v$FORTRAN_VERSION" != "$TAG_VERSION" ]]; then
             echo "❌ Version mismatch: mod_io_utils.F90 ($FORTRAN_VERSION) does not match GitHub tag ($TAG_VERSION)"
             exit 1
           fi
@@ -65,7 +66,7 @@ jobs:
     - name: Set MACOSX_DEPLOYMENT_TARGET
       if: startsWith(matrix.platform[0], 'macos')
       run: echo "MACOSX_DEPLOYMENT_TARGET=$(sw_vers -productVersion | cut -d '.' -f 1-2)" >> $GITHUB_ENV
-      
+
     - name: Check macOS deployment target
       if: startsWith(matrix.platform[0], 'macos')
       run: echo "Deployment target version is ${{ env.MACOSX_DEPLOYMENT_TARGET }} / ${MACOSX_DEPLOYMENT_TARGET}"
@@ -79,15 +80,15 @@ jobs:
       uses: jwlawson/actions-setup-cmake@v2.0.1
       with:
         cmake-version: '3.24.x'
-            
+
     - name: actions-setup-fortran
       uses: fortran-lang/setup-fortran@v1
       id: setup-fortran
       with:
         compiler: ${{ matrix.toolchain.fortran-compiler }}
         version: ${{ matrix.toolchain.fc-version }}
-          
-      
+
+
     - name: Install python dependencies
       run: |
         python --version
@@ -112,10 +113,10 @@ jobs:
     steps:
     - name: checkout repo
       uses: actions/checkout@v4
-  
+
     - name: Build sdist
       run: pipx run build --sdist
-  
+
     - name: Store the source distribution
       uses: actions/upload-artifact@v4
       with:

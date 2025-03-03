@@ -22,11 +22,11 @@ jobs:
 
       - name: Extract version from fpm.toml
         id: fpm_version
-        run: echo "RAFFLE_FPM_VERSION=v$(awk -F'"' '/^version/ {print $2}' fpm.toml)" >> $GITHUB_ENV
+        run: echo "RAFFLE_FPM_VERSION=$(awk -F'"' '/^version/ {print $2}' fpm.toml)" >> $GITHUB_ENV
 
       - name: Extract version from mod_io_utils.F90
         id: fortran_version
-        run: echo "RAFFLE_FORTRAN_VERSION=v$(awk -F'"' '/character\(len=\*\), parameter \:\:\ raffle__version__/ {print $2}' src/fortran/lib/mod_io_utils.F90)" >> $GITHUB_ENV
+        run: echo "RAFFLE_FORTRAN_VERSION=$(awk -F'"' '/character\(len=\*\), parameter \:\:\ raffle__version__/ {print $2}' src/fortran/lib/mod_io_utils.F90)" >> $GITHUB_ENV
 
       - name: Extract GitHub tag version
         id: github_tag

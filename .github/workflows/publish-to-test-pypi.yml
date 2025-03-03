@@ -34,12 +34,12 @@ jobs:
 
       - name: Verify version consistency
         run: |
-          if [[ "$FPM_VERSION" != "$TAG_VERSION" ]]; then
-            echo "❌ Version mismatch: fpm.toml ($FPM_VERSION) does not match GitHub tag ($TAG_VERSION)"
+          if [[ "$RAFFLE_FPM_VERSION" != "$TAG_VERSION" ]]; then
+            echo "❌ Version mismatch: fpm.toml ($RAFFLE_FPM_VERSION) does not match GitHub tag ($TAG_VERSION)"
             exit 1
           fi
-          if [[ "$FORTRAN_VERSION" != "$TAG_VERSION" ]]; then
-            echo "❌ Version mismatch: mod_io_utils.F90 ($FORTRAN_VERSION) does not match GitHub tag ($TAG_VERSION)"
+          if [[ "$RAFFLE_FORTRAN_VERSION" != "$TAG_VERSION" ]]; then
+            echo "❌ Version mismatch: mod_io_utils.F90 ($RAFFLE_FORTRAN_VERSION) does not match GitHub tag ($TAG_VERSION)"
             exit 1
           fi
           echo "✅ Version numbers match!"

@@ -31,6 +31,6 @@ keywords:
   - structure prediction
   - random structure search
 license: GPL-3.0
-commit: 4cdf115d5d43d6f97037f6cb15c036dc9615eacb
-version: 0.5.0
-date-released: '2024-12-18'
+commit: 1a4e7aacf07b4d9623d846df30aa7ac3a5e98e81
+version: 1.0.0
+date-released: '2025-03-03'

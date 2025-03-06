@@ -1,8 +1,8 @@
 .. parameters:
 
-===================
-Parameters Tutorial
-===================
+==================
+Setting parameters
+==================
 
 This tutorial will detail how to change RAFFLE parameters.
 These parameters are mainly used in building the RAFFLE descriptors for a database.

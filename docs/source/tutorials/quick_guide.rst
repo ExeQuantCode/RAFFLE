@@ -1,7 +1,7 @@
 .. quick_guide:
 
 ===========
-Quick Guide
+Quick guide
 ===========
 
 

@@ -75,8 +75,8 @@ The verbosity level is set to 2 to provide detailed information about the genera
 Default verbosity is 0, which provides no output.
 
 
-Retrieving the generated structures
------------------------------------
+Retrieving generated structures
+-------------------------------
 
 The generated structures are returned as a list of ASE Atoms objects.
 

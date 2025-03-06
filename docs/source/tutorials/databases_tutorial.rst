@@ -1,8 +1,8 @@
 .. databases:
 
-==================
-Databases Tutorial
-==================
+===================
+Building a database
+===================
 
 This tutorial will guide you through the process of obtaining a database of structures from the Materials Project database.
 The process will use a database of carbon, magnesium, and oxygen structures as an example.

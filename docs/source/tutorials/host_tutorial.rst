@@ -1,8 +1,8 @@
 .. host:
 
-=============
-Host Tutorial
-=============
+======================
+Setting host structure
+======================
 
 This tutorial will detail how to set the host structure for RAFFLE and the optional bounding box.
 
@@ -33,8 +33,8 @@ We shall also initialise the calculator.
     calc = mace_mp(model="medium", dispersion=False, default_dtype="float32", device='cpu')
 
 
-Setting the host structure
---------------------------
+Defining the host structure
+---------------------------
 
 Now we shall initialise an atoms object and set it as the host structure.
 

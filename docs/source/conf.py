@@ -27,6 +27,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
     'sphinx.ext.intersphinx',
+    'sphinxcontrib.bibtex',
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
     'sphinx_rtd_theme',
@@ -79,3 +80,5 @@ html_context = {
 }
 
 autoclass_content="both"
+
+bibtex_bibfiles = ['references.bib']

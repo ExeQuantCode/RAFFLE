@@ -13,10 +13,24 @@ Whilst RAFFLE is a random sturcture search package designed primarlily for inter
 
 .. toctree::
    :maxdepth: 2
-   :caption: Tutorials:
+   :caption: Setup and parameters:
 
    databases_tutorial
+   parameters_tutorial
+   host_tutorial
+   generating_tutorial
+   quick_guide
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Static structure prediction:
+
    diamond_tutorial
    graphite_tutorial
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Iterative structure learning:
+
    aluminium_tutorial
    Si-Ge_tutorial

@@ -1568,7 +1568,7 @@ class Generator(f90wrap.runtime.FortranModule):
                 settings_out_file=settings_out_file,
                 seed=seed, verbose=verbose)
                 
-            structures = self.get_structures(self, calc)[-num_structures:]
+            structures = self.get_structures(calc)[-num_structures:]
             return structures, exit_code
 
         def get_structures(self, calculator=None):

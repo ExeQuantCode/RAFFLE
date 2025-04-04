@@ -88,6 +88,13 @@ jobs:
         compiler: ${{ matrix.toolchain.fortran-compiler }}
         version: ${{ matrix.toolchain.fc-version }}
 
+    - name: Install OpenMP runtime (Linux only)
+      if: runner.os == 'Linux'
+      run: sudo apt-get update && sudo apt-get install -y libgomp1
+
+    - name: Install OpenMP runtime (macOS only)
+      if: runner.os == 'macOS'
+      run: brew install libomp
 
     - name: Install python dependencies
       run: |

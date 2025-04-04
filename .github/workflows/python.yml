@@ -70,6 +70,10 @@ jobs:
           python -m piptools compile -o requirements.txt pyproject.toml --all-build-deps
           python -m pip install -r requirements.txt
 
+      - name: Install OpenMP runtime (Linux only)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libgomp1
+
       - name: Build and install Python package with CMAKE_BUILD_TYPE=${{ matrix.build_type }}
         env:
           CMAKE_BUILD_TYPE: ${{ matrix.build_type }}

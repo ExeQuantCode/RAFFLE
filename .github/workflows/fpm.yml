@@ -23,7 +23,7 @@ permissions:
 concurrency:
   group: fpm
   cancel-in-progress: false
-  
+
 jobs:
   build-and-test-fpm-debug:
     environment:
@@ -53,12 +53,16 @@ jobs:
       with:
         compiler: ${{ matrix.toolchain.compiler }}
         version: ${{ matrix.toolchain.version }}
-          
+
     - uses: fortran-lang/setup-fpm@v5
       id: setup-fpm
       with:
         fpm-version: "v0.10.0"
-        
+
+    - name: Install OpenMP runtime (Linux only)
+      if: runner.os == 'Linux'
+      run: sudo apt-get update && sudo apt-get install -y libgomp1
+
     - name: Compile
       run: |
         ${{ env.FC }} --version
@@ -91,17 +95,21 @@ jobs:
     steps:
     - name: checkout repo
       uses: actions/checkout@v4
-        
+
     - uses: fortran-lang/setup-fortran@v1
       id: setup-fortran
       with:
         compiler: ${{ matrix.toolchain.compiler }}
         version: ${{ matrix.toolchain.version }}
-          
+
     - uses: fortran-lang/setup-fpm@v5
       id: setup-fpm
       with:
         fpm-version: "v0.10.0"
+
+    - name: Install OpenMP runtime (Linux only)
+      if: runner.os == 'Linux'
+      run: sudo apt-get update && sudo apt-get install -y libgomp1
 
     - name: Compile
       run: |

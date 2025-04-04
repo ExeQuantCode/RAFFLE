@@ -20,7 +20,7 @@ module raffle__dist_calcs
 contains
 
 !###############################################################################
-  function get_min_dist(basis,loc,lignore_close,axis,labove,lreal,tol, &
+  pure function get_min_dist(basis,loc,lignore_close,axis,labove,lreal,tol, &
        ignore_list) result(output)
     !! Return the minimum distance between a point and the nearest atom
     !! in a cell.
@@ -53,7 +53,7 @@ contains
     ! Local variables
     integer :: js, ja, i
     !! Loop counters.
-    integer :: axis_ = 0
+    integer :: axis_
     !! Axis along which to calculate the distance.
     real(real32) :: dtmp1
     !! Temporary variables.
@@ -71,6 +71,7 @@ contains
     tol_ = 1.E-5_real32
     labove_ = .false.
     lreal_ = .true.
+    axis_ = 0
     if(present(tol)) tol_ = tol
 
     if(present(labove)) labove_ = labove

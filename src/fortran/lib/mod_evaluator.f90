@@ -19,7 +19,7 @@ module raffle__evaluator
 contains
 
 !###############################################################################
-  function evaluate_point( distribs_container, &
+  pure function evaluate_point( distribs_container, &
        position, species, basis, atom_ignore_list, &
        radius_list &
   ) result(output)
@@ -60,8 +60,8 @@ contains
     !! Index of element pairs.
     type(extended_basis_type) :: neighbour_basis
     !! Basis of the neighbouring atoms.
- 
-    
+
+
     ! Initialisation
     output = 0._real32
     viability_2body = 0._real32
@@ -259,12 +259,13 @@ contains
                position_1 => matmul(position, basis%lat), &
                position_2 => [neighbour_basis%spec(is)%atom(ia,1:3)] &
           )
+             if(sum(basis%spec(is:)%num).eq.ia) cycle
              num_3body = num_3body + 1
              viability_3body = viability_3body * &
                   evaluate_3body_contributions( distribs_container, &
                        position_1, &
                        position_2, &
-                       neighbour_basis, species, [is, ia], num_3body &
+                       neighbour_basis, species, [is, ia] &
                   )
              do js = is, neighbour_basis%nspec
                 do ja = 1, neighbour_basis%spec(js)%num
@@ -319,7 +320,7 @@ contains
 
 
 !###############################################################################
-  function evaluate_2body_contributions( distribs_container, &
+  pure function evaluate_2body_contributions( distribs_container, &
        bondlength, pair_index &
   ) result(output)
     !! Return the contribution to the viability from 2-body interactions
@@ -346,8 +347,8 @@ contains
 
 
 !###############################################################################
-  function evaluate_3body_contributions( distribs_container, &
-       position_1, position_2, basis, species, current_idx, num_3body &
+  pure function evaluate_3body_contributions( distribs_container, &
+       position_1, position_2, basis, species, current_idx &
   ) result(output)
     !! Return the contribution to the viability from 3-body interactions
     implicit none
@@ -363,8 +364,6 @@ contains
     !! Index of the query element.
     integer, dimension(2), intent(in) :: current_idx
     !! Index of the 1st-atom query element.
-    integer, intent(inout) :: num_3body
-    !! Number of 3-body interactions.
     real(real32) :: output
     !! Contribution to the viability.
 
@@ -379,6 +378,7 @@ contains
 
     output = 1._real32
     num_3body_local = sum(basis%spec(current_idx(1):)%num) - current_idx(2)
+    if(num_3body_local.eq.0) return
     species_loop: do js = current_idx(1), basis%nspec, 1
        atom_loop: do ja = 1, basis%spec(js)%num
           if(js.eq.current_idx(1) .and. ja.le.current_idx(2))cycle
@@ -398,17 +398,13 @@ contains
           end associate
        end do atom_loop
     end do species_loop
-    if(num_3body_local.eq.0)then
-       output = 1._real32
-       num_3body = num_3body - 1
-    end if
 
   end function evaluate_3body_contributions
 !###############################################################################
 
 
 !###############################################################################
-  function evaluate_4body_contributions( distribs_container, &
+  pure function evaluate_4body_contributions( distribs_container, &
        position_1, position_2, position_3, basis, species ) result(output)
     !! Return the contribution to the viability from 4-body interactions
     implicit none

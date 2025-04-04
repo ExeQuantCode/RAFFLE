@@ -3,10 +3,14 @@ module raffle__viability
   !!
   !! This module contains procedures to determine the viability of a set of
   !! points and update the viability based on new atoms being added to the cell.
+#ifdef _OPENMP
+  use omp_lib
+#endif
   use raffle__constants, only: real32
   use raffle__misc_linalg, only: modu
   use raffle__geom_extd, only: extended_basis_type
-  use raffle__dist_calcs, only: get_min_dist_between_point_and_atom
+  use raffle__dist_calcs, only: &
+       get_min_dist_between_point_and_atom, get_min_dist
   use raffle__evaluator, only: evaluate_point
   use raffle__distribs_container, only: distribs_container_type
   implicit none
@@ -56,9 +60,11 @@ contains
     !! Number of gridpoints.
     real(real32) :: min_radius
     !! Minimum radius.
+    real(real32), dimension(3) :: grid_scale, offset
+    !! Grid scale and offset.
     real(real32), dimension(3) :: point
     !! Gridpoint.
-    real(real32), dimension(:,:), allocatable :: points_tmp
+    real(real32), dimension(3,product(grid)) :: points_tmp
     !! Temporary list of gridpoints.
 
 
@@ -67,15 +73,15 @@ contains
     ! ... close to an existing atom. If they are, remove them from the list ...
     ! ... of viable gridpoints
     !---------------------------------------------------------------------------
+    grid_scale = &
+         ( bounds(2,:) - bounds(1,:) ) / real(grid,real32)
+    offset = bounds(1,:) + grid_offset * grid_scale
     min_radius = minval(radius_list) * distribs_container%radius_distance_tol(1)
-    allocate(points_tmp(3,product(grid)))
     num_points = 0
     grid_loop1: do i = 0, grid(1) - 1, 1
        grid_loop2: do j = 0, grid(2) - 1, 1
           grid_loop3: do k = 0, grid(3) - 1, 1
-             point = bounds(1,:) + &
-                  ( bounds(2,:) - bounds(1,:) ) * &
-                  ( [ i, j, k ] + grid_offset ) / real(grid,real32)
+             point = offset + grid_scale * [ i, j, k ]
              do is = 1, basis%nspec
                 atom_loop: do ia = 1, basis%spec(is)%num
                    do l = 1, size(atom_ignore_list,dim=2), 1
@@ -96,25 +102,29 @@ contains
           end do grid_loop3
        end do grid_loop2
     end do grid_loop1
-    allocate(points( 3 + basis%nspec, num_points), source = 0._real32)
+    allocate(points( 4 + basis%nspec, num_points), source = 0._real32)
     points(1:3,:) = points_tmp(1:3,1:num_points)
-
-    deallocate(points_tmp)
 
 
     !---------------------------------------------------------------------------
     ! run evaluate_point for a set of points in the unit cell
     !---------------------------------------------------------------------------
-    !do concurrent( i = 1:size(gridpoints,dim=2) )
-    do i = 1, size(points,dim=2)
-       do is = 1, size(species_index_list,1)
-          points(3+is,i) = &
+!$omp parallel do default(shared) private(i,is)
+    do i = 1, num_points
+       do concurrent ( is = 1 : size(species_index_list,1) )
+          points(4,i) = &
+               modu( get_min_dist(&
+                    basis, [ points(1:3,i) ], .false., &
+                    ignore_list = atom_ignore_list) &
+               )
+          points(4+is,i) = &
                evaluate_point( distribs_container, &
                     points(1:3,i), species_index_list(is), basis, &
                     atom_ignore_list, radius_list &
                )
        end do
     end do
+!$omp end parallel do
 
   end function get_gridpoints_and_viability
 !###############################################################################
@@ -149,7 +159,7 @@ contains
     !! List of atoms to ignore (i.e. indices of atoms not yet placed).
 
     ! Local variables
-    integer :: i, j, k, is
+    integer :: i, is
     !! Loop indices.
     integer :: num_points
     !! Number of gridpoints.
@@ -157,6 +167,8 @@ contains
     !! Minimum radius.
     real(real32) :: distance
     !! Distance between atom and gridpoint.
+    integer, dimension(:), allocatable :: idx
+    !! List of indices of viable gridpoints.
     logical, dimension(size(points,dim=2)) :: viable
     !! Temporary list of gridpoints.
     real(real32), dimension(3) :: diff
@@ -171,28 +183,28 @@ contains
     if(.not.allocated(points)) return
     num_points = size(points,dim=2)
     viable = .true.
-    !do concurrent( i = 1:size(gridpoints,dim=2) )
     min_radius = minval(radius_list) * distribs_container%radius_distance_tol(1)
     associate( atom_pos => [ basis%spec(atom(1))%atom(atom(2),1:3) ] )
+!$omp parallel do default(shared) private(i,is,diff,distance)
        do i = 1, num_points
           diff = atom_pos - points(1:3,i)
           diff = diff - ceiling(diff - 0.5_real32)
           distance = modu( matmul( diff, basis%lat ) )
           if( distance .lt. min_radius )then
-             points(4:,i) = 0._real32
              viable(i) = .false.
              cycle
-          elseif( distance .gt. distribs_container%cutoff_max(1) )then
-             cycle
+          elseif( distance .le. distribs_container%cutoff_max(1) )then
+             do concurrent( is = 1 : size(species_index_list,1) )
+                points(4+is,i) = &
+                     evaluate_point( distribs_container, &
+                          points(1:3,i), species_index_list(is), basis, &
+                          atom_ignore_list, radius_list &
+                     )
+             end do
           end if
-          do is = 1, size(species_index_list,1)
-             points(3+is,i) = &
-                  evaluate_point( distribs_container, &
-                       points(1:3,i), species_index_list(is), basis, &
-                       atom_ignore_list, radius_list &
-                  )
-          end do
+          points(4,i) = min( points(4,i), distance )
        end do
+!$omp end parallel do
     end associate
 
     num_points = count(viable)
@@ -200,31 +212,9 @@ contains
        deallocate(points)
        return
     end if
-    allocate(points_tmp(3+basis%nspec,num_points))
 
-    !  j = 0
-    !  do i = 1, size(viable)
-    !     if(.not.viable(i)) cycle
-    !     j = j + 1
-    !     points_tmp(:,j) = points(:,i)
-    !  end do
-
-    i = findloc(viable, .true., 1)
-    j = 1
-    do while (j .le. num_points)
-       k = findloc(viable(i+1:), .false., 1)
-       select case(k)
-       case(0)
-          points_tmp(:,j:) = points(:,i:)
-          exit
-       case default
-          points_tmp(:,j:j+k-1) = points(:,i:i+k-1)
-          i = i + k - 1 + findloc(viable(i+k:), .true., 1)
-          j = j + k
-       end select
-    end do
-
-    deallocate(points)
+    idx = pack([(i, i = 1, size(viable))], viable)
+    points_tmp = points(:, idx)
     call move_alloc(points_tmp, points)
 
   end subroutine update_gridpoints_and_viability

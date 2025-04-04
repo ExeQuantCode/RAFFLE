@@ -55,6 +55,7 @@ body:
       options:
         - label: fpm
         - label: cmake
+        - label: pip
   - type: textarea
     id: additional
     attributes:

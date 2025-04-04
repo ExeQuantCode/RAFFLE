@@ -105,7 +105,7 @@ Grid settings
 The grid settings are used to define the grid on which the generator operates.
 This grid is used for the placement of atoms in the host structure, specifically, the void and min methods.
 The grid spacing is the distance between grid points.
-The grid offset is the displacement of grid points from the spatial origin (0,0,0).
+The grid offset is the displacement of grid points from the cell origin (0,0,0) in fractional coordinates.
 
 .. code-block:: python
 

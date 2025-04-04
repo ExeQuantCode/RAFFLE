@@ -7,7 +7,7 @@ module raffle__viability
   use omp_lib
 #endif
   use raffle__constants, only: real32
-  use raffle__misc_linalg, only: modu
+  use raffle__misc_linalg, only: modu, inverse_3x3
   use raffle__geom_extd, only: extended_basis_type
   use raffle__dist_calcs, only: &
        get_min_dist_between_point_and_atom, get_min_dist
@@ -64,46 +64,117 @@ contains
     !! Grid scale and offset.
     real(real32), dimension(3) :: point
     !! Gridpoint.
-    real(real32), dimension(3,product(grid)) :: points_tmp
+    integer, dimension(3) :: idx_lw, idx_up, idx, extent, atom_idx
+    !! Gridpoint indices.
+    integer, dimension(3) :: grid_wo_bounds
+    !! Grid size of cell without bounds.
+    integer, dimension(:,:), allocatable :: idx_list
     !! Temporary list of gridpoints.
+    real(real32), dimension(3,3) :: grid_matrix
+    !! Grid conversion matrix.
+    logical, dimension(product(grid)) :: viable
+    !! Temporary list of boolean values for gridpoints.
 
 
     !---------------------------------------------------------------------------
-    ! loop over all gridpoints in the unit cell and check if they are too ...
-    ! ... close to an existing atom. If they are, remove them from the list ...
-    ! ... of viable gridpoints
+    ! get the minimum radius for the gridpoints
     !---------------------------------------------------------------------------
-    grid_scale = &
-         ( bounds(2,:) - bounds(1,:) ) / real(grid,real32)
-    offset = bounds(1,:) + grid_offset * grid_scale
     min_radius = minval(radius_list) * distribs_container%radius_distance_tol(1)
+    grid_scale = ( bounds(2,:) - bounds(1,:) ) / real(grid, real32)
+    grid_wo_bounds = nint( real(grid) / ( bounds(2,:) - bounds(1,:) ) )
+
+
+    !---------------------------------------------------------------------------
+    ! get the grid offset in the unit cell
+    ! i.e. the grid must perfectly intersect the
+    !      grid_offset fractional coordinate
+    !---------------------------------------------------------------------------
+    offset = ( grid_offset - bounds(1,:) ) / grid_scale
+    offset = offset - nint(offset)
+    offset = bounds(1,:) + offset * grid_scale
+
+
+    !---------------------------------------------------------------------------
+    ! get the extent of a sphere in terms of the grid
+    !---------------------------------------------------------------------------
+    grid_matrix = transpose(inverse_3x3(basis%lat))
+    extent = ceiling( [ &
+         sum( abs( grid_matrix(1,:) ) ), &
+         sum( abs( grid_matrix(2,:) ) ), &
+         sum( abs( grid_matrix(3,:) ) ) &
+    ] * min_radius * real(grid, real32) )
+
+    ! precompute sphere stencil
     num_points = 0
-    grid_loop1: do i = 0, grid(1) - 1, 1
-       grid_loop2: do j = 0, grid(2) - 1, 1
-          grid_loop3: do k = 0, grid(3) - 1, 1
-             point = offset + grid_scale * [ i, j, k ]
-             do is = 1, basis%nspec
-                atom_loop: do ia = 1, basis%spec(is)%num
-                   do l = 1, size(atom_ignore_list,dim=2), 1
-                      if(all(atom_ignore_list(:,l).eq.[is,ia])) cycle atom_loop
-                   end do
-                   if( &
-                        get_min_dist_between_point_and_atom( &
-                             basis, &
-                             point, &
-                             [is,ia] &
-                        ) .lt. &
-                        min_radius &
-                   ) cycle grid_loop3
-                end do atom_loop
-             end do
-             num_points = num_points + 1
-             points_tmp(:,num_points) = point
-          end do grid_loop3
-       end do grid_loop2
-    end do grid_loop1
-    allocate(points( 4 + basis%nspec, num_points), source = 0._real32)
-    points(1:3,:) = points_tmp(1:3,1:num_points)
+    allocate(idx_list(1:3, product( extent * 2 + [ 1, 1, 1] )))
+    do i = -extent(1), extent(1), 1
+       do j = -extent(2), extent(2), 1
+          do k = -extent(3), extent(3), 1
+             point = matmul( [ i, j, k ] / real(grid,real32), basis%lat)
+             if ( norm2(point) .lt. min_radius ) then
+                num_points = num_points + 1
+                idx_list(:, num_points) = [ i, j, k]
+             end if
+          end do
+       end do
+    end do
+
+    !---------------------------------------------------------------------------
+    ! apply stencil to exclude gridpoints too close to atoms
+    !---------------------------------------------------------------------------
+    viable = .true.
+!$omp parallel do default(shared) private(i,is,ia,l,atom_idx,idx)
+    do is = 1, basis%nspec
+       atom_loop: do ia = 1, basis%spec(is)%num
+          do l = 1, size(atom_ignore_list,dim=2), 1
+             if(all(atom_ignore_list(:,l).eq.[is,ia])) cycle atom_loop
+          end do
+
+          ! get the atom position in terms of the grid indices
+          atom_idx = &
+               nint( ( basis%spec(is)%atom(ia,1:3) - offset )/ grid_scale )
+
+          ! if any one of the indicies is always outside of the grid, skip
+          idx_lw = atom_idx - extent
+          idx_lw = modulo( idx, grid_wo_bounds )
+          idx_up = atom_idx + extent
+          idx_up = modulo( idx, grid_wo_bounds )
+          do i = 1, 3
+             if( &
+                  idx_lw(i) .gt. grid(i) .and. idx_up(i) .lt. grid(i) &
+             ) cycle atom_loop
+          end do
+
+!$omp parallel do default(shared) private(i,idx)
+          do i = 1, num_points
+             idx = idx_list(:,i) + atom_idx
+             idx = modulo( idx, grid_wo_bounds )
+             if( any( idx .ge. grid ) ) cycle
+             viable( &
+                  idx(3) * grid(2) * grid(1) + &
+                  idx(2) * grid(1) + &
+                  idx(1) + 1 &
+             ) = .false.
+          end do
+!$omp end parallel do
+       end do atom_loop
+    end do
+!$omp end parallel do
+
+    !---------------------------------------------------------------------------
+    ! get the viable gridpoints in the unit cell
+    !---------------------------------------------------------------------------
+    num_points = count(viable)
+    allocate( points( 4 + basis%nspec, num_points) )
+    j = 0
+    do i = 1, size(viable)
+       if(.not. viable(i)) cycle
+       j = j + 1
+       idx(1) = mod( i - 1, grid(1) )
+       idx(2) = mod( ( i - 1 ) / grid(1), grid(2) )
+       idx(3) = ( i - 1 ) / ( grid(1) * grid(2) )
+       points(1:3,j) = offset + grid_scale * real(idx, real32)
+    end do
 
 
     !---------------------------------------------------------------------------
@@ -115,8 +186,8 @@ contains
           points(4,i) = &
                modu( get_min_dist(&
                     basis, [ points(1:3,i) ], .false., &
-                    ignore_list = atom_ignore_list) &
-               )
+                    ignore_list = atom_ignore_list &
+               ) )
           points(4+is,i) = &
                evaluate_point( distribs_container, &
                     points(1:3,i), species_index_list(is), basis, &
@@ -136,7 +207,7 @@ contains
        species_index_list, &
        atom, radius_list, atom_ignore_list &
   )
-    !! Update the list of viable gridpoints and their viability for each 
+    !! Update the list of viable gridpoints and their viability for each
     !! species.
     !!
     !! This subroutine updates the viability of all viable gridpoints.

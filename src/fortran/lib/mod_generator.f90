@@ -575,6 +575,8 @@ contains
     !! Number of atoms to insert.
     real(real32) :: rtmp1
     !! Random number.
+    logical :: skip_min
+    !! Boolean for skipping the minimum method.
     logical :: viable
     !! Boolean for viable placement.
     logical :: placement_aborted
@@ -584,7 +586,7 @@ contains
     !! Shuffled placement list.
     real(real32), dimension(3) :: point
     !! Coordinate of the atom to place.
-    real(real32), dimension(5) :: method_rand_limit_
+    real(real32), dimension(5) :: method_rand_limit_, method_rand_limit_store
     !! Temporary random limit of each placement method.
     !! This is used to update the contribution of the global minimum method if
     !! no viable gridpoints are found.
@@ -625,18 +627,16 @@ contains
     ! check for viable gridpoints
     !---------------------------------------------------------------------------
     method_rand_limit_ = method_rand_limit
-    if(abs( method_rand_limit(5) - method_rand_limit(4) ) .gt. 1.E-3)then
-       gridpoint_viability = get_gridpoints_and_viability( &
-            this%distributions, &
-            this%grid, &
-            this%bounds, &
-            basis, &
-            species_index_list, &
-            [ this%distributions%bond_info(:)%radius_covalent ], &
-            placement_list_shuffled, &
-            this%grid_offset &
-       )
-    end if
+    gridpoint_viability = get_gridpoints_and_viability( &
+         this%distributions, &
+         this%grid, &
+         this%bounds, &
+         basis, &
+         species_index_list, &
+         [ this%distributions%bond_info(:)%radius_covalent ], &
+         placement_list_shuffled, &
+         this%grid_offset &
+    )
 
 
     !---------------------------------------------------------------------------
@@ -645,6 +645,7 @@ contains
     iplaced = 0
     void_ticker = 0
     viable = .false.
+    skip_min = .false.
     placement_aborted = .false.
     placement_loop: do while (iplaced.lt.num_insert_atoms)
        !------------------------------------------------------------------------
@@ -661,24 +662,15 @@ contains
                     [ this%distributions%bond_info(:)%radius_covalent ], &
                     placement_list_shuffled(:,iplaced+1:) &
                )
-          if(.not.allocated(gridpoint_viability))then
-             if(abs(method_rand_limit(4)).lt.1.E-6)then
-                placement_aborted = .true.
-                exit placement_loop
-             elseif( &
-                  abs( &
-                       method_rand_limit(5) - method_rand_limit(4) &
-                  ) .gt. 1.E-6 &
-             ) then
-                write(warn_msg, '("No more viable gridpoints")')
-                warn_msg = trim(warn_msg) // &
-                     achar(13) // achar(10) // &
-                     "Suppressing global minimum method"
-                call print_warning(warn_msg)
-                method_rand_limit = method_rand_limit / method_rand_limit(4)
-                method_rand_limit(5) = method_rand_limit(4)
-             end if
-          end if
+       end if
+       if(.not.allocated(gridpoint_viability))then
+          write(warn_msg, '("No more viable gridpoints")')
+          warn_msg = trim(warn_msg) // &
+               achar(13) // achar(10) // &
+               "Stopping atom placement for this structure"
+          call print_warning(warn_msg)
+          placement_aborted = .true.
+          exit placement_loop
        end if
        viable = .false.
        !------------------------------------------------------------------------
@@ -686,14 +678,14 @@ contains
        ! call a random number and query the method ratios
        !------------------------------------------------------------------------
        call random_number(rtmp1)
-       if(rtmp1.le.method_rand_limit(1)) then
+       if(rtmp1.le.method_rand_limit_(1)) then
           if(verbose.gt.0) write(*,*) "Add Atom Void"
           point = place_method_void( &
                gridpoint_viability, &
                basis, &
                placement_list_shuffled(:,iplaced+1:), viable &
           )
-       elseif(rtmp1.le.method_rand_limit(2)) then
+       elseif(rtmp1.le.method_rand_limit_(2)) then
           if(verbose.gt.0) write(*,*) "Add Atom Random"
           point = place_method_rand( &
                this%distributions, &
@@ -704,7 +696,7 @@ contains
                this%max_attempts, &
                viable &
           )
-       elseif(rtmp1.le.method_rand_limit(3)) then
+       elseif(rtmp1.le.method_rand_limit_(3)) then
           if(verbose.gt.0) write(*,*) "Add Atom Walk"
           point = place_method_walk( &
                this%distributions, &
@@ -716,7 +708,7 @@ contains
                this%walk_step_size_coarse, this%walk_step_size_fine, &
                viable &
           )
-       elseif(rtmp1.le.method_rand_limit(4)) then
+       elseif(rtmp1.le.method_rand_limit_(4)) then
           if(iplaced.eq.0)then
              if(verbose.gt.0) write(*,*) "Add Atom Random (growth seed)"
              point = place_method_rand( &
@@ -745,25 +737,28 @@ contains
                   viable &
              )
           end if
-       elseif(rtmp1.le.method_rand_limit(5)) then
+       elseif(rtmp1.le.method_rand_limit_(5)) then
           if(verbose.gt.0) write(*,*) "Add Atom Minimum"
           point = place_method_min( gridpoint_viability, &
                placement_list_shuffled(1,iplaced+1), &
                species_index_list, &
                viable &
           )
-          if(.not. viable .and. abs(method_rand_limit(4)).lt.1.E-6)then
-             placement_aborted = .true.
-             exit placement_loop
-          elseif(.not. viable)then
-             deallocate(gridpoint_viability)
-             write(warn_msg, '("No more viable gridpoints")')
+          if(.not. viable .and. abs(method_rand_limit_(4)).lt.1.E-6)then
+             write(warn_msg, &
+                  '("Minimum method failed, no other methods available")' &
+             )
              warn_msg = trim(warn_msg) // &
                   achar(13) // achar(10) // &
-                  "Suppressing global minimum method"
+                  "Stopping atom placement for this structure"
              call print_warning(warn_msg)
-             method_rand_limit = method_rand_limit / method_rand_limit(4)
-             method_rand_limit(5) = method_rand_limit(4)
+             placement_aborted = .true.
+             exit placement_loop
+          elseif(.not.viable)then
+             skip_min = .true.
+             method_rand_limit_store = method_rand_limit_
+             method_rand_limit_ = method_rand_limit_ / method_rand_limit_(4)
+             method_rand_limit_(5) = method_rand_limit_(4)
           end if
        end if
        !------------------------------------------------------------------------
@@ -773,6 +768,11 @@ contains
        if(.not. viable)then
           void_ticker = void_ticker + 1
           if(void_ticker.gt.10.and..not.allocated(gridpoint_viability))then
+             write(warn_msg, '("No more viable gridpoints")')
+             warn_msg = trim(warn_msg) // &
+                  achar(13) // achar(10) // &
+                  "Stopping atom placement for this structure"
+             call print_warning(warn_msg)
              placement_aborted = .true.
              exit placement_loop
           elseif(void_ticker.gt.10)then
@@ -787,6 +787,10 @@ contains
        !------------------------------------------------------------------------
        ! place the atom and update the image atoms in the basis
        !------------------------------------------------------------------------
+       if(skip_min)then
+          method_rand_limit_ = method_rand_limit_store
+          skip_min = .false.
+       end if
        iplaced = iplaced + 1
        basis%spec(placement_list_shuffled(1,iplaced))%atom( &
             placement_list_shuffled(2,iplaced),:3) = point(:3)
@@ -797,7 +801,9 @@ contains
        )
        if(verbose.gt.0)then
           write(*,'(A)',ADVANCE='NO') achar(13)
-          write(*,*) "placed", viable
+          write(*,'(2X,"placed atom ",I0," [",I0,",",I0,"] at",3(1X,F6.3))') &
+               iplaced, placement_list_shuffled(1:2,iplaced), point(:3)
+          write(*,*)
        end if
 
     end do placement_loop

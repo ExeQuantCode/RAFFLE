@@ -6,6 +6,7 @@ import raffle
 from ase import Atoms
 import subprocess
 
+import platform
 
 
 fc = os.getenv("FORTRAN_COMPILER")
@@ -14,6 +15,12 @@ dirname = os.path.dirname(raffle.__file__)
 include_dir = os.path.join(dirname, "include")
 etc_dir = os.path.join(dirname, "etc")
 lib_dir = os.path.join(dirname, "lib")
+
+lib_ext = {
+    "Darwin": "dylib",
+    "Linux": "so"
+}[platform.system()]
+libraffle_path = os.path.join(lib_dir, f"libraffle.{lib_ext}")
 
 with open("test/CMakeLists.txt", "r") as file:
     lines = file.readlines()
@@ -44,7 +51,7 @@ def build_fortran_test(test_name):
     # make using a fortran compiler
     # point to raffle's pip install include and lib to include during compilation
 
-    if uses_openmp(os.path.join(lib_dir, "libraffle.dylib")):
+    if uses_openmp(libraffle_path):
         compile_args = ["-fopenmp", "-lgomp"]
     else:
         compile_args = []

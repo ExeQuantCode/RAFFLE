@@ -18,9 +18,12 @@ lib_dir = os.path.join(dirname, "lib")
 
 lib_ext = {
     "Darwin": "a",
-    "Linux": "a"
+    "Linux": "so"
 }[platform.system()]
-libraffle_path = os.path.join(lib_dir, f"libraffle.{lib_ext}")
+if platform.system() == "Darwin":
+    libraffle_path = os.path.join(lib_dir, f"libraffle.{lib_ext}")
+else:
+    libraffle_path = raffle._raffle.__file__
 
 with open("test/CMakeLists.txt", "r") as file:
     lines = file.readlines()
@@ -41,8 +44,12 @@ print("Test names: ", test_names)
 
 def uses_openmp(lib_path):
     try:
-        out = subprocess.check_output(["nm", "-g", lib_path], text=True)
-        return "_GOMP_parallel" in out
+        if platform.system() == "Darwin":
+            out = subprocess.check_output(["nm", "-g", lib_path], text=True)
+            return "_GOMP_parallel" in out
+        else:
+            out = subprocess.check_output(["ldd", lib_path], text=True)
+            return "libgomp" in out
     except Exception:
         return False
 

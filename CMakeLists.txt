@@ -43,12 +43,6 @@ set( CMAKE_CONFIGURATION_TYPES "Release" "Parallel" "Serial" "Dev" "Debug" "Cove
 set( CMAKE_BUILD_TYPE "Release"
   CACHE STRING "Select which configuration to build." )
 
-# change name based on parallel
-if (CMAKE_BUILD_TYPE MATCHES "Parallel*")
-   project(raffle_omp NONE) # change project name to parallel
-   message(FATAL_ERROR "Configuration stopped because Parallel is not yet set up")
-endif()
-
 # set options for building tests and examples
 option(BUILD_TESTS "Build the unit tests" On)
 option(BUILD_EXAMPLES "Build the examples" On)
@@ -152,7 +146,7 @@ set(FASTFLAGS "")
 if (CMAKE_Fortran_COMPILER MATCHES ".*gfortran.*" OR CMAKE_Fortran_COMPILER MATCHES ".*gcc.*")
     message(STATUS "Using gfortran compiler")
     set(PPFLAGS -cpp)
-    set(MPFLAGS -fopenmp)
+    set(MPFLAGS -fopenmp -floop-parallelize-all -ftree-parallelize-loops=32)
     set(WARNFLAGS -Wall)
     set(DEVFLAGS -g -fbacktrace -fcheck=all -fbounds-check -Og)
     set(DEBUGFLAGS -fbounds-check)
@@ -224,14 +218,29 @@ set_target_properties(${PROJECT_NAME} PROPERTIES VERSION ${PROJECT_VERSION})
 
 # set compile options based on different build configurations
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Release>:${OPTIMFLAGS}>")
+target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Release>:${PYTHONFLAGS}>")
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel>:${OPTIMFLAGS}>")
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel>:${MPFLAGS}>")
+target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel>:${PYTHONFLAGS}>")
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Dev>:${DEVFLAGS}>")
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug>:${DEBUGFLAGS}>")
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug>:${WARNFLAGS}>")
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug>:${PYTHONFLAGS}>")
-target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Release>:${PYTHONFLAGS}>")
 
+# check if build is parallel
+if (CMAKE_BUILD_TYPE MATCHES "Parallel*")
+    message(STATUS "Building in parallel mode")
+    # Find OpenMP and add OpenMP flags to compiler and linker
+    find_package(OpenMP REQUIRED)
+
+    if(OpenMP_Fortran_FOUND)
+        # Link OpenMP for your target (Fortran)
+        target_link_libraries(${PROJECT_NAME} PRIVATE OpenMP::OpenMP_Fortran)
+
+        # Enable OpenMP flags when compiling Fortran
+        target_compile_options(${PROJECT_NAME} PRIVATE ${OpenMP_Fortran_FLAGS})
+    endif()
+endif()
 
 
 if (BUILD_EXECUTABLE)

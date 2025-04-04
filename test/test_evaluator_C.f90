@@ -1,4 +1,4 @@
-program test_evaluator
+program test_evaluator_C
   use raffle__io_utils
   use raffle__constants, only: real32, pi
   use raffle__misc_linalg, only: modu
@@ -301,4 +301,4 @@ contains
     end if
   end subroutine assert
 
-end program test_evaluator
+end program test_evaluator_C

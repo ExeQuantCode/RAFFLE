@@ -83,11 +83,18 @@ contains
          [ ( 0.0_real32, i = 1, basis%nspec ) ] &
     )
     call distribs_container%create([basis])
+    call distribs_container%set_element_map( &
+         [ basis%spec(:)%name ] &
+    )
+    call distribs_container%host_system%set(basis)
+    call distribs_container%host_system%set_element_map( &
+         distribs_container%element_info &
+    )
 
     ! Call the function to test
     points = get_gridpoints_and_viability( &
          distribs_container, &
-         grid, bounds, & 
+         grid, bounds, &
          basis_copy, &
          [ 1 ], &
          radius_list, &
@@ -97,7 +104,7 @@ contains
 
     ! Check points exist
     call assert(size(points, 2) .gt. 0, "No viable gridpoints found.", success)
-    
+
     ! Check number of points
     call assert( &
          size(points, 2) .lt. 1000, &
@@ -106,7 +113,7 @@ contains
     )
     ! Check number of points
     call assert( &
-         size(points, 2) .eq. 864, &
+         size(points, 2) .eq. 907, &
          "Incorrect number of gridpoints found.", &
          success &
     )
@@ -153,6 +160,13 @@ contains
          [ ( 0.0_real32, i = 1, basis%nspec ) ] &
     )
     call distribs_container%create([basis])
+    call distribs_container%set_element_map( &
+         [ basis%spec(:)%name ] &
+    )
+    call distribs_container%host_system%set(basis)
+    call distribs_container%host_system%set_element_map( &
+         distribs_container%element_info &
+    )
 
     ! Call the function to test
     points = get_gridpoints_and_viability( &
@@ -186,7 +200,7 @@ contains
 
     ! Check number of points
     call assert( &
-         size(points, 2) .eq. 728, &
+         size(points, 2) .eq. 802, &
          "Incorrect number of gridpoints found.", &
          success &
     )

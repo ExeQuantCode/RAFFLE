@@ -134,7 +134,7 @@ contains
     type(basis_type), intent(in), optional :: host
     !! Basis of the host structure.
     real(real32), dimension(3), intent(in), optional :: width
-    !! Width of the gaussians used in the 2-, 3-, and 4-body 
+    !! Width of the gaussians used in the 2-, 3-, and 4-body
     !! distribution functions.
     real(real32), dimension(3), intent(in), optional :: sigma
     !! Width of the gaussians used in the 2-, 3-, and 4-body
@@ -341,11 +341,13 @@ contains
     !! Boolean comparison of element symbols.
     integer :: verbose_
     !! Verbosity level.
+    logical :: suppress_warnings_store
+    !! Boolean to store the suppress_warnings value.
     type(basis_type) :: basis_template
     !! Basis of the structure to generate (i.e. allocated species and atoms).
     real(real32), dimension(5) :: &
          method_rand_limit = &
-         [1.0_real32, 0.1_real32, 0.5_real32, 0.5_real32, 1.0_real32]
+              [1.0_real32, 0.1_real32, 0.5_real32, 0.5_real32, 1.0_real32]
     !! Default ratio of each placement method.
 
     integer, dimension(:), allocatable :: seed_arr
@@ -363,7 +365,10 @@ contains
     exit_code_ = 0
     verbose_ = 0
     if(present(verbose)) verbose_ = verbose
-    if(verbose_ .eq. 0) suppress_warnings = .true.
+    if(verbose_ .eq. 0)then
+       suppress_warnings_store = suppress_warnings
+       suppress_warnings = .true.
+    end if
 
 
     !---------------------------------------------------------------------------
@@ -401,7 +406,7 @@ contains
     if(present(seed))then
        call random_seed(size=num_seed)
        allocate(seed_arr(num_seed))
-       seed_arr = seed 
+       seed_arr = seed
        call random_seed(put=seed_arr)
     else
        call random_seed(size=num_seed)
@@ -507,7 +512,7 @@ contains
     num_structures_old = this%num_structures
     num_structures_new = this%num_structures + num_structures
     structure_loop: do istructure = num_structures_old + 1, num_structures_new
-    
+
        if(verbose_.gt.0) write(*,*) "Generating structure", istructure
        call this%structures(istructure)%copy( basis = &
             this%generate_structure( &
@@ -524,7 +529,9 @@ contains
     if(verbose_ .gt. 0 .and. exit_code_ .eq. 0) &
          write(*,*) "Finished generating structures"
 
-    if(verbose_ .eq. 0) suppress_warnings = .true.
+    if(verbose_ .eq. 0)then
+       suppress_warnings = suppress_warnings_store
+    end if
 
     if(present(exit_code))then
        exit_code = exit_code_
@@ -807,7 +814,7 @@ contains
        end if
 
     end do placement_loop
-    
+
     if(placement_aborted)then
        call stop_program( &
             "Placement routine aborted, not all atoms placed", &

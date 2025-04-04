@@ -21,7 +21,7 @@ module raffle__distribs_container
   use raffle__distribs_host, only: distribs_host_type
   implicit none
 
-  
+
   private
 
   public :: distribs_container_type
@@ -48,7 +48,7 @@ module raffle__distribs_container
      !! Default viability for the 3- and 4-body distribution functions.
      logical, dimension(:), allocatable :: &
           in_dataset_2body, in_dataset_3body, in_dataset_4body
-     !! Whether the 2-, 3-, and 4-body distribution functions are in 
+     !! Whether the 2-, 3-, and 4-body distribution functions are in
      !! the dataset.
      real(real32), dimension(:), allocatable :: &
           best_energy_pair, &
@@ -58,7 +58,7 @@ module raffle__distribs_container
      !! Number of bins for the 2-, 3-, and 4-body distribution functions.
      real(real32), dimension(3) :: &
           sigma = [ 0.1_real32, 0.1_real32, 0.1_real32 ]
-     !! Sigma of the gaussians used in the 2-, 3-, and 4-body 
+     !! Sigma of the gaussians used in the 2-, 3-, and 4-body
      !! distribution functions.
      real(real32), dimension(3) :: &
           width = [ 0.025_real32, pi/64._real32, pi/64._real32 ]
@@ -109,7 +109,7 @@ module raffle__distribs_container
      !! Create the distribution functions for all systems, and the learned one.
      procedure, pass(this) :: update
      !! Update the distribution functions for all systems, and the learned one.
-     
+
      procedure, pass(this) :: deallocate_systems
      !! Deallocate the systems in the container.
 
@@ -147,7 +147,7 @@ module raffle__distribs_container
      !! Return the radii of all bonds in the container.
      !! Used in Python interface.
 
-     
+
      procedure, pass(this) :: set_best_energy
      !! Set the best energy and system in the container.
      procedure, pass(this) :: initialise_gdfs
@@ -190,7 +190,7 @@ module raffle__distribs_container
        !! Optional. Number of bins for the 2-, 3-, and 4-body distribution
        !! functions.
        real(real32), dimension(3), intent(in), optional :: width, sigma
-       !! Optional. Width and sigma of the gaussians used in the 2-, 3-, and 
+       !! Optional. Width and sigma of the gaussians used in the 2-, 3-, and
        !! 4-body.
        real(real32), dimension(3), intent(in), optional :: &
             cutoff_min, cutoff_max
@@ -202,7 +202,7 @@ module raffle__distribs_container
 
 
 contains
-  
+
 !###############################################################################
   module function init_distribs_container( &
        nbins, width, sigma, &
@@ -213,10 +213,10 @@ contains
 
     ! Arguments
     integer, dimension(3), intent(in), optional :: nbins
-    !! Optional. Number of bins for the 2-, 3-, and 4-body distribution 
+    !! Optional. Number of bins for the 2-, 3-, and 4-body distribution
     !! functions.
     real(real32), dimension(3), intent(in), optional :: width, sigma
-    !! Optional. Width and sigma of the gaussians used in the 2-, 3-, and 
+    !! Optional. Width and sigma of the gaussians used in the 2-, 3-, and
     !! 4-body.
     real(real32), dimension(3), intent(in), optional :: cutoff_min, cutoff_max
     !! Optional. Minimum and maximum cutoff for the 2-, 3-, and 4-body.
@@ -324,15 +324,15 @@ contains
   subroutine set_cutoff_max(this, cutoff_max)
     !! Set the maximum cutoff for the 2-, 3-, and 4-body distribution functions.
     implicit none
-   
+
     ! Arguments
     class(distribs_container_type), intent(inout) :: this
     !! Parent. Instance of distribution functions container.
     real(real32), dimension(3), intent(in) :: cutoff_max
     !! Maximum cutoff for the 2-, 3-, and 4-body distribution functions.
-   
+
     this%cutoff_max = cutoff_max
-   
+
   end subroutine set_cutoff_max
 !###############################################################################
 
@@ -369,7 +369,7 @@ contains
     real(real32), dimension(:), intent(in), optional :: energy_above_hull_list
     !! List of energies above the hull for the structures.
     logical, intent(in), optional :: deallocate_systems
-    !! Boolean whether to deallocate the systems after the 
+    !! Boolean whether to deallocate the systems after the
     !! distribution functions are created.
     integer, intent(in), optional :: verbose
     !! Verbosity level.
@@ -381,13 +381,18 @@ contains
     !! Error message.
     integer :: verbose_
     !! Verbosity level.
+    logical :: suppress_warnings_store
+    !! Boolean to store the suppress_warnings value.
 
 
     ! Set the verbosity level
     verbose_ = 0
     if(present(verbose)) verbose_ = verbose
-    if(verbose_ .eq. 0) suppress_warnings = .true.
-    
+    if(verbose_ .eq. 0)then
+       suppress_warnings_store = suppress_warnings
+       suppress_warnings = .true.
+    end if
+
     ! Check if element_database is allocated
     if(.not.allocated(element_database))then
        write(stop_msg,*) "element_database not allocated" // &
@@ -452,8 +457,10 @@ contains
     if(deallocate_systems_) call this%deallocate_systems()
     if(this%host_system%defined) &
          call this%host_system%set_element_map(this%element_info)
-    
-    if(verbose_ .eq. 0) suppress_warnings = .false.
+
+    if(verbose_ .eq. 0)then
+       suppress_warnings = suppress_warnings_store
+    end if
 
   end subroutine create
 !###############################################################################
@@ -493,12 +500,17 @@ contains
     !! Error message.
     integer :: verbose_
     !! Verbosity level.
+    logical :: suppress_warnings_store
+    !! Boolean to store the suppress_warnings value.
 
 
     ! Set the verbosity level
     verbose_ = 0
     if(present(verbose)) verbose_ = verbose
-    if(verbose_ .eq. 0) suppress_warnings = .true.
+    if(verbose_ .eq. 0)then
+       suppress_warnings_store = suppress_warnings
+       suppress_warnings = .true.
+    end if
 
     ! Check if energy_above_hull_list and basis_list are the same size
     if(present(energy_above_hull_list))then
@@ -590,7 +602,9 @@ contains
     if(this%host_system%defined) &
          call this%host_system%set_element_map(this%element_info)
 
-    if(verbose_ .eq. 0) suppress_warnings = .false.
+    if(verbose_ .eq. 0)then
+       suppress_warnings = suppress_warnings_store
+    end if
 
   end subroutine update
 !###############################################################################
@@ -892,7 +906,7 @@ contains
     type(distribs_type) :: system
     !! System to read distribution functions into.
 
-   
+
     open(newunit=unit, file=file)
     read(unit, *) buffer, this%nbins
     read(unit, *) buffer, this%width
@@ -967,7 +981,7 @@ contains
          ( gamma(real(size(this%element_info), real32)) * gamma( 3._real32 ) ) &
     )
     allocate(idx(2,num_pairs))
-    i = 0 
+    i = 0
     do is = 1, size(this%element_info)
        do js = is, size(this%element_info), 1
           i = i + 1
@@ -1249,7 +1263,7 @@ contains
        end if
        call this%element_info(i)%set(element_list(i))
     end do
-    
+
   end subroutine set_element_info
 !###############################################################################
 
@@ -1496,7 +1510,7 @@ contains
     ! loop over all pairs of elements to set the bond information
     !---------------------------------------------------------------------------
     num_pairs = 0
-    pair_loop1: do i = 1, num_elements 
+    pair_loop1: do i = 1, num_elements
        pair_loop2: do j = i, num_elements
           num_pairs = num_pairs + 1
           call this%bond_info(num_pairs)%set( &
@@ -1826,12 +1840,12 @@ contains
     !! Element pair names.
     real(real32), dimension(size(this%bond_info,1)), intent(out) :: radii
     !! Radii of the bond pairs.
- 
+
     ! Local variables
     integer :: i
     !! Loop index.
- 
- 
+
+
     do i = 1, size(this%bond_info)
        elements(i,:) = this%bond_info(i)%element
        radii(i) = this%bond_info(i)%radius_covalent
@@ -1933,7 +1947,7 @@ contains
           energy_per_species = &
                energy * this%system(i)%weight_per_species(is) / &
                real( sum( this%system(i)%num_per_species(:) ), real32 )
-          
+
           if( energy_per_species .lt. this%best_energy_per_species(idx1) )then
              this%best_energy_per_species(idx1) = energy_per_species
           end if
@@ -1948,7 +1962,7 @@ contains
                        size(this%element_info) - &
                        min( idx1, idx2 ) / 2._real32 &
                   ) * ( min( idx1, idx2 ) - 1._real32 ) + max( idx1, idx2 ) &
-             ) 
+             )
 
              energy_pair = &
                   energy * this%system(i)%weight_pair(idx_list(is,js)) / &
@@ -1968,7 +1982,7 @@ contains
           )
           call print_warning(warn_msg)
        end if
-            
+
     end do
 
   end subroutine set_best_energy
@@ -2189,7 +2203,7 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! initialise the generalised distribution functions and get 
+    ! initialise the generalised distribution functions and get
     ! best energies from lowest formation energy system
     !---------------------------------------------------------------------------
     if(.not.allocated(this%gdf%df_2body))then
@@ -2322,8 +2336,8 @@ contains
              idx_list(js,is) = j
           end do
        end do
-       
-       
+
+
        !------------------------------------------------------------------------
        ! calculate the weight for the system
        !------------------------------------------------------------------------
@@ -2378,14 +2392,14 @@ contains
                     this%gdf%df_3body(:,idx1), &
                     set_min_zero = .true. &
                )
-          
+
           this%gdf%df_4body(:,idx1) = this%gdf%df_4body(:,idx1) + &
                set_difference( &
                     weight * this%system(i)%df_4body(:,is), &
                     this%gdf%df_4body(:,idx1), &
                     set_min_zero = .true. &
                )
-          
+
           do js = is, size(this%system(i)%element_symbols), 1
              idx2 = findloc( &
                   [ this%element_info(:)%name ], &
@@ -2423,7 +2437,7 @@ contains
        end do
        deallocate(idx_list)
     end do
-   
+
     !---------------------------------------------------------------------------
     ! if not in the dataset, set distribution functions to default
     !---------------------------------------------------------------------------

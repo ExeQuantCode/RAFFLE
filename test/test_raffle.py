@@ -17,8 +17,8 @@ etc_dir = os.path.join(dirname, "etc")
 lib_dir = os.path.join(dirname, "lib")
 
 lib_ext = {
-    "Darwin": "dylib",
-    "Linux": "so"
+    "Darwin": "a",
+    "Linux": "a"
 }[platform.system()]
 libraffle_path = os.path.join(lib_dir, f"libraffle.{lib_ext}")
 
@@ -46,6 +46,20 @@ def uses_openmp(lib_path):
     except Exception:
         return False
 
+def copy_data_files():
+    # copy test/data directory to .temp_test/test/data
+
+    data_dir = os.path.join(os.path.dirname(__file__), "data")
+    os.makedirs(os.path.join(temp_test_dir, "test/data"), exist_ok=True)
+    for file in os.listdir(data_dir):
+        if file.endswith(".cif") or file.endswith(".xyz") or file.endswith(".vasp") or file.startswith("POSCAR"):
+            src = os.path.join(data_dir, file)
+            dst = os.path.join(temp_test_dir, "test/data", file)
+            print(f"Copying {src} to {dst}")
+            with open(src, "rb") as fsrc:
+                with open(dst, "wb") as fdst:
+                    fdst.write(fsrc.read())
+
 def build_fortran_test(test_name):
     os.makedirs(temp_test_dir, exist_ok=True)
     # make using a fortran compiler
@@ -58,13 +72,13 @@ def build_fortran_test(test_name):
 
     compile_list = [
             fc, "-o", test_name+".o",
-            "../../test/test_io_utils.f90",
-            " ".join(compile_args),
+            "../../test/test_"+test_name+".f90",
             "-I", include_dir,
             "-I", etc_dir,
             "-L", lib_dir,
-            "-lraffle"
+            "-lraffle",
     ]
+    compile_list += compile_args
     build_result = subprocess.run(
         compile_list,
         cwd=temp_test_dir
@@ -285,6 +299,7 @@ class TestGenerator(unittest.TestCase):
 
 class TestFortranUnits(unittest.TestCase):
 
+    copy_data_files()
     @parameterized.expand([(test_name) for test_name in test_names])
     def test_fortran(self, test_name):
         build_result = build_fortran_test(test_name)

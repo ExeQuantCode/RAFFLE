@@ -1,4 +1,3 @@
-!!!#############################################################################
 module raffle__tools_infile
   !! This module contains a collection of tools for reading input files.
   !!
@@ -20,7 +19,7 @@ module raffle__tools_infile
   public :: getline, rm_comments
   public :: assign_val, assign_vec
 
-  
+
   interface assign_val
      procedure assignI, assignR, assignS, assignL
   end interface assign_val
@@ -64,7 +63,7 @@ contains
     !! The pattern to grep for.
     character(*), intent(out) :: buffer
     !! The buffer to assign the line to.
-    
+
     ! Local variables
     integer :: iostat
     !! input output status
@@ -72,7 +71,7 @@ contains
     call grep(unit,pattern)
     backspace(unit)
     read(unit,'(A)',iostat=iostat) buffer
-    
+
   end subroutine getline
 !###############################################################################
 

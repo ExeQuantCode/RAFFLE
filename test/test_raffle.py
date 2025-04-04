@@ -30,21 +30,36 @@ for line in lines:
         print(line)
         test_name = line.split()[0]
         test_names.append(test_name)
+print("Test names: ", test_names)
+
+def uses_openmp(lib_path):
+    try:
+        out = subprocess.check_output(["nm", "-g", lib_path], text=True)
+        return "_GOMP_parallel" in out
+    except Exception:
+        return False
 
 def build_fortran_test(test_name):
     os.makedirs(temp_test_dir, exist_ok=True)
     # make using a fortran compiler
     # point to raffle's pip install include and lib to include during compilation
 
-    build_result = subprocess.run(
-        [
+    if uses_openmp(os.path.join(lib_dir, "libraffle.dylib")):
+        compile_args = ["-fopenmp", "-lgomp"]
+    else:
+        compile_args = []
+
+    compile_list = [
             fc, "-o", test_name+".o",
             "../../test/test_io_utils.f90",
+            " ".join(compile_args),
             "-I", include_dir,
             "-I", etc_dir,
             "-L", lib_dir,
             "-lraffle"
-        ],
+    ]
+    build_result = subprocess.run(
+        compile_list,
         cwd=temp_test_dir
     )
     return build_result

@@ -365,6 +365,13 @@ if (BUILD_PYTHON)
         COMMENT "Copying raffle python files"
     )
 
+    # If parallel build, need to add the parallel flag
+    if (CMAKE_BUILD_TYPE MATCHES "Release*" OR CMAKE_BUILD_TYPE MATCHES "Parallel*" OR CMAKE_BUILD_TYPE MATCHES "Debug")
+        set(GOMPFLAGS "-lgomp")
+    else()
+        set(GOMPFLAGS "")
+    endif()
+
     # Create a Python module using f2py
     add_custom_command(
         OUTPUT ${F2PY_OUTPUT_FILE}
@@ -373,6 +380,7 @@ if (BUILD_PYTHON)
         -m _${PROJECT_NAME}
         -I${MODULE_DIR}
         --f90flags="${PPFLAGS}"
+        ${GOMPFLAGS}
         --backend meson
         ${F90WRAP_FILE}
         -L${CMAKE_BUILD_DIR}

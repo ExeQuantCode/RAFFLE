@@ -38,7 +38,7 @@ set( LIB_NAME ${PROJECT_NAME} )
 set( PROJECT_DESCRIPTION
   "Fortran neural network" )
 set( PROJECT_URL "https://github.com/ExeQuantCode/raffle" )
-set( CMAKE_CONFIGURATION_TYPES "Release" "Parallel" "Serial" "Dev" "Debug" "Coverage"
+set( CMAKE_CONFIGURATION_TYPES "Release" "Parallel" "Serial" "Dev" "Debug" "Debug_Serial" "Coverage"
   CACHE STRING "List of configurations types." )
 set( CMAKE_BUILD_TYPE "Release"
   CACHE STRING "Select which configuration to build." )
@@ -218,20 +218,32 @@ set_target_properties(${PROJECT_NAME} PROPERTIES VERSION ${PROJECT_VERSION})
 
 # set compile options based on different build configurations
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Release>:${OPTIMFLAGS}>")
+target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Release>:${MPFLAGS}>")
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Release>:${PYTHONFLAGS}>")
+
+target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Serial>:${OPTIMFLAGS}>")
+target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Serial>:${PYTHONFLAGS}>")
+
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel>:${OPTIMFLAGS}>")
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel>:${MPFLAGS}>")
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel>:${PYTHONFLAGS}>")
+
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Dev>:${DEVFLAGS}>")
+
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug>:${DEBUGFLAGS}>")
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug>:${WARNFLAGS}>")
+target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug>:${MPFLAGS}>")
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug>:${PYTHONFLAGS}>")
 
+target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug_Serial>:${DEBUGFLAGS}>")
+target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug_Serial>:${WARNFLAGS}>")
+target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug_Serial>:${PYTHONFLAGS}>")
+
 # check if build is parallel
-if (CMAKE_BUILD_TYPE MATCHES "Parallel*")
+if (CMAKE_BUILD_TYPE MATCHES "Release*" OR CMAKE_BUILD_TYPE MATCHES "Parallel*" OR CMAKE_BUILD_TYPE MATCHES "Debug")
     message(STATUS "Building in parallel mode")
     # Find OpenMP and add OpenMP flags to compiler and linker
-    find_package(OpenMP REQUIRED)
+    find_package(OpenMP REQUIRED COMPONENTS Fortran)
 
     if(OpenMP_Fortran_FOUND)
         # Link OpenMP for your target (Fortran)
@@ -248,12 +260,29 @@ if (BUILD_EXECUTABLE)
     target_link_libraries(${PROJECT_NAME}_executable PRIVATE ${PROJECT_NAME})
     install(TARGETS ${PROJECT_NAME}_executable DESTINATION ${SKBUILD_PROJECT_NAME}/bin)
     set_target_properties(${PROJECT_NAME}_executable PROPERTIES Fortran_MODULE_DIRECTORY ${MODULE_DIR})
+
     target_compile_options(${PROJECT_NAME}_executable PUBLIC "$<$<CONFIG:Release>:${OPTIMFLAGS}>")
+    target_compile_options(${PROJECT_NAME}_executable PUBLIC "$<$<CONFIG:Release>:${MPFLAGS}>")
+    target_compile_options(${PROJECT_NAME}_executable PUBLIC "$<$<CONFIG:Release>:${PYTHONFLAGS}>")
+
+    target_compile_options(${PROJECT_NAME}_executable PUBLIC "$<$<CONFIG:Serial>:${OPTIMFLAGS}>")
+    target_compile_options(${PROJECT_NAME}_executable PUBLIC "$<$<CONFIG:Serial>:${PYTHONFLAGS}>")
+
     target_compile_options(${PROJECT_NAME}_executable PUBLIC "$<$<CONFIG:Parallel>:${OPTIMFLAGS}>")
     target_compile_options(${PROJECT_NAME}_executable PUBLIC "$<$<CONFIG:Parallel>:${MPFLAGS}>")
+    target_compile_options(${PROJECT_NAME}_executable PUBLIC "$<$<CONFIG:Parallel>:${PYTHONFLAGS}>")
+
     target_compile_options(${PROJECT_NAME}_executable PUBLIC "$<$<CONFIG:Dev>:${DEVFLAGS}>")
+
     target_compile_options(${PROJECT_NAME}_executable PUBLIC "$<$<CONFIG:Debug>:${DEBUGFLAGS}>")
-    target_compile_options(${PROJECT_NAME}_executable PUBLIC "$<$<CONFIG:Release>:${PYTHONFLAGS}>")
+    target_compile_options(${PROJECT_NAME}_executable PUBLIC "$<$<CONFIG:Debug>:${WARNFLAGS}>")
+    target_compile_options(${PROJECT_NAME}_executable PUBLIC "$<$<CONFIG:Debug>:${MPFLAGS}>")
+    target_compile_options(${PROJECT_NAME}_executable PUBLIC "$<$<CONFIG:Debug>:${PYTHONFLAGS}>")
+
+    target_compile_options(${PROJECT_NAME}_executable PUBLIC "$<$<CONFIG:Debug_Serial>:${DEBUGFLAGS}>")
+    target_compile_options(${PROJECT_NAME}_executable PUBLIC "$<$<CONFIG:Debug_Serial>:${WARNFLAGS}>")
+    target_compile_options(${PROJECT_NAME}_executable PUBLIC "$<$<CONFIG:Debug_Serial>:${PYTHONFLAGS}>")
+
     set_target_properties(${PROJECT_NAME}_executable PROPERTIES VERSION ${PROJECT_VERSION})
 endif()
 
@@ -375,7 +404,7 @@ if(BUILD_TESTS)
 endif()
 
 # add coverage compiler flags
-if ( ( CMAKE_Fortran_COMPILER MATCHES ".*gfortran.*" OR CMAKE_Fortran_COMPILER MATCHES ".*gcc.*" ) AND 
+if ( ( CMAKE_Fortran_COMPILER MATCHES ".*gfortran.*" OR CMAKE_Fortran_COMPILER MATCHES ".*gcc.*" ) AND
      ( CMAKE_BUILD_TYPE MATCHES "Coverage" ) )
 
     append_coverage_compiler_flags()

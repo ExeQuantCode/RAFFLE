@@ -210,7 +210,7 @@ contains
     !! Viability values.
     real(real32), dimension(3) :: site_vector, test_vector
     !! Vectors for gridpoints.
-   
+
 
     viable = .false.
 
@@ -221,9 +221,9 @@ contains
        abc(i) = modu(basis%lat(i,:))
     end do
     i = 0
-    random_loop : do 
+    random_loop : do
        i = i + 1
-       if(i.gt.max_attempts) return  
+       if(i.gt.max_attempts) return
        call random_number(site_vector)
        site_vector = bounds(1,:) + ( bounds(2,:) - bounds(1,:) ) * site_vector
 
@@ -233,7 +233,7 @@ contains
        )
        call random_number(rtmp1)
        if(rtmp1.lt.site_value) exit random_loop
- 
+
     end do random_loop
 
 
@@ -252,7 +252,7 @@ contains
        ! get the new test point and map it back into the unit cell
        !------------------------------------------------------------------------
        call random_number(rvec1)
-       if(nattempt.ge.10) then 
+       if(nattempt.ge.10) then
           test_vector = site_vector + &
                ( rvec1 * 2._real32 - 1._real32 ) * step_size_fine / abc
        else
@@ -277,7 +277,7 @@ contains
        ! if viability of test point is less than current point, then we
        ! are stuck at the current point and need to try again
        !------------------------------------------------------------------------
-       if(test_value.lt.site_value) then 
+       if(test_value.lt.site_value) then
           nstuck = nstuck + 1
           if(nstuck.ge.10) then
              nattempt = nattempt + 1
@@ -290,23 +290,23 @@ contains
              ! reduce the tolerance
              if(nattempt.ge.10) site_value = site_value / crude_norm
              call random_number(rtmp1)
-             if(rtmp1.lt.site_value) exit walk_loop   
-          end if   
+             if(rtmp1.lt.site_value) exit walk_loop
+          end if
        else
           nstuck = 0
           site_vector = test_vector
           site_value  = test_value
- 
+
           if(nattempt.ge.10) test_value = test_value / crude_norm
           call random_number(rtmp1)
           if(rtmp1.lt.test_value) exit walk_loop
        end if
- 
+
     end do walk_loop
- 
+
     point = site_vector
     viable=.true.
-   
+
   end function place_method_walk
 !###############################################################################
 
@@ -371,7 +371,7 @@ contains
     real(real32), dimension(3) :: site_vector, test_vector
     !! Vectors for gridpoints.
     real(real32), dimension(3,3) :: inverse_lattice
-   
+
 
     viable = .false.
 
@@ -445,13 +445,13 @@ contains
        ! get the new test point and map it back into the unit cell
        !------------------------------------------------------------------------
        call random_number(rvec1)
-       if(nattempt.ge.10) then 
+       if(nattempt.ge.10) then
           test_vector = site_vector + &
                ( rvec1 * 2._real32 - 1._real32 ) * step_size_fine / abc
        else
           test_vector = site_vector + &
                ( rvec1 * 2._real32 - 1._real32 ) * step_size_coarse / abc
-       end if 
+       end if
        test_vector = test_vector - floor(test_vector)
        do j = 1, 3
           if(test_vector(j).lt.bounds(1,j) .or. test_vector(j).ge.bounds(2,j)) &
@@ -470,7 +470,7 @@ contains
        ! if viability of test point is less than current point, then we
        ! are stuck at the current point and need to try again
        !------------------------------------------------------------------------
-       if(test_value.lt.site_value) then 
+       if(test_value.lt.site_value) then
           nstuck = nstuck + 1
           if(nstuck.ge.10) then
              nattempt = nattempt + 1
@@ -483,23 +483,23 @@ contains
              ! reduce the tolerance
              if(nattempt.ge.10) site_value = site_value / crude_norm
              call random_number(rtmp1)
-             if(rtmp1.lt.site_value) exit walk_loop   
-          end if   
+             if(rtmp1.lt.site_value) exit walk_loop
+          end if
        else
           nstuck = 0
           site_vector = test_vector
           site_value  = test_value
- 
+
           if(nattempt.ge.10) test_value = test_value / crude_norm
           call random_number(rtmp1)
           if(rtmp1.lt.test_value) exit walk_loop
        end if
- 
+
     end do walk_loop
- 
+
     point = site_vector
     viable=.true.
-   
+
   end function place_method_growth
 !###############################################################################
 
@@ -540,7 +540,7 @@ contains
     ! find the gridpoint with the highest viability
     !---------------------------------------------------------------------------
     species_index = findloc(species_index_list, species, 1)
-    best_gridpoint = maxloc(points(3+species_index,:), dim=1)
+    best_gridpoint = maxloc(points(4+species_index,:), dim=1)
     if(best_gridpoint.eq.0)then
        return
     elseif(points(4+species,best_gridpoint).lt.1.E-6)then
@@ -552,7 +552,7 @@ contains
     !---------------------------------------------------------------------------
     point = points(1:3,best_gridpoint)
     viable = .true.
-   
+
   end function place_method_min
 !###############################################################################
 

@@ -229,13 +229,13 @@ program test_evaluator
      write(unit,*)
      do is = 1, basis_host%nspec
         do i = 1, size(gridpoints,dim=2)
-           write(unit,*) gridpoints(1:3,i), gridpoints(3+is,i), is
+           write(unit,*) gridpoints(1:3,i), gridpoints(4+is,i), is
         end do
      end do
      close(unit)
      stop 0
   end if
-  
+
 
   !-----------------------------------------------------------------------------
   ! call evaluator

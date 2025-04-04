@@ -11,6 +11,9 @@ suffixes = ["F90", "f90"]
 [library]
 source-dir="src/fortran"
 
+[dependencies]
+openmp = "*"
+
 [fortran]
 implicit-typing = false
 implicit-external = false

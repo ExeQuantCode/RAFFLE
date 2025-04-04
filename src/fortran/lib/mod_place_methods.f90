@@ -51,41 +51,25 @@ contains
     !! Boolean to indicate if point is viable.
     real(real32), dimension(3) :: point
     !! Point to add atom to.
-    
+
     ! Local variables
-    integer :: i, j, k
-    !! Loop indices.
-    real(real32), dimension(3) :: best_location
-    !! Index of best location to place atom.
-    real(real32) :: best_location_bond, smallest_bond
-    !! Bond lengths.
-    real(real32), dimension(3) :: tmpvector
-    !! Temporary vector for gridpoint.
+    integer :: best_gridpoint
+    !! Index of best gridpoint.
 
 
     viable = .false.
-   
+
     !---------------------------------------------------------------------------
-    ! loop over all gridpoints in the unit cell and find the one with the ...
-    ! ... largest void space
+    ! find the gridpoint with the largest void space
     !---------------------------------------------------------------------------
-    best_location = 0._real32
-    best_location_bond = -huge(1._real32)
-    do i = 1, size(points,2)
-       smallest_bond = modu(get_min_dist(&
-            basis, [ points(1:3,i) ], .false., &
-            ignore_list = atom_ignore_list))
-       if( smallest_bond .gt. best_location_bond ) then
-          best_location_bond = smallest_bond
-          best_location = points(1:3,i)
-       end if
-    end do
+    best_gridpoint = maxloc(points(4,:), dim=1)
+    if(best_gridpoint.eq.0) return
 
 
     !---------------------------------------------------------------------------
     ! return the gridpoint with the largest void space
     !---------------------------------------------------------------------------
-    point = best_location
+    point = points(1:3,best_gridpoint)
     viable = .true.
 
   end function place_method_void
@@ -559,7 +543,7 @@ contains
     best_gridpoint = maxloc(points(3+species_index,:), dim=1)
     if(best_gridpoint.eq.0)then
        return
-    elseif(points(3+species,best_gridpoint).lt.1.E-6)then
+    elseif(points(4+species,best_gridpoint).lt.1.E-6)then
        return
     end if
 

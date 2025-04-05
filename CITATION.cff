@@ -7,8 +7,9 @@ title: >-
   minima
 message: >-
   If you use this software, please cite it using the
-  metadata from this file and the following paper:
+  metadata from this file and the following papers:
   https://link.aps.org/doi/10.1103/PhysRevLett.132.066201
+  https://arxiv.org/abs/2504.02528
 type: software
 authors:
   - given-names: Ned Thaddeus

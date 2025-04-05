@@ -13,7 +13,7 @@ For the Python library, the easiest method of installation is to install it dire
 or
 
 .. code-block:: bash
-    
+
     pip install 'raffle[ase]'
 
 Once this is done, RAFFLE is ready to be used.
@@ -23,10 +23,6 @@ Alternatively, to install RAFFLE from source, follow the instructions below.
 
 RAFFLE can be installed in one of three ways; as a Python package, as a Fortran library, or as a standalone Fortran executable.
 All versions rely on the core Fortran code, with the Python package and standalone executable wrapping this code in a Python and Fortran interface, respectively.
-
-.. note::
-    Currently, RAFFLE is not available on any hosted package manager (e.g. PyPI, conda-forge or fpm), so you will need to download it manually from the Git repository.
-
 
 The code is hosted on `GitHub <https://github.com/ExeQuantCode/raffle>`_.
 
@@ -41,7 +37,7 @@ This can be done by cloning the repository:
     Notes on the different versions of RAFFLE:
 
     - The Python package is the most user-friendly way to use RAFFLE, as it provides a high-level interface to the Fortran code and allows for easy implementation into existing workflows.
-    
+
     - The Fortran library provides the same functionality as the Python package, but in Fortran instead, enabling slightly more (but not recommended) access to the underlying code.
 
     - The standalone executable enables the use of RAFFLE without any Python dependencies and no need to code, just editing of a parameter file.
@@ -79,7 +75,23 @@ Installation using pip
 -----------------------
 
 The easiest way to install RAFFLE is via pip.
-Currently, the package is not available on PyPI, so you will need to install it from the source code.
+The package is directly available via PyPI, so can be installed without downloading the repository. To do so, run:
+
+.. code-block:: bash
+
+    pip install 'raffle[ase]'
+
+This will install the RAFFLE package and all its dependencies in the default location.
+This is the recommended method of installation, as it is the easiest and most straightforward way to get started with RAFFLE.
+By default, this will install the parallel version of RAFFLE.
+To install the serial version of RAFFLE, include the ``--config-settings`` flag in the pip install command:
+.. code-block:: bash
+
+    pip install --upgrade raffle --config-settings="cmake.define.CMAKE_BUILD_TYPE=Serial"
+
+
+Another option is to install RAFFLE from the source code, which is recommended if you want to use the latest version of RAFFLE or if you want to contribute to the development of RAFFLE.
+To do this, you will need to clone the repository from GitHub.
 
 Once the library is cloned, navigate to the root directory of the repository and run:
 
@@ -88,7 +100,12 @@ Once the library is cloned, navigate to the root directory of the repository and
     pip install --upgrade .[ase]
 
 
-The optional ``[ase]`` flag is used to install the ASE interface, which is not required for the core functionality of RAFFLE, but is recommended
+The optional ``[ase]`` flag is used to install the ASE interface, which is not required for the core functionality of RAFFLE, but is recommended (and examples rely on it).
+
+To install the serial version of RAFFLE, include the ``--config-settings`` flag in the pip install command:
+.. code-block:: bash
+
+    pip install --upgrade . --config-settings="cmake.define.CMAKE_BUILD_TYPE=Serial"
 
 .. note::
     If you are installing RAFFLE on a computer where you do not have root access, you may need to add the ``--user`` flag to the above command.
@@ -121,6 +138,16 @@ For Unix systems, this will typically be in:
 .. code-block:: bash
 
     ~/.local/raffle
+
+Like with the pip installation, this will install the parallel version of RAFFLE by default.
+To install the serial version of RAFFLE, run the following commands:
+.. code-block:: bash
+
+    mkdir build
+    cd build
+    cmake [-DBUILD_PYTHON=On] -DBUILD_EXECUTABLE=Off -DCMAKE_BUILD_TYPE=Serial ..
+    make
+    make install
 
 
 Fortran
@@ -155,6 +182,8 @@ This can also be set up as a dependency in your own fpm project by adding the fo
     [dependencies]
     raffle = { git = "https://github.com/ExeQuantCode/RAFFLE" }
 
+The Fortran libray has openmp dependencies.
+
 Installation using cmake
 ------------------------
 
@@ -181,6 +210,16 @@ To install the standalone executable, run:
     make install
 
 This will build the Fortran library and install it in the default location (``~/.local/raffle``).
+
+The default installation is the parallel version of RAFFLE.
+To install the serial version of RAFFLE, run the following commands:
+.. code-block:: bash
+
+    mkdir build
+    cd build
+    cmake -DBUILD_PYTHON=Off -DBUILD_EXECUTABLE=On -DCMAKE_BUILD_TYPE=Serial ..
+    make
+    make install
 
 
 Installing on MacOS (Homebrew)

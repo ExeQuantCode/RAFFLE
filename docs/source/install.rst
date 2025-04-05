@@ -85,6 +85,7 @@ This will install the RAFFLE package and all its dependencies in the default loc
 This is the recommended method of installation, as it is the easiest and most straightforward way to get started with RAFFLE.
 By default, this will install the parallel version of RAFFLE.
 To install the serial version of RAFFLE, include the ``--config-settings`` flag in the pip install command:
+
 .. code-block:: bash
 
     pip install --upgrade raffle --config-settings="cmake.define.CMAKE_BUILD_TYPE=Serial"
@@ -103,6 +104,7 @@ Once the library is cloned, navigate to the root directory of the repository and
 The optional ``[ase]`` flag is used to install the ASE interface, which is not required for the core functionality of RAFFLE, but is recommended (and examples rely on it).
 
 To install the serial version of RAFFLE, include the ``--config-settings`` flag in the pip install command:
+
 .. code-block:: bash
 
     pip install --upgrade . --config-settings="cmake.define.CMAKE_BUILD_TYPE=Serial"
@@ -141,6 +143,7 @@ For Unix systems, this will typically be in:
 
 Like with the pip installation, this will install the parallel version of RAFFLE by default.
 To install the serial version of RAFFLE, run the following commands:
+
 .. code-block:: bash
 
     mkdir build
@@ -213,6 +216,7 @@ This will build the Fortran library and install it in the default location (``~/
 
 The default installation is the parallel version of RAFFLE.
 To install the serial version of RAFFLE, run the following commands:
+
 .. code-block:: bash
 
     mkdir build

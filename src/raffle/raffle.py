@@ -4,6 +4,7 @@ import f90wrap.runtime
 import logging
 import numpy
 import warnings
+from ase import Atoms
 
 
 class Geom_Rw(f90wrap.runtime.FortranModule):
@@ -233,7 +234,6 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
                 calculator (ASE Calculator):
                     ASE calculator object to be assigned to the Atoms object.
             """
-            from ase import Atoms
 
             # Set the species list
             positions = []
@@ -440,7 +440,6 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
 
             # check if atoms is an ASE Atoms object or a list of ASE Atoms objects
             if atoms:
-                from ase import Atoms
                 if isinstance(atoms, Atoms):
                     self.allocate(1)
                     self.items[0].fromase(atoms)
@@ -689,7 +688,6 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
                 verbose (int):
                     Verbosity level.
             """
-            from ase import Atoms
             if isinstance(basis_list, Atoms):
                 basis_list = geom_rw.basis_array(basis_list)
             elif isinstance(basis_list, list):
@@ -719,7 +717,6 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
                 verbose (int):
                     Verbosity level.
             """
-            from ase import Atoms
             if isinstance(basis_list, Atoms):
                 basis_list = geom_rw.basis_array(basis_list)
             elif isinstance(basis_list, list):
@@ -1451,7 +1448,6 @@ class Generator(f90wrap.runtime.FortranModule):
                 host (ase.Atoms or geom_rw.basis):
                     The host structure for the generation.
             """
-            from ase import Atoms
             # check if host is ase.Atoms object or a Fortran derived type basis_type
             if isinstance(host, Atoms):
                 host = geom_rw.basis(atoms=host)
@@ -1530,7 +1526,7 @@ class Generator(f90wrap.runtime.FortranModule):
                     The calculator to use for the generated structures.
 
             Returns:
-                structures (geom_rw.basis_array):
+                structures (ase.Atoms):
                     The generated structures.
                 exit_code (int):
                     The exit code from the generation.
@@ -1629,7 +1625,6 @@ class Generator(f90wrap.runtime.FortranModule):
                 viability (float):
                     The viability of the structures.
             """
-            from ase import Atoms
             if isinstance(basis, Atoms):
                 basis = geom_rw.basis(atoms=basis)
 

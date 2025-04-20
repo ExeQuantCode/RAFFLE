@@ -18,7 +18,7 @@
 by Ned Thaddeus Taylor, Joe Pitfield, and Steven Paul Hepplestone
 
 RAFFLE (pseudoRandom Approach For Finding Local Energetic minima) is a package for structural prediction applied to material interfaces.
-RAFFLE can interface with the [Atomic Simulation Environment (ASE)](https://gitlab.com/ase/ase).
+RAFFLE interfaces with the [Atomic Simulation Environment (ASE)](https://gitlab.com/ase/ase).
 
 RAFFLE is both a Fortran and a Python library, with the option of a Fortran executable.
 The code heavily relies on features of Fortran 2018 and above, so there is no backwards compatibility with Fortran95.
@@ -48,7 +48,7 @@ Python-specific installation:
 - meson
 - make or ninja
 - CMake
-- ASE (optional)
+- ASE
 
 The library bas been developed and tested using the following Fortran compilers:
 - gfortran -- gcc 11.4.0
@@ -64,12 +64,6 @@ For the Python library, the easiest method of installation is to install it dire
 
 ```
 pip install raffle
-```
-
-or
-
-```
-pip install 'raffle[ase]'
 ```
 
 Once this is done, RAFFLE is ready to be used.

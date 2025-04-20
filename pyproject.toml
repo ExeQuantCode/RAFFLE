@@ -31,6 +31,7 @@ build.verbose = false
 name = "raffle"
 dynamic = ["version"]
 dependencies = [
+    "ase>=3.23.0",
     "numpy>=1.26.4,<=2.2",
     "f90wrap>=0.2.14,<=0.2.16",
 ]
@@ -61,8 +62,6 @@ Repository = "https://github.com/ExeQuantCode/raffle"
 Issues = "https://github.com/ExeQuantCode/raffle/issues"
 
 [project.optional-dependencies]
-ase = ["ase>=3.23.0"]
-no-ase = []
 tests = [
     "pytest",
     "pytest-cov",

@@ -14,7 +14,7 @@ or
 
 .. code-block:: bash
 
-    pip install 'raffle[ase]'
+    pip install raffle
 
 Once this is done, RAFFLE is ready to be used.
 
@@ -65,10 +65,6 @@ Requirements
 - `sckit-build-core <https://scikit-build-core.readthedocs.io/en/latest/>`_ (>=0.11)
 - `cmake <https://cmake.org>`_ (>=3.17)
 - `ninja <https://ninja-build.org>`_ (>=1.10) or `GNU Make <https://www.gnu.org/software/make/>`_
-
-Optional
---------
-
 - `ASE <https://wiki.fysik.dtu.dk/ase/>`_ (>=3.23)
 
 Installation using pip
@@ -79,7 +75,7 @@ The package is directly available via PyPI, so can be installed without download
 
 .. code-block:: bash
 
-    pip install 'raffle[ase]'
+    pip install raffle
 
 This will install the RAFFLE package and all its dependencies in the default location.
 This is the recommended method of installation, as it is the easiest and most straightforward way to get started with RAFFLE.
@@ -98,10 +94,8 @@ Once the library is cloned, navigate to the root directory of the repository and
 
 .. code-block:: bash
 
-    pip install --upgrade .[ase]
+    pip install --upgrade .
 
-
-The optional ``[ase]`` flag is used to install the ASE interface, which is not required for the core functionality of RAFFLE, but is recommended (and examples rely on it).
 
 To install the serial version of RAFFLE, include the ``--config-settings`` flag in the pip install command:
 
@@ -259,7 +253,7 @@ Next, if you are using ``pip``, then the following command is found to result in
 
 .. code-block:: bash
 
-    python -m pip install --upgrade .[ase]
+    python -m pip install --upgrade .
 
 This ensures that the correct Python version is being called, and that the correct version of ``pip`` is being used.
 

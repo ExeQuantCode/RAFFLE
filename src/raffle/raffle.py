@@ -1565,7 +1565,7 @@ class Generator(f90wrap.runtime.FortranModule):
                 method_ratio=method_ratio_list,
                 settings_out_file=settings_out_file,
                 seed=seed, verbose=verbose)
-            if exit_code != 0 and not return_exit_code:
+            if ( exit_code != 0 and exit_code != None ) and not return_exit_code:
                 raise RuntimeError(f"Interface generation failed (exit code {exit_code})")
 
             structures = self.get_structures(calc)[-num_structures:]

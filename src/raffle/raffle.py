@@ -1503,7 +1503,7 @@ class Generator(f90wrap.runtime.FortranModule):
                 self, num_structures, stoichiometry,
                 method_ratio={"void": 0.0, "rand": 0.0, "walk": 0.0, "grow": 0.0, "min": 0.0},
                 method_probab=None,
-                seed=None, settings_out_file=None, verbose=0,
+                seed=None, settings_out_file=None, verbose=0, return_exit_code=False,
                 calc=None
         ):
             """
@@ -1524,9 +1524,11 @@ class Generator(f90wrap.runtime.FortranModule):
                     The file to write the settings to.
                 verbose (int):
                     The verbosity level for the generation.
+                return_exit_code (bool):
+                    Whether to return the exit code from the generation.
                 calc (ASE calculator):
                     The calculator to use for the generated structures.
-                
+
             Returns:
                 structures (geom_rw.basis_array):
                     The generated structures.
@@ -1567,9 +1569,13 @@ class Generator(f90wrap.runtime.FortranModule):
                 method_ratio=method_ratio_list,
                 settings_out_file=settings_out_file,
                 seed=seed, verbose=verbose)
-                
+            if exit_code != 0 and not return_exit_code:
+                raise RuntimeError(f"Interface generation failed (exit code {exit_code})")
+
             structures = self.get_structures(calc)[-num_structures:]
-            return structures, exit_code
+            if return_exit_code:
+                return structures, exit_code
+            return structures
 
         def get_structures(self, calculator=None):
             """

@@ -9,7 +9,7 @@ module raffle__generator
   use raffle__constants, only: real32
   use raffle__tools_infile, only: assign_val, assign_vec
   use raffle__misc_linalg, only: modu
-  use raffle__misc, only: strip_null, set, shuffle, sort1D, to_upper
+  use raffle__misc, only: strip_null, set, shuffle, sort1D, sort2D, to_upper
   use raffle__geom_rw, only: basis_type
   use raffle__geom_extd, only: extended_basis_type
   use raffle__distribs_container, only: distribs_container_type
@@ -77,6 +77,8 @@ module raffle__generator
    contains
      procedure, pass(this) :: set_host
      !! Procedure to set the host structure.
+     procedure, pass(this) :: prepare_host
+     !! Procedure to prepare the host structure.
      procedure, pass(this) :: set_grid
      !! Procedure to set the grid for the raffle generator.
      procedure, pass(this) :: reset_grid
@@ -189,6 +191,105 @@ contains
 
     call this%set_grid()
   end subroutine set_host
+!###############################################################################
+
+
+!###############################################################################
+  function prepare_host(this, interface_location, interface_axis, depth) &
+       result(stoichiometry)
+    !! Prepare the host structure for the raffle generator.
+    !!
+    !! This procedure prepares the host structure for the raffle generator.
+    implicit none
+
+    ! Arguments
+    class(raffle_generator_type), intent(inout) :: this
+    !! Instance of the raffle generator.
+    real(real32), dimension(:), intent(in) :: interface_location
+    !! Location of the interface in the host structure.
+    integer, intent(in), optional :: interface_axis
+    !! Axis of the interface in the host structure.
+    real(real32), intent(in), optional :: depth
+
+    type(stoichiometry_type), dimension(:), allocatable :: stoichiometry
+    !! Stoichiometry of the atoms removed from the host structure.
+
+    ! Local variables
+    integer :: i, is, ia
+    !! Loop indices.
+    integer :: num_remove
+    !! Number of atoms removed from the host structure.
+    integer :: axis
+    !! Axis of the interface in the host structure.
+    real(real32) :: dist, depth_
+    !! Distance to the interface and depth of the interface.
+    real(real32) :: lattice_const
+    !! Lattice constant of the host structure along the interface axis.
+    integer, dimension(:), allocatable :: species_index_list
+    !! List of species indices to remove.
+    integer, dimension(:,:), allocatable :: remove_atom_list
+    !! List of atoms to be removed from the host structure.
+
+
+    !---------------------------------------------------------------------------
+    ! Handle optional arguments
+    !---------------------------------------------------------------------------
+    axis = 3
+    if(present(interface_axis)) axis = interface_axis
+    depth_ = 3._real32
+    if(present(depth)) depth_ = depth
+    lattice_const = modu(this%host%lat(axis,:))
+
+
+    !---------------------------------------------------------------------------
+    ! Identify atoms to be removed from the host structure
+    !---------------------------------------------------------------------------
+    num_remove = 0
+    allocate(remove_atom_list(2,this%host%natom))
+    do is = 1, this%host%nspec
+       atom_loop: do ia = 1, this%host%spec(is)%num
+          do i = 1, size(interface_location)
+             dist = this%host%spec(is)%atom(ia,axis) - interface_location(i)
+             dist = dist - ceiling(dist - 0.5_real32)
+             if( abs(dist * lattice_const) .le. depth_ )then
+                num_remove = num_remove + 1
+                remove_atom_list(:,num_remove) = [ is, ia ]
+                cycle atom_loop
+             end if
+          end do
+       end do atom_loop
+    end do
+
+
+    !---------------------------------------------------------------------------
+    ! Create the dictionary of atoms to be removed
+    !---------------------------------------------------------------------------
+    if(num_remove.gt.0)then
+       remove_atom_list = remove_atom_list(1:2,1:num_remove)
+       call this%host%remove_atoms(remove_atom_list)
+       species_index_list = remove_atom_list(1,:)
+       call set(species_index_list)
+       call sort2D(remove_atom_list, 1)
+       allocate(stoichiometry(size(species_index_list)))
+       do i = 1, size(species_index_list)
+          stoichiometry(i)%element = this%host%spec(species_index_list(i))%name
+          stoichiometry(i)%num = &
+               count(remove_atom_list(1,:).eq.species_index_list(i))
+       end do
+    end if
+
+
+    !---------------------------------------------------------------------------
+    ! Reset the host structure
+    !---------------------------------------------------------------------------
+    if(this%host%natom.eq.0)then
+       call stop_program("No atoms remaining in host structure")
+       return
+    end if
+    call this%distributions%host_system%set(this%host)
+    call this%set_grid()
+
+  end function prepare_host
 !###############################################################################
 
 

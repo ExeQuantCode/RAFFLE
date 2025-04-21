@@ -1455,6 +1455,61 @@ class Generator(f90wrap.runtime.FortranModule):
             _raffle.f90wrap_generator__set_host__binding__rgt(this=self._handle, \
                 host=host._handle)
 
+        def prepare_host(self, interface_location=None, interface_axis=3, depth=3.0):
+            """
+            Prepare the host by removing atoms 'depth' away from the interface and returning an associated missing stoichiometry dictionary.
+
+            Parameters:
+                interface_location (list of float):
+                    The location of the interface in direct coordinates.
+                interface_axis (int or str):
+                    The axis along which to remove atoms from the host.
+                    0 for a, 1 for b, 2 for c.
+                    Alternatively, 'a', 'b', or 'c' can be used.
+                depth (float):
+                    The depth to remove atoms from the host.
+
+            Returns:
+                missing_stoichiometry (dict):
+                    A dictionary of the missing stoichiometry.
+                    The keys are the element symbols and the values are the number of atoms removed.
+            """
+
+            # check if interface_axis is a string
+            if isinstance(interface_axis, str):
+                interface_axis = interface_axis.lower()
+                if interface_axis == 'a':
+                    interface_axis = 0
+                elif interface_axis == 'b':
+                    interface_axis = 1
+                elif interface_axis == 'c':
+                    interface_axis = 2
+                else:
+                    raise ValueError("interface_axis must be 0, 1, 2, 'a', 'b', or 'c'")
+
+            # check if host is ase.Atoms object or a Fortran derived type basis_type
+            host_old = self.host.toase()
+
+            _raffle.f90wrap_generator__prepare_host__binding__rgt(this=self._handle, \
+                interface_location=interface_location, \
+                interface_axis=interface_axis, \
+                depth=depth)
+
+            host_new = self.host.toase()
+
+            # get the missing stoichiometry
+            missing_stoichiometry = {}
+            old_elements = host_old.get_chemical_symbols()
+            new_elements = host_new.get_chemical_symbols()
+            for element in set(old_elements):
+                old_count = old_elements.count(element)
+                new_count = new_elements.count(element)
+                if old_count > new_count:
+                    missing_stoichiometry[element] = old_count - new_count
+
+            return missing_stoichiometry
+
+
         def set_grid(self, grid=None, grid_spacing=None, grid_offset=None):
             """
             Set the grid parameters for the generation.

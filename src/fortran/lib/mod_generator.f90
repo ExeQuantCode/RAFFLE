@@ -225,6 +225,7 @@ contains
     !! Distance to the interface and depth of the interface.
     real(real32) :: lattice_const
     !! Lattice constant of the host structure along the interface axis.
+    type(basis_type) :: host
     integer, dimension(:), allocatable :: species_index_list
     !! List of species indices to remove.
     integer, dimension(:,:), allocatable :: remove_atom_list
@@ -238,18 +239,19 @@ contains
     if(present(interface_axis)) axis = interface_axis
     depth_ = 3._real32
     if(present(depth)) depth_ = depth
-    lattice_const = modu(this%host%lat(axis,:))
+    call host%copy(this%host)
+    lattice_const = modu(host%lat(axis,:))
 
 
     !---------------------------------------------------------------------------
     ! Identify atoms to be removed from the host structure
     !---------------------------------------------------------------------------
     num_remove = 0
-    allocate(remove_atom_list(2,this%host%natom))
-    do is = 1, this%host%nspec
-       atom_loop: do ia = 1, this%host%spec(is)%num
+    allocate(remove_atom_list(2,host%natom))
+    do is = 1, host%nspec
+       atom_loop: do ia = 1, host%spec(is)%num
           do i = 1, size(interface_location)
-             dist = this%host%spec(is)%atom(ia,axis) - interface_location(i)
+             dist = host%spec(is)%atom(ia,axis) - interface_location(i)
              dist = dist - ceiling(dist - 0.5_real32)
              if( abs(dist * lattice_const) .le. depth_ )then
                 num_remove = num_remove + 1
@@ -266,13 +268,13 @@ contains
     !---------------------------------------------------------------------------
     if(num_remove.gt.0)then
        remove_atom_list = remove_atom_list(1:2,1:num_remove)
-       call this%host%remove_atoms(remove_atom_list)
+       call host%remove_atoms(remove_atom_list)
        species_index_list = remove_atom_list(1,:)
        call set(species_index_list)
        call sort2D(remove_atom_list, 1)
        allocate(stoichiometry(size(species_index_list)))
        do i = 1, size(species_index_list)
-          stoichiometry(i)%element = this%host%spec(species_index_list(i))%name
+          stoichiometry(i)%element = host%spec(species_index_list(i))%name
           stoichiometry(i)%num = &
                count(remove_atom_list(1,:).eq.species_index_list(i))
        end do
@@ -282,12 +284,11 @@ contains
     !---------------------------------------------------------------------------
     ! Reset the host structure
     !---------------------------------------------------------------------------
-    if(this%host%natom.eq.0)then
+    if(host%natom.eq.0)then
        call stop_program("No atoms remaining in host structure")
        return
     end if
-    call this%distributions%host_system%set(this%host)
-    call this%set_grid()
+    call this%set_host(host)
 
   end function prepare_host
 !###############################################################################

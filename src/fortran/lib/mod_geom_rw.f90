@@ -127,7 +127,7 @@ contains
     !! Optional. The number of atoms of each species.
     real(real32), dimension(:,:), intent(in), optional :: atoms
     !! Optional. The atomic positions of the species.
-    
+
     ! Local variables
     integer :: i, istart, iend
     !! Loop index.
@@ -155,7 +155,7 @@ contains
           istart = iend + 1
        end do
     end if natom_check
-    
+
     do i = 1, this%nspec
        call get_element_properties( &
             this%spec(i)%name, &
@@ -163,11 +163,11 @@ contains
             charge = this%spec(i)%charge, &
             radius = this%spec(i)%radius )
     end do
-       
+
   end subroutine allocate_species
 !###############################################################################
 
-  
+
 !###############################################################################
   subroutine geom_read(UNIT, basis, length, iostat)
     !! Read geometry from a file.
@@ -259,7 +259,7 @@ contains
     case(4)
        call stop_program("ERROR: Not yet set up for CRYSTAL")
        return
-    case(5)   
+    case(5)
        call XYZ_geom_write(UNIT,basis)
     case(6)
        call extXYZ_geom_write(UNIT,basis)
@@ -401,9 +401,9 @@ contains
        end do
     end do
     basis%natom=sum(basis%spec(:)%num)
- 
+
     if(present(iostat)) iostat = iostat_
- 
+
   end subroutine VASP_geom_read
 !###############################################################################
 
@@ -542,8 +542,8 @@ contains
           exit basfind
        end if
     end do basfind
- 
- 
+
+
     !---------------------------------------------------------------------------
     ! read basis
     !---------------------------------------------------------------------------
@@ -685,7 +685,7 @@ contains
     character(len=200) :: buffer, store
     !! Temporary character variables.
     logical :: labc
-    !! Logical variable to determine whether the lattice is in abc or 
+    !! Logical variable to determine whether the lattice is in abc or
     !! cartesian coordinates.
     integer, dimension(1000) :: tmp_natom
     !! Temporary array to store the number of atoms of each species.
@@ -694,7 +694,7 @@ contains
     character(len=3), dimension(1000) :: tmp_spec
     !! Temporary array to store the species names.
 
-   
+
     !---------------------------------------------------------------------------
     ! determine dimension of basis (include translation dimension for symmetry?)
     !---------------------------------------------------------------------------
@@ -727,7 +727,7 @@ contains
           if(index(trim(buffer),"CART").ne.0) labc = .false.
           store = ""
           itmp1 = 0
-          lattice_loop: do 
+          lattice_loop: do
              itmp1 = itmp1 + 1
              read(UNIT,'(A)',iostat=Reason) buffer
              if(Reason.ne.0) exit lattice_loop
@@ -980,8 +980,8 @@ contains
           end do checkspec
        end if
     end do
- 
- 
+
+
     !---------------------------------------------------------------------------
     ! move basis from temporary basis to main basis.
     ! done to allow for correct allocation of number of and per species
@@ -994,9 +994,9 @@ contains
        basis%spec(i)%atom(:,:) = 0
        basis%spec(i)%atom(1:tmp_num(i),1:3) = tmp_bas(i,1:tmp_num(i),1:3)
     end do
- 
+
     if(present(iostat)) iostat = iostat_
- 
+
   end subroutine XYZ_geom_read
 !###############################################################################
 
@@ -1094,11 +1094,11 @@ contains
     index1 = index(buffer,'Lattice="') + 9
     index2 = index(buffer(index1:),'"') + index1 - 2
     read(buffer(index1:index2),*) ( ( basis%lat(i,j), j = 1, 3), i = 1, 3)
- 
+
     index1 = index(buffer,'free_energy=') + 12
     read(buffer(index1:),*) basis%energy
- 
- 
+
+
     !---------------------------------------------------------------------------
     ! read basis
     !---------------------------------------------------------------------------
@@ -1126,8 +1126,8 @@ contains
           end do checkspec
        end if
     end do
- 
- 
+
+
     !---------------------------------------------------------------------------
     ! move basis from temporary basis to main basis.
     ! done to allow for correct allocation of number of and per species
@@ -1144,9 +1144,9 @@ contains
        basis%sysname = basis%sysname//trim(buffer)
        if(i.lt.basis%nspec) basis%sysname = trim(adjustl(basis%sysname))//"_"
     end do
- 
+
     if(present(iostat)) iostat = iostat_
- 
+
   end subroutine extXYZ_geom_read
 !###############################################################################
 
@@ -1196,7 +1196,7 @@ contains
   subroutine convert(this)
     !! Convert the basis between direct and cartesian coordinates.
     implicit none
-   
+
     ! Arguments
     class(basis_type), intent(inout) :: this
     !! Parent. The basis to convert.
@@ -1207,7 +1207,7 @@ contains
     real(real32), dimension(3,3) :: lattice
     !! The reciprocal lattice vectors.
 
-   
+
     if(this%lcart)then
        lattice = inverse_3x3( this%lat )
     else
@@ -1221,7 +1221,7 @@ contains
                matmul( this%spec(is)%atom(ia,1:3), lattice )
        end do
     end do
-   
+
   end subroutine convert
 !###############################################################################
 
@@ -1438,9 +1438,17 @@ contains
              return
           end if
           allocate(atom(this%spec(i)%num-1,size(this%spec(i)%atom,2)))
-          atom(1:iatom-1:1,:) = this%spec(i)%atom(1:iatom-1:1,:)
-          atom(iatom:this%spec(i)%num-1:1,:) = &
-               this%spec(i)%atom(iatom+1:this%spec(i)%num:1,:)
+          if(iatom.eq.1)then
+             atom(1:this%spec(i)%num-1:1,:) = &
+                  this%spec(i)%atom(2:this%spec(i)%num:1,:)
+          elseif(iatom.eq.this%spec(i)%num)then
+             atom(1:this%spec(i)%num-1:1,:) = &
+                  this%spec(i)%atom(1:this%spec(i)%num-1:1,:)
+          else
+             atom(1:iatom-1:1,:) = this%spec(i)%atom(1:iatom-1:1,:)
+             atom(iatom:this%spec(i)%num-1:1,:) = &
+                  this%spec(i)%atom(iatom+1:this%spec(i)%num:1,:)
+          end if
           this%spec(i)%atom = atom
           deallocate(atom)
           this%spec(i)%num = this%spec(i)%num - 1
@@ -1621,7 +1629,7 @@ contains
        mass_ = 30.974_real32
        charge_ = 15.0_real32
        radius_ = 1.07_real32
-    case('S')  
+    case('S')
        mass_ = 32.06_real32
        charge_ = 16.0_real32
        radius_ = 1.05_real32

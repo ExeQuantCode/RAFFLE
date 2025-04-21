@@ -226,6 +226,41 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
             """, Geom_Rw.species_type)
             return self.spec
 
+        def copy(self):
+            """
+            Create a copy of the basis object.
+
+            Returns:
+                basis (basis):
+                    Copy of the basis object
+            """
+
+            # Create a new basis object
+            new_basis = Geom_Rw.basis()
+
+            # Copy the attributes
+            new_basis.nspec = self.nspec
+            new_basis.natom = self.natom
+            new_basis.energy = self.energy
+            new_basis.lat = numpy.copy(self.lat)
+            new_basis.lcart = self.lcart
+            new_basis.pbc = numpy.copy(self.pbc)
+            new_basis.sysname = self.sysname
+
+            # Copy the species list
+            new_basis.allocate_species(
+                num_species = self.nspec,
+                species_symbols = [self.spec[i].name for i in range(self.nspec)],
+                species_count = [self.spec[i].num for i in range(self.nspec)],
+                positions = [self.spec[i].atom[j][:3] for i in range(self.nspec) for j in range(self.spec[i].num)]
+            )
+            for i in range(self.nspec):
+                new_basis.spec[i].mass = self.spec[i].mass
+                new_basis.spec[i].charge = self.spec[i].charge
+                new_basis.spec[i].radius = self.spec[i].radius
+
+            return new_basis
+
         def toase(self, calculator=None):
             """
             Convert the basis object to an ASE Atoms object.
@@ -241,7 +276,7 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
             for i in range(self.nspec):
                 for j in range(self.spec[i].num):
                     species_string += str(self.spec[i].name.decode()).strip()
-                    positions.append(self.spec[i].atom[j])
+                    positions.append(self.spec[i].atom[j][:3])
 
             # Set the atoms
             if(self.lcart):
@@ -1455,9 +1490,23 @@ class Generator(f90wrap.runtime.FortranModule):
             _raffle.f90wrap_generator__set_host__binding__rgt(this=self._handle, \
                 host=host._handle)
 
+        def get_host(self):
+            """
+            Get the host structure for the generation.
+
+            Returns:
+                host (ase.Atoms or geom_rw.basis):
+                    The host structure for the generation.
+            """
+            host = self.host.copy()
+            # check if host is ase.Atoms object or a Fortran derived type basis_type
+            if isinstance(host, geom_rw.basis):
+                host = host.toase()
+            return host
+
         def prepare_host(self, interface_location=None, interface_axis=3, depth=3.0):
             """
-            Prepare the host by removing atoms 'depth' away from the interface and returning an associated missing stoichiometry dictionary.
+            Prepare the host by removing atoms depth away from the interface and returning an associated missing stoichiometry dictionary.
 
             Parameters:
                 interface_location (list of float):
@@ -1487,23 +1536,25 @@ class Generator(f90wrap.runtime.FortranModule):
                 else:
                     raise ValueError("interface_axis must be 0, 1, 2, 'a', 'b', or 'c'")
 
-            # check if host is ase.Atoms object or a Fortran derived type basis_type
-            host_old = self.host.toase()
+            # convert interface_location to numpy array in Fortran order
+            interface_location = numpy.array(interface_location, dtype=numpy.float32, order='F')
+
+            # get current stoichiometry of the host
+            stoich_old = self.get_host().get_chemical_symbols()
 
             _raffle.f90wrap_generator__prepare_host__binding__rgt(this=self._handle, \
                 interface_location=interface_location, \
                 interface_axis=interface_axis, \
                 depth=depth)
 
-            host_new = self.host.toase()
+            # get new stoichiometry of the host
+            stoich_new = self.get_host().get_chemical_symbols()
 
             # get the missing stoichiometry
             missing_stoichiometry = {}
-            old_elements = host_old.get_chemical_symbols()
-            new_elements = host_new.get_chemical_symbols()
-            for element in set(old_elements):
-                old_count = old_elements.count(element)
-                new_count = new_elements.count(element)
+            for element in set(stoich_old):
+                old_count = stoich_old.count(element)
+                new_count = stoich_new.count(element)
                 if old_count > new_count:
                     missing_stoichiometry[element] = old_count - new_count
 

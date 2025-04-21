@@ -20,6 +20,11 @@ module raffle__misc
      procedure isort1D,rsort1D
   end interface sort1D
 
+  interface sort2D
+     !! Sort a 2D array from min to max along the first column.
+     procedure isort2D,rsort2D
+  end interface sort2D
+
   interface set
      !! Reduce an array to its unique elements.
      procedure iset,rset, cset
@@ -81,7 +86,7 @@ contains
        call cswap(list(i),list(loc+i-1))
     end do
     if(lcase_) list=tlist
-    
+
   end subroutine sort_str
 !###############################################################################
 
@@ -128,7 +133,7 @@ contains
     do i = 1, size(list)
        torder(i) = i
     end do
-    
+
     do i = 1, size(list)
        loc = minloc(list(i:),dim=1)
        if(loc.eq.1) cycle
@@ -136,14 +141,14 @@ contains
        call cswap(list(i),list(loc+i-1))
        call iswap(torder(i),torder(loc+i-1))
     end do
-    
+
     allocate(order(size(list)))
     do i = 1, size(list)
        order(i) = findloc(torder,i,dim=1)
     end do
-    
+
     if(lcase_) list=tlist
-    
+
     return
   end function sort_str_order
 !###############################################################################
@@ -179,7 +184,7 @@ contains
     dim=size(arr1,dim=1)
     do i = 1, dim
        if(reverse_)then
-          loc=maxloc(arr1(i:dim),dim=1)+i-1          
+          loc=maxloc(arr1(i:dim),dim=1)+i-1
        else
           loc=minloc(arr1(i:dim),dim=1)+i-1
        end if
@@ -232,7 +237,7 @@ contains
     do i = 1, dim
        select case(reverse_)
        case(.true.)
-          loc=maxloc(arr1(i:dim),dim=1)+i-1          
+          loc=maxloc(arr1(i:dim),dim=1)+i-1
        case default
           loc=minloc(arr1(i:dim),dim=1)+i-1
        end select
@@ -301,57 +306,68 @@ contains
 
 
 !###############################################################################
-  subroutine sort2D(arr,dim)
+  subroutine isort2D(arr, idx)
     !! Sort a 2D array along the first column.
     implicit none
 
     ! Arguments
-    integer, intent(in) :: dim
-    !! Dimension to sort along.
-    real(real32), dimension(dim,3), intent(inout) :: arr
+    integer, intent(in) :: idx
+    !! Index of 1st column to sort by.
+    integer, dimension(:,:), intent(inout) :: arr
     !! Array to be sorted.
 
     ! Local variables
-    integer :: i,j,loc,istart
+    integer :: i
     !! Loop indices.
-    integer, dimension(3) :: a123
-    !! Array to store the order of sorting.
-    real(real32), dimension(3) :: buff
+    integer :: len, loc
+    !! Length of the array and location of the minimum element.
+    integer, dimension(size(arr,dim=1)) :: buff
     !! Buffer for swapping elements.
 
-    a123(:)=(/1,2,3/)
-    istart=1
-    do j = 1, 3
-       do i = j, dim
-          loc = minloc( &
-               abs(arr(i:dim,a123(1))), &
-               dim = 1, &
-               mask = (abs(arr(i:dim,a123(1))).gt.1.D-5) &
-          ) + i - 1
-          buff(:) = arr(i,:)
-          arr(i,:) = arr(loc,:)
-          arr(loc,:) = buff(:)
-       end do
-
-       scndrow: do i = j, dim
-          if(abs(arr(j,a123(1))).ne.abs(arr(i,a123(1)))) exit scndrow
-          loc = minloc( &
-               abs( arr(i:dim,a123(2)) ) + abs( arr(i:dim,a123(3) ) ), &
-               dim = 1, &
-               mask = ( &
-                    abs( arr(j,a123(1)) ) .eq. abs( arr(i:dim,a123(1)) ) &
-               ) &
-          ) + i - 1
-          buff(:)=arr(i,:)
-          arr(i,:)=arr(loc,:)
-          arr(loc,:)=buff(:)
-       end do scndrow
-
-       a123=cshift(a123,1)
+    len = size(arr,dim=2)
+    do i = 1, len
+       loc = minloc(arr(idx,i:len),dim=1)
+       if(loc.eq.1) cycle
+       loc = loc + i - 1
+       buff(:)    = arr(:,i)
+       arr(:,i)   = arr(:,loc)
+       arr(:,loc) = buff(:)
     end do
 
-    return
-  end subroutine sort2D
+  end subroutine isort2D
+!###############################################################################
+
+
+!###############################################################################
+  subroutine rsort2D(arr, idx)
+    !! Sort a 2D array along the first column.
+    implicit none
+
+    ! Arguments
+    integer, intent(in) :: idx
+    !! Index of 1st column to sort by.
+    real(real32), dimension(:,:), intent(inout) :: arr
+    !! Array to be sorted.
+
+    ! Local variables
+    integer :: i
+    !! Loop indices.
+    integer :: len, loc
+    !! Length of the array and location of the minimum element.
+    real(real32), dimension(size(arr,dim=1)) :: buff
+    !! Buffer for swapping elements.
+
+    len = size(arr,dim=2)
+    do i = 1, len
+       loc = minloc(arr(idx,i:len),dim=1)
+       if(loc.eq.1) cycle
+       loc = loc + i - 1
+       buff(:)    = arr(:,i)
+       arr(:,i)   = arr(:,loc)
+       arr(:,loc) = buff(:)
+    end do
+
+  end subroutine rsort2D
 !###############################################################################
 
 
@@ -369,7 +385,7 @@ contains
     !! Loop index.
     integer, dimension(:), allocatable :: tmp_arr
     !! Temporary array for storing unique elements.
-    
+
 
     call sort1D(arr)
     allocate(tmp_arr(size(arr)))
@@ -384,7 +400,7 @@ contains
     deallocate(arr); allocate(arr(n))
     arr(:n) = tmp_arr(:n)
     !call move_alloc(tmp_arr, arr)
-    
+
   end subroutine iset
 !###############################################################################
 
@@ -411,14 +427,14 @@ contains
     !! Temporary array for storing unique elements.
     integer, dimension(:), allocatable :: count_list_
     !! List of counts for each unique element.
-    
+
 
     if(present(tol))then
        tol_ = tol
     else
        tol_ = 1.E-4_real32
     end if
-    
+
     call quicksort(arr, 1, size(arr))
     allocate(tmp_arr(size(arr)))
     allocate(count_list_(size(arr)), source = 1)
@@ -436,7 +452,7 @@ contains
     deallocate(arr); allocate(arr(n))
     arr(:n) = tmp_arr(:n)
     if(present(count_list)) count_list = count_list_(:n)
-    
+
   end subroutine rset
 !###############################################################################
 
@@ -476,11 +492,11 @@ contains
        lcase_ = .false.
     end if
     call sort_str(arr,lcase_)
-    
+
     allocate(character(len=len(arr(1))) :: tmp_arr(size(arr)))
     tmp_arr(1) = arr(1)
     n=1
-    
+
     do i = 2, size(arr)
        if(lcase_) arr(i) = to_lower(arr(i))
        if(trim(arr(i)).eq.trim(tmp_arr(n))) cycle
@@ -961,7 +977,7 @@ contains
     ! Local variables
     logical :: exists
     !! Boolean whether the directory exists.
-  
+
     inquire(file=file, exist=exists)
     if(.not.exists) call execute_command_line("mkdir -p "//file)
   end subroutine touch

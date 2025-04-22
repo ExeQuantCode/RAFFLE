@@ -77,6 +77,8 @@ module raffle__generator
    contains
      procedure, pass(this) :: set_host
      !! Procedure to set the host structure.
+     procedure, pass(this) :: get_host
+     !! Procedure to get the host structure.
      procedure, pass(this) :: prepare_host
      !! Procedure to prepare the host structure.
      procedure, pass(this) :: set_grid
@@ -181,11 +183,6 @@ contains
     class(basis_type), intent(in) :: host
     !! Basis of the host structure.
 
-    ! Local variables
-    integer :: i
-    !! Loop index.
-
-
     call this%host%copy(host)
     call this%distributions%host_system%set(this%host)
 
@@ -195,8 +192,30 @@ contains
 
 
 !###############################################################################
-  function prepare_host(this, interface_location, interface_axis, depth) &
-       result(stoichiometry)
+  function get_host(this) result(output)
+    !! Get the host structure.
+    !!
+    !! This procedure returns the host structure from the raffle generator.
+    implicit none
+
+    ! Arguments
+    class(raffle_generator_type), intent(in) :: this
+    !! Instance of the raffle generator.
+
+    type(basis_type) :: output
+    !! Basis of the host structure.
+
+    call output%copy(this%host)
+
+  end function get_host
+!###############################################################################
+
+
+!###############################################################################
+  function prepare_host( &
+       this, interface_location, interface_axis, depth, &
+       location_as_fractional &
+  ) result(stoichiometry)
     !! Prepare the host structure for the raffle generator.
     !!
     !! This procedure prepares the host structure for the raffle generator.
@@ -210,6 +229,9 @@ contains
     integer, intent(in), optional :: interface_axis
     !! Axis of the interface in the host structure.
     real(real32), intent(in), optional :: depth
+    !! Depth of the interface.
+    logical, intent(in), optional :: location_as_fractional
+    !! Boolean whether interface location is given in fractional coordinates.
 
     type(stoichiometry_type), dimension(:), allocatable :: stoichiometry
     !! Stoichiometry of the atoms removed from the host structure.
@@ -226,6 +248,10 @@ contains
     real(real32) :: lattice_const
     !! Lattice constant of the host structure along the interface axis.
     type(basis_type) :: host
+    !! Host structure.
+    logical :: location_as_fractional_
+    !! Boolean whether interface location is given in fractional coordinates.
+    real(real32), dimension(size(interface_location)) :: intf_loc_
     integer, dimension(:), allocatable :: species_index_list
     !! List of species indices to remove.
     integer, dimension(:,:), allocatable :: remove_atom_list
@@ -241,6 +267,14 @@ contains
     if(present(depth)) depth_ = depth
     call host%copy(this%host)
     lattice_const = modu(host%lat(axis,:))
+    location_as_fractional_ = .false.
+    if(present(location_as_fractional)) &
+         location_as_fractional_ = location_as_fractional
+    if(location_as_fractional_)then
+       intf_loc_ = interface_location
+    else
+       intf_loc_ = interface_location / lattice_const
+    end if
 
 
     !---------------------------------------------------------------------------
@@ -250,8 +284,8 @@ contains
     allocate(remove_atom_list(2,host%natom))
     do is = 1, host%nspec
        atom_loop: do ia = 1, host%spec(is)%num
-          do i = 1, size(interface_location)
-             dist = host%spec(is)%atom(ia,axis) - interface_location(i)
+          do i = 1, size(intf_loc_)
+             dist = host%spec(is)%atom(ia,axis) - intf_loc_(i)
              dist = dist - ceiling(dist - 0.5_real32)
              if( abs(dist * lattice_const) .le. depth_ )then
                 num_remove = num_remove + 1

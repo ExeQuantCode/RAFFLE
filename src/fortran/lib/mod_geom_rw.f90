@@ -1382,7 +1382,6 @@ contains
        allocate(this%spec(i)%atom(&
             basis%spec(i)%num,length_))
 
-       this%spec(i)%atom(:,:3) = basis%spec(i)%atom(:,:3)
        if(length_input.eq.length_)then
           this%spec(i)%atom(:,:length_) = basis%spec(i)%atom(:,:length_)
        elseif(length_input.gt.length_)then

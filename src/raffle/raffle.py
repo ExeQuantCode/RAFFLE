@@ -272,17 +272,20 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
 
             # Set the species list
             positions = []
-            species_string = ""
+            symbols = []
             for i in range(self.nspec):
+                name = str(self.spec[i].name.decode()).strip()
                 for j in range(self.spec[i].num):
-                    species_string += str(self.spec[i].name.decode()).strip()
+                    symbols.append(name)
                     positions.append(self.spec[i].atom[j][:3])
 
+            lattice = numpy.reshape(self.lat, (3,3), order='A')
+            pbc = numpy.reshape(self.pbc, (3,), order='A')
             # Set the atoms
             if(self.lcart):
-                atoms = Atoms(species_string, positions=positions, cell=self.lat, pbc=self.pbc)
+                atoms = Atoms(symbols, positions=positions, cell=lattice, pbc=pbc)
             else:
-                atoms = Atoms(species_string, scaled_positions=positions, cell=self.lat, pbc=self.pbc)
+                atoms = Atoms(symbols, scaled_positions=positions, cell=lattice, pbc=pbc)
 
             if calculator is not None:
                 atoms.calc = calculator
@@ -1485,10 +1488,15 @@ class Generator(f90wrap.runtime.FortranModule):
             """
             # check if host is ase.Atoms object or a Fortran derived type basis_type
             if isinstance(host, Atoms):
-                host = geom_rw.basis(atoms=host)
+                host_copy = geom_rw.basis(atoms=host.copy())
+            elif isinstance(host, geom_rw.basis):
+                host_copy = host.copy()
+            else:
+                raise TypeError("Expected host to be ASE Atoms or geom_rw.basis")
 
+            print("host_copy._handle", host_copy._handle)
             _raffle.f90wrap_generator__set_host__binding__rgt(this=self._handle, \
-                host=host._handle)
+                host=host_copy._handle)
 
         def get_host(self):
             """
@@ -1498,13 +1506,15 @@ class Generator(f90wrap.runtime.FortranModule):
                 host (ase.Atoms or geom_rw.basis):
                     The host structure for the generation.
             """
-            host = self.host.copy()
+            output = \
+                _raffle.f90wrap_generator__get_host__binding__rgt(this=self._handle)
+            output = f90wrap.runtime.lookup_class("raffle.basis").from_handle(output, \
+                alloc=True)
             # check if host is ase.Atoms object or a Fortran derived type basis_type
-            if isinstance(host, geom_rw.basis):
-                host = host.toase()
-            return host
+            ret_host = output.toase().copy()
+            return ret_host
 
-        def prepare_host(self, interface_location=None, interface_axis=3, depth=3.0):
+        def prepare_host(self, interface_location=None, interface_axis=3, depth=3.0, location_as_fractional=False):
             """
             Prepare the host by removing atoms depth away from the interface and returning an associated missing stoichiometry dictionary.
 
@@ -1517,6 +1527,8 @@ class Generator(f90wrap.runtime.FortranModule):
                     Alternatively, 'a', 'b', or 'c' can be used.
                 depth (float):
                     The depth to remove atoms from the host.
+                location_as_fractional (bool):
+                    Whether the interface location is given in fractional coordinates.
 
             Returns:
                 missing_stoichiometry (dict):
@@ -1525,27 +1537,29 @@ class Generator(f90wrap.runtime.FortranModule):
             """
 
             # check if interface_axis is a string
-            if isinstance(interface_axis, str):
-                interface_axis = interface_axis.lower()
-                if interface_axis == 'a':
-                    interface_axis = 0
-                elif interface_axis == 'b':
-                    interface_axis = 1
-                elif interface_axis == 'c':
-                    interface_axis = 2
+            interface_axis_int = interface_axis
+            if isinstance(interface_axis_int, str):
+                interface_axis_int = interface_axis.lower()
+                if interface_axis_int == 'a':
+                    interface_axis_int = 0
+                elif interface_axis_int == 'b':
+                    interface_axis_int = 1
+                elif interface_axis_int == 'c':
+                    interface_axis_int = 2
                 else:
                     raise ValueError("interface_axis must be 0, 1, 2, 'a', 'b', or 'c'")
 
             # convert interface_location to numpy array in Fortran order
-            interface_location = numpy.array(interface_location, dtype=numpy.float32, order='F')
+            interface_location_fort = numpy.array(interface_location, dtype=numpy.float32, order='F')
 
             # get current stoichiometry of the host
             stoich_old = self.get_host().get_chemical_symbols()
 
             _raffle.f90wrap_generator__prepare_host__binding__rgt(this=self._handle, \
-                interface_location=interface_location, \
-                interface_axis=interface_axis, \
-                depth=depth)
+                interface_location=interface_location_fort, \
+                interface_axis=interface_axis_int, \
+                depth=depth,
+                location_as_fractional=location_as_fractional)
 
             # get new stoichiometry of the host
             stoich_new = self.get_host().get_chemical_symbols()
@@ -1559,7 +1573,6 @@ class Generator(f90wrap.runtime.FortranModule):
                     missing_stoichiometry[element] = old_count - new_count
 
             return missing_stoichiometry
-
 
         def set_grid(self, grid=None, grid_spacing=None, grid_offset=None):
             """

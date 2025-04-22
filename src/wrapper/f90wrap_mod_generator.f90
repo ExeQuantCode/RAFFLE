@@ -757,8 +757,29 @@ subroutine f90wrap_generator__set_host__binding__rgt(this, host)
     call this_ptr%p%set_host(host=host_ptr%p)
 end subroutine f90wrap_generator__set_host__binding__rgt
 
+subroutine f90wrap_generator__get_host__binding__rgt(ret_output, this)
+    use raffle__geom_rw, only: basis_type
+    use raffle__generator, only: raffle_generator_type
+    implicit none
+
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    type basis_type_ptr_type
+        type(basis_type), pointer :: p => NULL()
+    end type basis_type_ptr_type
+    type(basis_type_ptr_type) :: ret_output_ptr
+    integer, intent(out), dimension(2) :: ret_output
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    this_ptr = transfer(this, this_ptr)
+    allocate(ret_output_ptr%p)
+    ret_output_ptr%p = this_ptr%p%get_host()
+    ret_output = transfer(ret_output_ptr, ret_output)
+end subroutine f90wrap_generator__get_host__binding__rgt
+
 subroutine f90wrap_generator__prepare_host__binding__rgt( &
-     this, interface_location, interface_axis, depth, n0 &
+     this, interface_location, interface_axis, depth, location_as_fractional, n0 &
 )
     use raffle__generator, only: stoichiometry_type
     use raffle__generator, only: raffle_generator_type
@@ -772,6 +793,7 @@ subroutine f90wrap_generator__prepare_host__binding__rgt( &
     real(4), dimension(n0), intent(in) :: interface_location
     integer, intent(in), optional :: interface_axis
     real(4), intent(in), optional :: depth
+    logical, intent(in), optional :: location_as_fractional
     integer :: n0
     !f2py intent(hide), depend(interface_location) :: n0 = shape(interface_location,0)
 
@@ -782,7 +804,7 @@ subroutine f90wrap_generator__prepare_host__binding__rgt( &
     stoichiometry = this_ptr%p%prepare_host( &
          interface_location=interface_location, &
          interface_axis=interface_axis, &
-         depth=depth &
+         depth=depth, location_as_fractional=location_as_fractional &
     )
 end subroutine f90wrap_generator__prepare_host__binding__rgt
 

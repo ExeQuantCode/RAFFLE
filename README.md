@@ -27,7 +27,7 @@ The code heavily relies on features of Fortran 2018 and above, so there is no ba
 
 Tutorials and documentation are provided on the [docs](http://raffle-fortran.readthedocs.io/) website.
 The methodology is detailed in the [Phys Rev B paper](https://link.aps.org/doi/10.1103/PhysRevLett.132.066201).
-The software package will be submitted for publication soon.
+The paper detailing the software package is currently avaialble on [arXiv](https://doi.org/10.48550/arXiv.2504.02528) with plans for peer-reviewed publication.
 
 Refer to the [API Documentation section](#api-documentation) later in this document to see how to access the API-specific documentation.
 

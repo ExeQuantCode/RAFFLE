@@ -189,7 +189,7 @@ Contributing
 
 Please note that this project adheres to the [Contributing Guide](CONTRIBUTING.md).
 If you want to contribute to this project, please first read through the guide.
-If you have any questions, bug reports, or feature requests, please either discuss then in [issues](https://github.com/nedtaylor/athena/issues).
+If you have any questions, bug reports, or feature requests, please either discuss then in [issues](https://github.com/ExeQuantCode/raffle/issues).
 
 
 License

@@ -5,6 +5,7 @@ import logging
 import numpy
 import warnings
 from ase import Atoms
+import re
 
 
 class Geom_Rw(f90wrap.runtime.FortranModule):
@@ -1627,7 +1628,7 @@ class Generator(f90wrap.runtime.FortranModule):
             Parameters:
                 num_structures (int):
                     The number of structures to generate.
-                stoichiometry (stoichiometry_array or dict):
+                stoichiometry (stoichiometry_array, str, or dict):
                     The stoichiometry of the structures to generate.
                 method_ratio (dict):
                     The ratio of using each method to generate a structure.
@@ -1675,6 +1676,15 @@ class Generator(f90wrap.runtime.FortranModule):
 
             # if stoichiometry is a dictionary, convert it to a stoichiometry_array
             if isinstance(stoichiometry, dict):
+                stoichiometry = Generator.stoichiometry_array(dict=stoichiometry)
+            elif isinstance(stoichiometry, str):
+                # convert str, example "Al12O24" to dict, so {"Al": 12, "O": 24}
+                split = re.findall(r'[A-Z][a-z]?\d*', stoichiometry)
+                stoichiometry = {}
+                for s in split:
+                    element = re.findall(r'[A-Z][a-z]?', s)[0]
+                    num = re.findall(r'\d+', s)[0]
+                    stoichiometry[element] = int(num)
                 stoichiometry = Generator.stoichiometry_array(dict=stoichiometry)
 
             exit_code = _raffle.f90wrap_generator__generate__binding__rgt(

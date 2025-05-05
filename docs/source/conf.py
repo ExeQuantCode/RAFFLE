@@ -21,6 +21,13 @@ copyright = f'{datetime.date.today().year}, RAFFLE-developers'
 # -- General configuration
 master_doc = 'index'
 
+# Identify the branch of the documentation
+on_rtd = os.environ.get('READTHEDOCS') == 'True'
+if on_rtd:
+    git_branch = os.environ.get("READTHEDOCS_GIT_IDENTIFIER", "main")
+else:
+    git_branch = "main"  # or get from git directly with subprocess
+
 extensions = [
     'sphinx.ext.duration',
     'sphinx.ext.doctest',
@@ -31,7 +38,12 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
     'sphinx_rtd_theme',
+    'sphinx.ext.extlinks',
 ]
+
+extlinks = {
+    'git': ('https://github.com/ExeQuantCode/RAFFLE/blob/' + git_branch + '/%s', 'git: %s')
+}
 
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3/', None),

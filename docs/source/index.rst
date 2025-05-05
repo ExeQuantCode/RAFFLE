@@ -11,7 +11,7 @@ Although the package comes with a built-in atomic structure reader and writer, i
 
 The code is provided freely available under the `GNU General Public License v3.0 <https://www.gnu.org/licenses/gpl-3.0.en.html>`_.
 
-An example 
+An example
 
 .. code-block:: python
 
@@ -50,7 +50,7 @@ An example
             energy=structure.get_potential_energy(),
             forces=structure.get_forces()
         )
- 
+
     write('structures.traj', structures)
 
 .. toctree::
@@ -60,6 +60,7 @@ An example
    about
    install
    tutorials/index
+   faq
    Python API <modules>
 
 .. Indices and tables

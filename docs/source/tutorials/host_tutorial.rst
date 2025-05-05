@@ -46,6 +46,39 @@ Now we shall initialise an atoms object and set it as the host structure.
     generator.set_host(host)
 
 
+Preparing the host structure
+----------------------------
+
+If a vacuum region has not been set within the host structure (i.e. a region with no atoms between two constituent substructures), the `prepare_host` method can be used to introduce such a region.
+The `prepare_host` method will remove atoms from the host structure within a specified distance from the interface location and returns a dictionary of the removed stoichiometry.
+The interface location is the location of the interface in the host structure and can be identified using `ARTEMIS <https://artemis-materials.readthedocs.io/en/latest/tutorials/identify_interface_tutorial.html>`_.
+
+Below is an example of how to use both ARTEMIS and RAFFLE to prepare the host structure.
+
+.. code-block:: python
+
+    # Import the required modules
+    from artemis.generator import artemis_generator
+    artemis_generator = artemis_generator()
+
+    # Return the interface location using ARTEMIS
+    location, axis = artemis_generator.get_interface_location( host, return_fractional = True )
+    print("Interface found at", location, "along", axis)
+
+    # Prepare the host structure
+    missing_stoich = generator.prepare_host(
+        interface_location = location,
+        depth = 2.0,
+        location_as_fractional = True
+    )
+    print("missing_stoich", missing_stoich)
+
+    # Visualise the prepared host structure
+    from ase.visualize import view
+    host_modified = generator.get_host()
+    view(host_modified)
+
+
 Defining the bounding box
 --------------------------
 

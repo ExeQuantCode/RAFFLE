@@ -91,6 +91,6 @@ The limits are expressed in fractional coordinates relative to the lattice vecto
     a_min = 0.0; b_max = 0.0; c_min = 0.3
     a_max = 1.0; b_max = 1.0; c_max = 0.8
     generator.set_bounds( [
-        [a_min, b_min, c_max],
+        [a_min, b_min, c_min],
         [a_max, b_max, c_max]
     ]  )

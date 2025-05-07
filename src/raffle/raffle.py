@@ -1662,6 +1662,30 @@ class Generator(f90wrap.runtime.FortranModule):
                 warnings.warn("method_probab is deprecated, use method_ratio instead", DeprecationWarning)
                 # break if both method_ratio and method_probab are provided
                 raise ValueError("Both method_ratio and method_probab are provided, use only one (method_ratio)")
+
+            # handle other names for the methods, such as random, growth, minimum, etc.
+            if "random" in method_ratio:
+                if "rand" in method_ratio:
+                    raise ValueError("Both random and rand are provided, use only one (random or rand)")
+                method_ratio["rand"] = method_ratio.pop("random")
+            if "growth" in method_ratio:
+                if "grow" in method_ratio:
+                    raise ValueError("Both growth and grow are provided, use only one (growth or grow)")
+                method_ratio["grow"] = method_ratio.pop("growth")
+            if "minimum" in method_ratio:
+                if "min" in method_ratio:
+                    raise ValueError("Both minimum and min are provided, use only one (minimum or min)")
+                method_ratio["min"] = method_ratio.pop("minimum")
+            if "global" in method_ratio:
+                if "min" in method_ratio:
+                    raise ValueError("Both global and min are provided, use only one (global or min)")
+                method_ratio["min"] = method_ratio.pop("global")
+
+            # exit if any other method is provided
+            for key in method_ratio.keys():
+                if key not in ["voide", "rand", "walk", "grow", "min"]:
+                    raise ValueError(f"Unknown method {key} provided, use only void, rand (random), walk, grow (growth), or min (minimum/global)")
+
             method_ratio_list = []
             method_ratio_list.append(method_ratio.get("void", 0.0))
             method_ratio_list.append(method_ratio.get("rand", 0.0)) # or method_ratio.get("random", 0.0))

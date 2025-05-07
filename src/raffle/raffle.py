@@ -1495,7 +1495,6 @@ class Generator(f90wrap.runtime.FortranModule):
             else:
                 raise TypeError("Expected host to be ASE Atoms or geom_rw.basis")
 
-            print("host_copy._handle", host_copy._handle)
             _raffle.f90wrap_generator__set_host__binding__rgt(this=self._handle, \
                 host=host_copy._handle)
 

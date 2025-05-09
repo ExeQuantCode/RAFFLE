@@ -38,6 +38,10 @@ module raffle__distribs_container
      !! Number of evaluated systems still allocated.
      real(real32) :: kBT = 0.2_real32
      !! Boltzmann constant times temperature.
+     integer :: history_len = 0
+     !! Length of the history for the distribution functions.
+     real(real32), dimension(:), allocatable :: history_deltas
+     !! History of the changes in the distribution functions.
      logical :: weight_by_hull = .false.
      !! Boolean whether to weight the distribution functions by the energy
      !! above the hull. If false, the formation energy from the element
@@ -104,6 +108,8 @@ module raffle__distribs_container
      !! Set the maximum cutoff for the 2-, 3-, and 4-body.
      procedure, pass(this) :: set_radius_distance_tol
      !! Set the tolerance for the distance between atoms for 3- and 4-body.
+     procedure, pass(this) :: set_history_len
+     !! Set the length of the history for the distribution functions.
 
      procedure, pass(this) :: create
      !! Create the distribution functions for all systems, and the learned one.
@@ -156,6 +162,8 @@ module raffle__distribs_container
      !! Set the generalised distribution function to the default value.
      procedure, pass(this) :: evolve
      !! Evolve the learned distribution function.
+     procedure, pass(this) :: is_converged
+     !! Check if the learned distribution function has converged.
 
 
      procedure, pass(this) :: write_gdfs
@@ -183,7 +191,8 @@ module raffle__distribs_container
   interface distribs_container_type
      !! Interface for the distribution functions container.
      module function init_distribs_container( &
-          nbins, width, sigma, cutoff_min, cutoff_max &
+          nbins, width, sigma, cutoff_min, cutoff_max, &
+          history_len &
      ) result(distribs_container)
        !! Initialise the distribution functions container.
        integer, dimension(3), intent(in), optional :: nbins
@@ -195,6 +204,8 @@ module raffle__distribs_container
        real(real32), dimension(3), intent(in), optional :: &
             cutoff_min, cutoff_max
        !! Optional. Minimum and maximum cutoff for the 2-, 3-, and 4-body.
+       integer, intent(in), optional :: history_len
+       !! Optional. Length of the history for the distribution functions.
        type(distribs_container_type) :: distribs_container
        !! Instance of the distribution functions container.
      end function init_distribs_container
@@ -206,7 +217,8 @@ contains
 !###############################################################################
   module function init_distribs_container( &
        nbins, width, sigma, &
-       cutoff_min, cutoff_max &
+       cutoff_min, cutoff_max, &
+       history_len &
   ) result(distribs_container)
     !! Initialise the distribution functions container.
     implicit none
@@ -220,6 +232,8 @@ contains
     !! 4-body.
     real(real32), dimension(3), intent(in), optional :: cutoff_min, cutoff_max
     !! Optional. Minimum and maximum cutoff for the 2-, 3-, and 4-body.
+    integer, intent(in), optional :: history_len
+    !! Optional. Length of the history for the distribution functions.
     type(distribs_container_type) :: distribs_container
     !! Instance of the distribution functions container.
 
@@ -260,6 +274,14 @@ contains
        call stop_program( stop_msg )
        return
     end if
+
+
+    if(present(history_len)) distribs_container%history_len = history_len
+    if(distribs_container%history_len.ge.0) &
+         allocate( &
+              distribs_container%history_deltas(history_len), &
+              source = huge(0._real32) &
+         )
 
   end function init_distribs_container
 !###############################################################################
@@ -351,6 +373,40 @@ contains
     this%radius_distance_tol = radius_distance_tol
 
   end subroutine set_radius_distance_tol
+!###############################################################################
+
+
+!###############################################################################
+  subroutine set_history_len(this, history_len)
+    !! Set the length of the history for the distribution functions.
+    implicit none
+
+    ! Arguments
+    class(distribs_container_type), intent(inout) :: this
+    !! Parent. Instance of distribution functions container.
+    integer, intent(in) :: history_len
+    !! Length of the history for the distribution functions.
+
+    ! Local variables
+    integer :: min_len
+    !! Minimum length of the history.
+    real(real32), dimension(:), allocatable :: history_deltas
+    !! History of the changes in the distribution functions.
+
+    if(history_len.gt.0)then
+       allocate(history_deltas(history_len), source = huge(0._real32) )
+       if(allocated(this%history_deltas))then
+          min_len = min(this%history_len, history_len)
+          history_deltas(1:min_len) = this%history_deltas(1:min_len)
+          deallocate(this%history_deltas)
+       end if
+       call move_alloc(history_deltas, this%history_deltas)
+    else
+       if(allocated(this%history_deltas)) deallocate(this%history_deltas)
+    end if
+    this%history_len = history_len
+
+  end subroutine set_history_len
 !###############################################################################
 
 
@@ -502,6 +558,7 @@ contains
     !! Verbosity level.
     logical :: suppress_warnings_store
     !! Boolean to store the suppress_warnings value.
+    type(distribs_base_type) :: gdf_old
 
 
     ! Set the verbosity level
@@ -597,10 +654,23 @@ contains
        end if
     end if
 
+
+    ! If history_len is set, temporarily store the old descriptor
+    if(this%history_len.gt.0.and.this%num_evaluated.gt.0)then
+       gdf_old = this%gdf
+       this%history_deltas(2:) = this%history_deltas(1:this%history_len-1)
+    end if
+
+    ! Evolve the distribution functions
     call this%evolve()
     if(deallocate_systems_) call this%deallocate_systems()
     if(this%host_system%defined) &
          call this%host_system%set_element_map(this%element_info)
+
+    ! Evaluate the change in the descriptor from the last iteration
+    if(this%history_len.gt.0.and.this%num_evaluated.gt.0)then
+       this%history_deltas(1) = this%gdf%compare(gdf_old)
+    end if
 
     if(verbose_ .eq. 0)then
        suppress_warnings = suppress_warnings_store
@@ -2319,7 +2389,7 @@ contains
        num_evaluated = num_evaluated + 1
        if(this%weight_by_hull)then
           weight = exp( this%system(i)%energy_above_hull / this%kBT )
-          if(weight.lt.1.E-6) cycle
+          if(weight.lt.1.E-6_real32) cycle
        end if
        !------------------------------------------------------------------------
        ! get the list of 2-body species pairs the system
@@ -2383,7 +2453,7 @@ contains
                        ) &
                   ) / this%kBT &
              )
-             if(weight.lt.1.E-6) cycle
+             if(weight.lt.1.E-6_real32) cycle
           end if
 
           this%gdf%df_3body(:,idx1) = this%gdf%df_3body(:,idx1) + &
@@ -2423,7 +2493,7 @@ contains
                           ) &
                      ) / this%kBT &
                 )
-                if(weight.lt.1.E-6) cycle
+                if(weight.lt.1.E-6_real32) cycle
              end if
 
              this%gdf%df_2body(:,j) = this%gdf%df_2body(:,j) + &
@@ -2442,19 +2512,19 @@ contains
     ! if not in the dataset, set distribution functions to default
     !---------------------------------------------------------------------------
     do j = 1, size(this%gdf%df_2body,2)
-       if(all(abs(this%gdf%df_2body(:,j)).lt.1.E-6))then
+       if(all(abs(this%gdf%df_2body(:,j)).lt.1.E-6_real32))then
           call this%set_gdfs_to_default(2, j)
        else
           this%in_dataset_2body(j) = .true.
        end if
     end do
     do is = 1, size(this%element_info)
-       if(all(abs(this%gdf%df_3body(:,is)).lt.1.E-6))then
+       if(all(abs(this%gdf%df_3body(:,is)).lt.1.E-6_real32))then
           call this%set_gdfs_to_default(3, is)
        else
           this%in_dataset_3body(is) = .true.
        end if
-       if(all(abs(this%gdf%df_4body(:,is)).lt.1.E-6))then
+       if(all(abs(this%gdf%df_4body(:,is)).lt.1.E-6_real32))then
           call this%set_gdfs_to_default(4, is)
        else
           this%in_dataset_4body(is) = .true.
@@ -2464,7 +2534,7 @@ contains
     allocate(this%norm_2body(size(this%gdf%df_2body,2)))
     do j = 1, size(this%gdf%df_2body,2)
        this%norm_2body(j) = maxval(this%gdf%df_2body(:,j))
-       if(abs(this%norm_2body(j)).lt.1.E-6)then
+       if(abs(this%norm_2body(j)).lt.1.E-6_real32)then
           call stop_program( "Zero norm for 2-body distribution function" )
           return
        end if
@@ -2486,12 +2556,12 @@ contains
     allocate(this%norm_4body(size(this%element_info)))
     do is = 1, size(this%element_info)
        this%norm_3body(is) = maxval(this%gdf%df_3body(:,is))
-       if(abs(this%norm_3body(is)).lt.1.E-6)then
+       if(abs(this%norm_3body(is)).lt.1.E-6_real32)then
           call stop_program( "Zero norm for 3-body distribution function" )
           return
        end if
        this%norm_4body(is) = maxval(this%gdf%df_4body(:,is))
-       if(abs(this%norm_4body(is)).lt.1.E-6)then
+       if(abs(this%norm_4body(is)).lt.1.E-6_real32)then
           call stop_program( "Zero norm for 4-body distribution function" )
           return
        end if
@@ -2526,6 +2596,43 @@ contains
          real( size( this%gdf%df_4body ), real32 )
 
   end subroutine evolve
+!###############################################################################
+
+
+!###############################################################################
+  function is_converged(this, threshold) result(converged)
+    !! Check if the distribution functions have converged.
+    implicit none
+
+    ! Arguments
+    class(distribs_container_type), intent(in) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
+    real(real32), intent(in), optional :: threshold
+    !! Threshold for convergence.
+    logical :: converged
+    !! Convergence flag.
+
+    ! Local variables
+    integer :: i, j
+    !! Loop index.
+    real(real32) :: threshold_
+    !! Threshold for convergence.
+
+
+    threshold_ = 1.E-4_real32
+    if(present(threshold)) threshold_ = threshold
+
+    if(any(abs(this%history_deltas-huge(0._real32)).lt.1.E-6_real32))then
+       converged = .false.
+       return
+    end if
+    if(all(abs(this%history_deltas - this%history_deltas(1)).lt.threshold))then
+       converged = .true.
+    else
+       converged = .false.
+    end if
+
+  end function is_converged
 !###############################################################################
 
 end module raffle__distribs_container

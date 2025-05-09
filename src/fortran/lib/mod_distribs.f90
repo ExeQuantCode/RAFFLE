@@ -17,12 +17,12 @@ module raffle__distribs
        element_database, element_bond_database
   implicit none
 
-  
+
   private
 
   public :: distribs_base_type, distribs_type, get_distrib
-  
-  
+
+
   type :: distribs_base_type
      !! Base type for distribution functions.
      real(real32), dimension(:,:), allocatable :: df_2body
@@ -31,6 +31,9 @@ module raffle__distribs
      !! 3-body distribution function.
      real(real32), dimension(:,:), allocatable :: df_4body
      !! 4-body distribution function.
+   contains
+     procedure, pass(this) :: compare
+     !! Compare this distribution function with another.
   end type distribs_base_type
 
   type, extends(distribs_base_type) :: distribs_type
@@ -60,6 +63,7 @@ module raffle__distribs
      !! Weights for the 2-body and species distribution functions.
    contains
      procedure, pass(this) :: calculate
+     !! Calculate the distribution functions for the structure.
   end type distribs_type
 
 
@@ -131,7 +135,7 @@ contains
        nbins, width, sigma, cutoff_min, cutoff_max, radius_distance_tol)
     !! Calculate the distribution functions for the container.
     !!
-    !! This procedure calculates the 2-, 3-, and 4-body distribution function 
+    !! This procedure calculates the 2-, 3-, and 4-body distribution function
     !! for a given atomic structure (i.e. basis).
     implicit none
 
@@ -223,7 +227,7 @@ contains
     else
        radius_distance_tol_ = [1.5_real32, 2.5_real32, 3._real32, 6._real32]
     end if
-       
+
 
 
     !---------------------------------------------------------------------------
@@ -328,12 +332,12 @@ contains
                      ], basis_extd%lat ) &
                 )
                    bondlength = modu( vector )
-                   
+
                    if( &
                         bondlength .lt. cutoff_min_(1) .or. &
                         bondlength .gt. cutoff_max_(1) &
                    ) cycle atom_loop
-                  
+
                    ! add 2-body bond to store if within tolerances for 3-body
                    ! distance
                    if( &
@@ -355,7 +359,7 @@ contains
                    ! add 2-body bond to store if within tolerances for 4-body
                    ! distance
                    if( &
-                        bondlength .ge. ( & 
+                        bondlength .ge. ( &
                              bond_info(pair_index(is, js))%radius_covalent * &
                              radius_distance_tol_(3) &
                         ) .and. &
@@ -374,7 +378,7 @@ contains
                    itmp1 = itmp1 + 1
                    bondlength_list(itmp1) = bondlength
                    distance(itmp1) = 1._real32
-                
+
                 end associate
              end do atom_loop
 
@@ -391,12 +395,12 @@ contains
                 )
 
                    bondlength = modu( vector )
-                   
+
                    if( &
                         bondlength .lt. cutoff_min_(1) .or. &
                         bondlength .gt. cutoff_max_(1) &
                    ) cycle image_loop
-                  
+
                    ! add 2-body bond to store if within tolerances for 3-body
                    ! distance
                    if( &
@@ -419,7 +423,7 @@ contains
                    ! add 2-body bond to store if within tolerances for 4-body
                    ! distance
                    if( &
-                        bondlength .ge. ( & 
+                        bondlength .ge. ( &
                              bond_info(pair_index(is, js))%radius_covalent * &
                              radius_distance_tol_(3) &
                         ) .and. &
@@ -438,7 +442,7 @@ contains
                    itmp1 = itmp1 + 1
                    bondlength_list(itmp1) = bondlength
                    distance(itmp1) = 1._real32
-                
+
                 end associate
              end do image_loop
 
@@ -694,6 +698,67 @@ contains
     output = output * sqrt( eta / pi ) / real(size(value_list,1),real32)
 
   end function get_distrib
+!###############################################################################
+
+
+!###############################################################################
+  function compare(this, input) result(output)
+    !! Compare this distribution function with another.
+    implicit none
+
+    ! Arguments
+    class(distribs_base_type), intent(in) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
+    class(distribs_base_type), intent(in) :: input
+    !! Distribution function to compare with.
+
+    ! Local variables
+    integer :: num_bins_2body, num_bins_3body, num_bins_4body
+    !! Number of bins for the distribution functions.
+    real(real32) :: diff_2body, diff_3body, diff_4body
+    !! Difference between the two distribution functions.
+    real(real32) :: output
+    !! Output comparison value (i.e. how much the two dfs overlap).
+    integer :: i
+    !! Loop index.
+
+
+    output = 0._real32
+
+    !---------------------------------------------------------------------------
+    ! compare the 2-body distribution functions
+    !---------------------------------------------------------------------------
+    num_bins_2body = size(this%df_2body, dim=1)
+    num_bins_3body = size(this%df_3body, dim=1)
+    num_bins_4body = size(this%df_4body, dim=1)
+    do i = 1, size(this%df_2body, dim=2)
+       if(any(abs(this%df_2body(:,i)).gt.1.E-6))then
+          diff_2body = sum( &
+               abs( this%df_2body(:,i) - input%df_2body(:,i) ) &
+          ) / num_bins_2body
+          output = output + diff_2body
+       end if
+    end do
+
+    !---------------------------------------------------------------------------
+    ! compare the 3-body distribution functions
+    !---------------------------------------------------------------------------
+    do i = 1, size(this%df_3body, dim=2)
+       if(any(abs(this%df_3body(:,i)).gt.1.E-6))then
+          diff_3body = sum( &
+               abs( this%df_3body(:,i) - input%df_3body(:,i) ) &
+          ) / num_bins_3body
+          output = output + diff_3body
+       end if
+       if(any(abs(this%df_4body(:,i)).gt.1.E-6))then
+          diff_4body = sum( &
+               abs( this%df_4body(:,i) - input%df_4body(:,i) ) &
+          ) / num_bins_4body
+          output = output + diff_4body
+       end if
+    end do
+
+  end function compare
 !###############################################################################
 
 end module raffle__distribs

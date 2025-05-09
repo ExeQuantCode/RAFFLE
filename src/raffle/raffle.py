@@ -713,6 +713,17 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             _raffle.f90wrap_raffle__dc__set_radius_distance_tol__binding__dc_type(this=self._handle, \
                 radius_distance_tol=radius_distance_tol)
 
+        def set_history_len(self, history_len : int = None):
+            """
+            Set the history length for the convergence check of the RAFFLE descriptor.
+
+            Parameters:
+                history_len (int):
+                    Length of the history for checking convergence of the descriptor.
+            """
+            _raffle.f90wrap_raffle__dc__set_history_len__binding__dc_type(this=self._handle, \
+                history_len=history_len)
+
         def create(self, basis_list, energy_above_hull_list=None, deallocate_systems=True, verbose=None):
             """
             Create the distribution functions.
@@ -934,6 +945,21 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             # _raffle.f90wrap_raffle__dc__evolve__binding__dc_type(this=self._handle, \
             #     system=None if system is None else system._handle)
 
+        def is_converged(self, threshold : float = 1e-4):
+            """
+            Parameters:
+                threshold (float):
+                    Threshold for convergence.
+
+            Returns:
+                converged (bool):
+                    Boolean indicating whether the distribution functions have converged.
+            """
+            converged = \
+                _raffle.f90wrap_raffle__dc__is_converged__binding__dc_type(this=self._handle, \
+                threshold=threshold)
+            return converged
+
         def write_gdfs(self, file):
             """
             Write the generalised distribution functions (GDFs) to a file.
@@ -1047,8 +1073,7 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
                     Dimension of the distribution function.
                     1 for 2-body, 2 for 3-body, and 3 for 4-body.
 
-            Returns
-            -------
+            Returns:
                 bin (int):
                     Bin index for the value in the distribution functions.
 
@@ -1093,6 +1118,38 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
         @kBT.setter
         def kBT(self, kBT):
             _raffle.f90wrap_distribs_container_type__set__kbt(self._handle, kBT)
+
+        @property
+        def history_len(self):
+            """
+            Length of the history for convergence checking.
+            """
+            return _raffle.f90wrap_distribs_container_type__get__history_len(self._handle)
+
+        @history_len.setter
+        def history_len(self, history_len):
+            _raffle.f90wrap_distribs_container_type__set__history_len(self._handle, \
+                history_len)
+
+        @property
+        def history_deltas(self):
+            """
+            History of the descriptor convergence.
+            """
+            array_ndim, array_type, array_shape, array_handle = \
+                _raffle.f90wrap_distribs_container_type__array__history_deltas(self._handle)
+            if array_handle in self._arrays:
+                history_deltas = self._arrays[array_handle]
+            else:
+                history_deltas = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                        self._handle,
+                                        _raffle.f90wrap_distribs_container_type__array__history_deltas)
+                self._arrays[array_handle] = history_deltas
+            return history_deltas
+
+        @history_deltas.setter
+        def history_deltas(self, history_deltas):
+            self.history_deltas[...] = history_deltas
 
         @property
         def weight_by_hull(self):
@@ -1245,6 +1302,10 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             ret.append(repr(self.num_evaluated_allocated))
             ret.append(',\n    kBT : ')
             ret.append(repr(self.kBT))
+            ret.append(',\n    history_len : ')
+            ret.append(repr(self.history_len))
+            ret.append(',\n    history_deltas : ')
+            ret.append(repr(self.history_deltas))
             ret.append(',\n    weight_by_hull : ')
             ret.append(repr(self.weight_by_hull))
             ret.append(',\n    nbins : ')
@@ -1428,17 +1489,23 @@ class Generator(f90wrap.runtime.FortranModule):
     @f90wrap.runtime.register_class("raffle.raffle_generator")
     class raffle_generator(f90wrap.runtime.FortranDerivedType):
 
-        def __init__(self, handle=None):
+        def __init__(self, handle=None, history_len=None):
             """
             Create a ``raffle_generator`` object.
 
             This object is used to generate structures using the RAFFLE method.
             The object has procedures to set the parameters for the generation
             and to generate the structures.
+
+            Parameters:
+                history_len (int):
+                    Length of the history for checking convergence of descriptor.
             """
             f90wrap.runtime.FortranDerivedType.__init__(self)
             result = _raffle.f90wrap_generator__raffle_generator_type_initialise()
             self._handle = result[0] if isinstance(result, tuple) else result
+            if history_len is not None:
+                self.distributions.set_history_len(history_len)
 
         def __del__(self):
             """

@@ -186,6 +186,12 @@ module raffle__distribs_container
      !! Return the index for element_info given one element.
      procedure, pass(this) :: get_bin
      !! Return the bin index for a given distance.
+     procedure, pass(this) :: get_2body
+     !! Return the 2-body distribution function.
+     procedure, pass(this) :: get_3body
+     !! Return the 3-body distribution function.
+     procedure, pass(this) :: get_4body
+     !! Return the 4-body distribution function.
   end type distribs_container_type
 
   interface distribs_container_type
@@ -1142,6 +1148,54 @@ contains
     close(unit)
 
   end subroutine write_4body
+!###############################################################################
+
+
+!###############################################################################
+  function get_2body(this) result(output)
+    !! Get the 2-body distribution functions.
+    implicit none
+
+    ! Arguments
+    class(distribs_container_type), intent(in) :: this
+    !! Parent. Instance of distribution functions container.
+    real(real32), dimension(this%nbins(1),size(this%bond_info)) :: output
+
+    output = this%gdf%df_2body
+
+  end function get_2body
+!###############################################################################
+
+
+!###############################################################################
+  function get_3body(this) result(output)
+    !! Get the 3-body distribution functions.
+    implicit none
+
+    ! Arguments
+    class(distribs_container_type), intent(in) :: this
+    !! Parent. Instance of distribution functions container.
+    real(real32), dimension(this%nbins(2),size(this%element_info)) :: output
+
+    output = this%gdf%df_3body
+
+  end function get_3body
+!###############################################################################
+
+
+!###############################################################################
+  function get_4body(this) result(output)
+    !! Get the 4-body distribution functions.
+    implicit none
+
+    ! Arguments
+    class(distribs_container_type), intent(in) :: this
+    !! Parent. Instance of distribution functions container.
+    real(real32), dimension(this%nbins(3),size(this%element_info)) :: output
+
+    output = this%gdf%df_4body
+
+  end function get_4body
 !###############################################################################
 
 

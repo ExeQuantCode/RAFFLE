@@ -1083,6 +1083,50 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
                 value=value, dim=dim)
             return bin
 
+        def get_2body(self):
+            """
+            Get the 2-body distribution function.
+
+            Returns:
+                output (float array): 2D array of shape (num_species_pairs, nbins)
+                    2-body distribution function.
+
+            """
+            n0 = self.nbins[0]
+            n1 = _raffle.f90wrap_raffle__dc__get_num_pairs__dc_type(this=self._handle)
+            output = \
+                _raffle.f90wrap_raffle__dc__get_2body__binding__dc_type(this=self._handle, n0=n0, n1=n1).reshape((n0, n1), order='F').T
+            return output
+
+        def get_3body(self):
+            """
+            Get the 3-body distribution function.
+
+            Returns:
+                output (float array): 2D array of shape (num_species, nbins)
+                    3-body distribution function.
+
+            """
+            n0 = self.nbins[1]
+            n1 = _raffle.f90wrap_raffle__dc__get_num_species__dc_type(this=self._handle)
+            output = \
+                _raffle.f90wrap_raffle__dc__get_3body__binding__dc_type(this=self._handle, n0=n0, n1=n1).reshape((n0, n1), order='F').T
+            return output
+
+        def get_4body(self):
+            """
+            Get the 4-body distribution function.
+
+            Returns:
+                output (float array): 2D array of shape (num_species, nbins)
+                    4-body distribution function.
+            """
+            n0 = self.nbins[2]
+            n1 = _raffle.f90wrap_raffle__dc__get_num_species__dc_type(this=self._handle)
+            output = \
+                _raffle.f90wrap_raffle__dc__get_4body__binding__dc_type(this=self._handle, n0=n0, n1=n1).reshape((n0, n1), order='F').T
+            return output
+
         @property
         def num_evaluated(self):
             """
@@ -1873,6 +1917,21 @@ class Generator(f90wrap.runtime.FortranModule):
             """
             _raffle.f90wrap_generator__read_settings__binding__rgt(this=self._handle, \
                 file=file)
+
+        def get_descriptor(self):
+            """
+            Get the descriptor for the generated structures.
+
+            Returns:
+                descriptor (list of numpy arrays):
+                    The descriptor for the generated structures.
+            """
+            descriptor = [
+                self.distributions.get_2body(),
+                self.distributions.get_3body(),
+                self.distributions.get_4body()
+            ]
+            return descriptor
 
         @property
         def num_structures(self):

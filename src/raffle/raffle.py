@@ -1683,7 +1683,7 @@ class Generator(f90wrap.runtime.FortranModule):
 
             # exit if any other method is provided
             for key in method_ratio.keys():
-                if key not in ["voide", "rand", "walk", "grow", "min"]:
+                if key not in ["void", "rand", "walk", "grow", "min"]:
                     raise ValueError(f"Unknown method {key} provided, use only void, rand (random), walk, grow (growth), or min (minimum/global)")
 
             method_ratio_list = []

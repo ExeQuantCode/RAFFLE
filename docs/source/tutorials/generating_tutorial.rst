@@ -31,6 +31,15 @@ The arguments are as follows:
 - ``return_exit_code``: Whether to return the exit code of the generator.
 
 
+The accepted keys for the ``method_ratio`` dictionary are:
+
+- ``min`` (or ``minimum`` or ``global``): The minimum method.
+- ``walk``: The walk method.
+- ``grow`` or (``growth``): The grow method.
+- ``void``: The void method.
+- ``rand`` or (``random``): The random method.
+
+
 Example
 -------
 

@@ -29,6 +29,39 @@ It is recommended to use the Atomic Simulation Environment (ASE)~\cite{ase-paper
 Whilst RAFFLE can handle its own atomic structure object, ASE is more widely used and has a more extensive feature set.
 
 
+Convergence criteria
+--------------------
+
+RAFFLE has a convergence criterion that compares the amount of change in the RAFFLE descriptor over the last ``history_len`` update iterations.
+When the total change in the descriptor for the last ``history_len`` iterations is less than ``threshold``, the generator can be considered converged.
+Without explicitly setting the ``history_len``, the convergence is not checked.
+
+To set the convergence criteria, the user can use the ``set_history_len`` method.
+
+.. code-block:: python
+
+    # Set convergence criteria
+    generator.set_history_len(
+        history_len=10
+    )
+
+To check the convergence, the user can use the ``is_converged`` method (default ``threshold = 1e-4``).
+
+.. code-block:: python
+
+    # Check convergence
+    converged = generator.is_converged(threshold=1e-5)
+    print(f"Converged: {converged}")
+
+Note, the convergence criterion is not enforced, i.e. the generator will not stop generating structures when the convergence criterion is met and the ``update`` method can still be called.
+As such, it is recommended that the user implement their own convergence check in their code.
+
+.. note::
+    The convergence criterion is not tested without explicitly setting the ``history_len`` parameter.
+    The convergence criterion is also not enforced even when set, it is simply a check for the user to use.
+
+
+
 Energy references
 -----------------
 

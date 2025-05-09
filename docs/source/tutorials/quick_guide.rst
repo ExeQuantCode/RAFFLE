@@ -54,7 +54,7 @@ The generator is then run, and the structures are written to an output file.
 Iterative structure search
 --------------------------
 
-Here is an example of how to run an iterative structure search with RAFFLE.
+Here is an example of how to run an iterative structure search with RAFFLE and check for convergence.
 
 .. code-block:: python
 
@@ -65,6 +65,7 @@ Here is an example of how to run an iterative structure search with RAFFLE.
     from mace.calculators import mace_mp
 
     generator = raffle_generator()
+    generator.set_history_len(10)
     mace = mace_mp(model="medium", dispersion=False, default_dtype="float32", device='cpu')
 
     host = read("host.xyz")
@@ -92,3 +93,7 @@ Here is an example of how to run an iterative structure search with RAFFLE.
 
         generator.update(structures)
         num_structures_old = len(structures)
+        if generator.is_converged():
+            break
+
+    write("output.xyz", structures)

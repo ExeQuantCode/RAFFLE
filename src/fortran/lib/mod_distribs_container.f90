@@ -126,6 +126,8 @@ module raffle__distribs_container
      !! Set the list of elements for the container.
      procedure, pass(this), private :: update_element_info
      !! Update the element information in the container.
+     procedure, pass(this) :: add_to_element_info
+     !! Add an element to the container.
      procedure, pass(this) :: set_element_energy
      !! Set the energy of an element in the container.
      procedure, pass(this) :: set_element_energies
@@ -517,8 +519,10 @@ contains
     call this%set_bond_info()
     call this%evolve()
     if(deallocate_systems_) call this%deallocate_systems()
+    write(*,*) this%element_info(:)%name
     if(this%host_system%defined) &
          call this%host_system%set_element_map(this%element_info)
+    write(*,*) this%element_info(:)%name
 
     if(verbose_ .eq. 0)then
        suppress_warnings = suppress_warnings_store
@@ -1463,6 +1467,29 @@ contains
 
 
 !###############################################################################
+  subroutine add_to_element_info(this, element)
+    !! Add an element to the element_info array.
+    implicit none
+
+    ! Arguments
+    class(distribs_container_type), intent(inout) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
+    character(len=3), intent(in) :: element
+    !! Element name.
+
+
+    if(.not.allocated(this%element_info)) allocate(this%element_info(0))
+    this%element_info = [ &
+         this%element_info(:), &
+         element_type(element) &
+    ]
+    call this%element_info(size(this%element_info))%set(element)
+
+  end subroutine add_to_element_info
+!###############################################################################
+
+
+!###############################################################################
   subroutine set_element_energy(this, element, energy)
     !! Set the energy of an element in the container.
     implicit none
@@ -1482,6 +1509,8 @@ contains
     !! Element radius.
     character(len=3) :: element_
     !! Element name without null characters.
+    logical :: in_element_info
+    !! Boolean whether the element is in the element_info array.
 
 
     !---------------------------------------------------------------------------
@@ -1493,9 +1522,13 @@ contains
     !---------------------------------------------------------------------------
     ! if element_info is allocated, update energy of associated index
     !---------------------------------------------------------------------------
+    in_element_info = .false.
     if(allocated(this%element_info))then
        idx = findloc( [ this%element_info(:)%name ], element_, dim=1 )
-       if(idx.ge.1) this%element_info(idx)%energy = energy
+       if(idx.ge.1)then
+          this%element_info(idx)%energy = energy
+          in_element_info = .true.
+       end if
     end if
 
 
@@ -1513,6 +1546,12 @@ contains
     else
        element_database(idx_db)%energy = energy
     end if
+
+
+    !---------------------------------------------------------------------------
+    ! if element is not in element_info, add it to reserve_element_names
+    !---------------------------------------------------------------------------
+    if(.not.in_element_info) call this%add_to_element_info(element_)
 
   end subroutine set_element_energy
 !###############################################################################

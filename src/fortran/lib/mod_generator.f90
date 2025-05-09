@@ -112,12 +112,15 @@ module raffle__generator
      !! Constructor for the raffle generator type.
      module function init_raffle_generator( &
           host, &
-          width, sigma, cutoff_min, cutoff_max) result(generator)
+          width, sigma, cutoff_min, cutoff_max, &
+          history_len &
+     ) result(generator)
        type(basis_type), intent(in), optional :: host
        real(real32), dimension(3), intent(in), optional :: width
        real(real32), dimension(3), intent(in), optional :: sigma
        real(real32), dimension(3), intent(in), optional :: cutoff_min
        real(real32), dimension(3), intent(in), optional :: cutoff_max
+       integer, intent(in), optional :: history_len
        type(raffle_generator_type) :: generator
      end function init_raffle_generator
   end interface raffle_generator_type
@@ -127,7 +130,8 @@ contains
 
 !###############################################################################
   module function init_raffle_generator( &
-       host, width, sigma, cutoff_min, cutoff_max &
+       host, width, sigma, cutoff_min, cutoff_max, &
+       history_len &
   ) result(generator)
     !! Initialise an instance of the raffle generator.
     !!
@@ -147,6 +151,8 @@ contains
     !! Minimum cutoff for the 2-, 3-, and 4-body distribution functions.
     real(real32), dimension(3), intent(in), optional :: cutoff_max
     !! Maximum cutoff for the 2-, 3-, and 4-body distribution functions.
+    integer, intent(in), optional :: history_len
+    !! Length of the history for the 2-, 3-, and 4-body distribution functions.
 
     ! Local variables
     type(raffle_generator_type) :: generator
@@ -157,14 +163,17 @@ contains
     if(present(host)) call generator%set_host(host)
 
     ! Set up the distribution function parameters
-    if( present(width) ) &
+    if(present(width)) &
          call generator%distributions%set_width(width)
-    if( present(sigma) ) &
+    if(present(sigma)) &
          call generator%distributions%set_sigma(sigma)
-    if( present(cutoff_min) ) &
+    if(present(cutoff_min)) &
          call generator%distributions%set_cutoff_min(cutoff_min)
-    if( present(cutoff_max) ) &
+    if(present(cutoff_max)) &
          call generator%distributions%set_cutoff_max(cutoff_max)
+
+    if(present(history_len)) &
+         call generator%distributions%set_history_len(history_len)
 
   end function init_raffle_generator
 !###############################################################################

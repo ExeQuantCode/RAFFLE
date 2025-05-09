@@ -1049,4 +1049,95 @@ subroutine f90wrap_raffle__dc__get_bin__binding__dc_type( &
 end subroutine f90wrap_raffle__dc__get_bin__binding__dc_type
 !###############################################################################
 
+
+!###############################################################################
+! get the generalised descriptor n-body components
+!###############################################################################
+subroutine f90wrap_raffle__dc__get_2body__binding__dc_type( &
+    this, ret_output, n0, n1 &
+)
+    use raffle__distribs_container, only: distribs_container_type
+    implicit none
+
+    type distribs_container_type_ptr_type
+        type(distribs_container_type), pointer :: p => NULL()
+    end type distribs_container_type_ptr_type
+    real(4), intent(out), dimension(n0,n1) :: ret_output
+    type(distribs_container_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    integer :: n0
+    integer :: n1
+    this_ptr = transfer(this, this_ptr)
+    ret_output = this_ptr%p%get_2body()
+end subroutine f90wrap_raffle__dc__get_2body__binding__dc_type
+
+subroutine f90wrap_raffle__dc__get_3body__binding__dc_type( &
+     this, ret_output, n0, n1 &
+)
+    use raffle__distribs_container, only: distribs_container_type
+    implicit none
+
+    type distribs_container_type_ptr_type
+        type(distribs_container_type), pointer :: p => NULL()
+    end type distribs_container_type_ptr_type
+    real(4), intent(out), dimension(n0,n1) :: ret_output
+    type(distribs_container_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    integer :: n0
+    integer :: n1
+    this_ptr = transfer(this, this_ptr)
+    ret_output = this_ptr%p%get_3body()
+end subroutine f90wrap_raffle__dc__get_3body__binding__dc_type
+
+subroutine f90wrap_raffle__dc__get_4body__binding__dc_type( &
+     this, ret_output, n0, n1 &
+)
+    use raffle__distribs_container, only: distribs_container_type
+    implicit none
+
+    type distribs_container_type_ptr_type
+        type(distribs_container_type), pointer :: p => NULL()
+    end type distribs_container_type_ptr_type
+    real(4), intent(out), dimension(n0,n1) :: ret_output
+    type(distribs_container_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    integer :: n0
+    integer :: n1
+    this_ptr = transfer(this, this_ptr)
+    ret_output = this_ptr%p%get_4body()
+end subroutine f90wrap_raffle__dc__get_4body__binding__dc_type
+
+subroutine f90wrap_raffle__dc__get_num_species__dc_type( &
+     this, ret_num_species &
+)
+    use raffle__distribs_container, only: distribs_container_type
+    implicit none
+
+    type distribs_container_type_ptr_type
+        type(distribs_container_type), pointer :: p => NULL()
+    end type distribs_container_type_ptr_type
+    type(distribs_container_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    integer, intent(out) :: ret_num_species
+    this_ptr = transfer(this, this_ptr)
+    ret_num_species = size(this_ptr%p%element_info, dim = 1)
+end subroutine f90wrap_raffle__dc__get_num_species__dc_type
+
+subroutine f90wrap_raffle__dc__get_num_pairs__dc_type( &
+     this, ret_num_pairs &
+)
+    use raffle__distribs_container, only: distribs_container_type
+    implicit none
+
+    type distribs_container_type_ptr_type
+        type(distribs_container_type), pointer :: p => NULL()
+    end type distribs_container_type_ptr_type
+    type(distribs_container_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    integer, intent(out) :: ret_num_pairs
+    this_ptr = transfer(this, this_ptr)
+    ret_num_pairs = size(this_ptr%p%bond_info, dim = 1)
+end subroutine f90wrap_raffle__dc__get_num_pairs__dc_type
+!###############################################################################
+
 ! End of module raffle__distribs_container defined in file ../src/lib/mod_distribs_container.f90

@@ -662,7 +662,7 @@ contains
 
 
     ! If history_len is set, temporarily store the old descriptor
-    if(this%history_len.gt.0.and.this%num_evaluated.gt.0)then
+    if(this%history_len.gt.0)then
        gdf_old = this%gdf
        this%history_deltas(2:) = this%history_deltas(1:this%history_len-1)
     end if

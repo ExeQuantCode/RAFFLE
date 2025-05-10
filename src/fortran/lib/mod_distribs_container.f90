@@ -519,10 +519,8 @@ contains
     call this%set_bond_info()
     call this%evolve()
     if(deallocate_systems_) call this%deallocate_systems()
-    write(*,*) this%element_info(:)%name
     if(this%host_system%defined) &
          call this%host_system%set_element_map(this%element_info)
-    write(*,*) this%element_info(:)%name
 
     if(verbose_ .eq. 0)then
        suppress_warnings = suppress_warnings_store

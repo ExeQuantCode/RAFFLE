@@ -13,7 +13,7 @@ The example script can be found in the following directory:
 
 .. code-block:: bash
 
-    raffle/example/python_pkg/Si-Ge_learn/learn.py
+    raffle/example/python_pkg/Si-Ge_learn/DRAFFLE/learn.py
 
 We recommend reading through the file and running it to understand the process of learning and generating structures.
 However, we will provide a brief overview of the script here.
@@ -28,7 +28,7 @@ First, we must import the required packages:
     import numpy as np
 
 Next, we need to set up the RAFFLE generator and the calculator to calculate the energies of the structures.
-In this example, we use the CHGNet calculator:
+In this example, we use the MACE calculator:
 
 .. code-block:: python
 
@@ -94,7 +94,6 @@ This is to demonstrate the ability of RAFFLE to learn from scratch.
 Finally, the script generates structures using the generator.
 The generator is given the host structures.
 Finally, the generator is run for each host structure, providing a unique stoichiometry each time and using a custom method ratio.
-The 
 
 .. code-block:: python
 

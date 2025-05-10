@@ -13,7 +13,7 @@ The example script can be found in the following directory:
 
 .. code-block:: bash
 
-    raffle/example/python_pkg/Al_learn/learn.py
+    raffle/example/python_pkg/Al_learn/DRAFFLE/learn.py
 
 We recommend reading through the file and running it to understand the process of learning and generating structures.
 However, we will provide a brief overview of the script here.

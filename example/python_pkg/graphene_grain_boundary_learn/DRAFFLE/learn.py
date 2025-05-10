@@ -124,8 +124,12 @@ if __name__ == "__main__":
     rlxd_structures = []
     num_structures_old = 0
     optimise_structure = True
+    converged = False
     # start the iterations, loop over the hosts, then repeat the process X times
     for ival in range(40):
+        if converged:
+            print("Converged")
+            break
         for host in hosts:
             print("setting host")
             generator.set_host(host)
@@ -220,7 +224,7 @@ if __name__ == "__main__":
             print("Updating distributions")
             generator.distributions.update(generated_structures[num_structures_old:], from_host=False, deallocate_systems=False)
             if generator.distributions.is_converged(threshold=1e-3):
-                print("Converged")
+                converged = True
                 break
             else:
               print("deltas", generator.distributions.history_deltas)

@@ -1563,6 +1563,26 @@ class Generator(f90wrap.runtime.FortranModule):
             if self._alloc:
                 _raffle.f90wrap_generator__raffle_generator_type_finalise(this=self._handle)
 
+        def init_seed(self, put: int|list[int] = None, get: list[int] = None, num_threads: int = None):
+            """
+            Initialise the random number generator seed.
+
+            Parameters:
+                put (list of ints):
+                    List of integers to be used as the seed for the random number generator.
+                get (list of ints):
+                    List of integers to be used as the seed for the random number generator.
+                num_threads (int):
+                    Number of threads, one for each random number generator.
+
+            """
+            # check if put is an integer
+            if isinstance(put, int):
+                put = [put]
+
+            _raffle.f90wrap_generator__init_seed__binding__rgt(this=self._handle, \
+                put=put, get=get, num_threads=num_threads)
+
         def set_max_attempts(self, max_attempts):
             """
             Set the walk-method maximum attempts parameter.
@@ -1727,7 +1747,7 @@ class Generator(f90wrap.runtime.FortranModule):
 
         def generate(
                 self, num_structures, stoichiometry,
-                method_ratio={"void": 0.0, "rand": 0.0, "walk": 0.0, "grow": 0.0, "min": 0.0},
+                method_ratio: dict = {"void": 0.0, "rand": 0.0, "walk": 0.0, "grow": 0.0, "min": 0.0},
                 method_probab=None,
                 seed=None, settings_out_file=None, verbose=0, return_exit_code=False,
                 calc=None
@@ -1766,7 +1786,7 @@ class Generator(f90wrap.runtime.FortranModule):
             structures = None
 
             # check if method_ratio is provided, if so, use it only if method_ratio is not provided
-            if method_probab is not None and method_ratio == {"void": 0.0, "rand": 0.0, "walk": 0.0, "grow": 0.0, "min": 0.0}:
+            if method_probab is not None and not all(v == 0.0 for v in method_ratio.values()):
                 method_ratio = method_probab
                 warnings.warn("method_probab is deprecated, use method_ratio instead", DeprecationWarning)
             elif method_probab is not None:

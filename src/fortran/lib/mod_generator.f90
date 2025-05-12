@@ -45,6 +45,10 @@ module raffle__generator
      !! structures from a host structure, using the RAFFLE method.
      integer :: num_structures = 0
      !! Number of structures generated. Initialised to zero.
+
+     integer, dimension(:), allocatable :: seed
+     !! Seed for random number generator
+
      type(basis_type) :: host
      !! Host structure.
      integer, dimension(3) :: grid = [0, 0, 0]
@@ -75,6 +79,9 @@ module raffle__generator
      type(basis_type), dimension(:), allocatable :: structures
      !! Generated structures.
    contains
+     procedure, pass(this) :: init_seed
+     !! Procedure to set the seed for the random number generator.
+
      procedure, pass(this) :: set_host
      !! Procedure to set the host structure.
      procedure, pass(this) :: get_host
@@ -176,6 +183,61 @@ contains
          call generator%distributions%set_history_len(history_len)
 
   end function init_raffle_generator
+!###############################################################################
+
+
+!###############################################################################
+  subroutine init_seed(this, put, get, num_threads)
+    !! Set the seed for the random number generator.
+    implicit none
+
+    ! Arguments
+    class(raffle_generator_type), intent(inout) :: this
+    !! Instance of the raffle generator.
+    integer, dimension(..), intent(in), optional :: put
+    !! Seed for the random number generator.
+    integer, dimension(:), intent(out), optional :: get
+    !! Seed for the random number generator.
+    integer, intent(out), optional :: num_threads
+    !! Size of the seed array.
+
+    ! Local variables
+    integer :: num_threads_
+    !! Number of threads for the random number generator.
+    integer, dimension(:), allocatable :: seed_arr
+    !! Array of seeds for the random number generator.
+
+    call random_seed( size = num_threads_ )
+    allocate(seed_arr(num_threads_))
+    if(present(put))then
+       select rank(put)
+       rank(0)
+          seed_arr(1:num_threads_) = put
+       rank(1)
+          if(size(put).eq.1)then
+             seed_arr(1:num_threads_) = put(1)
+          elseif(size(put).eq.num_threads_)then
+             seed_arr = put
+          else
+             call stop_program("Invalid seed array size")
+             return
+          end if
+       rank default
+          call stop_program("Invalid seed array")
+          return
+       end select
+       call random_seed( put = seed_arr )
+    end if
+
+    if(present(get))then
+       call random_seed( get = seed_arr )
+       get = seed_arr
+    end if
+
+    this%seed = seed_arr
+    if(present(num_threads)) num_threads = num_threads_
+
+  end subroutine init_seed
 !###############################################################################
 
 
@@ -439,7 +501,6 @@ contains
 !###############################################################################
 
 
-
 !###############################################################################
   subroutine generate(this, num_structures, &
        stoichiometry, method_ratio, seed, settings_out_file, &
@@ -549,14 +610,9 @@ contains
     ! Set the random seed
     !---------------------------------------------------------------------------
     if(present(seed))then
-       call random_seed(size=num_seed)
-       allocate(seed_arr(num_seed))
-       seed_arr = seed
-       call random_seed(put=seed_arr)
-    else
-       call random_seed(size=num_seed)
-       allocate(seed_arr(num_seed))
-       call random_seed(get=seed_arr)
+       call this%init_seed( put = seed )
+    elseif(.not.allocated(this%seed))then
+       call this%init_seed()
     end if
 
 
@@ -711,7 +767,7 @@ contains
     !! Initial basis to build upon.
     integer, dimension(:,:), intent(in) :: placement_list
     !! List of possible placements.
-    real(real32), dimension(5) :: method_rand_limit
+    real(real32), dimension(5), intent(in) :: method_rand_limit
     !! Upper limit of the random number to call each placement method.
     type(extended_basis_type) :: basis
     !! Generated basis.

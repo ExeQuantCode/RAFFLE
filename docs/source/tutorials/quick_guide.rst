@@ -65,8 +65,8 @@ Here is an example of how to run an iterative structure search with RAFFLE and c
     from mace.calculators import mace_mp
 
     generator = raffle_generator()
-    generator.set_history_len(10)
-    mace = mace_mp(model="medium", dispersion=False, default_dtype="float32", device='cpu')
+    generator.distributions.set_history_len(10)
+    calc = mace_mp(model="medium", dispersion=False, default_dtype="float32", device='cpu')
 
     host = read("host.xyz")
     generator.set_host(host)
@@ -83,17 +83,17 @@ Here is an example of how to run an iterative structure search with RAFFLE and c
     for i in range(10):
         generator.generate(
             num_structures = 2,
-            stoichiometry = { 'C': 2 }
+            stoichiometry = { 'C': 2 },
             calc = calc
         )
-        structures, status = generator.get_structures()
+        structures = generator.get_structures()
         for structure in structures:
             optimiser = FIRE(structure)
             optimiser.run(fmax=0.05)
 
-        generator.update(structures)
+        generator.distributions.update(structures)
         num_structures_old = len(structures)
-        if generator.is_converged():
+        if generator.distributions.is_converged():
             break
 
     write("output.xyz", structures)

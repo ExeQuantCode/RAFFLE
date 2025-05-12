@@ -23,7 +23,7 @@ An example
     from mace.calculators import mace_mp
 
     generator = raffle_generator()
-
+    generator.distributions.set_history_len(10)
     calc = mace_mp(model="medium", dispersion=False, default_dtype="float32", device='cpu')
 
     host = Atoms('C', positions=[[0, 0, 0]], cell=[10, 10, 10])
@@ -35,13 +35,18 @@ An example
 
     num_structures_old = 0
     for i in range(10):
-        generator.generate(
+        structures = generator.generate(
             num_structures = 2,
             stoichiometry = { 'C': 7 }
         )
-        structures = generator.get_structures(calc)
-        generator.distributions.update(structures[num_structures_old:])
-        num_structures_old = len(structures)
+        for structure in structures:
+            optimiser = FIRE(structure)
+            optimiser.run(fmax=0.05)
+
+        generator.distributions.update(structures)
+        num_structures_old += len(structures)
+        if generator.distributions.is_converged():
+            break
 
     structures = generator.get_structures(calc)
     for structure in structures:

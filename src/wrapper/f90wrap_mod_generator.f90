@@ -735,6 +735,33 @@ end subroutine f90wrap_generator__raffle_generator_type_finalise
 
 
 !###############################################################################
+! initialise random seed
+!###############################################################################
+subroutine f90wrap_generator__init_seed__binding__rgt( &
+     this, put, get, num_threads, n0, n1 &
+)
+    use raffle__generator, only: raffle_generator_type
+    implicit none
+
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    integer, optional, intent(in), dimension(n0) :: put
+    integer, optional, intent(inout), dimension(n1) :: get
+    integer, optional, intent(inout) :: num_threads
+    integer :: n0
+    !f2py intent(hide), depend(put) :: n0 = shape(put,0)
+    integer :: n1
+    !f2py intent(hide), depend(get) :: n1 = shape(get,0)
+    this_ptr = transfer(this, this_ptr)
+    call this_ptr%p%init_seed(put=put, get=get, num_threads=num_threads)
+end subroutine f90wrap_generator__init_seed__binding__rgt
+!###############################################################################
+
+
+!###############################################################################
 ! generator type procedure bindings
 !###############################################################################
 subroutine f90wrap_generator__set_host__binding__rgt(this, host)

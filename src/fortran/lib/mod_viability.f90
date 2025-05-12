@@ -81,7 +81,7 @@ contains
     !---------------------------------------------------------------------------
     min_radius = minval(radius_list) * distribs_container%radius_distance_tol(1)
     grid_scale = ( bounds(2,:) - bounds(1,:) ) / real(grid, real32)
-    grid_wo_bounds = nint( real(grid) / ( bounds(2,:) - bounds(1,:) ) )
+    grid_wo_bounds = nint( real(grid, real32) / ( bounds(2,:) - bounds(1,:) ) )
 
 
     !---------------------------------------------------------------------------

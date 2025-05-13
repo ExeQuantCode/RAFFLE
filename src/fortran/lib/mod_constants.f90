@@ -5,6 +5,7 @@ module raffle__constants
   !! library.
   implicit none
   integer, parameter, public :: real32 = Selected_real_kind(6,37)!(15,307)
+  real(real32), parameter, public :: 2pi = 8._real32 * atan(1._real32)
   real(real32), parameter, public :: pi = 4._real32 * atan(1._real32)
   real(real32), parameter, public :: c = 0.26246582250210965422_real32
   real(real32), parameter, public :: c_vasp = 0.262465831_real32

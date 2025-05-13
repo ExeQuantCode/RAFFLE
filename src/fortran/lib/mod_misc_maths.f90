@@ -39,14 +39,18 @@ contains
 
 
 !###############################################################################
-  integer function triangular_number(n)
+  pure function triangular_number(n) result(output)
     !! Return the nth triangular number.
     implicit none
 
     ! Arguments
-    integer :: n
+    integer, intent(in) :: n
     !! The index of the triangular number to return.
-    triangular_number = n * ( n + 1 ) / 2
+
+    real(real32) :: output
+    !! The nth triangular number.
+
+    output = n * ( n + 1 ) / 2
   end function triangular_number
 !###############################################################################
 

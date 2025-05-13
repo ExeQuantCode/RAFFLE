@@ -1127,6 +1127,40 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
                 _raffle.f90wrap_raffle__dc__get_4body__binding__dc_type(this=self._handle, n0=n0, n1=n1).reshape((n0, n1), order='F').T
             return output
 
+        def generate_fingerprint(self,
+                                        structure: Atoms | Geom_Rw.basis = None,
+        ):
+            """
+            Generate the fingerprint for a given structure.
+
+            Parameters:
+                structure (Atoms):
+                    Atomic structure to generate the fingerprint for.
+
+            Returns:
+                output (list of arrays):
+                    2D arrays
+            """
+            if isinstance(structure, Atoms):
+                structure = geom_rw.basis(structure)
+
+            num_species = structure.nspec
+            num_pairs = num_species * (num_species + 1) // 2
+            nbins = []
+            for i in range(len(self.nbins)):
+                nbins.append(self.nbins[i])
+                if nbins[i] < 0:
+                    nbins[i] = 1 + round( ( self.cutoff_max[i] - self.cutoff_min[i] ) / self.width[i] )
+
+            output_2body = numpy.zeros((nbins[0], num_pairs), dtype=numpy.float32)
+            output_3body = numpy.zeros((nbins[1], num_species), dtype=numpy.float32)
+            output_4body = numpy.zeros((nbins[2], num_species), dtype=numpy.float32)
+            _raffle.f90wrap_raffle__dc__generate_fingerprint_python__dc_type(this=self._handle, \
+                structure=structure._handle, output_2body=output_2body, \
+                output_3body=output_3body, output_4body=output_4body)
+
+            return output_2body, output_3body, output_4body
+
         @property
         def num_evaluated(self):
             """

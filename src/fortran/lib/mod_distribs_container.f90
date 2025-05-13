@@ -138,7 +138,6 @@ module raffle__distribs_container
      !! Return the energies of elements in the container.
      !! Used in Python interface.
 
-
      procedure, pass(this) :: set_element_map
      !! Set the mapping of elements to distribution function elements.
      procedure, pass(this), private :: set_bond_info
@@ -155,7 +154,6 @@ module raffle__distribs_container
      !! Return the radii of all bonds in the container.
      !! Used in Python interface.
 
-
      procedure, pass(this) :: set_best_energy
      !! Set the best energy and system in the container.
      procedure, pass(this) :: initialise_gdfs
@@ -166,7 +164,6 @@ module raffle__distribs_container
      !! Evolve the learned distribution function.
      procedure, pass(this) :: is_converged
      !! Check if the learned distribution function has converged.
-
 
      procedure, pass(this) :: write_gdfs
      !! Write the generalised distribution functions to a file.
@@ -194,6 +191,11 @@ module raffle__distribs_container
      !! Return the 3-body distribution function.
      procedure, pass(this) :: get_4body
      !! Return the 4-body distribution function.
+
+     procedure, pass(this) :: generate_fingerprint
+     !! Calculate the distribution functions for a given system.
+     procedure, pass(this) :: generate_fingerprint_python
+     !! Calculate the distribution functions for a given system.
   end type distribs_container_type
 
   interface distribs_container_type
@@ -1198,6 +1200,61 @@ contains
     output = this%gdf%df_4body
 
   end function get_4body
+!###############################################################################
+
+
+!###############################################################################
+  function generate_fingerprint(this, structure) result(output)
+    !! Generate a descriptor for the structure.
+    implicit none
+
+    ! Arguments
+    class(distribs_container_type), intent(inout) :: this
+    !! Parent. Instance of distribution functions container.
+    type(basis_type), intent(in) :: structure
+    !! Structure to generate the descriptor for.
+    type(distribs_type) :: output
+    !! Descriptor for the structure.
+
+    call output%calculate( &
+         structure, &
+         width = this%width, &
+         sigma = this%sigma, &
+         cutoff_min = this%cutoff_min, &
+         cutoff_max = this%cutoff_max, &
+         radius_distance_tol = this%radius_distance_tol &
+    )
+
+  end function generate_fingerprint
+!-------------------------------------------------------------------------------
+  subroutine generate_fingerprint_python( &
+       this, structure, output_2body, output_3body, output_4body &
+  )
+    !! Generate a descriptor for the structure.
+    implicit none
+
+    ! Arguments
+    class(distribs_container_type), intent(inout) :: this
+    !! Parent. Instance of distribution functions container.
+    type(basis_type), intent(in) :: structure
+    !! Structure to generate the descriptor for.
+    real(real32), dimension(:,:), intent(out) :: output_2body
+    !! 2-body descriptor for the structure.
+    real(real32), dimension(:,:), intent(out) :: output_3body
+    !! 3-body descriptor for the structure.
+    real(real32), dimension(:,:), intent(out) :: output_4body
+    !! 4-body descriptor for the structure.
+
+    ! Local variables
+    type(distribs_type) :: distrib
+    !! Descriptor for the structure.
+
+    distrib = this%generate_fingerprint(structure)
+    output_2body = distrib%df_2body
+    output_3body = distrib%df_3body
+    output_4body = distrib%df_4body
+
+  end subroutine generate_fingerprint_python
 !###############################################################################
 
 

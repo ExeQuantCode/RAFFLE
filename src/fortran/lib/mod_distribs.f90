@@ -5,7 +5,7 @@ module raffle__distribs
   !! fucntions for individual materials.
   !! The distribution functions are used as fingerprints for atomic structures
   !! to identify similarities and differences between structures.
-  use raffle__constants, only: real32, pi, 2pi
+  use raffle__constants, only: real32, pi, tau
   use raffle__io_utils, only: stop_program, print_warning
   use raffle__misc, only: strip_null, sort_str
   use raffle__misc_maths, only: triangular_number
@@ -407,7 +407,7 @@ contains
                       neighbour_basis%spec(1)%atom( &
                            neighbour_basis%spec(1)%num,4 &
                       ) = -0.5_real32 * ( &
-                           cos( 2pi * ( bondlength - tolerances(1) ) / &
+                           cos( tau * ( bondlength - tolerances(1) ) / &
                                 ( &
                                      min(cutoff_max_(1), tolerances(2)) - &
                                      tolerances(1) &
@@ -429,7 +429,7 @@ contains
                       neighbour_basis%image_spec(1)%atom( &
                            neighbour_basis%image_spec(1)%num,4 &
                       ) = -0.5_real32 * ( &
-                           cos( 2pi * ( bondlength - tolerances(3) ) / &
+                           cos( tau * ( bondlength - tolerances(3) ) / &
                                 ( &
                                      min(cutoff_max_(1), tolerances(4)) - &
                                      tolerances(3) &

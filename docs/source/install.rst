@@ -219,44 +219,15 @@ To install the serial version of RAFFLE, run the following commands:
     make
     make install
 
+Issues with installation
+========================
 
-Installing on MacOS (Homebrew)
-==============================
+We have found that there are some issues with the installation of RAFFLE on some systems.
+These often relate to the Fortran and C compilers.
 
-RAFFLE is developed on Linux and MacOS, and should work on both.
-However, there are likely some additional steps required to install RAFFLE on MacOS.
-This is because **it is not recommended to rely on the Mac system Python, or Fortran and C compilers**.
-
-The recommended way to install Python, gfortran and gcc on MacOS is to use `Homebrew <https://brew.sh>`_.
-First, install Homebrew by following the guide on their website.
-
-Once Homebrew is installed, you can install the required dependencies by running:
-
-.. code-block:: bash
-
-    brew install python
-    brew install gcc
-    brew install gfortran
-    export CC=$(brew --prefix gfortran)
-    export FC=$(brew --prefix gcc)
-
-Confirm a successful Python installation by running:
-
-.. code-block:: bash
-
-    python --version
-    whereis python
-
-This should show the correct Python version (3.11 or later) and path.
-
-Next, if you are using ``pip``, then the following command is found to result in the least issues:
-
-.. code-block:: bash
-
-    python -m pip install --upgrade .
-
-This ensures that the correct Python version is being called, and that the correct version of ``pip`` is being used.
-
+We provide a list of common issues and their solutions in the :doc:`Frequently Asked Questions (FAQ) </faq>`. section of the documentation.
+If you encounter any issues with the installation, please check the :doc:`FAQ </faq>` section first.
+If you are still having issues, please open an issue on the GitHub repository and we will do our best to help you.
 
 
 Testing the installation

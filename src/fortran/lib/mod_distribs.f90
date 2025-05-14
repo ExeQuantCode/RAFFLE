@@ -351,7 +351,17 @@ contains
                       neighbour_basis%spec(1)%num = &
                            neighbour_basis%spec(1)%num + 1
                       neighbour_basis%spec(1)%atom( &
-                           neighbour_basis%spec(1)%num,1:3) = vector
+                           neighbour_basis%spec(1)%num,1:3 &
+                      ) = vector
+                      neighbour_basis%spec(1)%atom( &
+                           neighbour_basis%spec(1)%num,4 &
+                      ) = -0.5_real32 * ( &
+                           cos( tau * ( bondlength - tolerances(1) ) / &
+                                ( &
+                                     min(cutoff_max_(1), tolerances(2)) - &
+                                     tolerances(1) &
+                                ) &
+                           ) - 1._real32 )
                    end if
 
                    ! add 2-body bond to store if within tolerances for 4-body
@@ -363,7 +373,17 @@ contains
                       neighbour_basis%image_spec(1)%num = &
                            neighbour_basis%image_spec(1)%num + 1
                       neighbour_basis%image_spec(1)%atom( &
-                           neighbour_basis%image_spec(1)%num,1:3) = vector
+                           neighbour_basis%image_spec(1)%num,1:3 &
+                      ) = vector
+                      neighbour_basis%image_spec(1)%atom( &
+                           neighbour_basis%image_spec(1)%num,4 &
+                      ) = -0.5_real32 * ( &
+                           cos( tau * ( bondlength - tolerances(3) ) / &
+                                ( &
+                                     min(cutoff_max_(1), tolerances(4)) - &
+                                     tolerances(3) &
+                                ) &
+                           ) - 1._real32 )
                    end if
 
                    !if(js.lt.js.or.(is.eq.js.and.ja.le.ia)) cycle

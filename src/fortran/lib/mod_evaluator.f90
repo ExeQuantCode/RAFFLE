@@ -131,6 +131,12 @@ contains
                 neighbour_basis%spec(is)%atom( &
                      neighbour_basis%spec(is)%num,:3 &
                 ) = matmul(position_store, basis%lat)
+                neighbour_basis%spec(is)%atom( &
+                     neighbour_basis%spec(is)%num,4 &
+                ) = 0.5_real32 * ( 1._real32 - &
+                     cos( tau * ( bondlength - tolerances(1) ) / &
+                          ( tolerances(2) - tolerances(1) ) &
+                     ) )
              end if
 
              if( bondlength .ge. tolerances(3) .and. &
@@ -143,6 +149,12 @@ contains
                 neighbour_basis%image_spec(is)%atom( &
                      neighbour_basis%image_spec(is)%num,:3 &
                 ) = matmul(position_store, basis%lat)
+                neighbour_basis%image_spec(is)%atom( &
+                     neighbour_basis%image_spec(is)%num,4 &
+                ) = 0.5_real32 * ( 1._real32 - &
+                     cos( tau * ( bondlength - tolerances(3) ) / &
+                          ( tolerances(4) - tolerances(3) ) &
+                     ) )
              end if
 
              !------------------------------------------------------------------
@@ -173,6 +185,12 @@ contains
                 neighbour_basis%spec(is)%atom( &
                      neighbour_basis%spec(is)%num,:3 &
                 ) = matmul(position_store, basis%lat)
+                neighbour_basis%spec(is)%atom( &
+                     neighbour_basis%spec(is)%num,4 &
+                ) = 0.5_real32 * ( 1._real32 - &
+                     cos( tau * ( bondlength - tolerances(1) ) / &
+                          ( tolerances(2) - tolerances(1) ) &
+                     ) )
              end if
 
              if( bondlength .ge. tolerances(3) .and. &
@@ -183,6 +201,12 @@ contains
                 neighbour_basis%image_spec(is)%atom( &
                      neighbour_basis%image_spec(is)%num,:3 &
                 ) = matmul(position_store, basis%lat)
+                neighbour_basis%image_spec(is)%atom( &
+                     neighbour_basis%image_spec(is)%num,4 &
+                ) =  0.5_real32 * ( 1._real32 - &
+                     cos( tau * ( bondlength - tolerances(3) ) / &
+                          ( tolerances(4) - tolerances(3) ) &
+                     ) )
              end if
 
              !------------------------------------------------------------------
@@ -269,20 +293,20 @@ contains
     !---------------------------------------------------------------------------
     ! Normalise the angular viabilities
     !---------------------------------------------------------------------------
-    if(num_3body.eq.0)then
-       viability_3body = distribs_container%viability_3body_default
-    else
+    if(num_3body.gt.0)then
        viability_3body = viability_3body ** ( &
             1._real32 / real(num_3body,real32) &
        )
     end if
-    if(num_4body.eq.0)then
-       viability_4body = distribs_container%viability_4body_default
-    else
+    viability_3body = viability_3body * &
+         distribs_container%viability_3body_default
+    if(num_4body.gt.0)then
        viability_4body = viability_4body ** ( &
             1._real32 / real(num_4body,real32) &
        )
     end if
+    viability_4body = viability_4body * &
+         distribs_container%viability_4body_default
 
 
     !---------------------------------------------------------------------------
@@ -370,11 +394,14 @@ contains
                        position_store(1:3) &
                   ), dim = 2 &
              )
-             output = output * &
-                  distribs_container%gdf%df_3body( &
-                       bin, &
-                       distribs_container%element_map(species) &
-                  ) ** ( 1._real32 / real( num_3body_local, real32 ) )
+             output = output * ( &
+                  1._real32 + ( position_2(4) * position_store(4) &
+                  ) * ( &
+                       distribs_container%gdf%df_3body( &
+                            bin, &
+                            distribs_container%element_map(species) &
+                       ) - distribs_container%viability_3body_default &
+                  ) ) ** ( 1._real32 / real( num_3body_local, real32 ) )
           end associate
        end do atom_loop
     end do species_loop
@@ -428,11 +455,15 @@ contains
                        position_store(1:3) &
                   ), dim = 3 &
              )
-             output = output * &
-                  distribs_container%gdf%df_4body( &
-                       bin, &
-                       distribs_container%element_map(species) &
-                  ) ** ( 1._real32 / real( num_4body_local, real32 ) )
+             output = output * ( &
+                  1._real32 + ( &
+                       position_2(4) * position_3(4) * position_store(4) &
+                  ) * ( &
+                       distribs_container%gdf%df_4body( &
+                            bin, &
+                            distribs_container%element_map(species) &
+                       ) - distribs_container%viability_4body_default &
+                  ) ) ** ( 1._real32 / real( num_4body_local, real32 ) )
           end associate
        end do atom_loop
     end do species_loop

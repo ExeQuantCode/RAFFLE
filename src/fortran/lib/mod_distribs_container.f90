@@ -287,9 +287,13 @@ contains
 
 
     if(present(history_len)) distribs_container%history_len = history_len
+    if(allocated(distribs_container%history_deltas)) &
+         deallocate(distribs_container%history_deltas)
     if(distribs_container%history_len.ge.0) &
          allocate( &
-              distribs_container%history_deltas(history_len), &
+              distribs_container%history_deltas( &
+                   distribs_container%history_len &
+              ), &
               source = huge(0._real32) &
          )
 

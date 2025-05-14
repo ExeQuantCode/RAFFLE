@@ -1180,9 +1180,9 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
                 if nbins[i] < 0:
                     nbins[i] = 1 + round( ( self.cutoff_max[i] - self.cutoff_min[i] ) / self.width[i] )
 
-            output_2body = numpy.zeros((nbins[0], num_pairs), dtype=numpy.float32)
-            output_3body = numpy.zeros((nbins[1], num_species), dtype=numpy.float32)
-            output_4body = numpy.zeros((nbins[2], num_species), dtype=numpy.float32)
+            output_2body = numpy.asfortranarray(numpy.zeros((nbins[0], num_pairs), dtype=numpy.float32))
+            output_3body = numpy.asfortranarray(numpy.zeros((nbins[1], num_species), dtype=numpy.float32))
+            output_4body = numpy.asfortranarray(numpy.zeros((nbins[2], num_species), dtype=numpy.float32))
             _raffle.f90wrap_raffle__dc__generate_fingerprint_python__dc_type(this=self._handle, \
                 structure=structure._handle, output_2body=output_2body, \
                 output_3body=output_3body, output_4body=output_4body)

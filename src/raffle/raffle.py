@@ -31,9 +31,10 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
             """
             Create a ``species_type`` object.
 
-            Returns:
-                species (species_type):
-                    Object to be constructed
+            Returns
+            -------
+            Geom_Rw.species_type
+                Object to be constructed
             """
             f90wrap.runtime.FortranDerivedType.__init__(self)
             result = _raffle.f90wrap_geom_rw__species_type_initialise()
@@ -41,17 +42,7 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
 
         def __del__(self):
             """
-            Destructor for class species_type
-
-
-            Defined at ../src/lib/mod_geom_rw.f90 lines \
-                26-32
-
-            Parameters
-            ----------
-            this : species_type
-            	Object to be destructed
-
+            Destructor for ``species_type`` object.
 
             Automatically generated destructor for species_type
             """
@@ -161,9 +152,10 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
             including lattice and basis information.
             This is confusingly named as a crystal = lattice + basis.
 
-            Returns:
-                basis (basis):
-                    Object to be constructed
+            Returns
+            -------
+            Geom_Rw.basis
+                Object to be constructed
             """
             f90wrap.runtime.FortranDerivedType.__init__(self)
             result = _raffle.f90wrap_geom_rw__basis_type_initialise()
@@ -174,17 +166,7 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
 
         def __del__(self):
             """
-            Destructor for class basis
-
-
-            Defined at ../src/lib/mod_geom_rw.f90 lines \
-                34-42
-
-            Parameters
-            ----------
-            this : basis
-            	Object to be destructed
-
+            Destructor for ``basis`` object.
 
             Automatically generated destructor for basis
             """
@@ -196,15 +178,16 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
             """
             Allocate memory for the species list.
 
-            Parameters:
-                num_species (int):
-                    Number of species
-                species_symbols (list of str):
-                    List of species symbols
-                species_count (list of int):
-                    List of species counts
-                atoms (list of float):
-                    List of atomic positions
+            Parameters
+            ----------
+            num_species : int
+                Number of species
+            species_symbols : list[str]
+                List of species symbols
+            species_count : list[int]
+                List of species counts
+            atoms : list[float]
+                List of atomic positions
             """
             _raffle.f90wrap_geom_rw__allocate_species__binding__basis_type(this=self._handle, \
                 num_species=num_species, species_symbols=species_symbols, species_count=species_count, \
@@ -231,9 +214,10 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
             """
             Create a copy of the basis object.
 
-            Returns:
-                basis (basis):
-                    Copy of the basis object
+            Returns
+            -------
+            Geom_Rw.basis
+                Copy of the basis object
             """
 
             # Create a new basis object
@@ -266,9 +250,10 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
             """
             Convert the basis object to an ASE Atoms object.
 
-            Parameters:
-                calculator (ASE Calculator):
-                    ASE calculator object to be assigned to the Atoms object.
+            Parameters
+            ----------
+            calculator : ase.calculators.calculator.BaseCalculator
+                ASE calculator object to be assigned to the Atoms object.
             """
 
             # Set the species list
@@ -296,11 +281,12 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
             """
             Convert the ASE Atoms object to a basis object.
 
-            Parameters:
-                atoms (ASE Atoms):
-                    ASE Atoms object to be converted.
-                verbose (bool):
-                    Boolean whether to print warnings.
+            Parameters
+            ----------
+            atoms : ase.Atoms
+                ASE Atoms object to be converted.
+            verbose : bool
+                Boolean whether to print warnings.
             """
             from ase.calculators.singlepoint import SinglePointCalculator
 
@@ -466,10 +452,10 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
             """
             Create a ``basis_array`` object.
 
-
-            Returns:
-                basis_array (basis_array):
-                    Object to be constructed
+            Returns
+            -------
+            Geom_Rw.basis_array
+                Object to be constructed
             """
 
             f90wrap.runtime.FortranDerivedType.__init__(self)
@@ -490,16 +476,6 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
         def __del__(self):
             """
             Destructor for class basis_array
-
-
-            Defined at ../src/lib/mod_generator.f90 lines \
-                19-21
-
-            Parameters
-            ----------
-            this : basis_array
-            	Object to be destructed
-
 
             Automatically generated destructor for basis_array
             """
@@ -538,9 +514,10 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
             """
             Allocate the items array with the given size.
 
-            Parameters:
-                size (int):
-                    Size of the items array
+            Parameters
+            ----------
+            size : int
+                Size of the items array
             """
             _raffle.f90wrap_basis_type_xnum_array__array_alloc__items(self._handle, num=size)
 
@@ -577,9 +554,10 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             """
             Create a ``Distribs_Container_Type`` object.
 
-            Returns:
-                distribution_container (Distribs_Container_Type):
-                    Object to be constructed
+            Returns
+            -------
+            Distribs_Container_Type
+                Object to be constructed
 
             """
             f90wrap.runtime.FortranDerivedType.__init__(self)
@@ -589,45 +567,37 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
 
         def __del__(self):
             """
-            Destructor for class Distribs_Container_Type
-
-
-            Defined at ../fortran/lib/mod_distribs_container.f90 \
-                lines 25-162
-
-            Parameters
-            ----------
-            this : Distribs_Container_Type
-            	Object to be destructed
-
+            Destructor for ``Distribs_Container_Type`` object.
 
             Automatically generated destructor for distribs_container_type
             """
             if self._alloc:
                 _raffle.f90wrap_raffle__dc__dc_type_finalise(this=self._handle)
 
-        def set_kBT(self, kBT):
+        def set_kBT(self, kBT : float):
             """
             Set the energy scale for the distribution functions.
 
-            Parameters:
-                kBT (float):
-                    Energy scale for the distribution functions.
+            Parameters
+            ----------
+            kBT : float
+                Energy scale for the distribution functions.
 
             """
             self.kBT = kBT
 
-        def set_weight_method(self, method):
+        def set_weight_method(self, method : str):
             """
             Set the weight method for combining the the distribution functions
             to form the generalised distribution function (GDF).
 
-            Parameters:
-                method (str):
-                    Method to be used for weighting the distribution functions.
-                    Allowed values are:
-                    - 'formation_energy' or 'formation' or 'form' or 'e_form'
-                    - 'energy_above_hull' or 'hull_distance' or 'hull' or 'distance' or 'convex_hull'
+            Parameters
+            ----------
+            method : str
+                Method to be used for weighting the distribution functions.
+                Allowed values are:
+                - 'formation_energy' or 'formation' or 'form' or 'e_form'
+                - 'energy_above_hull' or 'hull_distance' or 'hull' or 'distance' or 'convex_hull'
 
             """
 
@@ -638,78 +608,98 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             else:
                 raise ValueError("Invalid weight method: {}".format(method))
 
-        def set_width(self, width):
+        def set_width(self, width : list[float]):
             """
             Set the distribution function widths.
 
-            Parameters:
-                width (list of float):
-                    List of distribution function widths.
-                    The first element is the 2-body distribution function width,
-                    the second element is the 3-body distribution function width,
-                    and the third element is the 4-body distribution function width.
+            Parameters
+            ----------
+            width : list[float]
+                List of distribution function widths.
+                The first element is the 2-body distribution function width,
+                the second element is the 3-body distribution function width,
+                and the third element is the 4-body distribution function width.
             """
+            if not len(width) == 3:
+                raise ValueError("width must be a list of exactly three floats")
+
             _raffle.f90wrap_raffle__dc__set_width__binding__dc_type(this=self._handle, \
                 width=width)
 
-        def set_sigma(self, sigma):
+        def set_sigma(self, sigma : list[float]):
             """
             Set the sigma values of the Gaussians used to
             build the distribution functions.
 
-            Parameters:
-                sigma (list of float):
-                    List of sigma values.
-                    The first element is the 2-body distribution function sigma,
-                    the second element is the 3-body distribution function sigma,
-                    and the third element is the 4-body distribution function sigma.
+            Parameters
+            ----------
+            sigma : list[float]
+                List of sigma values.
+                The first element is the 2-body distribution function sigma,
+                the second element is the 3-body distribution function sigma,
+                and the third element is the 4-body distribution function sigma.
             """
+            if not len(sigma) == 3:
+                raise ValueError("sigma must be a list of exactly three floats")
+
             _raffle.f90wrap_raffle__dc__set_sigma__binding__dc_type(this=self._handle, \
                 sigma=sigma)
 
-        def set_cutoff_min(self, cutoff_min):
+        def set_cutoff_min(self, cutoff_min : list[float]):
             """
             Set the minimum cutoff values for the distribution functions.
 
-            Parameters:
-                cutoff_min (list of float):
-                    List of minimum cutoff values.
-                    The first element is the 2-body distribution function minimum cutoff,
-                    the second element is the 3-body distribution function minimum cutoff,
-                    and the third element is the 4-body distribution function minimum cutoff.
+            Parameters
+            ----------
+            cutoff_min : list[float]
+                List of minimum cutoff values.
+                The first element is the 2-body distribution function minimum cutoff,
+                the second element is the 3-body distribution function minimum cutoff,
+                and the third element is the 4-body distribution function minimum cutoff.
             """
+            if not len(cutoff_min) == 3:
+                raise ValueError("cutoff_max must be a list of exactly three floats")
+
             _raffle.f90wrap_raffle__dc__set_cutoff_min__binding__dc_type(this=self._handle, \
                 cutoff_min=cutoff_min)
 
-        def set_cutoff_max(self, cutoff_max):
+        def set_cutoff_max(self, cutoff_max : list[float]):
             """
             Set the maximum cutoff values for the distribution functions.
 
-            Parameters:
-                cutoff_min (list of float):
-                    List of maximum cutoff values.
-                    The first element is the 2-body distribution function maximum cutoff,
-                    the second element is the 3-body distribution function maximum cutoff,
-                    and the third element is the 4-body distribution function maximum cutoff.
+            Parameters
+            ----------
+            cutoff_min : list[float]
+                List of maximum cutoff values.
+                The first element is the 2-body distribution function maximum cutoff,
+                the second element is the 3-body distribution function maximum cutoff,
+                and the third element is the 4-body distribution function maximum cutoff.
             """
+            if not len(cutoff_max) == 3:
+                raise ValueError("cutoff_max must be a list of exactly three floats")
+
             _raffle.f90wrap_raffle__dc__set_cutoff_max__binding__dc_type(this=self._handle, \
                 cutoff_max=cutoff_max)
 
-        def set_radius_distance_tol(self, radius_distance_tol):
+        def set_radius_distance_tol(self, radius_distance_tol : list[float]):
             """
             Set the radius distance tolerance for the distribution functions.
 
             The radius distance tolerance represents a multiplier to the bond radii to
             determine the cutoff distance for the distribution functions.
 
-            Parameters:
-                radius_distance_tol (list of float):
-                    List of radius distance tolerance values.
-                    The first two values are the lower and upper bounds for the
-                    3-body distribution function radius distance tolerance.
-                    The third and fourth values are the lower and upper bounds for the
-                    4-body distribution function radius distance tolerance.
+            Parameters
+            ----------
+            radius_distance_tol : list[float]
+                List of radius distance tolerance values.
+                The first two values are the lower and upper bounds for the
+                3-body distribution function radius distance tolerance.
+                The third and fourth values are the lower and upper bounds for the
+                4-body distribution function radius distance tolerance.
             """
+            if not len(radius_distance_tol) == 4:
+                raise ValueError("radius_distance_tol must be a list of exactly four floats")
+
             _raffle.f90wrap_raffle__dc__set_radius_distance_tol__binding__dc_type(this=self._handle, \
                 radius_distance_tol=radius_distance_tol)
 
@@ -717,26 +707,33 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             """
             Set the history length for the convergence check of the RAFFLE descriptor.
 
-            Parameters:
-                history_len (int):
-                    Length of the history for checking convergence of the descriptor.
+            Parameters
+            ----------
+            history_len : int
+                Length of the history for checking convergence of the descriptor.
             """
             _raffle.f90wrap_raffle__dc__set_history_len__binding__dc_type(this=self._handle, \
                 history_len=history_len)
 
-        def create(self, basis_list, energy_above_hull_list=None, deallocate_systems=True, verbose=None):
+        def create(self,
+                   basis_list,
+                   energy_above_hull_list : list[float] = None,
+                   deallocate_systems : bool = True,
+                   verbose : int = None
+        ):
             """
             Create the distribution functions.
 
-            Parameters:
-                basis_list (basis_array or Atoms or list of Atoms):
-                    List of atomic configurations to be used to create the distribution functions.
-                energy_above_hull_list (list of float):
-                    List of energy above hull values for the atomic configurations.
-                deallocate_systems (bool):
-                    Boolean whether to deallocate the atomic configurations after creating the distribution functions.
-                verbose (int):
-                    Verbosity level.
+            Parameters
+            ----------
+            basis_list : geom_rw.basis_array or ase.Atoms or list[ase.Atoms]
+                List of atomic configurations to be used to create the distribution functions.
+            energy_above_hull_list : list[float]
+                List of energy above hull values for the atomic configurations.
+            deallocate_systems : bool
+                Boolean whether to deallocate the atomic configurations after creating the distribution functions.
+            verbose : int
+                Verbosity level.
             """
             if isinstance(basis_list, Atoms):
                 basis_list = geom_rw.basis_array(basis_list)
@@ -751,21 +748,28 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
                 verbose=verbose \
             )
 
-        def update(self, basis_list, energy_above_hull_list=None, from_host=True, deallocate_systems=True, verbose=None):
+        def update(self,
+                   basis_list,
+                   energy_above_hull_list : list[float] = None,
+                   from_host : bool = True,
+                   deallocate_systems : bool = True,
+                   verbose : int = None
+        ):
             """
             Update the distribution functions.
 
-            Parameters:
-                basis_list (basis_array or Atoms or list of Atoms):
-                    List of atomic configurations to be used to create the distribution functions.
-                energy_above_hull_list (list of float):
-                    List of energy above hull values for the atomic configurations.
-                deallocate_systems (bool):
-                    Boolean whether to deallocate the atomic configurations after creating the distribution functions.
-                from_host (bool):
-                    Boolean whether the provided basis_list is based on the host.
-                verbose (int):
-                    Verbosity level.
+            Parameters
+            ----------
+            basis_list : geom_rw.basis_array or ase.Atoms or list[ase.Atoms]
+                List of atomic configurations to be used to create the distribution functions.
+            energy_above_hull_list : list[float]
+                List of energy above hull values for the atomic configurations.
+            deallocate_systems : bool
+                Boolean whether to deallocate the atomic configurations after creating the distribution functions.
+            from_host : bool
+                Boolean whether the provided basis_list is based on the host.
+            verbose : int
+                Verbosity level.
             """
             if isinstance(basis_list, Atoms):
                 basis_list = geom_rw.basis_array(basis_list)
@@ -795,25 +799,27 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             It is not recommended to use this function directly, but to use the
             create or update functions instead.
 
-            Parameters:
-                basis (geom_rw.basis):
-                    Basis object to be added to the distribution functions.
+            Parameters
+            ----------
+            basis : Geom_Rw.basis
+                Basis object to be added to the distribution functions.
 
             """
             _raffle.f90wrap_raffle__dc__add_basis__binding__dc_type(this=self._handle, \
                 basis=basis._handle)
 
-        def set_element_energies(self, element_energies):
+        def set_element_energies(self, element_energies : dict):
             """
             Set the element reference energies for the distribution functions.
 
             These energies are used to calculate the formation energies of the
             atomic configurations.
 
-            Parameters:
-                element_energies (dict):
-                    Dictionary of element reference energies.
-                    The keys are the element symbols and the values are the reference energies.
+            Parameters
+            ----------
+            element_energies : dict
+                Dictionary of element reference energies.
+                The keys are the element symbols and the values are the reference energies.
             """
 
             element_list = list(element_energies.keys())
@@ -825,10 +831,11 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             """
             Get the element reference energies for the distribution functions.
 
-            Returns:
-                element_energies (dict):
-                    Dictionary of element reference energies.
-                    The keys are the element symbols and the values are the reference energies
+            Returns
+            -------
+            dict
+                Dictionary of element reference energies.
+                The keys are the element symbols and the values are the reference energies
             """
 
             num_elements = _raffle.f90wrap_raffle__dc__get__num_elements(self._handle)
@@ -855,14 +862,15 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             """
             _raffle.f90wrap_raffle__dc__set_bond_info__binding__dc_type(this=self._handle)
 
-        def set_bond_radius(self, radius_dict):
+        def set_bond_radius(self, radius_dict : dict):
             """
             Set the bond radius for the distribution functions.
 
-            Parameters:
-                radius_dict (dict):
-                    Dictionary of bond radii.
-                    The keys are a tuple of the two element symbols and the values are the bond radii.
+            Parameters
+            ----------
+            radius_dict : dict
+                Dictionary of bond radii.
+                The keys are a tuple of the two element symbols and the values are the bond radii.
             """
 
             # convert radius_dict to elements and radius
@@ -873,14 +881,15 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             _raffle.f90wrap_raffle__dc__set_bond_radius__binding__dc_type(this=self._handle, \
                 elements=elements, radius=radius)
 
-        def set_bond_radii(self, radius_dict):
+        def set_bond_radii(self, radius_dict : dict):
             """
             Set the bond radii for the distribution functions.
 
-            Parameters:
-                radius_dict (dict):
-                    Dictionary of bond radii.
-                    The keys are a tuple of the two element symbols and the values are the bond radii.
+            Parameters
+            ----------
+            radius_dict : dict
+                Dictionary of bond radii.
+                The keys are a tuple of the two element symbols and the values are the bond radii.
             """
 
             # convert radius_list to elements and radii
@@ -899,10 +908,11 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             """
             Get the bond radii for the distribution functions.
 
-            Returns:
-                bond_radii (dict):
-                    Dictionary of bond radii.
-                    The keys are a tuple of the two element symbols and the values are the bond radii.
+            Returns
+            -------
+            dict
+                Dictionary of bond radii.
+                The keys are a tuple of the two element symbols and the values are the bond radii.
             """
 
             num_elements = _raffle.f90wrap_raffle__dc__get__num_elements(self._handle)
@@ -947,135 +957,148 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
 
         def is_converged(self, threshold : float = 1e-4):
             """
-            Parameters:
-                threshold (float):
-                    Threshold for convergence.
+            Parameters
+            ----------
+            threshold : float
+                Threshold for convergence.
 
-            Returns:
-                converged (bool):
-                    Boolean indicating whether the distribution functions have converged.
+            Returns
+            -------
+            bool
+                Boolean indicating whether the distribution functions have converged.
             """
             converged = \
                 _raffle.f90wrap_raffle__dc__is_converged__binding__dc_type(this=self._handle, \
                 threshold=threshold)
             return converged
 
-        def write_gdfs(self, file):
+        def write_gdfs(self, file : str):
             """
             Write the generalised distribution functions (GDFs) to a file.
 
-            Parameters:
-                file (str):
-                    Name of file to write the GDFs to.
+            Parameters
+            ----------
+            file : str
+                Name of file to write the GDFs to.
             """
             _raffle.f90wrap_raffle__dc__write_gdfs__binding__dc_type(this=self._handle, \
                 file=file)
 
-        def read_gdfs(self, file):
+        def read_gdfs(self, file : str):
             """
             Read the generalised distribution functions (GDFs) from a file.
 
-            Parameters:
-                file (str):
-                    Name of file to read the GDFs from.
+            Parameters
+            ----------
+            file : str
+                Name of file to read the GDFs from.
             """
             _raffle.f90wrap_raffle__dc__read_gdfs__binding__dc_type(this=self._handle, \
                 file=file)
 
-        def write_dfs(self, file):
+        def write_dfs(self, file : str):
             """
             Write the distribution functions (DFs) associated with all
             allocated systems to a file.
 
-            Parameters:
-                file (str):
-                    Name of file to write the DFs to.
+            Parameters
+            ----------
+            file : str
+                Name of file to write the DFs to.
             """
             _raffle.f90wrap_raffle__dc__write_dfs__binding__dc_type(this=self._handle, \
                 file=file)
 
-        def read_dfs(self, file):
+        def read_dfs(self, file : str):
             """
             Read the distribution functions (DFs) associated with a set of
             systems from a file.
 
-            Parameters:
-                file (str):
-                    Name of file to read the DFs from.
+            Parameters
+            ----------
+            file : str
+                Name of file to read the DFs from.
             """
             _raffle.f90wrap_raffle__dc__read_dfs__binding__dc_type(this=self._handle, \
                 file=file)
 
-        def write_2body(self, file):
+        def write_2body(self, file: str):
             """
             Write the 2-body generalised distribution functions (GDFs) to a file.
 
-            Parameters:
-                file (str):
-                    Name of file to write the 2-body GDFs to.
+            Parameters
+            ----------
+            file : str
+                Name of file to write the 2-body GDFs to.
             """
             _raffle.f90wrap_raffle__dc__write_2body__binding__dc_type(this=self._handle, \
                 file=file)
 
-        def write_3body(self, file):
+        def write_3body(self, file: str):
             """
             Write the 3-body generalised distribution functions (GDFs) to a file.
 
-            Parameters:
-                file (str):
-                    Name of file to write the 3-body GDFs to.
+            Parameters
+            ----------
+            file : str
+                Name of file to write the 3-body GDFs to.
             """
             _raffle.f90wrap_raffle__dc__write_3body__binding__dc_type(this=self._handle, \
                 file=file)
 
-        def write_4body(self, file):
+        def write_4body(self, file: str):
             """
             Write the 4-body generalised distribution functions (GDFs) to a file.
 
-            Parameters:
-                file (str):
-                    Name of file to write the 4-body GDFs to.
+            Parameters
+            ----------
+            file : str
+                Name of file to write the 4-body GDFs to.
             """
             _raffle.f90wrap_raffle__dc__write_4body__binding__dc_type(this=self._handle, \
                 file=file)
 
-        def _get_pair_index(self, species1, species2):
+        def _get_pair_index(self, species1 : str, species2 : str):
             """
             Get the index of the pair of species in the distribution functions.
 
             This is meant as an internal function and not likely to be used directly.
 
-            Parameters:
-                species1 (str):
-                    Name of the first species
-                species2 (str):
-                    Name of the second species
+            Parameters
+            ----------
+            species1 : str
+                Name of the first species
+            species2 : str
+                Name of the second species
 
-            Returns:
-                idx (int):
-                    Index of the pair of species in the distribution functions.
+            Returns
+            -------
+            int
+                Index of the pair of species in the distribution functions.
             """
             idx = \
                 _raffle.f90wrap_raffle__dc__get_pair_index__binding__dc_type(this=self._handle, \
                 species1=species1, species2=species2)
             return idx
 
-        def _get_bin(self, value, dim):
+        def _get_bin(self, value : float, dim : int):
             """
             Get the bin index for a value in the distribution functions.
 
             This is meant as an internal function and not likely to be used directly.
 
-            Parameters:
-                value (float):
-                    Value to get the bin index for.
-                dim (int):
-                    Dimension of the distribution function.
-                    1 for 2-body, 2 for 3-body, and 3 for 4-body.
+            Parameters
+            ----------
+            value : float
+                Value to get the bin index for.
+            dim : int
+                Dimension of the distribution function.
+                1 for 2-body, 2 for 3-body, and 3 for 4-body.
 
-            Returns:
-                bin (int):
-                    Bin index for the value in the distribution functions.
+            Returns
+            -------
+            int
+                Bin index for the value in the distribution functions.
 
             """
             bin = \
@@ -1087,9 +1110,10 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             """
             Get the 2-body distribution function.
 
-            Returns:
-                output (float array): 2D array of shape (num_species_pairs, nbins)
-                    2-body distribution function.
+            Returns
+            -------
+            float array: 2D array of shape (num_species_pairs, nbins)
+                2-body distribution function.
 
             """
             n0 = self.nbins[0]
@@ -1102,9 +1126,10 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             """
             Get the 3-body distribution function.
 
-            Returns:
-                output (float array): 2D array of shape (num_species, nbins)
-                    3-body distribution function.
+            Returns
+            -------
+            float array: 2D array of shape (num_species, nbins)
+                3-body distribution function.
 
             """
             n0 = self.nbins[1]
@@ -1117,9 +1142,10 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             """
             Get the 4-body distribution function.
 
-            Returns:
-                output (float array): 2D array of shape (num_species, nbins)
-                    4-body distribution function.
+            Returns
+            -------
+            float array: 2D array of shape (num_species, nbins)
+                4-body distribution function.
             """
             n0 = self.nbins[2]
             n1 = _raffle.f90wrap_raffle__dc__get_num_species__dc_type(this=self._handle)
@@ -1128,18 +1154,20 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             return output
 
         def generate_fingerprint(self,
-                                        structure: Atoms | Geom_Rw.basis = None,
+                                 structure: Atoms | Geom_Rw.basis = None,
         ):
             """
             Generate the fingerprint for a given structure.
 
-            Parameters:
-                structure (Atoms):
-                    Atomic structure to generate the fingerprint for.
+            Parameters
+            ----------
+            structure : ase.Atoms
+                Atomic structure to generate the fingerprint for.
 
-            Returns:
-                output (list of arrays):
-                    2D arrays
+            Returns
+            -------
+            output : list[arrays]
+                2D arrays
             """
             if isinstance(structure, Atoms):
                 structure = geom_rw.basis(structure)
@@ -1426,9 +1454,10 @@ class Generator(f90wrap.runtime.FortranModule):
             """
             Object to store the stoichiometry of a structure.
 
-            Returns:
-                stoichiometry (stoichiometry_type):
-                    Stoichiometry object
+            Returns
+            -------
+            stoichiometry_type
+                Stoichiometry object
             """
             f90wrap.runtime.FortranDerivedType.__init__(self)
             result = _raffle.f90wrap_stoichiometry_type_initialise()
@@ -1443,10 +1472,6 @@ class Generator(f90wrap.runtime.FortranModule):
         def __del__(self):
             """
             Destructor for class Stoichiometry_Type
-
-
-            Defined at ../src/lib/mod_generator.f90 lines \
-                19-21
 
             Automatically generated destructor for stoichiometry_type
             """
@@ -1493,9 +1518,10 @@ class Generator(f90wrap.runtime.FortranModule):
             """
             Array or list of stoichiometry objects.
 
-            Returns:
-                stoichiometry_array (stoichiometry_array):
-                    Stoichiometry array object
+            Returns
+            -------
+            Generator.stoichiometry_array
+                Stoichiometry array object
             """
 
             f90wrap.runtime.FortranDerivedType.__init__(self)
@@ -1513,16 +1539,6 @@ class Generator(f90wrap.runtime.FortranModule):
         def __del__(self):
             """
             Destructor for class Stoichiometry_Type
-
-
-            Defined at ../src/lib/mod_generator.f90 lines \
-                19-21
-
-            Parameters
-            ----------
-            this : Stoichiometry_Type
-            	Object to be destructed
-
 
             Automatically generated destructor for stoichiometry_type
             """
@@ -1547,9 +1563,10 @@ class Generator(f90wrap.runtime.FortranModule):
             """
             Allocate the items array with the given size.
 
-            Parameters:
-                size (int):
-                    Size of the items array
+            Parameters
+            ----------
+            size : int
+                Size of the items array
             """
             _raffle.f90wrap_stoich_type_xnum_array__array_alloc__items(self._handle, num=size)
 
@@ -1567,7 +1584,7 @@ class Generator(f90wrap.runtime.FortranModule):
     @f90wrap.runtime.register_class("raffle.raffle_generator")
     class raffle_generator(f90wrap.runtime.FortranDerivedType):
 
-        def __init__(self, handle=None, history_len=None):
+        def __init__(self, handle=None, history_len : int = None):
             """
             Create a ``raffle_generator`` object.
 
@@ -1575,9 +1592,10 @@ class Generator(f90wrap.runtime.FortranModule):
             The object has procedures to set the parameters for the generation
             and to generate the structures.
 
-            Parameters:
-                history_len (int):
-                    Length of the history for checking convergence of descriptor.
+            Parameters
+            ----------
+            history_len : int
+                Length of the history for checking convergence of descriptor.
             """
             f90wrap.runtime.FortranDerivedType.__init__(self)
             result = _raffle.f90wrap_generator__raffle_generator_type_initialise()
@@ -1601,13 +1619,14 @@ class Generator(f90wrap.runtime.FortranModule):
             """
             Initialise the random number generator seed.
 
-            Parameters:
-                put (list of ints):
-                    List of integers to be used as the seed for the random number generator.
-                get (list of ints):
-                    List of integers to be used as the seed for the random number generator.
-                num_threads (int):
-                    Number of threads, one for each random number generator.
+            Parameters
+            ----------
+            put : list[int]
+                List of integers to be used as the seed for the random number generator.
+            get : list[int]
+                List of integers to be used as the seed for the random number generator.
+            num_threads : int
+                Number of threads, one for each random number generator.
 
             """
             # check if put is an integer
@@ -1617,15 +1636,16 @@ class Generator(f90wrap.runtime.FortranModule):
             _raffle.f90wrap_generator__init_seed__binding__rgt(this=self._handle, \
                 put=put, get=get, num_threads=num_threads)
 
-        def set_max_attempts(self, max_attempts):
+        def set_max_attempts(self, max_attempts : int):
             """
             Set the walk-method maximum attempts parameter.
             This parameter determines the maximum number of attempts to generate a structure
             using the walk method before reverting to the void method.
 
-            Parameters:
-                max_attempts (int):
-                    The maximum number of attempts to generate a structure using the walk method.
+            Parameters
+            ----------
+            max_attempts : int
+                The maximum number of attempts to generate a structure using the walk method.
             """
             self.max_attempts = max_attempts
 
@@ -1633,24 +1653,26 @@ class Generator(f90wrap.runtime.FortranModule):
             """
             Set the walk-method step size parameters.
 
-            Parameters:
-                coarse (float):
-                    The coarse step size for the walk method.
-                fine (float):
-                    The fine step size for the walk method.
+            Parameters
+            ----------
+            coarse : float
+                The coarse step size for the walk method.
+            fine : float
+                The fine step size for the walk method.
             """
             if coarse is not None:
                 self.walk_step_size_coarse = coarse
             if fine is not None:
                 self.walk_step_size_fine = fine
 
-        def set_host(self, host):
+        def set_host(self, host : Atoms | Geom_Rw.basis):
             """
             Set the host structure for the generation.
 
-            Parameters:
-                host (ase.Atoms or geom_rw.basis):
-                    The host structure for the generation.
+            Parameters
+            ----------
+            host : ase.Atoms or Geom_Rw.basis
+                The host structure for the generation.
             """
             # check if host is ase.Atoms object or a Fortran derived type basis_type
             if isinstance(host, Atoms):
@@ -1658,7 +1680,7 @@ class Generator(f90wrap.runtime.FortranModule):
             elif isinstance(host, geom_rw.basis):
                 host_copy = host.copy()
             else:
-                raise TypeError("Expected host to be ASE Atoms or geom_rw.basis")
+                raise TypeError("Expected host to be ASE ase.Atoms or Geom_Rw.basis")
 
             _raffle.f90wrap_generator__set_host__binding__rgt(this=self._handle, \
                 host=host_copy._handle)
@@ -1667,9 +1689,10 @@ class Generator(f90wrap.runtime.FortranModule):
             """
             Get the host structure for the generation.
 
-            Returns:
-                host (ase.Atoms or geom_rw.basis):
-                    The host structure for the generation.
+            Returns
+            -------
+            ase.Atoms
+                The host structure for the generation.
             """
             output = \
                 _raffle.f90wrap_generator__get_host__binding__rgt(this=self._handle)
@@ -1679,28 +1702,34 @@ class Generator(f90wrap.runtime.FortranModule):
             ret_host = output.toase().copy()
             return ret_host
 
-        def prepare_host(self, interface_location=None, interface_axis=3, depth=3.0, location_as_fractional=False):
+        def prepare_host(self,
+                         interface_location : list[float] = None,
+                         interface_axis : int | str = 3,
+                         depth : float = 3.0,
+                         location_as_fractional : bool = False
+        ):
             """
             Prepare the host by removing atoms depth away from the interface and returning an associated missing stoichiometry dictionary.
 
-            Parameters:
-                interface_location (list of float):
-                    The location of the interface in direct coordinates.
-                interface_axis (int or str):
-                    The axis along which to remove atoms from the host.
-                    0 for a, 1 for b, 2 for c.
-                    Alternatively, 'a', 'b', or 'c' can be used.
-                depth (float):
-                    The depth to remove atoms from the host.
-                location_as_fractional (bool):
-                    Whether the interface location is given in fractional coordinates.
+            Parameters
+            ----------
+            interface_location : list[float]
+                The location of the interface in direct coordinates.
+            interface_axis (int or str):
+                The axis along which to remove atoms from the host.
+                0 for a, 1 for b, 2 for c.
+                Alternatively, 'a', 'b', or 'c' can be used.
+            depth : float
+                The depth to remove atoms from the host.
+            location_as_fractional : bool
+                Whether the interface location is given in fractional coordinates.
 
-            Returns:
-                missing_stoichiometry (dict):
-                    A dictionary of the missing stoichiometry.
-                    The keys are the element symbols and the values are the number of atoms removed.
+            Returns
+            -------
+            dict
+                A dictionary of the missing stoichiometry.
+                The keys are the element symbols and the values are the number of atoms removed.
             """
-
             # check if interface_axis is a string
             interface_axis_int = interface_axis
             if isinstance(interface_axis_int, str):
@@ -1739,17 +1768,18 @@ class Generator(f90wrap.runtime.FortranModule):
 
             return missing_stoichiometry
 
-        def set_grid(self, grid=None, grid_spacing=None, grid_offset=None):
+        def set_grid(self, grid : list[int] = None, grid_spacing : float = None, grid_offset : list[float] = None):
             """
             Set the grid parameters for the generation.
 
-            Parameters:
-                grid (list of int):
-                    The number of grid points along each axis of the host.
-                grid_spacing (float)
-                    The spacing between grid points.
-                grid_offset (list of float):
-                    The offset of the grid from the origin.
+            Parameters
+            ----------
+            grid : list[int]
+                The number of grid points along each axis of the host.
+            grid_spacing : float
+                The spacing between grid points.
+            grid_offset : list[float]
+                The offset of the grid from the origin.
             """
             _raffle.f90wrap_generator__set_grid__binding__raffle_generator_type(this=self._handle, \
                 grid=grid, grid_spacing=grid_spacing, grid_offset=grid_offset)
@@ -1764,12 +1794,21 @@ class Generator(f90wrap.runtime.FortranModule):
             """
             Set the bounding box for the generation.
 
-            Parameters:
-                bounds (list of list of float):
-                    The bounding box within which to constrain placement of atoms.
-                    In the form [[a_min, a_max], [b_min, b_max], [c_min, c_max]].
-                    Values given in direct (crystal) coordinates, ranging from 0 to 1.
+            Parameters
+            ----------
+            bounds : list[list[float]]:
+                The bounding box within which to constrain placement of atoms.
+                In the form [[a_min, a_max], [b_min, b_max], [c_min, c_max]].
+                Values given in direct (crystal) coordinates, ranging from 0 to 1.
             """
+            # check if bounds is a list of length 2
+            if not isinstance(bounds, list) or len(bounds) != 2:
+                raise ValueError("bounds must be a list of length 2")
+            # check each element of bounds is a list of length 3
+            for bound in bounds:
+                if not isinstance(bound, list) or len(bound) != 3:
+                    raise ValueError("each element of bounds must be a list of length 3")
+
             _raffle.f90wrap_generator__set_bounds__binding__rgt(this=self._handle, \
                 bounds=bounds)
 
@@ -1779,41 +1818,49 @@ class Generator(f90wrap.runtime.FortranModule):
             """
             _raffle.f90wrap_generator__reset_bounds__binding__rgt(this=self._handle)
 
-        def generate(
-                self, num_structures, stoichiometry,
-                method_ratio: dict = {"void": 0.0, "rand": 0.0, "walk": 0.0, "grow": 0.0, "min": 0.0},
-                method_probab=None,
-                seed=None, settings_out_file=None, verbose=0, return_exit_code=False,
-                calc=None
+        def generate(self,
+                     num_structures : int,
+                    stoichiometry,
+                    method_ratio: dict = {"void": 0.0, "rand": 0.0, "walk": 0.0, "grow": 0.0, "min": 0.0},
+                    method_probab : dict = None,
+                    seed : int = None,
+                    settings_out_file : str = None,
+                    verbose : int = 0,
+                    return_exit_code : bool = False,
+                    calc = None
         ):
             """
             Generate structures using the RAFFLE method.
 
-            Parameters:
-                num_structures (int):
-                    The number of structures to generate.
-                stoichiometry (stoichiometry_array, str, or dict):
-                    The stoichiometry of the structures to generate.
-                method_ratio (dict):
-                    The ratio of using each method to generate a structure.
-                method_probab (dict):
-                    DEPRECATED - The ratio of using each method to generate a structure.
-                seed (int):
-                    The seed for the random number generator.
-                settings_out_file (str):
-                    The file to write the settings to.
-                verbose (int):
-                    The verbosity level for the generation.
-                return_exit_code (bool):
-                    Whether to return the exit code from the generation.
-                calc (ASE calculator):
-                    The calculator to use for the generated structures.
 
-            Returns:
-                structures (ase.Atoms):
-                    The generated structures.
-                exit_code (int):
-                    The exit code from the generation.
+
+            Parameters
+            ----------
+            num_structures : int
+                The number of structures to generate.
+            stoichiometry : Generator.stoichiometry_array, str, or dict
+                The stoichiometry of the structures to generate.
+            method_ratio : dict
+                The ratio of using each method to generate a structure.
+            method_probab : dict
+                DEPRECATED. Use `method_ratio` instead. Will be removed in a future version.
+            seed : int
+                The seed for the random number generator.
+            settings_out_file : str
+                The file to write the settings to.
+            verbose : int
+                The verbosity level for the generation.
+            return_exit_code : bool
+                Whether to return the exit code from the generation.
+            calc : ase.calculators.calculator.BaseCalculator
+                The calculator to use for the generated structures.
+
+            Returns
+            -------
+            structures : ase.Atoms
+                The generated structures.
+            exit_code : int
+                The exit code from the generation.
             """
 
             exit_code = 0
@@ -1894,9 +1941,10 @@ class Generator(f90wrap.runtime.FortranModule):
             """
             Get the generated structures as a list of ASE Atoms objects.
 
-            Parameters:
-                calculator (ASE calculator):
-                    The calculator to use for the generated structures.
+            Parameters
+            ----------
+            calculator : ase.calculators.calculator.BaseCalculator
+                The calculator to use for the generated structures.
             """
             atoms = []
             for structure in self.structures:
@@ -1907,21 +1955,23 @@ class Generator(f90wrap.runtime.FortranModule):
             """
             Set the list of generated structures.
 
-            Parameters:
-                structures (list of geom_rw.basis or list of ase.Atoms):
-                    The list of structures to set.
+            Parameters
+            ----------
+            structures : list[geom_rw.basis] or list[ase.Atoms]
+                The list of structures to set.
             """
             structures = geom_rw.basis_array(atoms=structures)
             _raffle.f90wrap_generator__set_structures__binding__rgt(this=self._handle, \
                 structures=structures._handle)
 
-        def remove_structure(self, index):
+        def remove_structure(self, index : int | list[int]):
             """
             Remove the structure at the given indices from the generator.
 
-            Parameters:
-                index (int or list of int):
-                    The indices of the structure to remove.
+            Parameters
+            ----------
+            index : int or list[int]
+                The indices of the structure to remove.
             """
             index_list = [index] if isinstance(index, int) else index
             index_list = [ i + 1 for i in index_list ]
@@ -1932,15 +1982,15 @@ class Generator(f90wrap.runtime.FortranModule):
             """
             Evaluate the viability of the structures.
 
-            WARNING: This function is not implemented yet.
+            Parameters
+            ----------
+            basis : Geom_Rw.basis or ase.Atoms
+                The basis to use for the evaluation.
 
-            Parameters:
-                basis (geom_rw.basis or Atoms):
-                    The basis to use for the evaluation.
-
-            Returns:
-                viability (float):
-                    The viability of the structures.
+            Returns
+            -------
+            float
+                The viability of the structures.
             """
             if isinstance(basis, Atoms):
                 basis = geom_rw.basis(atoms=basis)
@@ -1950,24 +2000,26 @@ class Generator(f90wrap.runtime.FortranModule):
                 basis=basis._handle)
             return viability
 
-        def print_settings(self, file):
+        def print_settings(self, file : str):
             """
             Print the settings for the generation to a file.
 
-            Parameters:
-                file (str):
-                    Name of the file to write the settings to.
+            Parameters
+            ----------
+            file : str
+                Name of the file to write the settings to.
             """
             _raffle.f90wrap_generator__print_settings__binding__rgt(this=self._handle, \
                 file=file)
 
-        def read_settings(self, file):
+        def read_settings(self, file : str):
             """
             Read the settings for the generation from a file.
 
-            Parameters:
-                file (str):
-                    Name of the file to read the settings from.
+            Parameters
+            ----------
+            file : str
+                Name of the file to read the settings from.
             """
             _raffle.f90wrap_generator__read_settings__binding__rgt(this=self._handle, \
                 file=file)
@@ -1976,9 +2028,10 @@ class Generator(f90wrap.runtime.FortranModule):
             """
             Get the descriptor for the generated structures.
 
-            Returns:
-                descriptor (list of numpy arrays):
-                    The descriptor for the generated structures.
+            Returns
+            -------
+            list[numpy arrays]
+                The descriptor for the generated structures.
             """
             descriptor = [
                 self.distributions.get_2body(),
@@ -2181,10 +2234,6 @@ class Generator(f90wrap.runtime.FortranModule):
                                             """
             Element items ftype=type(basis_type) pytype=basis
 
-
-            Defined at ../src/lib/mod_generator.f90 line \
-                29
-
             """, Geom_Rw.basis)
             return self.structures
 
@@ -2224,10 +2273,6 @@ generator = Generator()
 class Raffle(f90wrap.runtime.FortranModule):
     """
     Module raffle
-
-
-    Defined at ../src/raffle.f90 lines 1-4
-
     """
     pass
     _dt_array_initialisers = []

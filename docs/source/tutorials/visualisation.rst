@@ -43,8 +43,8 @@ Here is an example of how to use the ``get_descriptor()`` method:
     # Optional parameters
     generator.distributions.set_kBT(0.2)
     generator.distributions.set_width([0.04, np.pi/160.0, np.pi/160.0])
-    generator.set_cutoff_min([0.0, 0.0, 0.0])
-    generator.set_cutoff_max([6.0, 3.14159, 3.14159])
+    generator.distributions.set_cutoff_min([0.5, 0.0, 0.0])
+    generator.distributions.set_cutoff_max([6.0, np.pi, np.pi])
 
     # Set and learn from the initial database
     database = [
@@ -98,7 +98,9 @@ With this, we can now plot the descriptor using any plotting library of your cho
     plt.tight_layout()
     plt.show()
 
-We use this to compare the initial descriptor with the updated descriptor after generating new structures.
+An example python notebook is provided in :git:`examples/python_pkg/visualisation/descriptor.ipynb <examples/python_pkg/visualisation/descriptor.ipynb>`
+
+We can now use this to compare the initial descriptor with the updated descriptor after generating new structures.
 
 .. code-block:: python
 
@@ -138,8 +140,8 @@ Here is an example of how to use the `get_fingerprint()` method:
 
     # Optional parameters
     generator.distributions.set_width([0.04, np.pi/160.0, np.pi/160.0])
-    generator.set_cutoff_min([0.0, 0.0, 0.0])
-    generator.set_cutoff_max([6.0, 3.14159, 3.14159])
+    generator.distributions.set_cutoff_min([0.5, 0.0, 0.0])
+    generator.distributions.set_cutoff_max([6.0, np.pi, np.pi])
 
     # Structure to obtain the fingerprint for
     structure = Atoms(
@@ -175,3 +177,5 @@ This can then be visualised in a similar way to the descriptor.
     axes[2].set_xlabel('Improper dihedral angle (radians)')
     plt.tight_layout()
     plt.show()
+
+An example python notebook is provided in  :git:`examples/python_pkg/visualisation/fingerprint.ipynb <examples/python_pkg/visualisation/fingerprint.ipynb>`.

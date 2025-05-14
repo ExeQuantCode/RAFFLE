@@ -14,6 +14,7 @@ For a guide on how to build a database, see the :doc:`Databases tutorial </tutor
 
 Initialisation
 --------------
+
 RAFFLE is initialised by importing the generator object.
 This object is the main interface for the user to interact with the RAFFLE package.
 

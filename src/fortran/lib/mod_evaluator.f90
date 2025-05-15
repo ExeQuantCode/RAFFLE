@@ -215,6 +215,19 @@ contains
              num_2body = num_2body + 1
           end associate
        end do image_loop
+       !------------------------------------------------------------------------
+       ! DEVELOPER TOOL: This conditional allows the user to retrieve
+       ! results closer to first arXiv paper release.
+       ! It is not recommended to use this option for production runs and is
+       ! only here for testing purposes.
+       !------------------------------------------------------------------------
+       if(.not.distribs_container%smooth_viability)then
+           neighbour_basis%spec(is)%atom(1:neighbour_basis%spec(is)%num,4) = &
+                1._real32
+           neighbour_basis%image_spec(is)%atom( &
+                1:neighbour_basis%image_spec(is)%num,4 &
+           ) = 1._real32
+       end if
     end do species_loop
     neighbour_basis%natom = sum(neighbour_basis%spec(:)%num)
 

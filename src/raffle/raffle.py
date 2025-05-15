@@ -1271,6 +1271,19 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
                 weight_by_hull)
 
         @property
+        def smooth_viability(self):
+            """
+            DEVELOPER TOOL. Boolean whether to smooth the viability evaluation of points.
+            """
+            return \
+                _raffle.f90wrap_distribs_container_type__get__smooth_viability(self._handle)
+
+        @smooth_viability.setter
+        def smooth_viability(self, smooth_viability):
+            _raffle.f90wrap_distribs_container_type__set__smooth_viability(self._handle, \
+                smooth_viability)
+
+        @property
         def nbins(self):
             """
             Number of bins in the distribution functions.

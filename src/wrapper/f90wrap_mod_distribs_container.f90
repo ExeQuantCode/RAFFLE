@@ -269,6 +269,38 @@ subroutine f90wrap_distribs_container_type__set__viability_4body_default( &
     this_ptr = transfer(this, this_ptr)
     this_ptr%p%viability_4body_default = f90wrap_viability_4body_default
 end subroutine f90wrap_distribs_container_type__set__viability_4body_default
+
+subroutine f90wrap_distribs_container_type__get__smooth_viability( &
+     this, f90wrap_smooth_viability &
+)
+    use raffle__distribs_container, only: distribs_container_type
+    implicit none
+    type distribs_container_type_ptr_type
+        type(distribs_container_type), pointer :: p => NULL()
+    end type distribs_container_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(distribs_container_type_ptr_type) :: this_ptr
+    logical, intent(out) :: f90wrap_smooth_viability
+
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_smooth_viability = this_ptr%p%smooth_viability
+end subroutine f90wrap_distribs_container_type__get__smooth_viability
+
+subroutine f90wrap_distribs_container_type__set__smooth_viability( &
+     this, f90wrap_smooth_viability &
+)
+    use raffle__distribs_container, only: distribs_container_type
+    implicit none
+    type distribs_container_type_ptr_type
+        type(distribs_container_type), pointer :: p => NULL()
+    end type distribs_container_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(distribs_container_type_ptr_type) :: this_ptr
+    logical, intent(in) :: f90wrap_smooth_viability
+
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%smooth_viability = f90wrap_smooth_viability
+end subroutine f90wrap_distribs_container_type__set__smooth_viability
 !###############################################################################
 
 

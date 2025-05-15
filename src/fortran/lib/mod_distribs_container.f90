@@ -50,6 +50,8 @@ module raffle__distribs_container
           viability_3body_default = 0.1_real32, &
           viability_4body_default = 0.1_real32
      !! Default viability for the 3- and 4-body distribution functions.
+     logical :: smooth_viability = .true.
+     !! DEV FEATURE. Boolean whether to smooth the viability evaluation.
      logical, dimension(:), allocatable :: &
           in_dataset_2body, in_dataset_3body, in_dataset_4body
      !! Whether the 2-, 3-, and 4-body distribution functions are in

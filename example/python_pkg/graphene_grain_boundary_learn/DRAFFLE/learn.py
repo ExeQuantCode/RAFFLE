@@ -62,13 +62,13 @@ def process_structure(i, atoms, num_structures_old, calc_params, optimise_struct
 if __name__ == "__main__":
 
     # check if mace file exists
-    if not os.path.exists(script_dir  / ".." / "mace-mpa-0-medium.model"):
+    if not os.path.exists(script_dir  / ".." / ".." / "mace-mpa-0-medium.model"):
         print("MACE-MPA-0 model file not found. Please download the model from the MACE website.")
         print("https://github.com/ACEsuit/mace-foundations/releases/tag/mace_mpa_0")
         exit(1)
 
     # set up the calculator
-    calc_params = { 'model':  script_dir/ ".." / "mace-mpa-0-medium.model" }
+    calc_params = { 'model':  script_dir/ ".." / ".." / "mace-mpa-0-medium.model" }
     calc = mace_mp(**calc_params)
 
     # set up the hosts

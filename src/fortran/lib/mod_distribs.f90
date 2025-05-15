@@ -176,7 +176,7 @@ contains
     !! Loop index.
     integer :: num_pairs
     !! Number of pairs and angles.
-    real(real32) :: bondlength, rtmp1, dist_max_smooth
+    real(real32) :: bondlength, rtmp1, dist_max_smooth, dist_min_smooth
     !! Temporary real variables.
     logical :: success
     !! Boolean for success.

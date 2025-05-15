@@ -610,7 +610,8 @@ contains
     !---------------------------------------------------------------------------
     ! apply the cutoff function to the 2-body distribution function
     !---------------------------------------------------------------------------
-    dist_max_smooth = cutoff_max_(1) - 0.5_real32
+    dist_max_smooth = cutoff_max_(1) - 0.25_real32
+    dist_min_smooth = cutoff_min_(1) + 0.25_real32
     do b = 1, nbins_(1)
        rtmp1 = cutoff_min_(1) + width_(1) * real(b-1, real32)
        this%df_2body(b,:) = this%df_2body(b,:) / rtmp1 ** 2
@@ -619,6 +620,12 @@ contains
                ( 1._real32 + cos( pi * &
                     ( rtmp1 - dist_max_smooth ) / &
                     ( cutoff_max_(1) - dist_max_smooth ) &
+               ) )
+       elseif( rtmp1 .lt. dist_min_smooth )then
+          this%df_2body(b,:) = this%df_2body(b,:) * 0.5_real32 * &
+               ( 1._real32 + cos( pi * &
+                    ( rtmp1 - dist_min_smooth ) / &
+                    ( dist_min_smooth - cutoff_min_(1) ) &
                ) )
        end if
     end do

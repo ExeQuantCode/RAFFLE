@@ -5,7 +5,7 @@ module raffle__evaluator
   !! the system with each point in the map representing the suitability of
   !! that point for a new atom. The map is built by checking the bond lengths,
   !! bond angles and dihedral angles between the test point and all atoms.
-  use raffle__constants, only: real32, tau
+  use raffle__constants, only: real32, tau, pi
   use raffle__misc_linalg, only: modu, get_angle, get_improper_dihedral_angle
   use raffle__geom_extd, only: extended_basis_type
   use raffle__distribs_container, only: distribs_container_type
@@ -55,7 +55,7 @@ contains
     !! Viability of the test point for 2-body interactions.
     real(real32) :: viability_3body, viability_4body
     !! Viability of the test point for 3- and 4-body interactions.
-    real(real32) :: bondlength, rtmp1
+    real(real32) :: bondlength, rtmp1, min_distance
     !! Temporary variables.
     real(real32), dimension(2) :: cos_scales
     !! Cosine scales for the 3- and 4-body interactions.
@@ -70,6 +70,7 @@ contains
     ! Initialisation
     output = 0._real32
     viability_2body = 0._real32
+    min_distance = distribs_container%cutoff_max(1)
 
 
     !---------------------------------------------------------------------------
@@ -105,6 +106,8 @@ contains
        neighbour_basis%image_spec(is)%num = 0
        tolerances = distribs_container%radius_distance_tol * &
             radius_list(pair_index(species,is))
+       tolerances(1) = max( distribs_container%cutoff_min(1), tolerances(1) )
+       tolerances(3) = max( distribs_container%cutoff_min(1), tolerances(3) )
        tolerances(2) = min( distribs_container%cutoff_max(1), tolerances(2) )
        tolerances(4) = min( distribs_container%cutoff_max(1), tolerances(4) )
        cos_scales(1) = tau / ( tolerances(2) - tolerances(1) )
@@ -160,6 +163,9 @@ contains
              !------------------------------------------------------------------
              ! Add the contribution of the bond length to the viability
              !------------------------------------------------------------------
+             if(bondlength - tolerances(1) .lt. min_distance)then
+                min_distance = bondlength - tolerances(1)
+             end if
              viability_2body = viability_2body + &
                   evaluate_2body_contributions( &
                        distribs_container, bondlength, pair_index(species,is) &
@@ -208,6 +214,9 @@ contains
              !------------------------------------------------------------------
              ! Add the contribution of the bond length to the viability
              !------------------------------------------------------------------
+             if(bondlength - tolerances(1) .lt. min_distance)then
+                min_distance = bondlength - tolerances(1)
+             end if
              viability_2body = viability_2body + &
                   evaluate_2body_contributions( &
                        distribs_container, bondlength, pair_index(species,is) &
@@ -222,11 +231,11 @@ contains
        ! only here for testing purposes.
        !------------------------------------------------------------------------
        if(.not.distribs_container%smooth_viability)then
-           neighbour_basis%spec(is)%atom(1:neighbour_basis%spec(is)%num,4) = &
-                1._real32
-           neighbour_basis%image_spec(is)%atom( &
-                1:neighbour_basis%image_spec(is)%num,4 &
-           ) = 1._real32
+          neighbour_basis%spec(is)%atom(1:neighbour_basis%spec(is)%num,4) = &
+               1._real32
+          neighbour_basis%image_spec(is)%atom( &
+               1:neighbour_basis%image_spec(is)%num,4 &
+          ) = 1._real32
        end if
     end do species_loop
     neighbour_basis%natom = sum(neighbour_basis%spec(:)%num)
@@ -235,6 +244,10 @@ contains
     !---------------------------------------------------------------------------
     ! Normalise the bond length viability
     !---------------------------------------------------------------------------
+    if(min_distance .lt. 0.25_real32 )then
+       viability_2body = viability_2body * 0.5_real32 * &
+            ( 1._real32 - cos( pi * min_distance / 0.25_real32 ) )
+    end if
     if(num_2body.eq.0)then
        ! This does not matter as, if there are no 2-body bonds, the point is
        ! not meant to be included in the viability set.

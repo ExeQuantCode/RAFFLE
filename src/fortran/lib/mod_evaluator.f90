@@ -57,6 +57,8 @@ contains
     !! Viability of the test point for 3- and 4-body interactions.
     real(real32) :: bondlength, rtmp1
     !! Temporary variables.
+    real(real32), dimension(2) :: cos_scales
+    !! Cosine scales for the 3- and 4-body interactions.
     real(real32), dimension(4) :: tolerances
     !! Tolerance for the distance between atoms for 3- and 4-body.
     integer, dimension(:,:), allocatable :: pair_index
@@ -105,6 +107,8 @@ contains
             radius_list(pair_index(species,is))
        tolerances(2) = min( distribs_container%cutoff_max(1), tolerances(2) )
        tolerances(4) = min( distribs_container%cutoff_max(1), tolerances(4) )
+       cos_scales(1) = tau / ( tolerances(2) - tolerances(1) )
+       cos_scales(2) = tau / ( tolerances(4) - tolerances(3) )
        !------------------------------------------------------------------------
        ! 2-body map
        ! check bondlength between test point and all other atoms
@@ -134,9 +138,7 @@ contains
                 neighbour_basis%spec(is)%atom( &
                      neighbour_basis%spec(is)%num,4 &
                 ) = 0.5_real32 * ( 1._real32 - &
-                     cos( tau * ( bondlength - tolerances(1) ) / &
-                          ( tolerances(2) - tolerances(1) ) &
-                     ) )
+                     cos( cos_scales(1) * ( bondlength - tolerances(1) ) ) )
              end if
 
              if( bondlength .ge. tolerances(3) .and. &
@@ -152,9 +154,7 @@ contains
                 neighbour_basis%image_spec(is)%atom( &
                      neighbour_basis%image_spec(is)%num,4 &
                 ) = 0.5_real32 * ( 1._real32 - &
-                     cos( tau * ( bondlength - tolerances(3) ) / &
-                          ( tolerances(4) - tolerances(3) ) &
-                     ) )
+                     cos( cos_scales(2) * ( bondlength - tolerances(3) ) ) )
              end if
 
              !------------------------------------------------------------------
@@ -188,9 +188,7 @@ contains
                 neighbour_basis%spec(is)%atom( &
                      neighbour_basis%spec(is)%num,4 &
                 ) = 0.5_real32 * ( 1._real32 - &
-                     cos( tau * ( bondlength - tolerances(1) ) / &
-                          ( tolerances(2) - tolerances(1) ) &
-                     ) )
+                     cos( cos_scales(1) * ( bondlength - tolerances(1) ) ) )
              end if
 
              if( bondlength .ge. tolerances(3) .and. &
@@ -204,9 +202,7 @@ contains
                 neighbour_basis%image_spec(is)%atom( &
                      neighbour_basis%image_spec(is)%num,4 &
                 ) =  0.5_real32 * ( 1._real32 - &
-                     cos( tau * ( bondlength - tolerances(3) ) / &
-                          ( tolerances(4) - tolerances(3) ) &
-                     ) )
+                     cos( cos_scales(2) * ( bondlength - tolerances(3) ) ) )
              end if
 
              !------------------------------------------------------------------
@@ -234,7 +230,6 @@ contains
     else
        viability_2body = viability_2body / real( num_2body, real32 )
     end if
-
 
 
     ! store 3-body viable atoms in neighbour_basis%spec
@@ -298,15 +293,11 @@ contains
             1._real32 / real(num_3body,real32) &
        )
     end if
-    viability_3body = viability_3body * &
-         distribs_container%viability_3body_default
     if(num_4body.gt.0)then
        viability_4body = viability_4body ** ( &
             1._real32 / real(num_4body,real32) &
        )
     end if
-    viability_4body = viability_4body * &
-         distribs_container%viability_4body_default
 
 
     !---------------------------------------------------------------------------
@@ -375,6 +366,8 @@ contains
     !! Bin for the distribution function.
     integer :: num_3body_local
     !! Number of 3-body interactions local to the current atom pair.
+    real(real32) :: power
+    !! Power for the contribution to the viability.
 
 
     num_3body_local = sum(basis%spec(current_idx(1):)%num) - current_idx(2)
@@ -383,6 +376,7 @@ contains
        return
     end if
     output = 1._real32
+    power = 1._real32 / real( num_3body_local, real32 )
     species_loop: do js = current_idx(1), basis%nspec, 1
        atom_loop: do ja = 1, basis%spec(js)%num
           if(js.eq.current_idx(1) .and. ja.le.current_idx(2))cycle
@@ -394,14 +388,13 @@ contains
                        position_store(1:3) &
                   ), dim = 2 &
              )
-             output = output * ( &
-                  1._real32 + ( position_2(4) * position_store(4) &
-                  ) * ( &
+             output = output * &
+                  ( 1._real32 + ( position_2(4) * position_store(4) ) * ( &
                        distribs_container%gdf%df_3body( &
                             bin, &
                             distribs_container%element_map(species) &
                        ) - distribs_container%viability_3body_default &
-                  ) ) ** ( 1._real32 / real( num_3body_local, real32 ) )
+                  ) ) ** power
           end associate
        end do atom_loop
     end do species_loop
@@ -436,6 +429,8 @@ contains
     !! Bin for the distribution function.
     integer :: num_4body_local
     !! Number of 4-body interactions local to the current atom triplet.
+    real(real32) :: power
+    !! Power for the contribution to the viability.
 
 
     num_4body_local = sum(basis%image_spec(:)%num)
@@ -444,6 +439,7 @@ contains
        return
     end if
     output = 1._real32
+    power = 1._real32 / real( num_4body_local, real32 )
     species_loop: do ks = 1, basis%nspec, 1
        atom_loop: do ka = 1, basis%image_spec(ks)%num
           associate( position_store => [ basis%image_spec(ks)%atom(ka,1:4) ] )
@@ -463,7 +459,7 @@ contains
                             bin, &
                             distribs_container%element_map(species) &
                        ) - distribs_container%viability_4body_default &
-                  ) ) ** ( 1._real32 / real( num_4body_local, real32 ) )
+                  ) ) ** power
           end associate
        end do atom_loop
     end do species_loop

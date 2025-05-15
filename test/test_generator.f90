@@ -2,7 +2,7 @@ program test_generator
   use raffle__io_utils
   use raffle__misc_linalg, only: modu
   use raffle__constants, only: real32
-  use raffle__geom_rw, only: basis_type, geom_write
+  use raffle__geom_rw, only: basis_type
   use raffle__generator, only: raffle_generator_type, stoichiometry_type
   implicit none
 

@@ -27,7 +27,7 @@ contains
     !!
     !! This function evaluates the viability of a point in a basis for a
     !! specified species. The viability is determined by the bond lengths,
-    !! bond angles and dihedral angles between the test point and all atoms. 
+    !! bond angles and dihedral angles between the test point and all atoms.
     implicit none
 
     ! Arguments
@@ -45,7 +45,7 @@ contains
     !! List of radii for each pair of elements.
     real(real32) :: output
     !! Suitability of the test point.
-    
+
     ! Local variables
     integer :: i, is, js, ia, ja
     !! Loop counters.
@@ -114,7 +114,8 @@ contains
              bondlength = modu( matmul(position - position_store, basis%lat) )
              if( bondlength .gt. distribs_container%cutoff_max(1) ) &
                   cycle atom_loop
-             if( bondlength .lt. ( &
+             if( bondlength .lt. max( &
+                  distribs_container%cutoff_min(1),  &
                   radius_list(pair_index(species,is)) * &
                   distribs_container%radius_distance_tol(1) &
              ) )then
@@ -155,7 +156,7 @@ contains
                      neighbour_basis%image_spec(is)%num,:3 &
                 ) = matmul(position_store, basis%lat)
              end if
-        
+
              !------------------------------------------------------------------
              ! Add the contribution of the bond length to the viability
              !------------------------------------------------------------------
@@ -177,7 +178,8 @@ contains
              bondlength = modu( matmul(position - position_store, basis%lat) )
              if( bondlength .gt. distribs_container%cutoff_max(1) ) &
                   cycle image_loop
-             if( bondlength .lt. ( &
+             if( bondlength .lt. max( &
+                  distribs_container%cutoff_min(1),  &
                   radius_list(pair_index(species,is)) * &
                   distribs_container%radius_distance_tol(1) &
              ) )then
@@ -211,7 +213,7 @@ contains
                      neighbour_basis%image_spec(is)%num,:3 &
                 ) = matmul(position_store, basis%lat)
              end if
-        
+
              !------------------------------------------------------------------
              ! Add the contribution of the bond length to the viability
              !------------------------------------------------------------------
@@ -314,7 +316,7 @@ contains
     ! Combine the 2-, 3- and 4-body viabilities to get the overall viability
     !---------------------------------------------------------------------------
     output = viability_2body * viability_3body * viability_4body
-    
+
   end function evaluate_point
 !###############################################################################
 

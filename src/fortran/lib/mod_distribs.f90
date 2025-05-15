@@ -323,6 +323,10 @@ contains
              itmp1 = 0
              tolerances(:) = radius_distance_tol_(:) * &
                   bond_info(pair_index(is, js))%radius_covalent
+             tolerances(1) = max( cutoff_min_(1), tolerances(1) )
+             tolerances(3) = max( cutoff_min_(1), tolerances(3) )
+             tolerances(2) = min( cutoff_max_(1), tolerances(2) )
+             tolerances(4) = min( cutoff_max_(1), tolerances(4) )
 
              !------------------------------------------------------------------
              ! loop over all atoms inside the unit cell

@@ -74,6 +74,8 @@ program test_distribs_container
   basis_mgo%energy = -20.0
 
   call test_init_distribs_container(success)
+  call test_set_history_len(success)
+  call test_is_converged(success)
   call test_set_width(success)
   call test_set_sigma(success)
   call test_set_cutoff_min(success)
@@ -115,11 +117,13 @@ contains
     class(distribs_container_type), allocatable :: distribs_container
     character(len=10) :: test_name
 
+    integer :: history_len
     integer, dimension(3) :: nbins
     real(real32), dimension(3) :: width, sigma, cutoff_min, cutoff_max
 
     ! Test case 1: Default initialisation
     distribs_container = distribs_container_type()
+    history_len = 0
     nbins = [-1, -1, -1]
     width = [0.025_real32, pi/64._real32, pi/64._real32]
     sigma = [0.1_real32, 0.1_real32, 0.1_real32]
@@ -128,6 +132,19 @@ contains
     test_name = "Default"
 
     do i = 1, 2
+       call assert( &
+            distribs_container%history_len .eq. history_len, &
+            trim(test_name)//" history_len initialisation failed", &
+            success &
+       )
+       if(history_len.gt.0)then
+          call assert( &
+               allocated( distribs_container%history_deltas) .and. &
+               size( distribs_container%history_deltas, 1) .eq. history_len, &
+               trim(test_name)//" history_deltas initialisation failed", &
+               success &
+          )
+       end if
        call assert( &
             all( distribs_container%nbins .eq. nbins ), &
             trim(test_name)//" nbins initialisation failed", &
@@ -160,12 +177,14 @@ contains
 
        if(i.eq.2) exit
        ! Test case 2: Custom initialisation
+       history_len = 15
        nbins = [10, 20, 30]
        width = [0.05_real32, 0.1_real32, 0.15_real32]
        sigma = [0.2_real32, 0.3_real32, 0.4_real32]
        cutoff_min = [1.0_real32, 2.0_real32, 3.0_real32]
        cutoff_max = [5.0_real32, 6.0_real32, 7.0_real32]
        distribs_container = distribs_container_type( &
+            history_len=history_len,  &
             nbins=nbins,  &
             width=width,  &
             sigma=sigma,  &
@@ -183,8 +202,62 @@ contains
          cutoff_max=cutoff_max &
     )
     write(*,*) "Handled error: cutoff_min > cutoff_max"
-  
+
   end subroutine test_init_distribs_container
+
+  subroutine test_set_history_len(success)
+    implicit none
+    logical, intent(inout) :: success
+
+    type(distribs_container_type) :: distribs_container
+    integer :: history_len
+
+    ! Initialise test data
+    history_len = 10
+
+    ! Call the subroutine to set the history length
+    call distribs_container%set_history_len(history_len)
+
+    ! Check if the history length was set correctly
+    call assert( &
+         distribs_container%history_len .eq. history_len, &
+         "History length was not set correctly", &
+         success &
+    )
+
+    call assert( &
+         allocated(distribs_container%history_deltas) .and. &
+         size(distribs_container%history_deltas, 1) .eq. history_len, &
+         "History delta list was not allocated", &
+         success &
+    )
+
+  end subroutine test_set_history_len
+
+  subroutine test_is_converged(success)
+    implicit none
+    logical, intent(inout) :: success
+
+    type(distribs_container_type) :: distribs_container
+
+    ! Call the subroutine to check if the system is converged
+    call distribs_container%set_history_len(10)
+
+    ! Check if the system is converged
+    call assert( &
+         .not. distribs_container%is_converged( threshold = 1.E-2_real32 ), &
+         "System should not be converged on initialisation", &
+         success &
+    )
+
+    distribs_container%history_deltas(:) = 1.E-3_real32
+    call assert( &
+         distribs_container%is_converged( threshold = 1.E-2_real32 ), &
+         "System should be converged", &
+         success &
+    )
+
+  end subroutine test_is_converged
 
   subroutine test_set_width(success)
     implicit none
@@ -295,7 +368,8 @@ contains
     call assert( &
          all( &
               abs( &
-                   distribs_container%radius_distance_tol - radius_distance_tol &
+                   distribs_container%radius_distance_tol - &
+                   radius_distance_tol &
               ) .lt. 1.E-6_real32 &
          ), &
          "Radius_distance_tol was not set correctly", &
@@ -509,7 +583,7 @@ contains
          "system not correctly deallocated",  &
          success &
     )
-    
+
   end subroutine test_create
 
   subroutine test_update(basis, success)
@@ -577,7 +651,7 @@ contains
          "system not correctly deallocated",  &
          success &
     )
-    
+
   end subroutine test_update
 
   subroutine test_add(basis, success)
@@ -690,7 +764,7 @@ contains
          "Element energy is incorrect",  &
          success &
     )
-    
+
   end subroutine test_get_element_energies
 
   subroutine test_get_element_energies_staticmem(basis, success)
@@ -729,7 +803,7 @@ contains
          "Element energy is incorrect",  &
          success &
     )
-    
+
   end subroutine test_get_element_energies_staticmem
 
   subroutine test_set_bond_radii(basis, success)
@@ -792,8 +866,8 @@ contains
          "Bond radius was not set correctly", &
          success &
     )
-    
-    
+
+
 
   end subroutine test_set_bond_radii
 

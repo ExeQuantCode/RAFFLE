@@ -38,7 +38,7 @@ program test_evaluator_BTO
   !-----------------------------------------------------------------------------
   ! check for input argument flags
   !-----------------------------------------------------------------------------
-  viability_printing = .false.
+  viability_printing = .true.
   viability_printing_file = 'viability_BTO.dat'
   if( command_argument_count() .ne. 0 ) then
      i = 1
@@ -180,7 +180,7 @@ program test_evaluator_BTO
 
   generator%distributions%kbt = 0.2
   call generator%set_host(basis_host)
-  call generator%set_grid( grid_spacing = 0.1, grid_offset = [0.0, 0.0, 0.0] )
+  call generator%set_grid( grid_spacing = 0.05, grid_offset = [0.0, 0.0, 0.0] )
   generator%distributions%radius_distance_tol = [1.5, 2.5, 3.0, 6.0]
   call generator%distributions%set_width([0.025, pi/200.0, pi/200.0])
 

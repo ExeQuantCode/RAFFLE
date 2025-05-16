@@ -697,7 +697,7 @@ contains
     class(distribs_container_type), intent(inout) :: this
     !! Parent. Instance of distribution functions container.
 
-    deallocate(this%system)
+    if(allocated(this%system)) deallocate(this%system)
     this%num_evaluated_allocated = 0
 
   end subroutine deallocate_systems

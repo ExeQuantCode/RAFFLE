@@ -1,5 +1,30 @@
 ! Module raffle__geom_rw defined in file ../src/lib/mod_geom_rw.f90
 
+subroutine f90wrap_species_type__array__atom_idx(this, nd, dtype, dshape, dloc)
+    use raffle__geom_rw, only: species_type
+    use, intrinsic :: iso_c_binding, only : c_int
+    implicit none
+    type species_type_ptr_type
+        type(species_type), pointer :: p => NULL()
+    end type species_type_ptr_type
+    integer(c_int), intent(in) :: this(2)
+    type(species_type_ptr_type) :: this_ptr
+    integer(c_int), intent(out) :: nd
+    integer(c_int), intent(out) :: dtype
+    integer(c_int), dimension(10), intent(out) :: dshape
+    integer*8, intent(out) :: dloc
+    
+    nd = 1
+    dtype = 5
+    this_ptr = transfer(this, this_ptr)
+    if (allocated(this_ptr%p%atom_idx)) then
+        dshape(1:1) = shape(this_ptr%p%atom_idx)
+        dloc = loc(this_ptr%p%atom_idx)
+    else
+        dloc = 0
+    end if
+end subroutine f90wrap_species_type__array__atom_idx
+
 subroutine f90wrap_species_type__array__atom(this, nd, dtype, dshape, dloc)
     use raffle__geom_rw, only: species_type
     use, intrinsic :: iso_c_binding, only : c_int

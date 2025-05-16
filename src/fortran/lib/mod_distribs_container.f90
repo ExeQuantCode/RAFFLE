@@ -47,9 +47,10 @@ module raffle__distribs_container
      !! above the hull. If false, the formation energy from the element
      !! reference energies is used.
      real(real32) :: &
+          viability_2body_default = 0.1_real32, &
           viability_3body_default = 0.1_real32, &
           viability_4body_default = 0.1_real32
-     !! Default viability for the 3- and 4-body distribution functions.
+     !! Default viability for the 2-, 3-, and 4-body distribution functions.
      logical :: smooth_viability = .true.
      !! DEV FEATURE. Boolean whether to smooth the viability evaluation.
      logical, dimension(:), allocatable :: &
@@ -2744,6 +2745,8 @@ contains
     this%num_evaluated_allocated = size(this%system)
     this%num_evaluated = this%num_evaluated + num_evaluated
 
+    this%viability_2body_default = sum( this%gdf%df_2body ) / &
+         real( size( this%gdf%df_2body ), real32 )
     this%viability_3body_default = sum( this%gdf%df_3body ) / &
          real( size( this%gdf%df_3body ), real32 )
     this%viability_4body_default = sum( this%gdf%df_4body ) / &

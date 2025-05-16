@@ -179,3 +179,51 @@ This can then be visualised in a similar way to the descriptor.
     plt.show()
 
 An example python notebook is provided in  :git:`examples/python_pkg/visualisation/fingerprint.ipynb <examples/python_pkg/visualisation/fingerprint.ipynb>`.
+
+
+Visualising RAFFLE probability density
+--------------------------------------
+
+RAFFLE probability density is the probability of finding a given element in a given position in the system.
+This is calculated by the RAFFLE generator and can be visualised using the `get_probability_density()` method.
+The output is a 2D array, with the first column containing the coordinates (spatial and species) the second column containing the binned probability density value.
+
+A structure is provided to the `get_probability_density()`, along with a list of elements to calculate the probability density for.
+These elements must be present in the RAFFLE descriptor.
+
+An example of how to use the `get_probability_density()` method is shown below:
+
+.. code-block:: python
+
+    # Initialise RAFFLE generator
+    from raffle.generator import raffle_generator
+
+    generator = raffle_generator()
+
+    generator.distributions.set_element_energies(
+        {
+            # reference energies for all elements in the systems
+        }
+    )
+
+    database = [
+        # List of structures in the learning database
+    ]
+    generator.distributions.create(database)
+
+    # Structure to obtain the probability density for
+    structure = Atoms(
+        # Structure to be used for the probability density
+    )
+
+    species = 'SiGe'
+
+    probability_density, grid = generator.get_probability_density(structure, species, return_grid=True)
+
+The first index of the first column of `probability_density` is the x-coordinate, the second index is the y-coordinate, and the third index is the z-coordinate.
+The fourth index is the distance between the position and the nearest atom (i.e. the void value).
+The fifth index onwards is the species index (in order of the species list provided).
+The second column is the site index.
+
+For a more extensive example, see the `examples/python_pkg/visualisation/probability_density.ipynb` notebook.
+This also provides a visualisation of the probability density using the `matplotlib` library.

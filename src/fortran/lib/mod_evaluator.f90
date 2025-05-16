@@ -252,7 +252,7 @@ contains
        ! This does not matter as, if there are no 2-body bonds, the point is
        ! not meant to be included in the viability set.
        ! The evaluator cannot comment on the viability of the point.
-       viability_2body = 0.5_real32
+       viability_2body = distribs_container%viability_2body_default
     else
        viability_2body = viability_2body / real( num_2body, real32 )
     end if

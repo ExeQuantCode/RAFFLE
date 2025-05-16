@@ -2019,7 +2019,9 @@ class Generator(f90wrap.runtime.FortranModule):
                                     grid : list[int] = None,
                                     grid_offset : list[float] = None,
                                     grid_spacing : float = None,
-                                    bounds : list[list[float]] = None):
+                                    bounds : list[list[float]] = None,
+                                    return_grid : bool = False
+        ):
             """
             Get the probability density of the generated structures.
 
@@ -2039,6 +2041,8 @@ class Generator(f90wrap.runtime.FortranModule):
                 The bounding box within which to constrain placement of atoms.
                 In the form [[a_min, a_max], [b_min, b_max], [c_min, c_max]].
                 Values given in direct (crystal) coordinates, ranging from 0 to 1.
+            return_grid : bool
+                Whether to return the number of grid points along each axis of the host.
 
             Returns
             -------
@@ -2072,7 +2076,10 @@ class Generator(f90wrap.runtime.FortranModule):
             probability_density = numpy.asfortranarray(numpy.zeros((n_coords, n_points), dtype=numpy.float32))
             _raffle.f90wrap_retrieve_probability_density(probability_density)
 
-            return probability_density, ret_grid
+            if return_grid:
+                return probability_density, ret_grid
+            else:
+                return probability_density
 
         def print_settings(self, file : str):
             """

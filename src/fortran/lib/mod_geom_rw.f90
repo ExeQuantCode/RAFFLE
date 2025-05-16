@@ -1451,6 +1451,8 @@ contains
     !! Optional. Boolean whether the position is in cartesian coordinates.
 
     ! Local variables
+    integer :: j
+    !! Loop index.
     integer :: idx
     !! The index of the species in the basis.
     integer :: length
@@ -1487,7 +1489,11 @@ contains
        deallocate(species_list)
     else
        allocate(atom_idx(this%spec(idx)%num+1))
-       atom_idx(1:this%spec(idx)%num) = this%spec(idx)%atom_idx
+       if(allocated(this%spec(idx)%atom_idx))then
+          atom_idx(1:this%spec(idx)%num) = this%spec(idx)%atom_idx
+       else
+          atom_idx(1:this%spec(idx)%num) = [ ( j, j = 1, this%spec(idx)%num ) ]
+       end if
        atom_idx(this%spec(idx)%num+1) = this%natom
        allocate(positions(this%spec(idx)%num+1,length))
        positions = 0._real32

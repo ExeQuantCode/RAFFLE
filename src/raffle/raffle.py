@@ -1884,7 +1884,11 @@ class Generator(f90wrap.runtime.FortranModule):
                 stoichiometry = {}
                 for s in split:
                     element = re.findall(r'[A-Z][a-z]?', s)[0]
-                    num = re.findall(r'\d+', s)[0]
+                    # if no number is found, set it to 1
+                    if re.findall(r'\d+', s) == []:
+                        num = 1
+                    else:
+                        num = re.findall(r'\d+', s)[0]
                     stoichiometry[element] = int(num)
                 stoichiometry = Generator.stoichiometry_array(dict=stoichiometry)
 

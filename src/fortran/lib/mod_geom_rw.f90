@@ -1451,6 +1451,8 @@ contains
     !! The index of the species in the basis.
     integer :: length
     !! The dimension of the basis atom positions.
+    integer, dimension(:), allocatable :: atom_idx
+    !! Temporary array.
     real(real32), dimension(:,:), allocatable :: positions
     !! Temporary array.
     type(species_type), dimension(:), allocatable :: species_list
@@ -1472,18 +1474,25 @@ contains
             species_list(this%nspec)%charge, &
             species_list(this%nspec)%radius &
        )
+       allocate(species_list(this%nspec)%atom_idx(1))
+       species_list(this%nspec)%atom_idx(1) = this%natom
        allocate(species_list(this%nspec)%atom(1,length))
        species_list(this%nspec)%atom(1,:) = 0._real32
        species_list(this%nspec)%atom(1,:3) = position
        this%spec = species_list
        deallocate(species_list)
     else
+       allocate(atom_idx(this%spec(idx)%num+1))
+       atom_idx(1:this%spec(idx)%num) = this%spec(idx)%atom_idx
+       atom_idx(this%spec(idx)%num+1) = this%natom
        allocate(positions(this%spec(idx)%num+1,length))
        positions = 0._real32
        positions(1:this%spec(idx)%num,:) = this%spec(idx)%atom
        positions(this%spec(idx)%num+1,:3) = position
        this%spec(idx)%num = this%spec(idx)%num + 1
+       this%spec(idx)%atom_idx = atom_idx
        this%spec(idx)%atom = positions
+       deallocate(atom_idx)
        deallocate(positions)
     end if
 
@@ -1544,8 +1553,8 @@ contains
                   this%spec(i)%atom(iatom+1:this%spec(i)%num:1,:)
           end if
           where(atom_idx(1:this%spec(i)%num-1:1).gt.remove_idx)
-               atom_idx(1:this%spec(i)%num-1:1) = &
-                    atom_idx(1:this%spec(i)%num-1:1) - 1
+             atom_idx(1:this%spec(i)%num-1:1) = &
+                  atom_idx(1:this%spec(i)%num-1:1) - 1
           end where
           this%spec(i)%atom_idx = atom_idx
           this%spec(i)%atom = atom

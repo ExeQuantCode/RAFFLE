@@ -100,13 +100,18 @@ contains
     ! set up atoms in merged basis
     !---------------------------------------------------------------------------
     do i = 1, basis1%nspec
+       allocate(output%spec(i)%atom_idx(output%spec(i)%num))
        allocate(output%spec(i)%atom(output%spec(i)%num,dim))
        output%spec(i)%atom(:,:)=0._real32
-       output%spec(i)%atom(1:basis1%spec(i)%num,:3)=basis1%spec(i)%atom(:,:3)
-       if(lmap) new_map(i,:basis1%spec(i)%num,:)=map1(i,:basis1%spec(i)%num,:)
+       output%spec(i)%atom(1:basis1%spec(i)%num,:3) = basis1%spec(i)%atom(:,:3)
+       output%spec(i)%atom_idx(1:basis1%spec(i)%num) = basis1%spec(i)%atom_idx
+       if(lmap) new_map(i,:basis1%spec(i)%num,:) = map1(i,:basis1%spec(i)%num,:)
     end do
     do i = 1, basis2%nspec
        if(match(i).gt.basis1%nspec)then
+          allocate(output%spec(match(i))%atom_idx(output%spec(match(i))%num))
+          output%spec(match(i))%atom_idx(:) = &
+               basis2%spec(i)%atom_idx(:) + basis1%natom
           allocate(output%spec(match(i))%atom(output%spec(match(i))%num,dim))
           output%spec(match(i))%atom(:,:)=0._real32
           output%spec(match(i))%atom(:,:3)=basis2%spec(i)%atom(:,:3)
@@ -114,6 +119,8 @@ contains
                map2(i,:basis2%spec(i)%num,:)
        else
           itmp=basis1%spec(match(i))%num
+          output%spec(match(i))%atom_idx(itmp+1:basis2%spec(i)%num+itmp) = &
+               basis2%spec(i)%atom_idx(:) + basis1%natom
           output%spec(match(i))%atom(itmp+1:basis2%spec(i)%num+itmp,:3) = &
                basis2%spec(i)%atom(:,:3)   
           if(lmap) new_map(match(i),itmp+1:basis2%spec(i)%num+itmp,:) = &
@@ -122,10 +129,8 @@ contains
     end do
     output%natom=sum(output%spec(:)%num)
 
-
     if(lmap) call move_alloc(new_map,map1)
 
-    return
   end function basis_merge
 !###############################################################################
 

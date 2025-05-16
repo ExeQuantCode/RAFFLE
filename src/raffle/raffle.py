@@ -59,6 +59,26 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
                 _raffle.f90wrap_geom_rw__species_type_finalise(this=self._handle)
 
         @property
+        def atom_idx(self):
+            """
+            Element atom_idx ftype=integer pytype=int
+            """
+            array_ndim, array_type, array_shape, array_handle = \
+                _raffle.f90wrap_species_type__array__atom_idx(self._handle)
+            if array_handle in self._arrays:
+                atom_idx = self._arrays[array_handle]
+            else:
+                atom_idx = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                        self._handle,
+                                        _raffle.f90wrap_species_type__array__atom_idx)
+                self._arrays[array_handle] = atom_idx
+            return atom_idx
+        
+        @atom_idx.setter
+        def atom_idx(self, atom_idx):
+            self.atom_idx[...] = atom_idx
+
+        @property
         def atom(self):
             """
             Derived type containing the atomic information of a crystal.
@@ -135,12 +155,16 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
 
         def __str__(self):
             ret = ['<species_type>{\n']
+            ret.append('    atom_idx : ')
+            ret.append(repr(self.atom_idx))
             ret.append('    atom : ')
             ret.append(repr(self.atom))
             ret.append(',\n    mass : ')
             ret.append(repr(self.mass))
             ret.append(',\n    charge : ')
             ret.append(repr(self.charge))
+            ret.append(',\n    radius : ')
+            ret.append(repr(self.radius))
             ret.append(',\n    name : ')
             ret.append(repr(self.name))
             ret.append(',\n    num : ')
@@ -274,11 +298,22 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
             # Set the species list
             positions = []
             symbols = []
+            idx_list = []
             for i in range(self.nspec):
                 name = str(self.spec[i].name.decode()).strip()
                 for j in range(self.spec[i].num):
                     symbols.append(name)
                     positions.append(self.spec[i].atom[j][:3])
+                    idx_list.append(self.spec[i].atom_idx[j] - 1)
+
+            # Check if the length of set(idx_list) is equal to the number of atoms
+            if len(set(idx_list)) == self.natom:
+                # Reorder the positions and symbols according to the atom indices
+                idx_list = numpy.array(idx_list, dtype=int)
+                positions = numpy.array(positions, dtype=float)
+                symbols = numpy.array(symbols, dtype=str)
+                positions = positions[idx_list]
+                symbols = symbols[idx_list]
 
             lattice = numpy.reshape(self.lat, (3,3), order='A')
             pbc = numpy.reshape(self.pbc, (3,), order='A')

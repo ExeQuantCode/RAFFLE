@@ -645,7 +645,11 @@ contains
     basis_template%nspec = num_insert_species
     basis_template%sysname = "inserts"
 
+    j = 0
     do i = 1, basis_template%nspec
+       basis_template%spec(i)%atom_idx = &
+            [ ( k, k = j + 1, basis_template%spec(i)%num ) ]
+       j = j + basis_template%spec(i)%num
        allocate( &
             basis_template%spec(i)%atom(basis_template%spec(i)%num,3), &
             source = 0._real32 &

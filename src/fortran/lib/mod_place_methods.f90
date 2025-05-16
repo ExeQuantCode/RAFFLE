@@ -142,8 +142,11 @@ contains
                     basis, point, &
                     species = js, &
                     ignore_list = atom_ignore_list &
-               ) .lt. radius_list(pair_index(atom_ignore_list(1,1),js)) * &
-               distribs_container%radius_distance_tol(1) &
+               ) .lt. max( &
+                    distribs_container%cutoff_min(1), &
+                    radius_list(pair_index(atom_ignore_list(1,1),js)) * &
+                    distribs_container%radius_distance_tol(1) &
+               ) &
           )then
              cycle atom_loop
           end if
@@ -391,7 +394,11 @@ contains
          basis%spec(prior_species)%name, &
          basis%spec(atom_ignore_list(1,1))%name &
     )
-    min_radius = radius_list(idx) * distribs_container%radius_distance_tol(1)
+    min_radius = &
+         max( &
+              distribs_container%cutoff_min(1), &
+              radius_list(idx) * distribs_container%radius_distance_tol(1) &
+         )
 
 
     !---------------------------------------------------------------------------

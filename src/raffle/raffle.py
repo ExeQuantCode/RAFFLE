@@ -308,18 +308,16 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
                     positions.append(self.spec[i].atom[j][:3])
                     idx_list.append(self.spec[i].atom_idx[j] - 1)
 
+
             # Check if the length of set(idx_list) is equal to the number of atoms
             if len(set(idx_list)) == self.natom:
-                print("length is as expected")
                 # Reorder the positions and symbols according to the atom indices
-                idx_list = numpy.array(idx_list, dtype=int)
+                idx_list = numpy.array(numpy.argsort(idx_list), dtype=int)
                 positions = numpy.array(positions, dtype=float)
                 symbols = numpy.array(symbols, dtype=str)
                 positions = positions[idx_list]
                 symbols = symbols[idx_list]
 
-            print(idx_list)
-            print(symbols)
             lattice = numpy.reshape(self.lat, (3,3), order='A')
             pbc = numpy.reshape(self.pbc, (3,), order='A')
             # Set the atoms

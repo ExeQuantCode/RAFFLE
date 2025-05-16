@@ -1365,8 +1365,8 @@ contains
 
 
     ! Local variables
-    integer :: i
-    !! Loop index.
+    integer :: i, j
+    !! Loop indices.
     integer :: length_, length_input
     !! The dimension of the basis atom positions.
 
@@ -1400,10 +1400,14 @@ contains
     allocate(this%spec(basis%nspec))
     do i = 1, basis%nspec
        allocate(this%spec(i)%atom_idx(basis%spec(i)%num))
-       allocate(this%spec(i)%atom(&
-            basis%spec(i)%num,length_))
+       allocate(this%spec(i)%atom(basis%spec(i)%num,length_))
 
-       this%spec(i)%atom_idx = basis%spec(i)%atom_idx
+       if(allocated(basis%spec(i)%atom_idx))then
+          this%spec(i)%atom_idx = basis%spec(i)%atom_idx
+       else
+          this%spec(i)%atom_idx = [ ( j, j = sum(basis%spec(1:i-1:1)%num) + 1, &
+               sum(basis%spec(1:i)%num) ) ]
+       end if
        if(length_input.eq.length_)then
           this%spec(i)%atom(:,:length_) = basis%spec(i)%atom(:,:length_)
        elseif(length_input.gt.length_)then

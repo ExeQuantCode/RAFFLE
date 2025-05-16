@@ -665,8 +665,10 @@ end subroutine f90wrap_geom_rw__basis_type_xnum_array_finalise
 
 
 subroutine f90wrap_geom_rw__allocate_species__binding__basis_type( &
-       this, num_species, species_symbols, species_count, atoms, n0, &
-       n1, n2, n3)
+       this, num_species, species_symbols, species_count, atoms, &
+       atom_idx_list, &
+       n0, n1, n2, n3 &
+)
     use raffle__geom_rw, only: basis_type
     implicit none
     
@@ -679,6 +681,7 @@ subroutine f90wrap_geom_rw__allocate_species__binding__basis_type( &
     character(3), intent(in), optional, dimension(n0) :: species_symbols
     integer, intent(in), optional, dimension(n1) :: species_count
     real(4), intent(in), optional, dimension(n2,n3) :: atoms
+    integer, intent(in), optional, dimension(n2) :: atom_idx_list
     integer :: n0
     !f2py intent(hide), depend(species_symbols) :: n0 = shape(species_symbols,0)
     integer :: n1
@@ -692,7 +695,8 @@ subroutine f90wrap_geom_rw__allocate_species__binding__basis_type( &
          num_species=num_species, &
          species_symbols=species_symbols, &
          species_count=species_count, &
-         atoms=atoms &
+         atoms=atoms, &
+         atom_idx_list=atom_idx_list &
     )
 end subroutine f90wrap_geom_rw__allocate_species__binding__basis_type
 

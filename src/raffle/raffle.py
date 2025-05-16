@@ -2013,6 +2013,67 @@ class Generator(f90wrap.runtime.FortranModule):
                 basis=basis._handle)
             return viability
 
+        def get_probability_density(self,
+                                    basis,
+                                    species : list[str] | str,
+                                    grid : list[int] = None,
+                                    grid_offset : list[float] = None,
+                                    grid_spacing : float = None,
+                                    bounds : list[list[float]] = None):
+            """
+            Get the probability density of the generated structures.
+
+            Parameters
+            ----------
+            basis : Geom_Rw.basis or ase.Atoms
+                The basis to use for the evaluation.
+            species : list[str] or str
+                The species to use for the evaluation.
+            grid : list[int]
+                The number of grid points along each axis of the host.
+            grid_offset : list[float]
+                The offset of the grid from the origin.
+            grid_spacing : float
+                The spacing between grid points.
+            bounds : list[list[float]]:
+                The bounding box within which to constrain placement of atoms.
+                In the form [[a_min, a_max], [b_min, b_max], [c_min, c_max]].
+                Values given in direct (crystal) coordinates, ranging from 0 to 1.
+
+            Returns
+            -------
+            numpy.ndarray (4 + num_species, n_points)
+                The probability density of the generated structures.
+            list[int]
+                The grid parameters used for the generation.
+            """
+            probability_density = None
+            ret_grid = numpy.zeros(3, dtype=numpy.int32)
+            if isinstance(basis, Atoms):
+                basis = geom_rw.basis(atoms=basis)
+
+            if isinstance(species, str):
+                species = re.findall(r'[A-Z][a-z]?\d*', species)
+                species = [re.sub(r'\d+', '', s) for s in species]
+
+            n_coords, n_points, ret_grid = _raffle.f90wrap_generator__get_probability_density__rgt(
+                this = self._handle,
+                basis = basis._handle,
+                species_list = species,
+                grid = grid,
+                grid_offset = grid_offset,
+                grid_spacing = grid_spacing,
+                bounds = bounds,
+            )
+            ret_grid = ret_grid.tolist()
+
+
+            # allocate the structures
+            probability_density = numpy.asfortranarray(numpy.zeros((n_coords, n_points), dtype=numpy.float32))
+            _raffle.f90wrap_retrieve_probability_density(probability_density)
+
+            return probability_density, ret_grid
+
         def print_settings(self, file : str):
             """
             Print the settings for the generation to a file.

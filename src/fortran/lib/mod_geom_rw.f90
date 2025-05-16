@@ -71,6 +71,8 @@ module raffle__geom_rw
      !! Procedure to copy the basis.
      procedure, pass(this) :: get_lattice_constants
      !! Procedure to get the lattice constants of the basis.
+     procedure, pass(this) :: add_atom
+     !! Procedure to add an atom to the basis.
      procedure, pass(this) :: remove_atom
      !! Procedure to remove an atom from the basis.
      procedure, pass(this) :: remove_atoms
@@ -1406,6 +1408,66 @@ contains
     this%pbc = basis%pbc
 
   end subroutine copy
+!###############################################################################
+
+
+!###############################################################################
+  subroutine add_atom(this, species, position, is_cartesian)
+    !! Add an atom to the basis.
+    implicit none
+
+    ! Arguments
+    class(basis_type), intent(inout) :: this
+    !! Parent. The basis.
+    character(len=3), intent(in) :: species
+    !! The species of the atom to add.
+    real(real32), dimension(3), intent(in) :: position
+    !! The position of the atom to add.
+    logical, intent(in), optional :: is_cartesian
+    !! Optional. Boolean whether the position is in cartesian coordinates.
+
+    ! Local variables
+    integer :: idx
+    !! The index of the species in the basis.
+    integer :: length
+    !! The dimension of the basis atom positions.
+    real(real32), dimension(:,:), allocatable :: positions
+    !! Temporary array.
+    type(species_type), dimension(:), allocatable :: species_list
+    !! Temporary array.
+
+
+    this%natom = this%natom + 1
+    length = size(this%spec(1)%atom,dim=2)
+    idx = findloc(this%spec(:)%name, strip_null(species), dim=1)
+    if(idx.eq.0)then
+       this%nspec = this%nspec + 1
+       allocate(species_list(this%nspec))
+       species_list(1:this%nspec-1) = this%spec(1:this%nspec-1)
+       deallocate(this%spec)
+       species_list(this%nspec)%name = strip_null(species)
+       species_list(this%nspec)%num = 1
+       call get_element_properties(species_list(this%nspec)%name, &
+            species_list(this%nspec)%mass, &
+            species_list(this%nspec)%charge, &
+            species_list(this%nspec)%radius &
+       )
+       allocate(species_list(this%nspec)%atom(1,length))
+       species_list(this%nspec)%atom(1,:) = 0._real32
+       species_list(this%nspec)%atom(1,:3) = position
+       this%spec = species_list
+       deallocate(species_list)
+    else
+       allocate(positions(this%spec(idx)%num+1,length))
+       positions = 0._real32
+       positions(1:this%spec(idx)%num,:) = this%spec(idx)%atom
+       positions(this%spec(idx)%num+1,:3) = position
+       this%spec(idx)%num = this%spec(idx)%num + 1
+       this%spec(idx)%atom = positions
+       deallocate(positions)
+    end if
+
+  end subroutine add_atom
 !###############################################################################
 
 

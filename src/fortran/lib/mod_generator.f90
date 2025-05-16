@@ -108,6 +108,8 @@ module raffle__generator
      !! Procedure to remove a structure from the array of generated structures.
      procedure, pass(this) :: evaluate
      !! Procedure to evaluate the viability of a structure.
+     procedure, pass(this) :: get_probability_density
+     !! Procedure to get the probability density of a structure.
 
      procedure, pass(this) :: print_settings => print_generator_settings
      !! Procedure to print the raffle generator settings.
@@ -1152,7 +1154,7 @@ contains
     !! Viability of the generated structures.
 
     ! Local variables
-    integer :: is, ia, species
+    integer :: is, ia, idx
     !! Loop indices.
     integer, dimension(2,1) :: atom_ignore
     !! Atom to ignore.
@@ -1169,10 +1171,10 @@ contains
          [ basis_extd%spec(:)%name ] &
     )
     do is = 1, basis%nspec
-       species = this%distributions%get_element_index( &
+       idx = this%distributions%get_element_index( &
             basis_extd%spec(is)%name &
        )
-       if(species.eq.0)then
+       if(idx.eq.0)then
           call stop_program( &
                "Species "//&
                trim(basis_extd%spec(is)%name)//&
@@ -1185,7 +1187,7 @@ contains
           viability = viability + &
                evaluate_point( this%distributions, &
                     [ basis%spec(is)%atom(ia,1:3) ], &
-                    species, basis_extd, &
+                    is, basis_extd, &
                     atom_ignore, &
                     [ this%distributions%bond_info(:)%radius_covalent ] &
                )
@@ -1194,6 +1196,127 @@ contains
 
     viability = viability / real(basis%natom, real32)
   end function evaluate
+!###############################################################################
+
+
+!###############################################################################
+  function get_probability_density(this, basis, species_list, &
+       grid, grid_offset, grid_spacing, bounds, &
+       grid_output &
+  ) result(probability)
+    !! Get the probability density of the generated structures.
+    implicit none
+
+    ! Arguments
+    class(raffle_generator_type), intent(inout) :: this
+    !! Instance of the raffle generator.
+    type(basis_type), intent(in) :: basis
+    !! Structure to evaluate.
+    character(len=3), dimension(:), intent(in) :: species_list
+    !! List of species to evaluate.
+    integer, dimension(3), intent(in), optional :: grid
+    !! Number of bins to divide the host structure into along each axis.
+    real(real32), dimension(3), intent(in), optional :: grid_offset
+    !! Offset of the gridpoints.
+    real(real32), intent(in), optional :: grid_spacing
+    !! Spacing of the bins.
+    real(real32), dimension(2,3), intent(in), optional :: bounds
+    !! Bounds for atom placement.
+    integer, dimension(3), intent(out), optional :: grid_output
+
+    real(real32), dimension(:,:), allocatable :: probability
+
+    ! Local variables
+    integer :: i, is, ia, idx
+    !! Loop indices.
+    real(real32) :: grid_spacing_
+    !! Spacing of the bins.
+    integer, dimension(3) :: grid_
+    !! Number of bins to divide the host structure into along each axis.
+    integer, dimension(size(species_list,1)) :: species_idx_list
+    real(real32), dimension(3) :: grid_offset_
+    !! Offset of the gridpoints.
+    real(real32), dimension(2,3) :: bounds_
+    !! Bounds for atom placement.
+    integer, dimension(2,size(species_list,1)) :: atom_ignore_list
+    !! Atom to ignore.
+    type(extended_basis_type) :: basis_extd
+    !! Extended basis for the structure to evaluate.
+
+
+    !---------------------------------------------------------------------------
+    ! Set the grid and bounds
+    !---------------------------------------------------------------------------
+    grid_ = -1
+    grid_spacing_ = -1._real32
+    grid_offset_ = 0._real32
+    bounds_(1,:) = 0._real32
+    bounds_(2,:) = 1._real32
+    if(present(grid)) grid_ = grid
+    if(present(grid_offset)) grid_offset_ = grid_offset
+    if(present(grid_spacing)) grid_spacing_ = grid_spacing
+    if(present(bounds)) bounds_ = bounds
+
+    if(any(grid_.eq.-1))then
+       if(grid_spacing_.lt.0._real32)then
+          call stop_program("Grid or grid spacing not set. One must be set")
+          return
+       end if
+       do i = 1, 3
+          grid_(i) = nint( &
+               ( bounds_(2,i) - bounds_(1,i) ) * &
+               modu(basis%lat(i,:)) / grid_spacing_ &
+          )
+       end do
+    end if
+    if(present(grid_output)) grid_output = grid_
+
+
+    call basis_extd%copy(basis)
+    do i = 1, size(species_list)
+       call basis_extd%add_atom( &
+            species_list(i), &
+            position = [0._real32, 0._real32, 0._real32] &
+       )
+       species_idx_list(i) = &
+            findloc(basis_extd%spec(:)%name, strip_null(species_list(i)), dim=1)
+       atom_ignore_list(1,i) = species_idx_list(i)
+       atom_ignore_list(2,i) = basis_extd%spec(species_idx_list(i))%num
+    end do
+    do is = 1, basis_extd%nspec
+       idx = this%distributions%get_element_index( &
+            basis_extd%spec(is)%name &
+       )
+       if(idx.eq.0)then
+          call stop_program( &
+               "Species "//&
+               trim(basis_extd%spec(is)%name)//&
+               " not found in distribution functions" &
+          )
+          return
+       end if
+    end do
+    call basis_extd%create_images( &
+         max_bondlength = this%distributions%cutoff_max(1), &
+         atom_ignore_list = atom_ignore_list &
+    )
+
+
+    call this%distributions%set_element_map( &
+         [ basis_extd%spec(:)%name ] &
+    )
+    probability = get_gridpoints_and_viability( &
+         this%distributions, &
+         grid_, &
+         bounds_, &
+         basis_extd, &
+         species_idx_list, &
+         [ this%distributions%bond_info(:)%radius_covalent ], &
+         atom_ignore_list, &
+         grid_offset = grid_offset_ &
+    )
+
+  end function get_probability_density
 !###############################################################################
 
 

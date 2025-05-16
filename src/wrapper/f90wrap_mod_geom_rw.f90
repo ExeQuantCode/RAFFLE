@@ -1,5 +1,30 @@
 ! Module raffle__geom_rw defined in file ../src/lib/mod_geom_rw.f90
 
+subroutine f90wrap_species_type__array__atom_idx(this, nd, dtype, dshape, dloc)
+    use raffle__geom_rw, only: species_type
+    use, intrinsic :: iso_c_binding, only : c_int
+    implicit none
+    type species_type_ptr_type
+        type(species_type), pointer :: p => NULL()
+    end type species_type_ptr_type
+    integer(c_int), intent(in) :: this(2)
+    type(species_type_ptr_type) :: this_ptr
+    integer(c_int), intent(out) :: nd
+    integer(c_int), intent(out) :: dtype
+    integer(c_int), dimension(10), intent(out) :: dshape
+    integer*8, intent(out) :: dloc
+    
+    nd = 1
+    dtype = 5
+    this_ptr = transfer(this, this_ptr)
+    if (allocated(this_ptr%p%atom_idx)) then
+        dshape(1:1) = shape(this_ptr%p%atom_idx)
+        dloc = loc(this_ptr%p%atom_idx)
+    else
+        dloc = 0
+    end if
+end subroutine f90wrap_species_type__array__atom_idx
+
 subroutine f90wrap_species_type__array__atom(this, nd, dtype, dshape, dloc)
     use raffle__geom_rw, only: species_type
     use, intrinsic :: iso_c_binding, only : c_int
@@ -640,8 +665,10 @@ end subroutine f90wrap_geom_rw__basis_type_xnum_array_finalise
 
 
 subroutine f90wrap_geom_rw__allocate_species__binding__basis_type( &
-       this, num_species, species_symbols, species_count, atoms, n0, &
-       n1, n2, n3)
+       this, num_species, species_symbols, species_count, atoms, &
+       atom_idx_list, &
+       n0, n1, n2, n3 &
+)
     use raffle__geom_rw, only: basis_type
     implicit none
     
@@ -654,6 +681,7 @@ subroutine f90wrap_geom_rw__allocate_species__binding__basis_type( &
     character(3), intent(in), optional, dimension(n0) :: species_symbols
     integer, intent(in), optional, dimension(n1) :: species_count
     real(4), intent(in), optional, dimension(n2,n3) :: atoms
+    integer, intent(in), optional, dimension(n2) :: atom_idx_list
     integer :: n0
     !f2py intent(hide), depend(species_symbols) :: n0 = shape(species_symbols,0)
     integer :: n1
@@ -667,7 +695,8 @@ subroutine f90wrap_geom_rw__allocate_species__binding__basis_type( &
          num_species=num_species, &
          species_symbols=species_symbols, &
          species_count=species_count, &
-         atoms=atoms &
+         atoms=atoms, &
+         atom_idx_list=atom_idx_list &
     )
 end subroutine f90wrap_geom_rw__allocate_species__binding__basis_type
 

@@ -31,6 +31,9 @@ module raffle__geom_rw
 
   type :: species_type
      !! Derived type to store information about a species/element.
+     integer, allocatable, dimension(:) :: atom_idx
+     !! The indices of the atoms of this species in the basis.
+     !! For ASE compatibility.
      real(real32), allocatable ,dimension(:,:) :: atom
      !! The atomic positions of the species.
      real(real32) :: mass
@@ -114,7 +117,7 @@ contains
 !###############################################################################
   subroutine allocate_species( &
        this, num_species, &
-       species_symbols, species_count, atoms )
+       species_symbols, species_count, atoms, atom_idx_list )
     !! Allocate the species in the basis.
     implicit none
 
@@ -129,9 +132,11 @@ contains
     !! Optional. The number of atoms of each species.
     real(real32), dimension(:,:), intent(in), optional :: atoms
     !! Optional. The atomic positions of the species.
+    integer, dimension(:), intent(in), optional :: atom_idx_list
+    !! Optional. The indices of the atoms of the species.
 
     ! Local variables
-    integer :: i, istart, iend
+    integer :: i, j, istart, iend
     !! Loop index.
 
     if(present(num_species)) this%nspec = num_species
@@ -150,9 +155,15 @@ contains
        istart = 1
        do i = 1, this%nspec
           iend = istart + this%spec(i)%num - 1
+          allocate(this%spec(i)%atom_idx(this%spec(i)%num))
           allocate(this%spec(i)%atom(this%spec(i)%num,3))
           if(present(atoms))then
              this%spec(i)%atom = atoms(istart:iend,:3)
+          end if
+          if(present(atom_idx_list))then
+             this%spec(i)%atom_idx = atom_idx_list(istart:iend)
+          else
+             this%spec(i)%atom_idx = [ ( j, j = istart, iend, 1 ) ]
           end if
           istart = iend + 1
        end do
@@ -288,7 +299,7 @@ contains
 
     integer :: Reason
     !! The I/O status of the read.
-    integer :: pos, count
+    integer :: pos, count, natom
     !! Temporary integer variables.
     real(real32) :: scal
     !! The scaling factor of the lattice.
@@ -376,10 +387,14 @@ contains
     !---------------------------------------------------------------------------
     ! read basis
     !---------------------------------------------------------------------------
+    natom = 0
     do i = 1, basis%nspec
+       allocate(basis%spec(i)%atom_idx(basis%spec(i)%num))
        allocate(basis%spec(i)%atom(basis%spec(i)%num,length_))
        basis%spec(i)%atom(:,:)=0._real32
        do j = 1, basis%spec(i)%num
+          natom = natom + 1
+          basis%spec(i)%atom_idx(j) = natom
           read(UNIT,*) (basis%spec(i)%atom(j,k),k=1,3)
        end do
     end do
@@ -573,6 +588,7 @@ contains
     basis%spec(1:basis%nspec)%name = tmp_spec(1:basis%nspec)
     do i = 1, basis%nspec
        basis%spec(i)%num = 0
+       allocate(basis%spec(i)%atom_idx(tmp_natom(i)))
        allocate(basis%spec(i)%atom(tmp_natom(i),length_))
     end do
 
@@ -582,6 +598,7 @@ contains
        do j = 1, basis%nspec
           if(basis%spec(j)%name.eq.ctmp)then
              basis%spec(j)%num = basis%spec(j)%num + 1
+             basis%spec(j)%atom_idx(basis%spec(j)%num) = i
              basis%spec(j)%atom(basis%spec(j)%num,1:3) = tmpvec(1:3)
              exit
           end if
@@ -1370,6 +1387,7 @@ contains
     !---------------------------------------------------------------------------
     if(allocated(this%spec))then
        do i = 1, this%nspec
+          if(allocated(this%spec(i)%atom_idx)) deallocate(this%spec(i)%atom_idx)
           if(allocated(this%spec(i)%atom)) deallocate(this%spec(i)%atom)
        end do
        deallocate(this%spec)
@@ -1381,9 +1399,11 @@ contains
     !---------------------------------------------------------------------------
     allocate(this%spec(basis%nspec))
     do i = 1, basis%nspec
+       allocate(this%spec(i)%atom_idx(basis%spec(i)%num))
        allocate(this%spec(i)%atom(&
             basis%spec(i)%num,length_))
 
+       this%spec(i)%atom_idx = basis%spec(i)%atom_idx
        if(length_input.eq.length_)then
           this%spec(i)%atom(:,:length_) = basis%spec(i)%atom(:,:length_)
        elseif(length_input.gt.length_)then
@@ -1485,6 +1505,10 @@ contains
     ! Local variables
     integer :: i
     !! Loop index.
+    integer :: remove_idx
+    !! The index associated with the atom to remove.
+    integer, dimension(:), allocatable :: atom_idx
+    !! Temporary array to store the atomic indices.
     real(real32), dimension(:,:), allocatable :: atom
     !! Temporary array to store the atomic positions.
 
@@ -1492,25 +1516,40 @@ contains
     !---------------------------------------------------------------------------
     ! remove atom from basis
     !---------------------------------------------------------------------------
+    remove_idx = this%spec(ispec)%atom_idx(iatom)
     do i = 1, this%nspec
        if(i.eq.ispec)then
           if(iatom.gt.this%spec(i)%num)then
              call stop_program("Atom to remove does not exist")
              return
           end if
+          allocate(atom_idx(this%spec(i)%num-1))
           allocate(atom(this%spec(i)%num-1,size(this%spec(i)%atom,2)))
           if(iatom.eq.1)then
+             atom_idx(1:this%spec(i)%num-1) = &
+                  this%spec(i)%atom_idx(2:this%spec(i)%num:1)
              atom(1:this%spec(i)%num-1:1,:) = &
                   this%spec(i)%atom(2:this%spec(i)%num:1,:)
           elseif(iatom.eq.this%spec(i)%num)then
+             atom_idx(1:this%spec(i)%num-1) = &
+                  this%spec(i)%atom_idx(1:this%spec(i)%num-1:1)
              atom(1:this%spec(i)%num-1:1,:) = &
                   this%spec(i)%atom(1:this%spec(i)%num-1:1,:)
           else
+             atom_idx(1:iatom-1:1) = this%spec(i)%atom_idx(1:iatom-1:1)
+             atom_idx(iatom:this%spec(i)%num-1:1) = &
+                  this%spec(i)%atom_idx(iatom+1:this%spec(i)%num:1)
              atom(1:iatom-1:1,:) = this%spec(i)%atom(1:iatom-1:1,:)
              atom(iatom:this%spec(i)%num-1:1,:) = &
                   this%spec(i)%atom(iatom+1:this%spec(i)%num:1,:)
           end if
+          where(atom_idx(1:this%spec(i)%num-1:1).gt.remove_idx)
+               atom_idx(1:this%spec(i)%num-1:1) = &
+                    atom_idx(1:this%spec(i)%num-1:1) - 1
+          end where
+          this%spec(i)%atom_idx = atom_idx
           this%spec(i)%atom = atom
+          deallocate(this%spec(i)%atom_idx)
           deallocate(atom)
           this%spec(i)%num = this%spec(i)%num - 1
           this%natom = this%natom - 1

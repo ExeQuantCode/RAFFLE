@@ -50,6 +50,26 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
                 _raffle.f90wrap_geom_rw__species_type_finalise(this=self._handle)
 
         @property
+        def atom_idx(self):
+            """
+            Element atom_idx ftype=integer pytype=int
+            """
+            array_ndim, array_type, array_shape, array_handle = \
+                _raffle.f90wrap_species_type__array__atom_idx(self._handle)
+            if array_handle in self._arrays:
+                atom_idx = self._arrays[array_handle]
+            else:
+                atom_idx = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                        self._handle,
+                                        _raffle.f90wrap_species_type__array__atom_idx)
+                self._arrays[array_handle] = atom_idx
+            return atom_idx
+
+        @atom_idx.setter
+        def atom_idx(self, atom_idx):
+            self.atom_idx[...] = atom_idx
+
+        @property
         def atom(self):
             """
             Derived type containing the atomic information of a crystal.
@@ -126,12 +146,16 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
 
         def __str__(self):
             ret = ['<species_type>{\n']
+            ret.append('    atom_idx : ')
+            ret.append(repr(self.atom_idx))
             ret.append('    atom : ')
             ret.append(repr(self.atom))
             ret.append(',\n    mass : ')
             ret.append(repr(self.mass))
             ret.append(',\n    charge : ')
             ret.append(repr(self.charge))
+            ret.append(',\n    radius : ')
+            ret.append(repr(self.radius))
             ret.append(',\n    name : ')
             ret.append(repr(self.name))
             ret.append(',\n    num : ')
@@ -174,7 +198,7 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
                 _raffle.f90wrap_geom_rw__basis_type_finalise(this=self._handle)
 
         def allocate_species(self, num_species=None, species_symbols=None, species_count=None, \
-            positions=None):
+            positions=None, atom_idx_list=None):
             """
             Allocate memory for the species list.
 
@@ -188,10 +212,12 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
                 List of species counts
             atoms : list[float]
                 List of atomic positions
+            atom_idx_list : list[int]
+                List of atomic indices
             """
             _raffle.f90wrap_geom_rw__allocate_species__binding__basis_type(this=self._handle, \
                 num_species=num_species, species_symbols=species_symbols, species_count=species_count, \
-                atoms=positions)
+                atoms=positions, atom_idx_list=atom_idx_list)
 
         def _init_array_spec(self):
             """
@@ -259,11 +285,23 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
             # Set the species list
             positions = []
             symbols = []
+            idx_list = []
             for i in range(self.nspec):
                 name = str(self.spec[i].name.decode()).strip()
                 for j in range(self.spec[i].num):
                     symbols.append(name)
                     positions.append(self.spec[i].atom[j][:3])
+                    idx_list.append(self.spec[i].atom_idx[j] - 1)
+
+
+            # Check if the length of set(idx_list) is equal to the number of atoms
+            if len(set(idx_list)) == self.natom:
+                # Reorder the positions and symbols according to the atom indices
+                idx_list = numpy.array(numpy.argsort(idx_list), dtype=int)
+                positions = numpy.array(positions, dtype=float)
+                symbols = numpy.array(symbols, dtype=str)
+                positions = positions[idx_list]
+                symbols = symbols[idx_list]
 
             lattice = numpy.reshape(self.lat, (3,3), order='A')
             pbc = numpy.reshape(self.pbc, (3,), order='A')
@@ -317,16 +355,23 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
             # Set the species list
             species_count = []
             atom_positions = []
+            atom_idx_list = []
             positions = atoms.get_scaled_positions()
             for species in species_symbols_unique:
                 species_count.append(sum([1 for symbol in species_symbols if symbol == species]))
                 for j, symbol in enumerate(species_symbols):
                     if symbol == species:
                         atom_positions.append(positions[j])
+                        atom_idx_list.append(j + 1)
 
             # Allocate memory for the atom list
             self.lcart = False
-            self.allocate_species(species_symbols=species_symbols_unique, species_count=species_count, positions=atom_positions)
+            self.allocate_species(
+                species_symbols = species_symbols_unique,
+                species_count = species_count,
+                positions = atom_positions,
+                atom_idx_list = atom_idx_list
+            )
 
         @property
         def nspec(self):
@@ -1931,7 +1976,11 @@ class Generator(f90wrap.runtime.FortranModule):
                 stoichiometry = {}
                 for s in split:
                     element = re.findall(r'[A-Z][a-z]?', s)[0]
-                    num = re.findall(r'\d+', s)[0]
+                    # if no number is found, set it to 1
+                    if re.findall(r'\d+', s) == []:
+                        num = 1
+                    else:
+                        num = re.findall(r'\d+', s)[0]
                     stoichiometry[element] = int(num)
                 stoichiometry = Generator.stoichiometry_array(dict=stoichiometry)
 

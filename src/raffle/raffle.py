@@ -216,7 +216,7 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
                 _raffle.f90wrap_geom_rw__basis_type_finalise(this=self._handle)
 
         def allocate_species(self, num_species=None, species_symbols=None, species_count=None, \
-            positions=None):
+            positions=None, atom_idx_list=None):
             """
             Allocate memory for the species list.
 
@@ -229,10 +229,12 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
                     List of species counts
                 atoms (list of float):
                     List of atomic positions
+                atom_idx_list (list of int):
+                    List of atomic indices
             """
             _raffle.f90wrap_geom_rw__allocate_species__binding__basis_type(this=self._handle, \
                 num_species=num_species, species_symbols=species_symbols, species_count=species_count, \
-                atoms=positions)
+                atoms=positions, atom_idx_list=atom_idx_list)
 
         def _init_array_spec(self):
             """
@@ -308,6 +310,7 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
 
             # Check if the length of set(idx_list) is equal to the number of atoms
             if len(set(idx_list)) == self.natom:
+                print("length is as expected")
                 # Reorder the positions and symbols according to the atom indices
                 idx_list = numpy.array(idx_list, dtype=int)
                 positions = numpy.array(positions, dtype=float)
@@ -315,6 +318,8 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
                 positions = positions[idx_list]
                 symbols = symbols[idx_list]
 
+            print(idx_list)
+            print(symbols)
             lattice = numpy.reshape(self.lat, (3,3), order='A')
             pbc = numpy.reshape(self.pbc, (3,), order='A')
             # Set the atoms
@@ -366,16 +371,23 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
             # Set the species list
             species_count = []
             atom_positions = []
+            atom_idx_list = []
             positions = atoms.get_scaled_positions()
             for species in species_symbols_unique:
                 species_count.append(sum([1 for symbol in species_symbols if symbol == species]))
                 for j, symbol in enumerate(species_symbols):
                     if symbol == species:
                         atom_positions.append(positions[j])
+                        atom_idx_list.append(j + 1)
 
             # Allocate memory for the atom list
             self.lcart = False
-            self.allocate_species(species_symbols=species_symbols_unique, species_count=species_count, positions=atom_positions)
+            self.allocate_species(
+                species_symbols = species_symbols_unique,
+                species_count = species_count,
+                positions = atom_positions,
+                atom_idx_list = atom_idx_list
+            )
 
         @property
         def nspec(self):

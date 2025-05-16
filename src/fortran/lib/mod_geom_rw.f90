@@ -115,7 +115,7 @@ contains
 !###############################################################################
   subroutine allocate_species( &
        this, num_species, &
-       species_symbols, species_count, atoms )
+       species_symbols, species_count, atoms, atom_idx_list )
     !! Allocate the species in the basis.
     implicit none
 
@@ -130,6 +130,8 @@ contains
     !! Optional. The number of atoms of each species.
     real(real32), dimension(:,:), intent(in), optional :: atoms
     !! Optional. The atomic positions of the species.
+    integer, dimension(:), intent(in), optional :: atom_idx_list
+    !! Optional. The indices of the atoms of the species.
 
     ! Local variables
     integer :: i, j, istart, iend
@@ -152,10 +154,14 @@ contains
        do i = 1, this%nspec
           iend = istart + this%spec(i)%num - 1
           allocate(this%spec(i)%atom_idx(this%spec(i)%num))
-          this%spec(i)%atom_idx(:) = [ ( j, j = istart, iend, 1 ) ]
           allocate(this%spec(i)%atom(this%spec(i)%num,3))
           if(present(atoms))then
              this%spec(i)%atom = atoms(istart:iend,:3)
+          end if
+          if(present(atom_idx_list))then
+             this%spec(i)%atom_idx = atom_idx_list(istart:iend)
+          else
+             this%spec(i)%atom_idx = [ ( j, j = istart, iend, 1 ) ]
           end if
           istart = iend + 1
        end do

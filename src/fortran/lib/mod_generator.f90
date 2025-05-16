@@ -648,7 +648,7 @@ contains
     j = 0
     do i = 1, basis_template%nspec
        basis_template%spec(i)%atom_idx = &
-            [ ( k, k = j + 1, basis_template%spec(i)%num ) ]
+            [ ( k, k = j + 1, j + basis_template%spec(i)%num, 1 ) ]
        j = j + basis_template%spec(i)%num
        allocate( &
             basis_template%spec(i)%atom(basis_template%spec(i)%num,3), &

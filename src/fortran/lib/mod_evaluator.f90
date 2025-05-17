@@ -47,7 +47,7 @@ contains
     !! Suitability of the test point.
 
     ! Local variables
-    integer :: i, is, js, ia, ja
+    integer :: i, is, js, ia, ja, ia_end, ja_start
     !! Loop counters.
     integer :: num_2body, num_3body, num_4body
     !! Number of 2-, 3- and 4-body interactions.
@@ -140,7 +140,7 @@ contains
                 ) = matmul(position_store, basis%lat)
                 neighbour_basis%spec(is)%atom( &
                      neighbour_basis%spec(is)%num,4 &
-                ) = 0.5_real32 * ( 1._real32 - &
+                ) = 0.5_real32 * abs( 1._real32 - &
                      cos( cos_scales(1) * ( bondlength - tolerances(1) ) ) )
              end if
 
@@ -156,7 +156,7 @@ contains
                 ) = matmul(position_store, basis%lat)
                 neighbour_basis%image_spec(is)%atom( &
                      neighbour_basis%image_spec(is)%num,4 &
-                ) = 0.5_real32 * ( 1._real32 - &
+                ) = 0.5_real32 * abs( 1._real32 - &
                      cos( cos_scales(2) * ( bondlength - tolerances(3) ) ) )
              end if
 
@@ -207,7 +207,7 @@ contains
                 ) = matmul(position_store, basis%lat)
                 neighbour_basis%image_spec(is)%atom( &
                      neighbour_basis%image_spec(is)%num,4 &
-                ) =  0.5_real32 * ( 1._real32 - &
+                ) =  0.5_real32 * abs( 1._real32 - &
                      cos( cos_scales(2) * ( bondlength - tolerances(3) ) ) )
              end if
 
@@ -268,7 +268,12 @@ contains
     viability_3body = 1._real32
     viability_4body = 1._real32
     do is = 1, neighbour_basis%nspec
-       do ia = 1, neighbour_basis%spec(is)%num
+       if(is.eq.neighbour_basis%nspec)then
+          ia_end = neighbour_basis%spec(is)%num - 1
+       else
+          ia_end = neighbour_basis%spec(is)%num
+       end if
+       do ia = 1, ia_end, 1
           !---------------------------------------------------------------------
           ! 3-body map
           ! check bondangle between test point and all other atoms
@@ -277,7 +282,6 @@ contains
                position_1 => matmul(position, basis%lat), &
                position_2 => [neighbour_basis%spec(is)%atom(ia,1:4)] &
           )
-             if(sum(basis%spec(is:)%num).eq.ia) cycle
              rtmp1 = evaluate_3body_contributions( distribs_container, &
                   position_1, &
                   position_2, &
@@ -286,10 +290,14 @@ contains
              if(rtmp1.lt.-999._real32) cycle
              num_3body = num_3body + 1
              viability_3body = viability_3body * rtmp1
+             if(all(neighbour_basis%image_spec(:)%num.eq.0))cycle
              do js = is, neighbour_basis%nspec
-                do ja = 1, neighbour_basis%spec(js)%num
-                   if(js.eq.is .and. ja.le.ia) cycle
-                   if(all(neighbour_basis%image_spec(:)%num.eq.0))cycle
+                if(js.eq.is)then
+                   ja_start = ia + 1
+                else
+                   ja_start = 1
+                end if
+                do ja = ja_start, neighbour_basis%spec(js)%num, 1
                    !------------------------------------------------------------
                    ! 4-body map
                    ! check improperdihedral angle between test point and all
@@ -394,6 +402,8 @@ contains
     !! Number of 3-body interactions local to the current atom pair.
     real(real32) :: power
     !! Power for the contribution to the viability.
+    real(real32) :: rtmp1
+    !! Temporary variable.
 
 
     num_3body_local = sum(basis%spec(current_idx(1):)%num) - current_idx(2)
@@ -414,13 +424,14 @@ contains
                        position_store(1:3) &
                   ), dim = 2 &
              )
-             output = output * &
-                  ( 1._real32 + ( position_2(4) * position_store(4) ) * ( &
-                       distribs_container%gdf%df_3body( &
-                            bin, &
-                            distribs_container%element_map(species) &
-                       ) - distribs_container%viability_3body_default &
-                  ) ) ** power
+             rtmp1 = ( position_2(4) * position_store(4) ) ** 0.5_real32
+             output = output * ( &
+                  abs( 1._real32 - rtmp1 ) + &
+                  rtmp1 * distribs_container%gdf%df_3body( &
+                       bin, &
+                       distribs_container%element_map(species) &
+                  ) / distribs_container%viability_3body_default &
+             ) ** power
           end associate
        end do atom_loop
     end do species_loop
@@ -457,6 +468,8 @@ contains
     !! Number of 4-body interactions local to the current atom triplet.
     real(real32) :: power
     !! Power for the contribution to the viability.
+    real(real32) :: rtmp1
+    !! Temporary variable.
 
 
     num_4body_local = sum(basis%image_spec(:)%num)
@@ -477,15 +490,15 @@ contains
                        position_store(1:3) &
                   ), dim = 3 &
              )
+             rtmp1 = ( position_2(4) * position_3(4) * position_store(4) ) ** &
+                  ( 1._real32 / 3._real32 )
              output = output * ( &
-                  1._real32 + ( &
-                       position_2(4) * position_3(4) * position_store(4) &
-                  ) * ( &
-                       distribs_container%gdf%df_4body( &
-                            bin, &
-                            distribs_container%element_map(species) &
-                       ) - distribs_container%viability_4body_default &
-                  ) ) ** power
+                  abs( 1._real32 - rtmp1 ) + &
+                  rtmp1 * distribs_container%gdf%df_4body( &
+                       bin, &
+                       distribs_container%element_map(species) &
+                  ) / distribs_container%viability_4body_default &
+             ) ** power
           end associate
        end do atom_loop
     end do species_loop

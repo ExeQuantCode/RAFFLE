@@ -38,7 +38,7 @@ contains
     real(real32) :: modu
     !! Output magnitude.
 
-    modu = abs( sqrt( sum(vector(:)**2) ) )
+    modu = sqrt( sum( vector ** 2 ) )
   end function modu
 !###############################################################################
 
@@ -164,9 +164,9 @@ contains
     implicit none
     real(real32), dimension(3), intent(in) :: point1, point2, point3, point4
     real(real32) :: angle
-  
+
     angle = get_angle(cross(point2 - point1, point3 - point2), point4 - point2)
-  
+
   end function get_dihedral_angle_from_points
 !###############################################################################
 
@@ -204,7 +204,7 @@ contains
     !! Return the improper dihedral angle between two planes.
     !!
     !! The dihedral angle is the angle between the plane defined by four points.
-    !! i.e. ( point2 - point1 ) x ( point3 - point1 ) . 
+    !! i.e. ( point2 - point1 ) x ( point3 - point1 ) .
     !! ( point4 - point2 ) x ( point3 - point1 )
     !! alt. angle between plane point1point2point3 and point1point3point4
     implicit none

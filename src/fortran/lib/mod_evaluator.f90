@@ -49,6 +49,8 @@ contains
     ! Local variables
     integer :: i, is, js, ia, ja, ia_end, ja_start
     !! Loop counters.
+    integer :: element_idx
+    !! Index of the query element.
     integer :: num_2body, num_3body, num_4body
     !! Number of 2-, 3- and 4-body interactions.
     real(real32) :: viability_2body
@@ -57,8 +59,14 @@ contains
     !! Viability of the test point for 3- and 4-body interactions.
     real(real32) :: bondlength, rtmp1, min_distance
     !! Temporary variables.
+    logical :: has_4body
+    !! Boolean whether the system has 4-body interactions.
     real(real32), dimension(2) :: cos_scales
     !! Cosine scales for the 3- and 4-body interactions.
+    real(real32), dimension(3) :: position_1
+    !! Cartesian coordinates of the test point.
+    real(real32), dimension(4) :: position_2
+    !! Cartesian coordinates of the second atom and its cutoff weighting.
     real(real32), dimension(4) :: tolerances
     !! Tolerance for the distance between atoms for 3- and 4-body.
     integer, dimension(:,:), allocatable :: pair_index
@@ -267,54 +275,48 @@ contains
     num_4body = 0
     viability_3body = 1._real32
     viability_4body = 1._real32
+    position_1 = matmul(position, basis%lat)
+    element_idx = distribs_container%element_map(species)
+    has_4body = any(neighbour_basis%image_spec(:)%num .gt. 0)
     do is = 1, neighbour_basis%nspec
-       if(is.eq.neighbour_basis%nspec)then
-          ia_end = neighbour_basis%spec(is)%num - 1
-       else
-          ia_end = neighbour_basis%spec(is)%num
-       end if
+       ia_end = neighbour_basis%spec(is)%num - &
+            merge( 1, 0, is .eq. neighbour_basis%nspec )
        do ia = 1, ia_end, 1
+          position_2 = neighbour_basis%spec(is)%atom(ia,1:4)
           !---------------------------------------------------------------------
           ! 3-body map
           ! check bondangle between test point and all other atoms
           !---------------------------------------------------------------------
-          associate( &
-               position_1 => matmul(position, basis%lat), &
-               position_2 => [neighbour_basis%spec(is)%atom(ia,1:4)] &
-          )
-             rtmp1 = evaluate_3body_contributions( distribs_container, &
-                  position_1, &
-                  position_2, &
-                  neighbour_basis, species, [is, ia] &
-             )
-             if(rtmp1.lt.-999._real32) cycle
-             num_3body = num_3body + 1
-             viability_3body = viability_3body * rtmp1
-             if(all(neighbour_basis%image_spec(:)%num.eq.0))cycle
+          viability_3body = viability_3body * max( &
+               0._real32, &
+               evaluate_3body_contributions( distribs_container, &
+                    position_1, &
+                    position_2, &
+                    neighbour_basis, element_idx, [is, ia] &
+               ) )
+          num_3body = num_3body + 1
+          if( has_4body )then
              do js = is, neighbour_basis%nspec
-                if(js.eq.is)then
-                   ja_start = ia + 1
-                else
-                   ja_start = 1
-                end if
+                ja_start = merge(ia + 1, 1, js .eq. is)
                 do ja = ja_start, neighbour_basis%spec(js)%num, 1
                    !------------------------------------------------------------
                    ! 4-body map
                    ! check improperdihedral angle between test point and all
                    ! other atoms
                    !------------------------------------------------------------
-                   rtmp1 = evaluate_4body_contributions( distribs_container, &
-                        position_1, &
-                        position_2, &
-                        [neighbour_basis%spec(js)%atom(ja,1:4)], &
-                        neighbour_basis, species &
-                   )
-                   if(rtmp1.lt.-999._real32) cycle
-                   num_4body = num_4body + 1
+                    rtmp1 = max( &
+                         0._real32, &
+                         evaluate_4body_contributions( distribs_container, &
+                             position_1, &
+                             position_2, &
+                             [ neighbour_basis%spec(js)%atom(ja,1:4) ], &
+                             neighbour_basis, element_idx &
+                        ) )
                    viability_4body = viability_4body * rtmp1
+                   num_4body = num_4body + 1
                 end do
              end do
-          end associate
+          end if
        end do
     end do
 
@@ -372,7 +374,7 @@ contains
 
 !###############################################################################
   pure function evaluate_3body_contributions( distribs_container, &
-       position_1, position_2, basis, species, current_idx &
+       position_1, position_2, basis, element_idx, current_idx &
   ) result(output)
     !! Return the contribution to the viability from 3-body interactions
     implicit none
@@ -386,7 +388,7 @@ contains
     !! Positions of the second atom and its cutoff weighting.
     type(extended_basis_type), intent(in) :: basis
     !! Basis of the system.
-    integer, intent(in) :: species
+    integer, intent(in) :: element_idx
     !! Index of the query element.
     integer, dimension(2), intent(in) :: current_idx
     !! Index of the 1st-atom query element.
@@ -402,37 +404,32 @@ contains
     !! Number of 3-body interactions local to the current atom pair.
     real(real32) :: power
     !! Power for the contribution to the viability.
-    real(real32) :: rtmp1
-    !! Temporary variable.
+    integer :: start_idx
+    !! Start index for the loop over the atoms.
+    real(real32) :: rtmp1, weight_2
+    !! Temporary variables.
 
 
     num_3body_local = sum(basis%spec(current_idx(1):)%num) - current_idx(2)
-    if(num_3body_local.eq.0)then
-       output = -1000._real32
-       return
-    end if
     output = 1._real32
     power = 1._real32 / real( num_3body_local, real32 )
+    weight_2 = sqrt( position_2(4) ) 
     species_loop: do js = current_idx(1), basis%nspec, 1
-       atom_loop: do ja = 1, basis%spec(js)%num
-          if(js.eq.current_idx(1) .and. ja.le.current_idx(2))cycle
-          associate( position_store => [ basis%spec(js)%atom(ja,1:4) ] )
-             bin = distribs_container%get_bin( &
-                  get_angle( &
-                       position_2(1:3), &
-                       position_1, &
-                       position_store(1:3) &
-                  ), dim = 2 &
-             )
-             rtmp1 = ( position_2(4) * position_store(4) ) ** 0.5_real32
-             output = output * ( &
-                  abs( 1._real32 - rtmp1 ) + &
-                  rtmp1 * distribs_container%gdf%df_3body( &
-                       bin, &
-                       distribs_container%element_map(species) &
-                  ) / distribs_container%viability_3body_default &
-             ) ** power
-          end associate
+       start_idx = merge(current_idx(2) + 1, 1, js .eq. current_idx(1))
+       atom_loop: do ja = start_idx, basis%spec(js)%num
+          bin = distribs_container%get_bin( &
+               get_angle( &
+                    position_2(1:3), &
+                    position_1, &
+                    [ basis%spec(js)%atom(ja,1:3) ] &
+               ), dim = 2 &
+          )
+          rtmp1 = weight_2 * sqrt( basis%spec(js)%atom(ja,4) )
+          output = output * ( &
+               abs( 1._real32 - rtmp1 ) + &
+               rtmp1 * distribs_container%gdf%df_3body( bin, element_idx ) * &
+               distribs_container%viability_3body_default &
+          ) ** power
        end do atom_loop
     end do species_loop
 
@@ -442,7 +439,7 @@ contains
 
 !###############################################################################
   pure function evaluate_4body_contributions( distribs_container, &
-       position_1, position_2, position_3, basis, species ) result(output)
+       position_1, position_2, position_3, basis, element_idx ) result(output)
     !! Return the contribution to the viability from 4-body interactions
     implicit none
 
@@ -454,7 +451,7 @@ contains
     real(real32), dimension(4), intent(in) :: position_2, position_3
     type(extended_basis_type), intent(in) :: basis
     !! Basis of the system.
-    integer, intent(in) :: species
+    integer, intent(in) :: element_idx
     !! Index of the query element.
     real(real32) :: output
     !! Contribution to the viability.
@@ -468,38 +465,31 @@ contains
     !! Number of 4-body interactions local to the current atom triplet.
     real(real32) :: power
     !! Power for the contribution to the viability.
-    real(real32) :: rtmp1
-    !! Temporary variable.
+    real(real32) :: rtmp1, third, weight_2_3
+    !! Temporary variables.
 
 
     num_4body_local = sum(basis%image_spec(:)%num)
-    if(num_4body_local.eq.0)then
-       output = -1000._real32
-       return
-    end if
     output = 1._real32
     power = 1._real32 / real( num_4body_local, real32 )
+    third = 1._real32 / 3._real32
+    weight_2_3 = ( position_2(4) * position_3(4) ) ** third
     species_loop: do ks = 1, basis%nspec, 1
        atom_loop: do ka = 1, basis%image_spec(ks)%num
-          associate( position_store => [ basis%image_spec(ks)%atom(ka,1:4) ] )
-             bin = distribs_container%get_bin( &
-                  get_improper_dihedral_angle( &
-                       position_1, &
-                       position_2(1:3), &
-                       position_3(1:3), &
-                       position_store(1:3) &
-                  ), dim = 3 &
-             )
-             rtmp1 = ( position_2(4) * position_3(4) * position_store(4) ) ** &
-                  ( 1._real32 / 3._real32 )
-             output = output * ( &
-                  abs( 1._real32 - rtmp1 ) + &
-                  rtmp1 * distribs_container%gdf%df_4body( &
-                       bin, &
-                       distribs_container%element_map(species) &
-                  ) / distribs_container%viability_4body_default &
-             ) ** power
-          end associate
+          bin = distribs_container%get_bin( &
+               get_improper_dihedral_angle( &
+                    position_1, &
+                    position_2(1:3), &
+                    position_3(1:3), &
+                    basis%image_spec(ks)%atom(ka,1:3) &
+               ), dim = 3 &
+          )
+          rtmp1 = weight_2_3 * ( basis%image_spec(ks)%atom(ka,4) ) ** third
+          output = output * ( &
+               abs( 1._real32 - rtmp1 ) + &
+               rtmp1 * distribs_container%gdf%df_4body( bin, element_idx ) * &
+               distribs_container%viability_4body_default &
+          ) ** power
        end do atom_loop
     end do species_loop
 

@@ -244,6 +244,8 @@ contains
     !! Temporary list of gridpoints.
     real(real32), dimension(3) :: diff
     !! Difference between atom and gridpoint (direct coorindates).
+    real(real32), dimension(3) :: atom_pos
+    !! Position of atom in direct coordinates.
     real(real32), dimension(:,:), allocatable :: points_tmp
     !! Temporary list of gridpoints.
 
@@ -254,17 +256,20 @@ contains
     if(.not.allocated(points)) return
     num_points = size(points,dim=2)
     viable = .true.
-    min_radius = minval(radius_list) * distribs_container%radius_distance_tol(1)
-    associate( atom_pos => [ basis%spec(atom(1))%atom(atom(2),1:3) ] )
+    min_radius = max( &
+         distribs_container%cutoff_min(1), &
+         minval(radius_list) * distribs_container%radius_distance_tol(1) &
+    )
+    atom_pos = basis%spec(atom(1))%atom(atom(2),1:3)
 !$omp parallel do default(shared) private(i,is,diff,distance)
-       do i = 1, num_points
-          diff = atom_pos - points(1:3,i)
-          diff = diff - ceiling(diff - 0.5_real32)
-          distance = modu( matmul( diff, basis%lat ) )
-          if( distance .lt. min_radius )then
-             viable(i) = .false.
-             cycle
-          elseif( distance .le. distribs_container%cutoff_max(1) )then
+    do i = 1, num_points
+       diff = atom_pos - points(1:3,i)
+       diff = diff - anint(diff)
+       distance = modu( matmul( diff, basis%lat ) )
+       if( distance .lt. min_radius )then
+          viable(i) = .false.
+       else
+          if( distance .le. distribs_container%cutoff_max(1) )then
              do concurrent( is = 1 : size(species_index_list,1) )
                 points(4+is,i) = &
                      evaluate_point( distribs_container, &
@@ -274,9 +279,9 @@ contains
              end do
           end if
           points(4,i) = min( points(4,i), distance )
-       end do
+       end if
+    end do
 !$omp end parallel do
-    end associate
 
     num_points = count(viable)
     if(num_points.lt.1)then

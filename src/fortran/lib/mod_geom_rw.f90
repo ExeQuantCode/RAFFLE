@@ -1568,7 +1568,7 @@ contains
           end where
           this%spec(i)%atom_idx = atom_idx
           this%spec(i)%atom = atom
-          deallocate(this%spec(i)%atom_idx)
+          deallocate(atom_idx)
           deallocate(atom)
           this%spec(i)%num = this%spec(i)%num - 1
           this%natom = this%natom - 1

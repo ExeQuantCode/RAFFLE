@@ -20,8 +20,9 @@ module raffle__dist_calcs
 contains
 
 !###############################################################################
-  pure function get_min_dist(basis,loc,lignore_close,axis,labove,lreal,tol, &
-       ignore_list) result(output)
+  pure function get_min_dist( &
+       basis, loc, lignore_close, axis, labove, lreal, tol &
+  ) result(output)
     !! Return the minimum distance between a point and the nearest atom
     !! in a cell.
     !!
@@ -44,8 +45,6 @@ contains
     !! The tolerance for the distance.
     logical, intent(in), optional :: labove, lreal
     !! If true, return the real distance, otherwise return the vector.
-    integer, dimension(:,:), intent(in), optional :: ignore_list
-    !! List of atoms to ignore.
     real(real32), dimension(3) :: output
     !! The minimum distance between the point and the nearest atom.
 
@@ -84,11 +83,7 @@ contains
     output = 0._real32
     do js = 1, basis%nspec
        atmloop: do ja = 1, basis%spec(js)%num
-          if(present(ignore_list))then
-             do i = 1, size(ignore_list,2), 1
-                if(all(ignore_list(:,i).eq.[js,ja])) cycle atmloop
-             end do
-          end if
+          if(.not.basis%spec(js)%atom_mask(ja)) cycle atmloop
           vdtmp1 = basis%spec(js)%atom(ja,:3) - loc
           if(lignore_close.and.norm2(vdtmp1).lt.tol_) cycle atmloop
           if(axis_.gt.0)then
@@ -151,7 +146,7 @@ contains
 
 !###############################################################################
   pure function get_min_dist_between_point_and_species( &
-       basis, loc, species, ignore_list) result(dist)
+       basis, loc, species) result(dist)
     !! Return the minimum distance between a point and a species in a cell.
     !!
     !! This function returns the minimum distance between a point and any
@@ -165,8 +160,6 @@ contains
     !! The index of the species in the cell.
     real(real32), dimension(3), intent(in) :: loc
     !! The location of the point (in crystal coordinates).
-    integer, dimension(:,:), intent(in), optional :: ignore_list
-    !! List of atoms to ignore.
     real(real32) :: dist
     !! The minimum distance between the point and the species.
 
@@ -181,11 +174,7 @@ contains
 
     dist = huge(0._real32)
     atom_loop: do ia = 1,basis%spec(species)%num
-       if(present(ignore_list))then
-          do i = 1, size(ignore_list,2), 1
-             if(all(ignore_list(:,i).eq.[species,ia])) cycle atom_loop
-          end do
-       end if
+       if(.not.basis%spec(species)%atom_mask(ia)) cycle atom_loop
        vec = loc - basis%spec(species)%atom(ia,:3)
        vec = vec - ceiling(vec - 0.5_real32)
        vec = matmul(vec, basis%lat)

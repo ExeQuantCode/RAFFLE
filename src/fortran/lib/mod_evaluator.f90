@@ -20,7 +20,7 @@ contains
 
 !###############################################################################
   pure function evaluate_point( distribs_container, &
-       position, species, basis, atom_ignore_list, &
+       position, species, basis, &
        radius_list &
   ) result(output)
     !! Return the viability of a point in a basis for a specified species
@@ -39,15 +39,13 @@ contains
     !! Basis of the system.
     real(real32), dimension(3), intent(in) :: position
     !! Position of the test point.
-    integer, dimension(:,:), intent(in) :: atom_ignore_list
-    !! List of atoms to ignore (i.e. indices of atoms not yet placed).
     real(real32), dimension(:), intent(in) :: radius_list
     !! List of radii for each pair of elements.
     real(real32) :: output
     !! Suitability of the test point.
 
     ! Local variables
-    integer :: i, is, js, ia, ja, ia_end, ja_start, ignore_count
+    integer :: i, is, js, ia, ja, ia_end, ja_start
     !! Loop counters.
     integer :: element_idx
     !! Index of the query element.
@@ -61,8 +59,6 @@ contains
     !! Temporary variables.
     logical :: has_4body
     !! Boolean whether the system has 4-body interactions.
-    logical :: ignore_atom
-    !! Boolean whether the atom is in the ignore list.
     real(real32) :: cos_scale1, cos_scale2
     !! Cosine scales for the 3- and 4-body interactions.
     real(real32), dimension(3) :: position_1
@@ -81,7 +77,6 @@ contains
     output = 0._real32
     viability_2body = 0._real32
     min_distance = distribs_container%cutoff_max(1)
-    ignore_count = size(atom_ignore_list, 2)
 
 
     !---------------------------------------------------------------------------
@@ -130,14 +125,7 @@ contains
        atom_loop: do ia = 1, basis%spec(is)%num
           ! Check if the atom is in the ignore list
           ! If it is, skip the atom.
-       ignore_atom = .false.
-          do i = 1, ignore_count, 1
-             if(all(atom_ignore_list(:,i).eq.[is,ia]))then
-                ignore_atom = .true.
-                exit
-             end if
-          end do
-          if(ignore_atom) cycle atom_loop
+          if(.not.basis%spec(is)%atom_mask(ia)) cycle atom_loop
           associate( position_store => [ basis%spec(is)%atom(ia,1:3) ] )
              bondlength = norm2( matmul(position - position_store, basis%lat) )
              if( bondlength .gt. distribs_container%cutoff_max(1) ) &

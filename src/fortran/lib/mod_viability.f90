@@ -27,7 +27,7 @@ contains
   function get_gridpoints_and_viability(distribs_container, grid, bounds, &
        basis, &
        species_index_list, &
-       radius_list, atom_ignore_list, grid_offset) result(points)
+       radius_list, grid_offset) result(points)
     !! Return a list of viable gridpoints and their viability for each species.
     !!
     !! This function returns the viability of all viable gridpoints.
@@ -46,8 +46,6 @@ contains
     !! List of radii for each pair of elements.
     integer, dimension(:), intent(in) :: species_index_list
     !! List of species indices to add atoms to.
-    integer, dimension(:,:), intent(in) :: atom_ignore_list
-    !! List of atoms to ignore (i.e. indices of atoms not yet placed).
     real(real32), dimension(3), intent(in) :: grid_offset
     !! Offset for gridpoints.
     real(real32), dimension(:,:), allocatable :: points
@@ -126,9 +124,7 @@ contains
 !$omp parallel do default(shared) private(i,is,ia,l,atom_idx,idx)
     do is = 1, basis%nspec
        atom_loop: do ia = 1, basis%spec(is)%num
-          do l = 1, size(atom_ignore_list,dim=2), 1
-             if(all(atom_ignore_list(:,l).eq.[is,ia])) cycle atom_loop
-          end do
+          if(.not. basis%spec(is)%atom_mask(ia)) cycle atom_loop
 
           ! get the atom position in terms of the grid indices
           atom_idx = &
@@ -184,14 +180,10 @@ contains
     do i = 1, num_points
        do concurrent ( is = 1 : size(species_index_list,1) )
           points(4,i) = &
-               norm2( get_min_dist(&
-                    basis, [ points(1:3,i) ], .false., &
-                    ignore_list = atom_ignore_list &
-               ) )
+               norm2( get_min_dist(basis, [ points(1:3,i) ], .false. ) )
           points(4+is,i) = &
                evaluate_point( distribs_container, &
-                    points(1:3,i), species_index_list(is), basis, &
-                    atom_ignore_list, radius_list &
+                    points(1:3,i), species_index_list(is), basis, radius_list &
                )
        end do
     end do
@@ -205,7 +197,7 @@ contains
   subroutine update_gridpoints_and_viability( &
        points, distribs_container, basis, &
        species_index_list, &
-       atom, radius_list, atom_ignore_list &
+       atom, radius_list &
   )
     !! Update the list of viable gridpoints and their viability for each
     !! species.
@@ -226,8 +218,6 @@ contains
     !! List of radii for each pair of elements.
     integer, dimension(:), intent(in) :: species_index_list
     !! List of species indices to add atoms to.
-    integer, dimension(:,:), intent(in) :: atom_ignore_list
-    !! List of atoms to ignore (i.e. indices of atoms not yet placed).
 
     ! Local variables
     integer :: i, is
@@ -277,7 +267,7 @@ contains
                 points(4+is,i) = &
                      evaluate_point( distribs_container, &
                           points(1:3,i), species_index_list(is), basis, &
-                          atom_ignore_list, radius_list &
+                          radius_list &
                      )
              end do
           end if

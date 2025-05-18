@@ -72,9 +72,9 @@ contains
 
     ! Initialise basis
     call basis_copy%copy(basis)
+    call basis_copy%set_atom_mask( atom_ignore_list )
     call basis_copy%create_images( &
-         max_bondlength = distribs_container%cutoff_max(1), &
-         atom_ignore_list = atom_ignore_list &
+         max_bondlength = distribs_container%cutoff_max(1) &
     )
 
     ! Initialise gvector container
@@ -98,7 +98,6 @@ contains
          basis_copy, &
          [ 1 ], &
          radius_list, &
-         atom_ignore_list, &
          grid_offset &
     )
 
@@ -149,9 +148,9 @@ contains
 
     ! Initialise basis
     call basis_copy%copy(basis)
+    call basis_copy%set_atom_mask( atom_ignore_list )
     call basis_copy%create_images( &
-         max_bondlength = distribs_container%cutoff_max(1), &
-         atom_ignore_list = atom_ignore_list &
+         max_bondlength = distribs_container%cutoff_max(1) &
     )
 
     ! Initialise gvector container
@@ -175,7 +174,6 @@ contains
          basis_copy, &
          [ 1 ], &
          radius_list, &
-         atom_ignore_list, &
          grid_offset &
     )
 
@@ -184,8 +182,7 @@ contains
          points, distribs_container, basis_copy, &
          [1], &
          [1,2], &
-         radius_list, &
-         atom_ignore_list &
+         radius_list &
     )
 
     ! Check points exist
@@ -211,8 +208,7 @@ contains
          points, distribs_container, basis_copy, &
          [1], &
          [1,2], &
-         radius_list, &
-         atom_ignore_list &
+         radius_list &
     )
 
     ! Check all points have been removed

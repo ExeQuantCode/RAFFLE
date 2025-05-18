@@ -17,7 +17,8 @@ module raffle__geom_utils
 contains
 
 !###############################################################################
-  function basis_merge(basis1,basis2,length,map1,map2) result(output)
+  function basis_merge(basis1,basis2,length,map1,map2, mask1, mask2) &
+       result(output)
     !! Merge two supplied bases
     !!
     !! Merge two bases assuming that the lattice is the same
@@ -32,6 +33,8 @@ contains
     !! Number of dimensions for atomic positions (default 3).
     integer, allocatable, dimension(:,:,:), optional, intent(inout) :: map1,map2
     !! Maps for atoms in the two bases.
+    logical, intent(in), optional :: mask1, mask2
+    !! Mask for atoms in the two bases.
 
     ! Local variables
     integer :: i, j, k, itmp, dim
@@ -100,15 +103,20 @@ contains
     ! set up atoms in merged basis
     !---------------------------------------------------------------------------
     do i = 1, basis1%nspec
+       allocate(output%spec(i)%atom_mask(output%spec(i)%num))
        allocate(output%spec(i)%atom_idx(output%spec(i)%num))
        allocate(output%spec(i)%atom(output%spec(i)%num,dim))
+       output%spec(i)%atom_mask(1:basis1%spec(i)%num) = basis1%spec(i)%atom_mask
        output%spec(i)%atom(:,:)=0._real32
        output%spec(i)%atom(1:basis1%spec(i)%num,:3) = basis1%spec(i)%atom(:,:3)
        output%spec(i)%atom_idx(1:basis1%spec(i)%num) = basis1%spec(i)%atom_idx
        if(lmap) new_map(i,:basis1%spec(i)%num,:) = map1(i,:basis1%spec(i)%num,:)
+       if(present(mask1)) output%spec(i)%atom_mask(1:basis1%spec(i)%num) = mask1
     end do
     do i = 1, basis2%nspec
        if(match(i).gt.basis1%nspec)then
+          allocate(output%spec(match(i))%atom_mask(output%spec(match(i))%num))
+          output%spec(match(i))%atom_mask(:) = basis2%spec(i)%atom_mask(:)
           allocate(output%spec(match(i))%atom_idx(output%spec(match(i))%num))
           output%spec(match(i))%atom_idx(:) = &
                basis2%spec(i)%atom_idx(:) + basis1%natom
@@ -117,14 +125,21 @@ contains
           output%spec(match(i))%atom(:,:3)=basis2%spec(i)%atom(:,:3)
           if(lmap) new_map(match(i),:basis2%spec(i)%num,:) = &
                map2(i,:basis2%spec(i)%num,:)
+          if(present(mask2)) output%spec(match(i))%atom_mask(:) = mask2
        else
           itmp=basis1%spec(match(i))%num
+          output%spec(match(i))%atom_mask(itmp+1:basis2%spec(i)%num+itmp) = &
+               basis2%spec(i)%atom_mask(:)
           output%spec(match(i))%atom_idx(itmp+1:basis2%spec(i)%num+itmp) = &
                basis2%spec(i)%atom_idx(:) + basis1%natom
           output%spec(match(i))%atom(itmp+1:basis2%spec(i)%num+itmp,:3) = &
                basis2%spec(i)%atom(:,:3)   
           if(lmap) new_map(match(i),itmp+1:basis2%spec(i)%num+itmp,:) = &
-               map2(i,:basis2%spec(i)%num,:)      
+               map2(i,:basis2%spec(i)%num,:)    
+          if(present(mask2)) &
+               output%spec(match(i))%atom_mask( &
+                    itmp+1:basis2%spec(i)%num+itmp &
+               ) = mask2  
        end if
     end do
     output%natom=sum(output%spec(:)%num)

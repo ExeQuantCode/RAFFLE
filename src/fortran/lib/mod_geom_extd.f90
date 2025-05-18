@@ -33,7 +33,7 @@ module raffle__geom_extd
 contains
 
 !###############################################################################
-  subroutine create_images(this, max_bondlength, atom_ignore_list)
+  subroutine create_images(this, max_bondlength)
     !! Create the images for the basis set.
     implicit none
 
@@ -42,8 +42,6 @@ contains
     !! Parent of the procedure. Instance of the extended basis.
     real(real32), intent(in) :: max_bondlength
     !! Maximum distance to extend the basis set.
-    integer, dimension(:,:), intent(in), optional :: atom_ignore_list
-    !! List of atoms to ignore when creating images.
 
     ! Local variables
     integer :: is, ia, i, j, k
@@ -54,18 +52,6 @@ contains
     !! Temporary vector for storing atom positions.
     type(species_type), dimension(this%nspec) :: image_species
     !! Temporary store for the images.
-    integer, dimension(:,:), allocatable :: atom_ignore_list_
-    !! List of atoms to ignore when creating images.
-
-
-    !---------------------------------------------------------------------------
-    ! initialise the atom_ignore_list
-    !---------------------------------------------------------------------------
-    if(present(atom_ignore_list)) then
-       atom_ignore_list_ = atom_ignore_list(:,:)
-    else
-       allocate(atom_ignore_list_(0,0))
-    end if
 
 
     !---------------------------------------------------------------------------
@@ -92,9 +78,7 @@ contains
        image_species(is)%radius = this%spec(is)%radius
        image_species(is)%name = this%spec(is)%name
        atom_loop: do ia = 1, this%spec(is)%num
-          do i = 1, size(atom_ignore_list_,2), 1
-             if(all(atom_ignore_list_(:,i).eq.[is,ia])) cycle atom_loop
-          end do
+          if(.not.this%spec(is)%atom_mask(ia)) cycle atom_loop
           do i=-amax,amax+1,1
              vtmp1(1) = this%spec(is)%atom(ia,1) + real(i, real32)
              do j=-bmax,bmax+1,1

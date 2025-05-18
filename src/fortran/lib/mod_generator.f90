@@ -648,6 +648,8 @@ contains
 
     j = 0
     do i = 1, basis_template%nspec
+       basis_template%spec(i)%atom_mask = &
+            [ ( .false., k = 1, basis_template%spec(i)%num, 1 ) ]
        basis_template%spec(i)%atom_idx = &
             [ ( k, k = j + 1, j + basis_template%spec(i)%num, 1 ) ]
        j = j + basis_template%spec(i)%num
@@ -660,7 +662,10 @@ contains
        call stop_program("Host structure not set")
        return
     end if
-    basis_template = basis_merge(this%host,basis_template)
+    basis_template = basis_merge( &
+         this%host, basis_template, &
+         mask1 = .true., mask2 = .false. &
+    )
     basis_template%lat = this%host%lat
 
 
@@ -709,6 +714,7 @@ contains
           end do
        end if
     end do spec_loop1
+   !  call basis_template%set_atom_mask(placement_list)
 
 
     !---------------------------------------------------------------------------
@@ -782,7 +788,7 @@ contains
     !! Exit code.
 
     ! Local variables
-    integer :: iplaced, void_ticker
+    integer :: iplaced, void_ticker, i
     !! Loop counters.
     integer :: num_insert_atoms
     !! Number of atoms to insert.
@@ -816,8 +822,7 @@ contains
     !---------------------------------------------------------------------------
     call basis%copy(basis_initial)
     call basis%create_images( &
-         max_bondlength = this%distributions%cutoff_max(1), &
-         atom_ignore_list = placement_list &
+         max_bondlength = this%distributions%cutoff_max(1) &
     )
     num_insert_atoms = basis%natom - this%host%natom
 
@@ -847,7 +852,6 @@ contains
          basis, &
          species_index_list, &
          [ this%distributions%bond_info(:)%radius_covalent ], &
-         placement_list_shuffled, &
          this%grid_offset &
     )
 
@@ -872,8 +876,7 @@ contains
                     basis, &
                     species_index_list, &
                     [ placement_list_shuffled(:,iplaced) ], &
-                    [ this%distributions%bond_info(:)%radius_covalent ], &
-                    placement_list_shuffled(:,iplaced+1:) &
+                    [ this%distributions%bond_info(:)%radius_covalent ] &
                )
        end if
        if(.not.allocated(gridpoint_viability))then
@@ -893,18 +896,14 @@ contains
        call random_number(rtmp1)
        if(rtmp1.le.method_rand_limit_(1)) then
           if(verbose.gt.0) write(*,*) "Add Atom Void"
-          point = place_method_void( &
-               gridpoint_viability, &
-               basis, &
-               placement_list_shuffled(:,iplaced+1:), viable &
-          )
+          point = place_method_void( gridpoint_viability, basis, viable )
        elseif(rtmp1.le.method_rand_limit_(2)) then
           if(verbose.gt.0) write(*,*) "Add Atom Random"
           point = place_method_rand( &
                this%distributions, &
                this%bounds, &
                basis, &
-               placement_list_shuffled(:,iplaced+1:), &
+               placement_list_shuffled(1,iplaced+1), &
                [ this%distributions%bond_info(:)%radius_covalent ], &
                this%max_attempts, &
                viable &
@@ -915,7 +914,7 @@ contains
                this%distributions, &
                this%bounds, &
                basis, &
-               placement_list_shuffled(:,iplaced+1:), &
+               placement_list_shuffled(1,iplaced+1), &
                [ this%distributions%bond_info(:)%radius_covalent ], &
                this%max_attempts, &
                this%walk_step_size_coarse, this%walk_step_size_fine, &
@@ -928,7 +927,7 @@ contains
                   this%distributions, &
                   this%bounds, &
                   basis, &
-                  placement_list_shuffled(:,iplaced+1:), &
+                  placement_list_shuffled(1,iplaced+1), &
                   [ this%distributions%bond_info(:)%radius_covalent ], &
                   this%max_attempts, &
                   viable &
@@ -943,7 +942,7 @@ contains
                   placement_list_shuffled(1,iplaced), &
                   this%bounds, &
                   basis, &
-                  placement_list_shuffled(:,iplaced+1:), &
+                  placement_list_shuffled(1,iplaced+1), &
                   [ this%distributions%bond_info(:)%radius_covalent ], &
                   this%max_attempts, &
                   this%walk_step_size_coarse, this%walk_step_size_fine, &
@@ -989,10 +988,7 @@ contains
              placement_aborted = .true.
              exit placement_loop
           elseif(void_ticker.gt.10)then
-             point = place_method_void( &
-                  gridpoint_viability, basis, &
-                  placement_list_shuffled(:,iplaced+1:), viable &
-             )
+             point = place_method_void( gridpoint_viability, basis, viable )
              void_ticker = 0
           end if
           if(.not.viable) cycle placement_loop
@@ -1007,6 +1003,8 @@ contains
        iplaced = iplaced + 1
        basis%spec(placement_list_shuffled(1,iplaced))%atom( &
             placement_list_shuffled(2,iplaced),:3) = point(:3)
+       basis%spec(placement_list_shuffled(1,iplaced))%atom_mask( &
+            placement_list_shuffled(2,iplaced)) = .true.
        call basis%update_images( &
             max_bondlength = this%distributions%cutoff_max(1), &
             is = placement_list_shuffled(1,iplaced), &
@@ -1159,8 +1157,6 @@ contains
     ! Local variables
     integer :: is, ia, idx
     !! Loop indices.
-    integer, dimension(2,1) :: atom_ignore
-    !! Atom to ignore.
     type(extended_basis_type) :: basis_extd
     !! Extended basis for the structure to evaluate.
 
@@ -1186,14 +1182,14 @@ contains
           return
        end if
        do ia = 1, basis%spec(is)%num
-          atom_ignore(:,1) = [is,ia]
+          basis_extd%spec(is)%atom_mask(ia) = .false.
           viability = viability + &
                evaluate_point( this%distributions, &
                     [ basis%spec(is)%atom(ia,1:3) ], &
                     is, basis_extd, &
-                    atom_ignore, &
                     [ this%distributions%bond_info(:)%radius_covalent ] &
                )
+          basis_extd%spec(is)%atom_mask(ia) = .true.
        end do
     end do
 
@@ -1241,8 +1237,6 @@ contains
     !! Offset of the gridpoints.
     real(real32), dimension(2,3) :: bounds_
     !! Bounds for atom placement.
-    integer, dimension(2,size(species_list,1)) :: atom_ignore_list
-    !! Atom to ignore.
     type(extended_basis_type) :: basis_extd
     !! Extended basis for the structure to evaluate.
 
@@ -1279,12 +1273,11 @@ contains
     do i = 1, size(species_list)
        call basis_extd%add_atom( &
             species_list(i), &
-            position = [0._real32, 0._real32, 0._real32] &
+            position = [0._real32, 0._real32, 0._real32], &
+            mask = .false. &
        )
        species_idx_list(i) = &
             findloc(basis_extd%spec(:)%name, strip_null(species_list(i)), dim=1)
-       atom_ignore_list(1,i) = species_idx_list(i)
-       atom_ignore_list(2,i) = basis_extd%spec(species_idx_list(i))%num
     end do
     do is = 1, basis_extd%nspec
        idx = this%distributions%get_element_index( &
@@ -1300,8 +1293,7 @@ contains
        end if
     end do
     call basis_extd%create_images( &
-         max_bondlength = this%distributions%cutoff_max(1), &
-         atom_ignore_list = atom_ignore_list &
+         max_bondlength = this%distributions%cutoff_max(1) &
     )
 
 
@@ -1315,7 +1307,6 @@ contains
          basis_extd, &
          species_idx_list, &
          [ this%distributions%bond_info(:)%radius_covalent ], &
-         atom_ignore_list, &
          grid_offset = grid_offset_ &
     )
 

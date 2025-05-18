@@ -92,12 +92,10 @@ contains
 
     call basis_copy%copy(basis)
     atom_ignore_list(:,1) = [1, 1]
+    call basis_copy%set_atom_mask( atom_ignore_list )
 
     ! Create images
-    call basis_copy%create_images( &
-         max_bondlength = 0._real32, &
-         atom_ignore_list = atom_ignore_list &
-    )
+    call basis_copy%create_images( max_bondlength = 0._real32 )
 
     ! Check if the number of images is correct
     call assert( &

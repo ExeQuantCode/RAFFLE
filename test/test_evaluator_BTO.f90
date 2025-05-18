@@ -171,10 +171,8 @@ program test_evaluator_BTO
   atom_ignore_list(:,4) = [3, 6]
   atom_ignore_list(:,5) = [2, 2]
 
-  call basis_host%create_images( &
-       max_bondlength = max_bondlength, &
-       atom_ignore_list = atom_ignore_list &
-  )
+  call basis_host%set_atom_mask( atom_ignore_list )
+  call basis_host%create_images( max_bondlength = max_bondlength )
 
 
 
@@ -211,7 +209,6 @@ program test_evaluator_BTO
        basis_host, &
        [ 1, 2, 3 ], &
        [ generator%distributions%bond_info(:)%radius_covalent ], &
-       atom_ignore_list, &
        grid_offset = generator%grid_offset &
   )
   do i = 1, 3
@@ -236,9 +233,7 @@ program test_evaluator_BTO
      write(unit,fmt) basis_host%spec(:)%name
      do is = 1, basis_host%nspec
         atom_loop: do ia = 1, basis_host%spec(is)%num
-           do i = 1, size(atom_ignore_list,2)
-              if( all(atom_ignore_list(:,i).eq.[is,ia]) ) cycle atom_loop
-           end do
+           if(.not.basis_host%spec(is)%atom_mask(ia)) cycle atom_loop
            write(unit,*) basis_host%spec(is)%atom(ia,:3)
         end do atom_loop
      end do
@@ -264,7 +259,6 @@ program test_evaluator_BTO
            viability_grid(is,i) = evaluate_point( generator%distributions, &
                 gridpoints(1:3,i), is, &
                 basis_host, &
-                atom_ignore_list(:,ia:), &
                 [ generator%distributions%bond_info(:)%radius_covalent ] &
            )
         end do
@@ -298,6 +292,7 @@ program test_evaluator_BTO
              viability_grid(atom_ignore_list(1,ia),best_loc)
         write(*,*) "Gridpoint: ", gridpoints(1:3,best_loc)
      end if
+     call basis_host%set_atom_mask( atom_ignore_list(:,ia:ia) )
      call basis_host%update_images( &
           max_bondlength = max_bondlength, &
           is = atom_ignore_list(1,ia), ia = atom_ignore_list(2,ia) &

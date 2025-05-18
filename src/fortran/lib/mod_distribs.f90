@@ -9,7 +9,7 @@ module raffle__distribs
   use raffle__io_utils, only: stop_program, print_warning
   use raffle__misc, only: strip_null, sort_str
   use raffle__misc_maths, only: triangular_number
-  use raffle__misc_linalg, only: get_angle, get_improper_dihedral_angle, modu
+  use raffle__misc_linalg, only: get_angle, get_improper_dihedral_angle
   use raffle__geom_rw, only: basis_type, get_element_properties
   use raffle__geom_extd, only: extended_basis_type
   use raffle__element_utils, only: &
@@ -339,7 +339,7 @@ contains
                           basis_extd%spec(is)%atom(ia,1:3) &
                      ], basis_extd%lat ) &
                 )
-                   bondlength = modu( vector )
+                   bondlength = norm2( vector )
 
                    if( &
                         bondlength .lt. cutoff_min_(1) .or. &
@@ -410,7 +410,7 @@ contains
                      ], basis_extd%lat ) &
                 )
 
-                   bondlength = modu( vector )
+                   bondlength = norm2( vector )
 
                    if( &
                         bondlength .lt. cutoff_min_(1) .or. &
@@ -529,8 +529,8 @@ contains
                           neighbour_basis%spec(1)%atom(ja,4) * &
                           neighbour_basis%spec(1)%atom(ka,4) &
                      ) / ( &
-                          modu(neighbour_basis%spec(1)%atom(ja,:3)) ** 2 * &
-                          modu(neighbour_basis%spec(1)%atom(ka,:3)) ** 2 &
+                          norm2(neighbour_basis%spec(1)%atom(ja,:3)) ** 2 * &
+                          norm2(neighbour_basis%spec(1)%atom(ka,:3)) ** 2 &
                      )
              end do
           end do
@@ -585,9 +585,9 @@ contains
                           neighbour_basis%spec(1)%atom(ka,4) * &
                           neighbour_basis%image_spec(1)%atom(la,4) &
                      ) / ( &
-                          modu(neighbour_basis%spec(1)%atom(ja,:3)) ** 2 * &
-                          modu(neighbour_basis%spec(1)%atom(ka,:3)) ** 2 * &
-                          modu(neighbour_basis%image_spec(1)%atom(la,:3)) ** 2 &
+                          norm2(neighbour_basis%spec(1)%atom(ja,:3)) ** 2 * &
+                          norm2(neighbour_basis%spec(1)%atom(ka,:3)) ** 2 * &
+                          norm2(neighbour_basis%image_spec(1)%atom(la,:3)) ** 2 &
                      )
              end do
           end do

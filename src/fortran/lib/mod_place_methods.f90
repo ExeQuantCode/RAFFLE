@@ -10,7 +10,7 @@ module raffle__place_methods
   !!        as the starting point
   !! - min:  place the atom at the gridpoint with the highest viability
   use raffle__constants, only: real32, pi
-  use raffle__misc_linalg, only: modu, inverse_3x3
+  use raffle__misc_linalg, only: inverse_3x3
   use raffle__geom_extd, only: extended_basis_type
   use raffle__dist_calcs, only: &
        get_min_dist, &
@@ -221,7 +221,7 @@ contains
     ! test a random point in the unit cell
     !---------------------------------------------------------------------------
     do i = 1, 3
-       abc(i) = modu(basis%lat(i,:))
+       abc(i) = norm2(basis%lat(i,:))
     end do
     i = 0
     random_loop : do
@@ -382,7 +382,7 @@ contains
     ! get the lattice constants and the inverse lattice
     !---------------------------------------------------------------------------
     do i = 1, 3
-       abc(i) = modu(basis%lat(i,:))
+       abc(i) = norm2(basis%lat(i,:))
     end do
     inverse_lattice = inverse_3x3(basis%lat)
 

@@ -7,7 +7,7 @@ module raffle__viability
   use omp_lib
 #endif
   use raffle__constants, only: real32
-  use raffle__misc_linalg, only: modu, inverse_3x3
+  use raffle__misc_linalg, only: inverse_3x3
   use raffle__geom_extd, only: extended_basis_type
   use raffle__dist_calcs, only: &
        get_min_dist_between_point_and_atom, get_min_dist
@@ -132,7 +132,7 @@ contains
 
           ! get the atom position in terms of the grid indices
           atom_idx = &
-               nint( ( basis%spec(is)%atom(ia,1:3) - offset )/ grid_scale )
+               nint( ( basis%spec(is)%atom(ia,1:3) - offset ) / grid_scale )
 
           ! if any one of the indicies is always outside of the grid, skip
           idx_lw = atom_idx - extent
@@ -184,7 +184,7 @@ contains
     do i = 1, num_points
        do concurrent ( is = 1 : size(species_index_list,1) )
           points(4,i) = &
-               modu( get_min_dist(&
+               norm2( get_min_dist(&
                     basis, [ points(1:3,i) ], .false., &
                     ignore_list = atom_ignore_list &
                ) )
@@ -234,6 +234,8 @@ contains
     !! Loop indices.
     integer :: num_points
     !! Number of gridpoints.
+    integer :: num_species
+    !! Number of species.
     real(real32) :: min_radius
     !! Minimum radius.
     real(real32) :: distance
@@ -261,16 +263,17 @@ contains
          minval(radius_list) * distribs_container%radius_distance_tol(1) &
     )
     atom_pos = basis%spec(atom(1))%atom(atom(2),1:3)
+    num_species = size(species_index_list,1)
 !$omp parallel do default(shared) private(i,is,diff,distance)
     do i = 1, num_points
        diff = atom_pos - points(1:3,i)
        diff = diff - anint(diff)
-       distance = modu( matmul( diff, basis%lat ) )
+       distance = norm2( matmul( diff, basis%lat ) )
        if( distance .lt. min_radius )then
           viable(i) = .false.
        else
           if( distance .le. distribs_container%cutoff_max(1) )then
-             do concurrent( is = 1 : size(species_index_list,1) )
+             do concurrent( is = 1 : num_species )
                 points(4+is,i) = &
                      evaluate_point( distribs_container, &
                           points(1:3,i), species_index_list(is), basis, &

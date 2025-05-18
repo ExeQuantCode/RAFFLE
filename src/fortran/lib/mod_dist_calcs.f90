@@ -5,7 +5,7 @@ module raffle__dist_calcs
   !! and other points in the system.
   use raffle__constants, only: pi,real32
   use raffle__geom_rw, only: basis_type
-  use raffle__misc_linalg, only: modu, get_angle
+  use raffle__misc_linalg, only: get_angle
   implicit none
 
 
@@ -90,7 +90,7 @@ contains
              end do
           end if
           vdtmp1 = basis%spec(js)%atom(ja,:3) - loc
-          if(lignore_close.and.modu(vdtmp1).lt.tol_) cycle atmloop
+          if(lignore_close.and.norm2(vdtmp1).lt.tol_) cycle atmloop
           if(axis_.gt.0)then
              if(abs(vdtmp1(axis_)).lt.tol_) cycle atmloop
              if(labove_)then
@@ -102,7 +102,7 @@ contains
              vdtmp1 = vdtmp1 - ceiling(vdtmp1 - 0.5_real32)
           end if
           vdtmp2 = matmul(vdtmp1,basis%lat)
-          dtmp1 = modu(vdtmp2)
+          dtmp1 = norm2(vdtmp2)
           if(dtmp1.lt.min_bond)then
              min_bond = dtmp1
              if(lreal_)then
@@ -143,7 +143,7 @@ contains
     vec = loc - basis%spec(atom(1))%atom(atom(2),:3)
     vec = vec - ceiling(vec - 0.5_real32)
     vec = matmul(vec,basis%lat)
-    dist = modu(vec)
+    dist = norm2(vec)
 
   end function get_min_dist_between_point_and_atom
 !###############################################################################
@@ -189,7 +189,7 @@ contains
        vec = loc - basis%spec(species)%atom(ia,:3)
        vec = vec - ceiling(vec - 0.5_real32)
        vec = matmul(vec, basis%lat)
-       rtmp1 = modu(vec)
+       rtmp1 = norm2(vec)
        if( rtmp1 .lt. dist ) dist = rtmp1
     end do atom_loop
 
@@ -220,7 +220,7 @@ contains
 
     vec = loc - basis%spec(atom(1))%atom(atom(2),:3)
     vec = matmul(vec,basis%lat)
-    dist = modu(vec)
+    dist = norm2(vec)
 
   end function get_dist_between_point_and_atom
 !###############################################################################

@@ -6,7 +6,7 @@ module raffle__geom_rw
   use raffle__constants, only: pi,real32
   use raffle__io_utils, only: stop_program, print_warning
   use raffle__misc, only: to_upper, to_lower, jump, icount, strip_null
-  use raffle__misc_linalg, only: modu, inverse_3x3
+  use raffle__misc_linalg, only: inverse_3x3
   implicit none
 
 
@@ -1304,7 +1304,7 @@ contains
 
 
     do i = 1, 3
-       abc_angle(1,i)=modu(lattice(i,:))
+       abc_angle(1,i)=norm2(lattice(i,:))
     end do
     do i = 1, 3
     end do

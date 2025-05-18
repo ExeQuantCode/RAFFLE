@@ -47,7 +47,7 @@ contains
     !! Suitability of the test point.
 
     ! Local variables
-    integer :: i, is, js, ia, ja, ia_end, ja_start
+    integer :: i, is, js, ia, ja, ia_end, ja_start, ignore_count
     !! Loop counters.
     integer :: element_idx
     !! Index of the query element.
@@ -61,7 +61,9 @@ contains
     !! Temporary variables.
     logical :: has_4body
     !! Boolean whether the system has 4-body interactions.
-    real(real32), dimension(2) :: cos_scales
+    logical :: ignore_atom
+    !! Boolean whether the atom is in the ignore list.
+    real(real32) :: cos_scale1, cos_scale2
     !! Cosine scales for the 3- and 4-body interactions.
     real(real32), dimension(3) :: position_1
     !! Cartesian coordinates of the test point.
@@ -79,6 +81,7 @@ contains
     output = 0._real32
     viability_2body = 0._real32
     min_distance = distribs_container%cutoff_max(1)
+    ignore_count = size(atom_ignore_list, 2)
 
 
     !---------------------------------------------------------------------------
@@ -118,8 +121,8 @@ contains
        tolerances(3) = max( distribs_container%cutoff_min(1), tolerances(3) )
        tolerances(2) = min( distribs_container%cutoff_max(1), tolerances(2) )
        tolerances(4) = min( distribs_container%cutoff_max(1), tolerances(4) )
-       cos_scales(1) = tau / ( tolerances(2) - tolerances(1) )
-       cos_scales(2) = tau / ( tolerances(4) - tolerances(3) )
+       cos_scale1 = tau / ( tolerances(2) - tolerances(1) )
+       cos_scale2 = tau / ( tolerances(4) - tolerances(3) )
        !------------------------------------------------------------------------
        ! 2-body map
        ! check bondlength between test point and all other atoms
@@ -127,11 +130,16 @@ contains
        atom_loop: do ia = 1, basis%spec(is)%num
           ! Check if the atom is in the ignore list
           ! If it is, skip the atom.
-          do i = 1, size(atom_ignore_list,dim=2), 1
-             if(all(atom_ignore_list(:,i).eq.[is,ia])) cycle atom_loop
+       ignore_atom = .false.
+          do i = 1, ignore_count, 1
+             if(all(atom_ignore_list(:,i).eq.[is,ia]))then
+                ignore_atom = .true.
+                exit
+             end if
           end do
+          if(ignore_atom) cycle atom_loop
           associate( position_store => [ basis%spec(is)%atom(ia,1:3) ] )
-             bondlength = modu( matmul(position - position_store, basis%lat) )
+             bondlength = norm2( matmul(position - position_store, basis%lat) )
              if( bondlength .gt. distribs_container%cutoff_max(1) ) &
                   cycle atom_loop
              if( bondlength .lt. tolerances(1) )then
@@ -149,7 +157,7 @@ contains
                 neighbour_basis%spec(is)%atom( &
                      neighbour_basis%spec(is)%num,4 &
                 ) = 0.5_real32 * abs( 1._real32 - &
-                     cos( cos_scales(1) * ( bondlength - tolerances(1) ) ) )
+                     cos( cos_scale1 * ( bondlength - tolerances(1) ) ) )
              end if
 
              if( bondlength .ge. tolerances(3) .and. &
@@ -165,7 +173,7 @@ contains
                 neighbour_basis%image_spec(is)%atom( &
                      neighbour_basis%image_spec(is)%num,4 &
                 ) = 0.5_real32 * abs( 1._real32 - &
-                     cos( cos_scales(2) * ( bondlength - tolerances(3) ) ) )
+                     cos( cos_scale2 * ( bondlength - tolerances(3) ) ) )
              end if
 
              !------------------------------------------------------------------
@@ -189,7 +197,7 @@ contains
        !------------------------------------------------------------------------
        image_loop: do ia = 1, basis%image_spec(is)%num, 1
           associate( position_store => [ basis%image_spec(is)%atom(ia,1:3) ] )
-             bondlength = modu( matmul(position - position_store, basis%lat) )
+             bondlength = norm2( matmul(position - position_store, basis%lat) )
              if( bondlength .gt. distribs_container%cutoff_max(1) ) &
                   cycle image_loop
              if( bondlength .lt. tolerances(1) )then
@@ -202,7 +210,7 @@ contains
                 neighbour_basis%spec(is)%atom( &
                      neighbour_basis%spec(is)%num,4 &
                 ) = 0.5_real32 * ( 1._real32 - &
-                     cos( cos_scales(1) * ( bondlength - tolerances(1) ) ) )
+                     cos( cos_scale1 * ( bondlength - tolerances(1) ) ) )
              end if
 
              if( bondlength .ge. tolerances(3) .and. &
@@ -216,7 +224,7 @@ contains
                 neighbour_basis%image_spec(is)%atom( &
                      neighbour_basis%image_spec(is)%num,4 &
                 ) =  0.5_real32 * abs( 1._real32 - &
-                     cos( cos_scales(2) * ( bondlength - tolerances(3) ) ) )
+                     cos( cos_scale2 * ( bondlength - tolerances(3) ) ) )
              end if
 
              !------------------------------------------------------------------

@@ -8,7 +8,6 @@ module raffle__generator
   use raffle__io_utils, only: stop_program, print_warning, suppress_warnings
   use raffle__constants, only: real32
   use raffle__tools_infile, only: assign_val, assign_vec
-  use raffle__misc_linalg, only: modu
   use raffle__misc, only: strip_null, set, shuffle, sort1D, sort2D, to_upper
   use raffle__geom_rw, only: basis_type
   use raffle__geom_extd, only: extended_basis_type
@@ -339,7 +338,7 @@ contains
     depth_ = 3._real32
     if(present(depth)) depth_ = depth
     call host%copy(this%host)
-    lattice_const = modu(host%lat(axis,:))
+    lattice_const = norm2(host%lat(axis,:))
     location_as_fractional_ = .false.
     if(present(location_as_fractional)) &
          location_as_fractional_ = location_as_fractional
@@ -443,7 +442,7 @@ contains
           do i = 1, 3
              this%grid(i) = nint( &
                   ( this%bounds(2,i) - this%bounds(1,i) ) * &
-                  modu(this%host%lat(i,:)) / this%grid_spacing &
+                  norm2(this%host%lat(i,:)) / this%grid_spacing &
              )
           end do
        end if
@@ -1269,7 +1268,7 @@ contains
        do i = 1, 3
           grid_(i) = nint( &
                ( bounds_(2,i) - bounds_(1,i) ) * &
-               modu(basis%lat(i,:)) / grid_spacing_ &
+               norm2(basis%lat(i,:)) / grid_spacing_ &
           )
        end do
     end if

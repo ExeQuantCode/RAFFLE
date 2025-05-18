@@ -2259,8 +2259,6 @@ contains
     integer :: idx
     !! Index of the element in the element_info array.
 
-    ! Local variables
-
     idx = findloc([ this%element_info(:)%name ], species, dim=1)
 
   end function get_element_index
@@ -2282,16 +2280,19 @@ contains
     integer :: bin
     !! Bin index for the value.
 
-    if(value .lt. this%cutoff_min(dim) - this%width(dim) .or. &
-         value .gt. this%cutoff_max(dim) + this%width(dim))then
-       bin = 0
-    else
-       bin = nint( &
-            ( this%nbins(dim) - 1 ) * &
-            ( value - this%cutoff_min(dim) ) / &
-            ( this%cutoff_max(dim) - this%cutoff_min(dim) ) &
-       ) + 1
-    end if
+    ! Local variables
+    real(real32) :: min_val, width_inv
+    !! Temporary variables.
+
+    ! Prefetch frequently accessed values
+    min_val = this%cutoff_min(dim)
+    width_inv = 1._real32 / this%width(dim)
+
+    ! Calculate bin using optimized operations
+    bin = int((value - min_val) * width_inv + 0.5_real32) + 1
+
+    ! Ensure bin stays within bounds (floating point safety)
+    bin = min(max(bin, 1), this%nbins(dim))
 
   end function get_bin
 !###############################################################################

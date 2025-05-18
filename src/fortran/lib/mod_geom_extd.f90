@@ -5,7 +5,7 @@ module raffle__geom_extd
   !! within a specified distance of the unit cell. This is useful for
   !! calculating interactions between atoms that are not within the unit cell.
   use raffle__constants, only: real32, pi
-  use raffle__misc_linalg, only: modu, cross, inverse_3x3
+  use raffle__misc_linalg, only: cross, inverse_3x3
   use raffle__geom_rw, only: basis_type, species_type
   implicit none
 
@@ -74,9 +74,9 @@ contains
     !       won't work for extremely acute/obtuse angle cells
     !       (due to diagonal path being shorter than individual lattice vectors)
     !---------------------------------------------------------------------------
-    amax = ceiling(max_bondlength/modu(this%lat(1,:)))
-    bmax = ceiling(max_bondlength/modu(this%lat(2,:)))
-    cmax = ceiling(max_bondlength/modu(this%lat(3,:)))
+    amax = ceiling(max_bondlength/norm2(this%lat(1,:)))
+    bmax = ceiling(max_bondlength/norm2(this%lat(2,:)))
+    cmax = ceiling(max_bondlength/norm2(this%lat(3,:)))
 
 
     spec_loop: do is = 1, this%nspec
@@ -168,9 +168,9 @@ contains
     !       (due to diagonal path being shorter than individual lattice vectors)
     !---------------------------------------------------------------------------
     num_images = this%image_spec(is)%num
-    amax = ceiling(max_bondlength/modu(this%lat(1,:)))
-    bmax = ceiling(max_bondlength/modu(this%lat(2,:)))
-    cmax = ceiling(max_bondlength/modu(this%lat(3,:)))
+    amax = ceiling(max_bondlength/norm2(this%lat(1,:)))
+    bmax = ceiling(max_bondlength/norm2(this%lat(2,:)))
+    cmax = ceiling(max_bondlength/norm2(this%lat(3,:)))
     dim = 3
     do i = 1, this%nspec
        if ( size(this%spec(i)%atom,2) .gt. dim) dim =  size(this%spec(i)%atom,2)

@@ -1864,7 +1864,7 @@ class Generator(f90wrap.runtime.FortranModule):
                 raise ValueError("bounds must be a list of length 2")
             # check each element of bounds is a list of length 3
             for bound in bounds:
-                if not isinstance(bound, list) or len(bound) != 3:
+                if not ( isinstance(bound, list) or isinstance(bound, numpy.ndarray) ) or len(bound) != 3:
                     raise ValueError("each element of bounds must be a list of length 3")
 
             _raffle.f90wrap_generator__set_bounds__binding__rgt(this=self._handle, \

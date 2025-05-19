@@ -45,7 +45,7 @@ contains
     !! Suitability of the test point.
 
     ! Local variables
-    integer :: i, is, js, ia, ja, ia_end, ja_start
+    integer :: i, is, js, ia, ja, ia_end, ja_start, is_end
     !! Loop counters.
     integer :: element_idx
     !! Index of the query element.
@@ -274,9 +274,12 @@ contains
     position_1 = matmul(position, basis%lat)
     element_idx = distribs_container%element_map(species)
     has_4body = any(neighbour_basis%image_spec(:)%num .gt. 0)
-    do is = 1, neighbour_basis%nspec
-       ia_end = neighbour_basis%spec(is)%num - &
-            merge( 1, 0, is .eq. neighbour_basis%nspec )
+    is_end = 0
+    do is = 1, neighbour_basis%nspec, 1
+       if(neighbour_basis%spec(is)%num .gt. 0) is_end = is
+    end do
+    do is = 1, is_end, 1
+       ia_end = neighbour_basis%spec(is)%num - merge( 1, 0, is .eq. is_end )
        do ia = 1, ia_end, 1
           position_2 = neighbour_basis%spec(is)%atom(ia,1:4)
           !---------------------------------------------------------------------

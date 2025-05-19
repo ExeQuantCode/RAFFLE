@@ -2286,10 +2286,10 @@ contains
 
     ! Prefetch frequently accessed values
     min_val = this%cutoff_min(dim)
-    width_inv = 1._real32 / this%width(dim)
+    width_inv = ( this%nbins(dim) - 1 ) / ( this%cutoff_max(dim) - min_val )
 
     ! Calculate bin using optimized operations
-    bin = int((value - min_val) * width_inv + 0.5_real32) + 1
+    bin = nint((value - min_val) * width_inv) + 1
 
     ! Ensure bin stays within bounds (floating point safety)
     bin = min(max(bin, 1), this%nbins(dim))

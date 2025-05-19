@@ -70,6 +70,8 @@ module raffle__distribs_container
      real(real32), dimension(3) :: &
           width = [ 0.025_real32, pi/64._real32, pi/64._real32 ]
      !! Width of the bins used in the 2-, 3-, and 4-body distribution functions.
+     real(real32), dimension(3) :: width_inv
+     !! Inverse of the width of the bins used in the 2-, 3-, and 4-body
      real(real32), dimension(3) :: &
           cutoff_min = [ 0.5_real32, 0._real32, 0._real32 ]
      !! Minimum cutoff for the 2-, 3-, and 4-body distribution functions.
@@ -186,6 +188,8 @@ module raffle__distribs_container
      !! Return the index for bond_info given two elements.
      procedure, pass(this) :: get_element_index
      !! Return the index for element_info given one element.
+     procedure, pass(this) :: set_num_bins
+     !! Set the number of bins for the n-body distribution functions.
      procedure, pass(this) :: get_bin
      !! Return the bin index for a given distance.
      procedure, pass(this) :: get_2body
@@ -2266,6 +2270,35 @@ contains
 
 
 !###############################################################################
+  subroutine set_num_bins(this)
+    !! Set the number of bins for the n-body distribution functions.
+    implicit none
+
+    ! Arguments
+    class(distribs_container_type), intent(inout) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
+
+    ! Local variables
+    integer :: i
+    !! Loop index.
+
+    do i = 1, 3
+       if(this%nbins(i).eq.-1)then
+          this%nbins(i) = 1 + &
+               nint( &
+                    ( this%cutoff_max(i) - this%cutoff_min(i) ) / &
+                    this%width(i) &
+               )
+       end if
+       this%width_inv(i) = ( this%nbins(i) - 1 ) / &
+            ( this%cutoff_max(i) - this%cutoff_min(i) )
+    end do
+
+  end subroutine set_num_bins
+!###############################################################################
+
+
+!###############################################################################
   pure function get_bin(this, value, dim) result(bin)
     !! Get the bin index for a value in a dimension.
     implicit none
@@ -2286,7 +2319,7 @@ contains
 
     ! Prefetch frequently accessed values
     min_val = this%cutoff_min(dim)
-    width_inv = ( this%nbins(dim) - 1 ) / ( this%cutoff_max(dim) - min_val )
+    width_inv = this%width_inv(dim)
 
     ! Calculate bin using optimized operations
     bin = nint((value - min_val) * width_inv) + 1
@@ -2417,15 +2450,7 @@ contains
     ! if present, add the system to the container
     !---------------------------------------------------------------------------
     if(present(system)) call this%add(system)
-    do i = 1, 3
-       if(this%nbins(i).eq.-1)then
-          this%nbins(i) = 1 + &
-               nint( &
-                    ( this%cutoff_max(i) - this%cutoff_min(i) ) / &
-                    this%width(i) &
-               )
-       end if
-    end do
+    call this%set_num_bins()
 
 
     !---------------------------------------------------------------------------

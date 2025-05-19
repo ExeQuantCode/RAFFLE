@@ -1169,6 +1169,7 @@ contains
     call this%distributions%set_element_map( &
          [ basis_extd%spec(:)%name ] &
     )
+    call this%distributions%set_num_bins()
     do is = 1, basis%nspec
        idx = this%distributions%get_element_index( &
             basis_extd%spec(is)%name &
@@ -1267,6 +1268,7 @@ contains
        end do
     end if
     if(present(grid_output)) grid_output = grid_
+    call this%distributions%set_num_bins()
 
 
     call basis_extd%copy(basis)

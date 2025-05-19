@@ -303,12 +303,20 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
             idx_list = []
             for i in range(self.nspec):
                 name = str(self.spec[i].name.decode()).strip()
+                print("atom name", name)
+                print("positions:", self.spec[i].atom)
+                print("atom_idxs:", self.spec[i].atom_idx)
+                print("num:", self.spec[i].num)
+                print("type:", type(self.spec[i].atom))
+                print("type:", type(self.spec[i].atom_idx))
                 for j in range(self.spec[i].num):
                     symbols.append(name)
                     positions.append(self.spec[i].atom[j][:3])
                     idx_list.append(self.spec[i].atom_idx[j] - 1)
 
-
+            # print type of idx_list
+            print("type(idx_list)", type(idx_list))
+            print("idx_list", idx_list)
             # Check if the length of set(idx_list) is equal to the number of atoms
             if len(set(idx_list)) == self.natom:
                 # Reorder the positions and symbols according to the atom indices
@@ -1900,6 +1908,9 @@ class Generator(f90wrap.runtime.FortranModule):
             if ( exit_code != 0 and exit_code != None ) and not return_exit_code:
                 raise RuntimeError(f"Interface generation failed (exit code {exit_code})")
 
+            print("RAFFLE exit code:", exit_code)
+            print("Number of structures:", num_structures)
+            print("Total number of RAFFLE structures:", self.num_structures)
             structures = self.get_structures(calc)[-num_structures:]
             if return_exit_code:
                 return structures, exit_code

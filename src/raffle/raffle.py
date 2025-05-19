@@ -73,7 +73,7 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
                                         _raffle.f90wrap_species_type__array__atom_idx)
                 self._arrays[array_handle] = atom_idx
             return atom_idx
-        
+
         @atom_idx.setter
         def atom_idx(self, atom_idx):
             self.atom_idx[...] = atom_idx
@@ -157,7 +157,7 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
             ret = ['<species_type>{\n']
             ret.append('    atom_idx : ')
             ret.append(repr(self.atom_idx))
-            ret.append('    atom : ')
+            ret.append('\n     atom : ')
             ret.append(repr(self.atom))
             ret.append(',\n    mass : ')
             ret.append(repr(self.mass))

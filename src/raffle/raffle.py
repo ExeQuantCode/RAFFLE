@@ -148,7 +148,7 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
             ret = ['<species_type>{\n']
             ret.append('    atom_idx : ')
             ret.append(repr(self.atom_idx))
-            ret.append('    atom : ')
+            ret.append('\n     atom : ')
             ret.append(repr(self.atom))
             ret.append(',\n    mass : ')
             ret.append(repr(self.mass))

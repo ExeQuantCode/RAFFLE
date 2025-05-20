@@ -55,7 +55,7 @@ contains
     !! Viability of the test point for 2-body interactions.
     real(real32) :: viability_3body, viability_4body
     !! Viability of the test point for 3- and 4-body interactions.
-    real(real32) :: bondlength, rtmp1, min_distance
+    real(real32) :: bondlength, rtmp1, min_distance, min_from_max_cutoff
     !! Temporary variables.
     logical :: has_4body
     !! Boolean whether the system has 4-body interactions.
@@ -77,6 +77,7 @@ contains
     output = 0._real32
     viability_2body = 0._real32
     min_distance = distribs_container%cutoff_max(1)
+    min_from_max_cutoff = 0._real32
 
 
     !---------------------------------------------------------------------------
@@ -170,6 +171,11 @@ contains
              if(bondlength - tolerances(1) .lt. min_distance)then
                 min_distance = bondlength - tolerances(1)
              end if
+             if(distribs_container%cutoff_max(1) - bondlength .gt. &
+                  min_from_max_cutoff)then
+                min_from_max_cutoff = distribs_container%cutoff_max(1) - &
+                     bondlength
+             end if
              viability_2body = viability_2body + &
                   evaluate_2body_contributions( &
                        distribs_container, bondlength, pair_index(species,is) &
@@ -221,6 +227,11 @@ contains
              if(bondlength - tolerances(1) .lt. min_distance)then
                 min_distance = bondlength - tolerances(1)
              end if
+             if(distribs_container%cutoff_max(1) - bondlength .gt. &
+                  min_from_max_cutoff)then
+                min_from_max_cutoff = distribs_container%cutoff_max(1) - &
+                     bondlength
+             end if
              viability_2body = viability_2body + &
                   evaluate_2body_contributions( &
                        distribs_container, bondlength, pair_index(species,is) &
@@ -248,10 +259,6 @@ contains
     !---------------------------------------------------------------------------
     ! Normalise the bond length viability
     !---------------------------------------------------------------------------
-    if(min_distance .lt. 0.25_real32 )then
-       viability_2body = viability_2body * 0.5_real32 * &
-            ( 1._real32 - cos( pi * min_distance / 0.25_real32 ) )
-    end if
     if(num_2body.eq.0)then
        ! This does not matter as, if there are no 2-body bonds, the point is
        ! not meant to be included in the viability set.
@@ -259,6 +266,18 @@ contains
        viability_2body = distribs_container%viability_2body_default
     else
        viability_2body = viability_2body / real( num_2body, real32 )
+       if(min_distance .lt. 0.25_real32 )then
+          viability_2body = viability_2body * 0.5_real32 * &
+               ( 1._real32 - cos( pi * min_distance / 0.25_real32 ) )
+       end if
+       if( min_from_max_cutoff .lt. 0.5_real32 )then
+          rtmp1 = 0.5_real32 * ( 1._real32 - &
+               cos( pi * min_from_max_cutoff / 0.5_real32 ) )
+          viability_2body = &
+               distribs_container%viability_2body_default * &
+               abs( 1._real32 - rtmp1 ) + &
+               rtmp1 * viability_2body
+       end if
     end if
 
 
@@ -303,9 +322,9 @@ contains
                    ! check improperdihedral angle between test point and all
                    ! other atoms
                    !------------------------------------------------------------
-                    rtmp1 = max( &
-                         0._real32, &
-                         evaluate_4body_contributions( distribs_container, &
+                   rtmp1 = max( &
+                        0._real32, &
+                        evaluate_4body_contributions( distribs_container, &
                              position_1, &
                              position_2, &
                              [ neighbour_basis%spec(js)%atom(ja,1:4) ], &
@@ -327,11 +346,15 @@ contains
        viability_3body = viability_3body ** ( &
             1._real32 / real(num_3body,real32) &
        )
+    else
+       viability_3body = distribs_container%viability_3body_default
     end if
     if(num_4body.gt.0)then
        viability_4body = viability_4body ** ( &
             1._real32 / real(num_4body,real32) &
        )
+    else
+       viability_4body = distribs_container%viability_4body_default
     end if
 
 
@@ -412,7 +435,7 @@ contains
     num_3body_local = sum(basis%spec(current_idx(1):)%num) - current_idx(2)
     output = 1._real32
     power = 1._real32 / real( num_3body_local, real32 )
-    weight_2 = sqrt( position_2(4) ) 
+    weight_2 = sqrt( position_2(4) )
     species_loop: do js = current_idx(1), basis%nspec, 1
        start_idx = merge(current_idx(2) + 1, 1, js .eq. current_idx(1))
        atom_loop: do ja = start_idx, basis%spec(js)%num
@@ -425,9 +448,9 @@ contains
           )
           rtmp1 = weight_2 * sqrt( basis%spec(js)%atom(ja,4) )
           output = output * ( &
+               distribs_container%viability_3body_default * &
                abs( 1._real32 - rtmp1 ) + &
-               rtmp1 * distribs_container%gdf%df_3body( bin, element_idx ) * &
-               distribs_container%viability_3body_default &
+               rtmp1 * distribs_container%gdf%df_3body( bin, element_idx ) &
           ) ** power
        end do atom_loop
     end do species_loop
@@ -485,9 +508,9 @@ contains
           )
           rtmp1 = weight_2_3 * ( basis%image_spec(ks)%atom(ka,4) ) ** third
           output = output * ( &
+               distribs_container%viability_4body_default * &
                abs( 1._real32 - rtmp1 ) + &
-               rtmp1 * distribs_container%gdf%df_4body( bin, element_idx ) * &
-               distribs_container%viability_4body_default &
+               rtmp1 * distribs_container%gdf%df_4body( bin, element_idx ) &
           ) ** power
        end do atom_loop
     end do species_loop

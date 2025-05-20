@@ -2773,10 +2773,10 @@ contains
 
     this%viability_2body_default = sum( this%gdf%df_2body ) / &
          real( size( this%gdf%df_2body ), real32 )
-    this%viability_3body_default = 1._real32 / ( sum( this%gdf%df_3body ) / &
-         real( size( this%gdf%df_3body ), real32 ) )
-    this%viability_4body_default = 1._real32 / ( sum( this%gdf%df_4body ) / &
-         real( size( this%gdf%df_4body ), real32 ) )
+    this%viability_3body_default = sum( this%gdf%df_3body ) / &
+         real( size( this%gdf%df_3body ), real32 )
+    this%viability_4body_default = sum( this%gdf%df_4body ) / &
+         real( size( this%gdf%df_4body ), real32 )
 
   end subroutine evolve
 !###############################################################################

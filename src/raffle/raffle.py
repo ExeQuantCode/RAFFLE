@@ -323,8 +323,10 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
                 print("positions:", self.spec[i].atom)
                 print("atom_idxs:", self.spec[i].atom_idx)
                 print("num:", self.spec[i].num)
-                print("type:", type(self.spec[i].atom))
-                print("type:", type(self.spec[i].atom_idx))
+                print("positions type:", type(self.spec[i].atom))
+                print("positions dtype:", self.spec[i].atom.dtype)
+                print("index type:", type(self.spec[i].atom_idx))
+                print("index dtype:", self.spec[i].atom_idx.dtype)
                 atoms = numpy.asarray(self.spec[i].atom, dtype=numpy.float32)
                 for j in range(self.spec[i].num):
                     try:

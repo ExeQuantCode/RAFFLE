@@ -65,6 +65,9 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
             """
             array_ndim, array_type, array_shape, array_handle = \
                 _raffle.f90wrap_species_type__array__atom_idx(self._handle)
+
+            shape = tuple(array_shape[:array_ndim])
+
             if array_handle in self._arrays:
                 atom_idx = self._arrays[array_handle]
             else:
@@ -72,6 +75,9 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
                                         self._handle,
                                         _raffle.f90wrap_species_type__array__atom_idx)
                 self._arrays[array_handle] = atom_idx
+
+                atom_idx = atom_idx.view(numpy.int32).reshape(shape, order='A')
+
             return atom_idx
 
         @atom_idx.setter
@@ -85,12 +91,18 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
             """
             array_ndim, array_type, array_shape, array_handle = \
                 _raffle.f90wrap_species_type__array__atom(self._handle)
+
+            shape = tuple(array_shape[:array_ndim])
+
             if array_handle in self._arrays:
                 atom = self._arrays[array_handle]
             else:
                 atom = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
                                         self._handle,
                                         _raffle.f90wrap_species_type__array__atom)
+
+                atom = atom.view(numpy.float32).reshape(shape, order='A')
+
                 self._arrays[array_handle] = atom
             return atom
 
@@ -303,22 +315,48 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
             idx_list = []
             for i in range(self.nspec):
                 name = str(self.spec[i].name.decode()).strip()
+                # Skip if no atoms in this species
+                if not hasattr(self.spec[i], 'atom') or self.spec[i].num == 0:
+                    continue
+
                 print("atom name", name)
                 print("positions:", self.spec[i].atom)
                 print("atom_idxs:", self.spec[i].atom_idx)
                 print("num:", self.spec[i].num)
                 print("type:", type(self.spec[i].atom))
                 print("type:", type(self.spec[i].atom_idx))
+                atoms = numpy.asarray(self.spec[i].atom, dtype=numpy.float32)
                 for j in range(self.spec[i].num):
-                    symbols.append(name)
-                    positions.append(self.spec[i].atom[j][:3])
-                    idx_list.append(self.spec[i].atom_idx[j] - 1)
+                    try:
+                        atom_data = atoms[j]
+                        # Handle both list/array and scalar cases
+                        if isinstance(atom_data, (list, tuple, numpy.ndarray)):
+                            pos = atom_data[:3]  # Take first 3 elements
+                        elif hasattr(atom_data, '__len__'):  # Other sequence types
+                            pos = [atom_data[0], atom_data[1], atom_data[2]]
+                        else:  # Scalar case (unexpected)
+                            raise ValueError(f"Atom data at spec[{i}].atom[{j}] is not indexable")
+
+                        positions.append(pos)
+                        symbols.append(name)
+                        idx_list.append(int(self.spec[i].atom_idx[j]) - 1)
+
+                    except (TypeError, IndexError, AttributeError) as e:
+                        raise ValueError(
+                            f"Invalid atom data at spec[{i}].atom[{j}]: {e}\n"
+                            f"Data type: {type(atom_data)}, value: {atom_data}"
+                        ) from e
+
+            # Convert to numpy arrays
+            positions = numpy.array(positions, dtype=float)
+            symbols = numpy.array(symbols, dtype=str)
+            idx_list = numpy.array(idx_list, dtype=int)
 
             # print type of idx_list
             print("type(idx_list)", type(idx_list))
             print("idx_list", idx_list)
             # Check if the length of set(idx_list) is equal to the number of atoms
-            if len(set(idx_list)) == self.natom:
+            if len(numpy.unique(idx_list)) == self.natom:
                 # Reorder the positions and symbols according to the atom indices
                 idx_list = numpy.array(numpy.argsort(idx_list), dtype=int)
                 positions = numpy.array(positions, dtype=float)
@@ -328,11 +366,16 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
 
             lattice = numpy.reshape(self.lat, (3,3), order='A')
             pbc = numpy.reshape(self.pbc, (3,), order='A')
-            # Set the atoms
-            if(self.lcart):
-                atoms = Atoms(symbols, positions=positions, cell=lattice, pbc=pbc)
-            else:
-                atoms = Atoms(symbols, scaled_positions=positions, cell=lattice, pbc=pbc)
+
+            # Create ASE Atoms object
+            kwargs = {
+                'symbols': symbols,
+                'cell': lattice,
+                'pbc': pbc
+            }
+            kwargs['positions' if self.lcart else 'scaled_positions'] = positions
+
+            atoms = Atoms(**kwargs)
 
             if calculator is not None:
                 atoms.calc = calculator

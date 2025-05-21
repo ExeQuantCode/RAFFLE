@@ -318,6 +318,9 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
                 # Skip if no atoms in this species
                 if not hasattr(self.spec[i], 'atom') or self.spec[i].num == 0:
                     continue
+                # Check if .num is same length as .atom dimension 0
+                if self.spec[i].num != self.spec[i].atom.shape[0]:
+                    raise ValueError("Number of atom in species {} is not equal to the number of atoms in the atom array.".format(name))
 
                 print("atom name", name)
                 print("positions:", self.spec[i].atom)
@@ -366,13 +369,15 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
                 positions = positions[idx_list]
                 symbols = symbols[idx_list]
 
-            lattice = numpy.reshape(self.lat, (3,3), order='A')
+            cell = numpy.reshape(self.lat, (3,3), order='A')
+            print("cell:", cell)
+
             pbc = numpy.reshape(self.pbc, (3,), order='A')
 
             # Create ASE Atoms object
             kwargs = {
                 'symbols': symbols,
-                'cell': lattice,
+                'cell': cell,
                 'pbc': pbc
             }
             kwargs['positions' if self.lcart else 'scaled_positions'] = positions
@@ -480,12 +485,18 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
             """
             array_ndim, array_type, array_shape, array_handle = \
                 _raffle.f90wrap_basis_type__array__lat(self._handle)
+
+            shape = tuple(array_shape[:array_ndim])
+
             if array_handle in self._arrays:
                 lat = self._arrays[array_handle]
             else:
                 lat = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
                                         self._handle,
                                         _raffle.f90wrap_basis_type__array__lat)
+
+                lat = lat.view(numpy.float32).reshape(shape, order='A')
+
                 self._arrays[array_handle] = lat
             return lat
 

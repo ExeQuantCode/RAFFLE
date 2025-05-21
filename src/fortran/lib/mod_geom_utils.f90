@@ -103,23 +103,35 @@ contains
     ! set up atoms in merged basis
     !---------------------------------------------------------------------------
     do i = 1, basis1%nspec
-       allocate(output%spec(i)%atom_mask(output%spec(i)%num))
+       allocate(output%spec(i)%atom_mask(output%spec(i)%num), source = .true.)
        allocate(output%spec(i)%atom_idx(output%spec(i)%num))
        allocate(output%spec(i)%atom(output%spec(i)%num,dim))
-       output%spec(i)%atom_mask(1:basis1%spec(i)%num) = basis1%spec(i)%atom_mask
+       if(allocated(basis1%spec(i)%atom_mask)) &
+            output%spec(i)%atom_mask(1:basis1%spec(i)%num) = basis1%spec(i)%atom_mask
+       if(allocated(basis1%spec(i)%atom_idx))then
+          output%spec(i)%atom_idx(1:basis1%spec(i)%num) = basis1%spec(i)%atom_idx
+       else
+          output%spec(i)%atom_idx(1:basis1%spec(i)%num) = [(i,i=1,basis1%spec(i)%num)]
+       end if
        output%spec(i)%atom(:,:)=0._real32
        output%spec(i)%atom(1:basis1%spec(i)%num,:3) = basis1%spec(i)%atom(:,:3)
-       output%spec(i)%atom_idx(1:basis1%spec(i)%num) = basis1%spec(i)%atom_idx
        if(lmap) new_map(i,:basis1%spec(i)%num,:) = map1(i,:basis1%spec(i)%num,:)
        if(present(mask1)) output%spec(i)%atom_mask(1:basis1%spec(i)%num) = mask1
     end do
     do i = 1, basis2%nspec
        if(match(i).gt.basis1%nspec)then
-          allocate(output%spec(match(i))%atom_mask(output%spec(match(i))%num))
-          output%spec(match(i))%atom_mask(:) = basis2%spec(i)%atom_mask(:)
+          allocate(output%spec(match(i))%atom_mask(output%spec(match(i))%num), &
+               source = .true.)
+          if(allocated(basis2%spec(i)%atom_mask)) &
+               output%spec(match(i))%atom_mask(:) = basis2%spec(i)%atom_mask(:)
           allocate(output%spec(match(i))%atom_idx(output%spec(match(i))%num))
-          output%spec(match(i))%atom_idx(:) = &
-               basis2%spec(i)%atom_idx(:) + basis1%natom
+          if(allocated(basis2%spec(i)%atom_idx))then
+             output%spec(match(i))%atom_idx(:) = &
+                  basis2%spec(i)%atom_idx(:) + basis1%natom
+          else
+             output%spec(match(i))%atom_idx(:) = &
+                  [(i,i=1,basis2%spec(i)%num)]
+          end if
           allocate(output%spec(match(i))%atom(output%spec(match(i))%num,dim))
           output%spec(match(i))%atom(:,:)=0._real32
           output%spec(match(i))%atom(:,:3)=basis2%spec(i)%atom(:,:3)
@@ -128,18 +140,24 @@ contains
           if(present(mask2)) output%spec(match(i))%atom_mask(:) = mask2
        else
           itmp=basis1%spec(match(i))%num
-          output%spec(match(i))%atom_mask(itmp+1:basis2%spec(i)%num+itmp) = &
-               basis2%spec(i)%atom_mask(:)
-          output%spec(match(i))%atom_idx(itmp+1:basis2%spec(i)%num+itmp) = &
-               basis2%spec(i)%atom_idx(:) + basis1%natom
+          if(allocated(basis2%spec(i)%atom_mask)) &
+               output%spec(match(i))%atom_mask(itmp+1:basis2%spec(i)%num+itmp) = &
+                    basis2%spec(i)%atom_mask(:)
+          if(allocated(basis2%spec(i)%atom_idx))then
+             output%spec(match(i))%atom_idx(itmp+1:basis2%spec(i)%num+itmp) = &
+                  basis2%spec(i)%atom_idx(:) + basis1%natom
+          else
+             output%spec(match(i))%atom_idx(itmp+1:basis2%spec(i)%num+itmp) = &
+                  [(i,i=1,basis2%spec(i)%num)]
+          end if
           output%spec(match(i))%atom(itmp+1:basis2%spec(i)%num+itmp,:3) = &
-               basis2%spec(i)%atom(:,:3)   
+               basis2%spec(i)%atom(:,:3)
           if(lmap) new_map(match(i),itmp+1:basis2%spec(i)%num+itmp,:) = &
-               map2(i,:basis2%spec(i)%num,:)    
+               map2(i,:basis2%spec(i)%num,:)
           if(present(mask2)) &
                output%spec(match(i))%atom_mask( &
                     itmp+1:basis2%spec(i)%num+itmp &
-               ) = mask2  
+               ) = mask2
        end if
     end do
     output%natom=sum(output%spec(:)%num)

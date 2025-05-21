@@ -503,7 +503,7 @@ contains
                     position_1, &
                     position_2(1:3), &
                     position_3(1:3), &
-                    basis%image_spec(ks)%atom(ka,1:3) &
+                    [ basis%image_spec(ks)%atom(ka,1:3) ] &
                ), dim = 3 &
           )
           rtmp1 = weight_2_3 * ( basis%image_spec(ks)%atom(ka,4) ) ** third

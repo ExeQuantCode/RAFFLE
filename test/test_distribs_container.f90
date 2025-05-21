@@ -880,11 +880,12 @@ contains
     type(distribs_container_type) :: distribs_container
 
     distribs_container%nbins(1) = 10
+    call distribs_container%set_num_bins()
 
     ! Check lower bound correct handling
     bin = distribs_container%get_bin(0._real32, 1)
     call assert( &
-         bin .eq. 0,  &
+         bin .eq. 1,  &
          "Bin is incorrect",  &
          success &
     )
@@ -892,7 +893,7 @@ contains
     ! Check upper bound correct handling
     bin = distribs_container%get_bin(100._real32, 1)
     call assert( &
-         bin .eq. 0,  &
+         bin .eq. distribs_container%nbins(1),  &
          "Bin is incorrect",  &
          success &
     )

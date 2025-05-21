@@ -1456,7 +1456,7 @@ contains
     ! Arguments
     class(basis_type), intent(inout) :: this
     !! Parent. The basis.
-    integer, dimension(:,:), intent(in) :: index_list
+    integer, dimension(:,:), intent(in), optional :: index_list
     !! The list of indices to set the mask for.
 
     ! Local variables
@@ -1464,10 +1464,20 @@ contains
     !! Loop index.
 
 
-    do i = 1, size(index_list,1)
-       this%spec(index_list(1,i))%atom_mask(index_list(2,i)) = &
-            .not.this%spec(index_list(1,i))%atom_mask(index_list(2,i))
+    do i = 1, this%nspec
+       if(.not.allocated(this%spec(i)%atom_mask))then
+          allocate( &
+               this%spec(i)%atom_mask(this%spec(i)%num), source = .true. &
+          )
+       end if
     end do
+
+    if(present(index_list))then
+       do i = 1, size(index_list,2)
+          this%spec(index_list(1,i))%atom_mask(index_list(2,i)) = &
+               .not.this%spec(index_list(1,i))%atom_mask(index_list(2,i))
+       end do
+    end if
 
   end subroutine set_atom_mask
 !###############################################################################

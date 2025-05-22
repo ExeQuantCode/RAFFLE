@@ -402,15 +402,6 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
                     else:
                         raise ValueError(f"Number of atoms in species {name} ({self.spec[i].num}) does not match the row count in atom array ({self.spec[i].atom.shape[0]})")
 
-                print("atom name", name)
-                print("positions:", self.spec[i].atom)
-                print("atom_idxs:", self.spec[i].atom_idx)
-                print("num:", self.spec[i].num)
-                print("positions type:", type(self.spec[i].atom))
-                print("positions dtype:", self.spec[i].atom.dtype)
-                print("index type:", type(self.spec[i].atom_idx))
-                print("index dtype:", self.spec[i].atom_idx.dtype)
-
                 # Process atom positions - require valid data, no fallbacks
                 try:
                     atoms = numpy.asarray(self.spec[i].atom, dtype=numpy.float32)
@@ -2111,9 +2102,6 @@ class Generator(f90wrap.runtime.FortranModule):
             if ( exit_code != 0 and exit_code != None ) and not return_exit_code:
                 raise RuntimeError(f"Interface generation failed (exit code {exit_code})")
 
-            print("RAFFLE exit code:", exit_code)
-            print("Number of structures:", num_structures)
-            print("Total number of RAFFLE structures:", self.num_structures)
             structures = self.get_structures(calc)[-num_structures:]
             if return_exit_code:
                 return structures, exit_code

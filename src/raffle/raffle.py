@@ -63,22 +63,56 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
             """
             Element atom_idx ftype=integer pytype=int
             """
-            array_ndim, array_type, array_shape, array_handle = \
-                _raffle.f90wrap_species_type__array__atom_idx(self._handle)
+            try:
+                array_ndim, array_type, array_shape, array_handle = \
+                    _raffle.f90wrap_species_type__array__atom_idx(self._handle)
 
-            shape = tuple(array_shape[:array_ndim])
+                if array_handle == 0:  # Not allocated in Fortran
+                    # Return sequential indices if array isn't allocated
+                    return numpy.array([j+1 for j in range(self.num)], dtype=numpy.int32)
 
-            if array_handle in self._arrays:
-                atom_idx = self._arrays[array_handle]
-            else:
-                atom_idx = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
-                                        self._handle,
-                                        _raffle.f90wrap_species_type__array__atom_idx)
-                self._arrays[array_handle] = atom_idx
+                shape = tuple(array_shape[:array_ndim])
 
-                atom_idx = atom_idx.view(numpy.int32).reshape(shape, order='A')
+                # Validate expected dimensions
+                if array_ndim != 1:
+                    print(f"Warning: atom_idx has incorrect dimension from Fortran: {array_ndim}, expected 1")
+                    return numpy.array([j+1 for j in range(self.num)], dtype=numpy.int32)
 
-            return atom_idx
+                if array_handle in self._arrays:
+                    atom_idx = self._arrays[array_handle]
+                else:
+                    atom_idx = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                            self._handle,
+                                            _raffle.f90wrap_species_type__array__atom_idx)
+                    # Store a copy to avoid potential corruption from view operations
+                    self._arrays[array_handle] = atom_idx.copy()
+
+                # Convert to proper integer type but check for corruption first
+                try:
+                    atom_idx = atom_idx.view(numpy.int32).reshape(shape, order='A')
+
+                    # Validate the integrity of the array
+                    if atom_idx.ndim != 1:
+                        print(f"Warning: atom_idx has incorrect shape after reshaping: {atom_idx.shape}")
+                        return numpy.array([j+1 for j in range(self.num)], dtype=numpy.int32)
+
+                    # Validate array length against num
+                    if len(atom_idx) != self.num:
+                        print(f"Warning: atom_idx length {len(atom_idx)} doesn't match num {self.num}")
+                        return numpy.array([j+1 for j in range(self.num)], dtype=numpy.int32)
+
+                    # Check for unreasonable values
+                    if numpy.any(atom_idx <= 0):
+                        print(f"Warning: atom_idx contains invalid values (min: {numpy.min(atom_idx)})")
+                        return numpy.array([j+1 for j in range(self.num)], dtype=numpy.int32)
+
+                    return atom_idx
+                except Exception as e:
+                    print(f"Warning: Failed to process atom_idx array: {e}")
+                    return numpy.array([j+1 for j in range(self.num)], dtype=numpy.int32)
+            except Exception as e:
+                print(f"Error accessing atom_idx: {e}")
+                return numpy.array([j+1 for j in range(self.num)], dtype=numpy.int32)
 
         @atom_idx.setter
         def atom_idx(self, atom_idx):
@@ -89,22 +123,53 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
             """
             Derived type containing the atomic information of a crystal.
             """
-            array_ndim, array_type, array_shape, array_handle = \
-                _raffle.f90wrap_species_type__array__atom(self._handle)
+            try:
+                array_ndim, array_type, array_shape, array_handle = \
+                    _raffle.f90wrap_species_type__array__atom(self._handle)
 
-            shape = tuple(array_shape[:array_ndim])
+                if array_handle == 0:  # Not allocated in Fortran
+                    raise ValueError("Atom array is not allocated in Fortran")
 
-            if array_handle in self._arrays:
-                atom = self._arrays[array_handle]
-            else:
-                atom = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
-                                        self._handle,
-                                        _raffle.f90wrap_species_type__array__atom)
+                # Validate expected dimensions
+                if array_ndim != 2:
+                    raise ValueError(f"Atom array has incorrect dimension from Fortran: {array_ndim}, expected 2")
 
-                atom = atom.view(numpy.float32).reshape(shape, order='A')
+                shape = tuple(array_shape[:array_ndim])
 
-                self._arrays[array_handle] = atom
-            return atom
+                if array_handle in self._arrays:
+                    atom = self._arrays[array_handle]
+                else:
+                    atom = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                            self._handle,
+                                            _raffle.f90wrap_species_type__array__atom)
+                    # Store a copy to avoid potential corruption from view operations
+                    self._arrays[array_handle] = atom.copy()
+
+                # Convert to proper float type but check for corruption first
+                try:
+                    atom = atom.view(numpy.float32).reshape(shape, order='A')
+
+                    # Validate the array - should be 2D float array with at least 3 columns
+                    if atom.ndim != 2:
+                        raise ValueError(f"Atom positions data has incorrect dimension: {atom.ndim}, expected 2")
+                    if atom.shape[1] < 3:
+                        raise ValueError(f"Atom positions data has insufficient columns: {atom.shape[1]}, expected at least 3")
+                    if not numpy.issubdtype(atom.dtype, numpy.floating):
+                        raise ValueError(f"Atom positions data has incorrect data type: {atom.dtype}, expected floating-point")
+
+                    # Validate array row count against num
+                    if atom.shape[0] != self.num:
+                        raise ValueError(f"Atom positions count {atom.shape[0]} doesn't match num {self.num}")
+
+                    # Check for NaN or infinity
+                    if numpy.any(~numpy.isfinite(atom)):
+                        raise ValueError("Atom positions contain NaN or infinity values")
+
+                    return atom
+                except Exception as e:
+                    raise ValueError(f"Failed to process atom positions array: {e}")
+            except Exception as e:
+                raise ValueError(f"Error accessing atom positions: {e}")
 
         @atom.setter
         def atom(self, atom):
@@ -320,7 +385,7 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
                     continue
                 # Check if .num is same length as .atom dimension 0
                 if self.spec[i].num != self.spec[i].atom.shape[0]:
-                    raise ValueError("Number of atom in species {} is not equal to the number of atoms in the atom array.".format(name))
+                    raise ValueError(f"Number of atoms in species {name} ({self.spec[i].num}) does not match the row count in atom array ({self.spec[i].atom.shape[0]})")
 
                 print("atom name", name)
                 print("positions:", self.spec[i].atom)
@@ -330,47 +395,81 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
                 print("positions dtype:", self.spec[i].atom.dtype)
                 print("index type:", type(self.spec[i].atom_idx))
                 print("index dtype:", self.spec[i].atom_idx.dtype)
-                atoms = numpy.asarray(self.spec[i].atom, dtype=numpy.float32)
+
+                # Process atom positions - require valid data, no fallbacks
+                try:
+                    atoms = numpy.asarray(self.spec[i].atom, dtype=numpy.float32)
+
+                    # Validate shape and type
+                    if atoms.ndim != 2:
+                        raise ValueError(f"Atom positions data for species {name} has incorrect dimension: {atoms.ndim}, expected 2")
+                    if atoms.shape[1] < 3:
+                        raise ValueError(f"Atom positions data for species {name} has insufficient columns: {atoms.shape[1]}, expected at least 3")
+                    if not numpy.issubdtype(atoms.dtype, numpy.floating):
+                        raise ValueError(f"Atom positions data for species {name} has incorrect type: {atoms.dtype}, expected float")
+
+                    # Check for NaN or infinity values
+                    if numpy.any(~numpy.isfinite(atoms)):
+                        raise ValueError(f"Atom positions for species {name} contain NaN or infinity values")
+                except Exception as e:
+                    raise ValueError(f"Failed to process atom positions for species {name}: {e}")
+
+                # Process atom indices - allow fallbacks to sequential indices if needed
+                try:
+                    atom_indices = numpy.asarray(self.spec[i].atom_idx, dtype=numpy.int32)
+                    if atom_indices.ndim != 1:
+                        print(f"Warning: atom_indices for species {name} has wrong dimensions - using sequential indices")
+                        atom_indices = numpy.array([j+1 for j in range(self.spec[i].num)], dtype=numpy.int32)
+                    elif len(atom_indices) != self.spec[i].num:
+                        print(f"Warning: atom_indices length mismatch for species {name} - using sequential indices")
+                        atom_indices = numpy.array([j+1 for j in range(self.spec[i].num)], dtype=numpy.int32)
+
+                    # Check for invalid values
+                    if numpy.any(atom_indices <= 0):
+                        print(f"Warning: atom_indices for species {name} contains non-positive values - using sequential indices")
+                        atom_indices = numpy.array([j+1 for j in range(self.spec[i].num)], dtype=numpy.int32)
+                except Exception as e:
+                    print(f"Warning: Failed to process atom indices for species {name}, using sequential indices: {e}")
+                    atom_indices = numpy.array([j+1 for j in range(self.spec[i].num)], dtype=numpy.int32)
+
+                # Process each atom
                 for j in range(self.spec[i].num):
-                    try:
-                        atom_data = atoms[j]
-                        # Handle both list/array and scalar cases
-                        if isinstance(atom_data, (list, tuple, numpy.ndarray)):
-                            pos = atom_data[:3]  # Take first 3 elements
-                        elif hasattr(atom_data, '__len__'):  # Other sequence types
-                            pos = [atom_data[0], atom_data[1], atom_data[2]]
-                        else:  # Scalar case (unexpected)
-                            raise ValueError(f"Atom data at spec[{i}].atom[{j}] is not indexable")
+                    pos = atoms[j]
+                    if len(pos) < 3:
+                        raise ValueError(f"Position vector for atom {j} in species {name} has insufficient dimensions: {len(pos)}, expected at least 3")
 
-                        positions.append(pos)
-                        symbols.append(name)
-                        idx_list.append(int(self.spec[i].atom_idx[j]) - 1)
+                    # Get index, with bounds checking
+                    if j < len(atom_indices):
+                        idx = int(atom_indices[j]) - 1  # Convert to zero-based index
+                    else:
+                        idx = j  # Fallback to sequential
 
-                    except (TypeError, IndexError, AttributeError) as e:
-                        raise ValueError(
-                            f"Invalid atom data at spec[{i}].atom[{j}]: {e}\n"
-                            f"Data type: {type(atom_data)}, value: {atom_data}"
-                        ) from e
+                    # Add this atom to our lists
+                    positions.append(pos[:3])
+                    symbols.append(name)
+                    idx_list.append(idx)
 
             # Convert to numpy arrays
             positions = numpy.array(positions, dtype=float)
             symbols = numpy.array(symbols, dtype=str)
             idx_list = numpy.array(idx_list, dtype=int)
 
-            # print type of idx_list
-            print("type(idx_list)", type(idx_list))
-            print("idx_list", idx_list)
-            # Check if the length of set(idx_list) is equal to the number of atoms
-            if len(numpy.unique(idx_list)) == self.natom:
-                # Reorder the positions and symbols according to the atom indices
-                idx_list = numpy.array(numpy.argsort(idx_list), dtype=int)
-                positions = numpy.array(positions, dtype=float)
-                symbols = numpy.array(symbols, dtype=str)
-                positions = positions[idx_list]
-                symbols = symbols[idx_list]
+            # Only attempt to reorder if there are elements
+            if len(idx_list) > 0:
+                # Try to reorder atoms based on indices, but with safeguards
+                try:
+                    # Check if the length of unique indices matches the number of atoms
+                    unique_indices = numpy.unique(idx_list)
+                    if len(unique_indices) == self.natom:
+                        # Reorder if indices are valid
+                        sort_indices = numpy.argsort(idx_list)
+                        positions = positions[sort_indices]
+                        symbols = symbols[sort_indices]
+                except Exception as e:
+                    # If reordering fails, continue with the original order
+                    pass
 
             cell = numpy.reshape(self.lat, (3,3), order='A')
-            print("cell:", cell)
 
             pbc = numpy.reshape(self.pbc, (3,), order='A')
 

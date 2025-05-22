@@ -365,7 +365,7 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
 
             return new_basis
 
-        def toase(self, calculator=None):
+        def toase(self, calculator=None, return_none_on_failure : bool = True):
             """
             Convert the basis object to an ASE Atoms object.
 
@@ -385,7 +385,11 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
                     continue
                 # Check if .num is same length as .atom dimension 0
                 if self.spec[i].num != self.spec[i].atom.shape[0]:
-                    raise ValueError(f"Number of atoms in species {name} ({self.spec[i].num}) does not match the row count in atom array ({self.spec[i].atom.shape[0]})")
+                    if return_none_on_failure:
+                        print(f"Warning: Number of atoms in species {name} ({self.spec[i].num}) does not match the row count in atom array ({self.spec[i].atom.shape[0]}), returning None")
+                        return None
+                    else:
+                        raise ValueError(f"Number of atoms in species {name} ({self.spec[i].num}) does not match the row count in atom array ({self.spec[i].atom.shape[0]})")
 
                 print("atom name", name)
                 print("positions:", self.spec[i].atom)
@@ -402,17 +406,37 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
 
                     # Validate shape and type
                     if atoms.ndim != 2:
-                        raise ValueError(f"Atom positions data for species {name} has incorrect dimension: {atoms.ndim}, expected 2")
+                        if return_none_on_failure:
+                            print(f"Warning: Atom positions data for species {name} has insufficient columns: {atoms.shape[1]}, expected at least 3")
+                            return None
+                        else:
+                            raise ValueError(f"Atom positions data for species {name} has incorrect dimension: {atoms.ndim}, expected 2")
                     if atoms.shape[1] < 3:
-                        raise ValueError(f"Atom positions data for species {name} has insufficient columns: {atoms.shape[1]}, expected at least 3")
+                        if return_none_on_failure:
+                            print(f"Warning: Atom positions data for species {name} has insufficient columns: {atoms.shape[1]}, expected at least 3")
+                            return None
+                        else:
+                            raise ValueError(f"Atom positions data for species {name} has insufficient columns: {atoms.shape[1]}, expected at least 3")
                     if not numpy.issubdtype(atoms.dtype, numpy.floating):
-                        raise ValueError(f"Atom positions data for species {name} has incorrect type: {atoms.dtype}, expected float")
+                        if return_none_on_failure:
+                            print(f"Warning: Atom positions data for species {name} has insufficient columns: {atoms.shape[1]}, expected at least 3")
+                            return None
+                        else:
+                            raise ValueError(f"Atom positions data for species {name} has incorrect type: {atoms.dtype}, expected float")
 
                     # Check for NaN or infinity values
                     if numpy.any(~numpy.isfinite(atoms)):
-                        raise ValueError(f"Atom positions for species {name} contain NaN or infinity values")
+                        if return_none_on_failure:
+                            print(f"Warning: Atom positions for species {name} contain NaN or infinity values, returning None")
+                            return None
+                        else:
+                            raise ValueError(f"Atom positions for species {name} contain NaN or infinity values")
                 except Exception as e:
-                    raise ValueError(f"Failed to process atom positions for species {name}: {e}")
+                    if return_none_on_failure:
+                        print(f"Warning: Failed to process atom positions for species {name}, returning None: {e}")
+                        return None
+                    else:
+                        raise ValueError(f"Failed to process atom positions for species {name}: {e}")
 
                 # Process atom indices - allow fallbacks to sequential indices if needed
                 try:
@@ -436,7 +460,11 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
                 for j in range(self.spec[i].num):
                     pos = atoms[j]
                     if len(pos) < 3:
-                        raise ValueError(f"Position vector for atom {j} in species {name} has insufficient dimensions: {len(pos)}, expected at least 3")
+                        if return_none_on_failure:
+                            print(f"Warning: Position vector for atom {j} in species {name} has insufficient dimensions: {len(pos)}, expected at least 3")
+                            return None
+                        else:
+                            raise ValueError(f"Position vector for atom {j} in species {name} has insufficient dimensions: {len(pos)}, expected at least 3")
 
                     # Get index, with bounds checking
                     if j < len(atom_indices):
@@ -1850,7 +1878,10 @@ class Generator(f90wrap.runtime.FortranModule):
             output = f90wrap.runtime.lookup_class("raffle.basis").from_handle(output, \
                 alloc=True)
             # check if host is ase.Atoms object or a Fortran derived type basis_type
-            ret_host = output.toase().copy()
+            try:
+                ret_host = output.toase().copy()
+            except:
+                ret_host = None
             return ret_host
 
         def prepare_host(self, interface_location=None, interface_axis=3, depth=3.0, location_as_fractional=False):

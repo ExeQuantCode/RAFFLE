@@ -73,19 +73,23 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
 
                 shape = tuple(array_shape[:array_ndim])
 
+                # Use composite key (handle + type identifier) to prevent collisions
+                cache_key = (array_handle, 'atom_idx')
+
                 # Validate expected dimensions
                 if array_ndim != 1:
                     print(f"Warning: atom_idx has incorrect dimension from Fortran: {array_ndim}, expected 1")
                     return numpy.array([j+1 for j in range(self.num)], dtype=numpy.int32)
 
-                if array_handle in self._arrays:
-                    atom_idx = self._arrays[array_handle]
+
+                if cache_key in self._arrays:
+                    atom_idx = self._arrays[cache_key]
                 else:
                     atom_idx = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
                                             self._handle,
                                             _raffle.f90wrap_species_type__array__atom_idx)
                     # Store a copy to avoid potential corruption from view operations
-                    self._arrays[array_handle] = atom_idx.copy()
+                    self._arrays[cache_key] = atom_idx.copy()
 
                 # Convert to proper integer type but check for corruption first
                 try:
@@ -136,14 +140,17 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
 
                 shape = tuple(array_shape[:array_ndim])
 
-                if array_handle in self._arrays:
-                    atom = self._arrays[array_handle]
+                # Use composite key (handle + type identifier) to prevent collisions
+                cache_key = (array_handle, 'atom')
+
+                if cache_key in self._arrays:
+                    atom = self._arrays[cache_key]
                 else:
                     atom = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
                                             self._handle,
                                             _raffle.f90wrap_species_type__array__atom)
                     # Store a copy to avoid potential corruption from view operations
-                    self._arrays[array_handle] = atom.copy()
+                    self._arrays[cache_key] = atom.copy()
 
                 # Convert to proper float type but check for corruption first
                 try:
@@ -615,8 +622,10 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
 
             shape = tuple(array_shape[:array_ndim])
 
-            if array_handle in self._arrays:
-                lat = self._arrays[array_handle]
+            # Use composite key (handle + type identifier) to prevent collisions
+            cache_key = (array_handle, 'lat')
+            if cache_key in self._arrays:
+                lat = self._arrays[cache_key]
             else:
                 lat = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
                                         self._handle,
@@ -624,7 +633,8 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
 
                 lat = lat.view(numpy.float32).reshape(shape, order='A')
 
-                self._arrays[array_handle] = lat
+                # Store a copy to avoid potential corruption from view operations
+                self._arrays[cache_key] = lat
             return lat
 
         @lat.setter
@@ -649,13 +659,16 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
             """
             array_ndim, array_type, array_shape, array_handle = \
                 _raffle.f90wrap_basis_type__array__pbc(self._handle)
-            if array_handle in self._arrays:
-                pbc = self._arrays[array_handle]
+            # Use composite key (handle + type identifier) to prevent collisions
+            cache_key = (array_handle, 'pbc')
+            if cache_key in self._arrays:
+                pbc = self._arrays[cache_key]
             else:
                 pbc = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
                                         self._handle,
                                         _raffle.f90wrap_basis_type__array__pbc)
-                self._arrays[array_handle] = pbc
+                # Store a copy to avoid potential corruption from view operations
+                self._arrays[cache_key] = pbc
             return pbc
 
         @pbc.setter

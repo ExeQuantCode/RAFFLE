@@ -379,6 +379,10 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
             Parameters:
                 calculator (ASE Calculator):
                     ASE calculator object to be assigned to the Atoms object.
+                return_none_on_failure (bool):
+                    Boolean whether to return None on failure.
+                    If True, return None instead of raising an exception.
+                    If False, raise an exception on failure.
             """
 
             # Set the species list

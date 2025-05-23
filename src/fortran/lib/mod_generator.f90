@@ -582,11 +582,7 @@ contains
     ! Set the placement method selection limit numbers
     !---------------------------------------------------------------------------
     if(verbose_.gt.0) write(*,*) "Setting method ratios"
-    if(present(method_ratio))then
-       method_rand_limit = method_ratio
-    else
-       method_rand_limit = this%method_ratio
-    end if
+    if(present(method_ratio)) method_rand_limit = method_ratio
     this%method_ratio = method_rand_limit
     ratio_norm = real(sum(method_rand_limit), real32)
     method_rand_limit = method_rand_limit / ratio_norm
@@ -714,7 +710,6 @@ contains
           end do
        end if
     end do spec_loop1
-   !  call basis_template%set_atom_mask(placement_list)
 
 
     !---------------------------------------------------------------------------

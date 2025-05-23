@@ -97,10 +97,8 @@ program test_place_methods
   seed_arr = seed 
   call random_seed(put=seed_arr)
   call basis_extd%copy(basis)
-  call basis_extd%create_images( &
-       max_bondlength = 6._real32, &
-       atom_ignore_list = atom_ignore_list &
-  )
+  call basis_extd%set_atom_mask( atom_ignore_list )
+  call basis_extd%create_images( max_bondlength = 6._real32 )
 
 
   !-----------------------------------------------------------------------------
@@ -117,7 +115,7 @@ program test_place_methods
        generator%distributions, &
        bounds, &
        basis_extd, &
-       atom_ignore_list, &
+       atom_ignore_list(1,1), &
        radius_list = [ 0.5_real32 ], &
        max_attempts = 1000, &
        viable = viable &
@@ -140,7 +138,7 @@ program test_place_methods
        generator%distributions, &
        bounds, &
        basis_extd, &
-       atom_ignore_list, &
+       atom_ignore_list(1,1), &
        radius_list = [ 0.5_real32 ], &
        max_attempts = 1000, &
        step_size_fine = 0.1_real32, &
@@ -167,7 +165,7 @@ program test_place_methods
        prior_species = 1, &
        bounds = bounds, &
        basis = basis_extd, &
-       atom_ignore_list = atom_ignore_list, &
+       species = atom_ignore_list(1,1), &
        radius_list = [ 0.5_real32 ], &
        max_attempts = 1000, &
        step_size_fine = 0.1_real32, &
@@ -227,10 +225,8 @@ contains
 
     ! Initialise basis
     call basis_copy%copy(basis)
-    call basis_copy%create_images( &
-         max_bondlength = 6._real32, &
-         atom_ignore_list = atom_ignore_list &
-    )
+    call basis_copy%set_atom_mask( atom_ignore_list )
+    call basis_copy%create_images( max_bondlength = 6._real32)
 
     !---------------------------------------------------------------------------
     ! set up gridpoints
@@ -242,16 +238,11 @@ contains
          basis_copy, &
          [ 1 ], &
          [ distributions%bond_info(:)%radius_covalent ], &
-         atom_ignore_list, &
          grid_offset = grid_offset &
     )
 
     ! Call the void subroutine
-    point = place_method_void( &
-         gridpoints, basis_copy, &
-         atom_ignore_list, &
-         viable &
-    )
+    point = place_method_void( gridpoints, basis_copy, viable )
 
     ! Check if viable
     call assert(viable, "No viable gridpoints found.", success)

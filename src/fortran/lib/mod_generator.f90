@@ -8,7 +8,6 @@ module raffle__generator
   use raffle__io_utils, only: stop_program, print_warning, suppress_warnings
   use raffle__constants, only: real32
   use raffle__tools_infile, only: assign_val, assign_vec
-  use raffle__misc_linalg, only: modu
   use raffle__misc, only: strip_null, set, shuffle, sort1D, sort2D, to_upper
   use raffle__geom_rw, only: basis_type
   use raffle__geom_extd, only: extended_basis_type
@@ -74,13 +73,18 @@ module raffle__generator
           walk_step_size_coarse = 1._real32, &
           walk_step_size_fine = 0.1_real32
      !! Step size for the walk and grow methods.
+     real(real32), dimension(5) :: method_ratio_default = &
+          [1.0_real32, 0.1_real32, 0.5_real32, 0.5_real32, 1.0_real32]
+     !! Default ratio of each placement method.
      real(real32), dimension(5) :: method_ratio
-     !! Ratio of each placement method.
+     !! Last used ratio of each placement method.
      type(basis_type), dimension(:), allocatable :: structures
      !! Generated structures.
    contains
      procedure, pass(this) :: init_seed
      !! Procedure to set the seed for the random number generator.
+     procedure, pass(this) :: set_method_ratio_default
+     !! Procedure to set the ratio of each placement method.
 
      procedure, pass(this) :: set_host
      !! Procedure to set the host structure.
@@ -108,6 +112,8 @@ module raffle__generator
      !! Procedure to remove a structure from the array of generated structures.
      procedure, pass(this) :: evaluate
      !! Procedure to evaluate the viability of a structure.
+     procedure, pass(this) :: get_probability_density
+     !! Procedure to get the probability density of a structure.
 
      procedure, pass(this) :: print_settings => print_generator_settings
      !! Procedure to print the raffle generator settings.
@@ -242,6 +248,23 @@ contains
 
 
 !###############################################################################
+  subroutine set_method_ratio_default(this, method_ratio)
+    !! Set the ratio of each placement method.
+    implicit none
+
+    ! Arguments
+    class(raffle_generator_type), intent(inout) :: this
+    !! Instance of the raffle generator.
+    real(real32), dimension(5), intent(in) :: method_ratio
+    !! Ratio of each placement method.
+
+    this%method_ratio_default = method_ratio
+
+  end subroutine set_method_ratio_default
+!###############################################################################
+
+
+!###############################################################################
   subroutine set_host(this, host)
     !! Set the host structure.
     !!
@@ -337,7 +360,7 @@ contains
     depth_ = 3._real32
     if(present(depth)) depth_ = depth
     call host%copy(this%host)
-    lattice_const = modu(host%lat(axis,:))
+    lattice_const = norm2(host%lat(axis,:))
     location_as_fractional_ = .false.
     if(present(location_as_fractional)) &
          location_as_fractional_ = location_as_fractional
@@ -441,7 +464,7 @@ contains
           do i = 1, 3
              this%grid(i) = nint( &
                   ( this%bounds(2,i) - this%bounds(1,i) ) * &
-                  modu(this%host%lat(i,:)) / this%grid_spacing &
+                  norm2(this%host%lat(i,:)) / this%grid_spacing &
              )
           end do
        end if
@@ -551,9 +574,7 @@ contains
     !! Boolean to store the suppress_warnings value.
     type(basis_type) :: basis_template
     !! Basis of the structure to generate (i.e. allocated species and atoms).
-    real(real32), dimension(5) :: &
-         method_rand_limit = &
-              [1.0_real32, 0.1_real32, 0.5_real32, 0.5_real32, 1.0_real32]
+    real(real32), dimension(5) :: method_rand_limit
     !! Default ratio of each placement method.
 
     integer, dimension(:), allocatable :: seed_arr
@@ -578,23 +599,14 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Set the placement method selection limit numbers
+    ! Handle placement method optional argument
     !---------------------------------------------------------------------------
-    if(verbose_.gt.0) write(*,*) "Setting method ratios"
     if(present(method_ratio))then
        method_rand_limit = method_ratio
     else
-       method_rand_limit = this%method_ratio
+       method_rand_limit = this%method_ratio_default
     end if
     this%method_ratio = method_rand_limit
-    ratio_norm = real(sum(method_rand_limit), real32)
-    method_rand_limit = method_rand_limit / ratio_norm
-    do i = 2, 5, 1
-       method_rand_limit(i) = method_rand_limit(i) + method_rand_limit(i-1)
-    end do
-    if(verbose_.gt.0) write(*,*) &
-         "Method random limits (void, rand, walk, grow, min): ", &
-         method_rand_limit
 
 
     !---------------------------------------------------------------------------
@@ -605,6 +617,21 @@ contains
           call this%print_settings(settings_out_file)
        end if
     end if
+
+
+    !---------------------------------------------------------------------------
+    ! Set the placement method selection limit numbers
+    !---------------------------------------------------------------------------
+    if(verbose_.gt.0) write(*,*) "Setting method ratio limits"
+    ratio_norm = real(sum(method_rand_limit), real32)
+    method_rand_limit = method_rand_limit / ratio_norm
+    do i = 2, 5, 1
+       method_rand_limit(i) = method_rand_limit(i) + method_rand_limit(i-1)
+    end do
+    if(verbose_.gt.0) write(*,*) &
+         "Method random limits (void, rand, walk, grow, min): ", &
+         method_rand_limit
+
 
     !---------------------------------------------------------------------------
     ! Set the random seed
@@ -647,6 +674,8 @@ contains
 
     j = 0
     do i = 1, basis_template%nspec
+       basis_template%spec(i)%atom_mask = &
+            [ ( .false., k = 1, basis_template%spec(i)%num, 1 ) ]
        basis_template%spec(i)%atom_idx = &
             [ ( k, k = j + 1, j + basis_template%spec(i)%num, 1 ) ]
        j = j + basis_template%spec(i)%num
@@ -659,7 +688,10 @@ contains
        call stop_program("Host structure not set")
        return
     end if
-    basis_template = basis_merge(this%host,basis_template)
+    basis_template = basis_merge( &
+         this%host, basis_template, &
+         mask1 = .true., mask2 = .false. &
+    )
     basis_template%lat = this%host%lat
 
 
@@ -781,7 +813,7 @@ contains
     !! Exit code.
 
     ! Local variables
-    integer :: iplaced, void_ticker
+    integer :: iplaced, void_ticker, i
     !! Loop counters.
     integer :: num_insert_atoms
     !! Number of atoms to insert.
@@ -815,8 +847,7 @@ contains
     !---------------------------------------------------------------------------
     call basis%copy(basis_initial)
     call basis%create_images( &
-         max_bondlength = this%distributions%cutoff_max(1), &
-         atom_ignore_list = placement_list &
+         max_bondlength = this%distributions%cutoff_max(1) &
     )
     num_insert_atoms = basis%natom - this%host%natom
 
@@ -846,7 +877,6 @@ contains
          basis, &
          species_index_list, &
          [ this%distributions%bond_info(:)%radius_covalent ], &
-         placement_list_shuffled, &
          this%grid_offset &
     )
 
@@ -871,8 +901,7 @@ contains
                     basis, &
                     species_index_list, &
                     [ placement_list_shuffled(:,iplaced) ], &
-                    [ this%distributions%bond_info(:)%radius_covalent ], &
-                    placement_list_shuffled(:,iplaced+1:) &
+                    [ this%distributions%bond_info(:)%radius_covalent ] &
                )
        end if
        if(.not.allocated(gridpoint_viability))then
@@ -892,18 +921,14 @@ contains
        call random_number(rtmp1)
        if(rtmp1.le.method_rand_limit_(1)) then
           if(verbose.gt.0) write(*,*) "Add Atom Void"
-          point = place_method_void( &
-               gridpoint_viability, &
-               basis, &
-               placement_list_shuffled(:,iplaced+1:), viable &
-          )
+          point = place_method_void( gridpoint_viability, basis, viable )
        elseif(rtmp1.le.method_rand_limit_(2)) then
           if(verbose.gt.0) write(*,*) "Add Atom Random"
           point = place_method_rand( &
                this%distributions, &
                this%bounds, &
                basis, &
-               placement_list_shuffled(:,iplaced+1:), &
+               placement_list_shuffled(1,iplaced+1), &
                [ this%distributions%bond_info(:)%radius_covalent ], &
                this%max_attempts, &
                viable &
@@ -914,7 +939,7 @@ contains
                this%distributions, &
                this%bounds, &
                basis, &
-               placement_list_shuffled(:,iplaced+1:), &
+               placement_list_shuffled(1,iplaced+1), &
                [ this%distributions%bond_info(:)%radius_covalent ], &
                this%max_attempts, &
                this%walk_step_size_coarse, this%walk_step_size_fine, &
@@ -927,7 +952,7 @@ contains
                   this%distributions, &
                   this%bounds, &
                   basis, &
-                  placement_list_shuffled(:,iplaced+1:), &
+                  placement_list_shuffled(1,iplaced+1), &
                   [ this%distributions%bond_info(:)%radius_covalent ], &
                   this%max_attempts, &
                   viable &
@@ -942,7 +967,7 @@ contains
                   placement_list_shuffled(1,iplaced), &
                   this%bounds, &
                   basis, &
-                  placement_list_shuffled(:,iplaced+1:), &
+                  placement_list_shuffled(1,iplaced+1), &
                   [ this%distributions%bond_info(:)%radius_covalent ], &
                   this%max_attempts, &
                   this%walk_step_size_coarse, this%walk_step_size_fine, &
@@ -988,10 +1013,7 @@ contains
              placement_aborted = .true.
              exit placement_loop
           elseif(void_ticker.gt.10)then
-             point = place_method_void( &
-                  gridpoint_viability, basis, &
-                  placement_list_shuffled(:,iplaced+1:), viable &
-             )
+             point = place_method_void( gridpoint_viability, basis, viable )
              void_ticker = 0
           end if
           if(.not.viable) cycle placement_loop
@@ -1006,6 +1028,8 @@ contains
        iplaced = iplaced + 1
        basis%spec(placement_list_shuffled(1,iplaced))%atom( &
             placement_list_shuffled(2,iplaced),:3) = point(:3)
+       basis%spec(placement_list_shuffled(1,iplaced))%atom_mask( &
+            placement_list_shuffled(2,iplaced)) = .true.
        call basis%update_images( &
             max_bondlength = this%distributions%cutoff_max(1), &
             is = placement_list_shuffled(1,iplaced), &
@@ -1156,10 +1180,8 @@ contains
     !! Viability of the generated structures.
 
     ! Local variables
-    integer :: is, ia, species
+    integer :: is, ia, idx
     !! Loop indices.
-    integer, dimension(2,1) :: atom_ignore
-    !! Atom to ignore.
     type(extended_basis_type) :: basis_extd
     !! Extended basis for the structure to evaluate.
 
@@ -1172,11 +1194,12 @@ contains
     call this%distributions%set_element_map( &
          [ basis_extd%spec(:)%name ] &
     )
+    call this%distributions%set_num_bins()
     do is = 1, basis%nspec
-       species = this%distributions%get_element_index( &
+       idx = this%distributions%get_element_index( &
             basis_extd%spec(is)%name &
        )
-       if(species.eq.0)then
+       if(idx.eq.0)then
           call stop_program( &
                "Species "//&
                trim(basis_extd%spec(is)%name)//&
@@ -1185,19 +1208,136 @@ contains
           return
        end if
        do ia = 1, basis%spec(is)%num
-          atom_ignore(:,1) = [is,ia]
+          basis_extd%spec(is)%atom_mask(ia) = .false.
           viability = viability + &
                evaluate_point( this%distributions, &
                     [ basis%spec(is)%atom(ia,1:3) ], &
-                    species, basis_extd, &
-                    atom_ignore, &
+                    is, basis_extd, &
                     [ this%distributions%bond_info(:)%radius_covalent ] &
                )
+          basis_extd%spec(is)%atom_mask(ia) = .true.
        end do
     end do
 
     viability = viability / real(basis%natom, real32)
   end function evaluate
+!###############################################################################
+
+
+!###############################################################################
+  function get_probability_density(this, basis, species_list, &
+       grid, grid_offset, grid_spacing, bounds, &
+       grid_output &
+  ) result(probability)
+    !! Get the probability density of the generated structures.
+    implicit none
+
+    ! Arguments
+    class(raffle_generator_type), intent(inout) :: this
+    !! Instance of the raffle generator.
+    type(basis_type), intent(in) :: basis
+    !! Structure to evaluate.
+    character(len=3), dimension(:), intent(in) :: species_list
+    !! List of species to evaluate.
+    integer, dimension(3), intent(in), optional :: grid
+    !! Number of bins to divide the host structure into along each axis.
+    real(real32), dimension(3), intent(in), optional :: grid_offset
+    !! Offset of the gridpoints.
+    real(real32), intent(in), optional :: grid_spacing
+    !! Spacing of the bins.
+    real(real32), dimension(2,3), intent(in), optional :: bounds
+    !! Bounds for atom placement.
+    integer, dimension(3), intent(out), optional :: grid_output
+
+    real(real32), dimension(:,:), allocatable :: probability
+
+    ! Local variables
+    integer :: i, is, ia, idx
+    !! Loop indices.
+    real(real32) :: grid_spacing_
+    !! Spacing of the bins.
+    integer, dimension(3) :: grid_
+    !! Number of bins to divide the host structure into along each axis.
+    integer, dimension(size(species_list,1)) :: species_idx_list
+    real(real32), dimension(3) :: grid_offset_
+    !! Offset of the gridpoints.
+    real(real32), dimension(2,3) :: bounds_
+    !! Bounds for atom placement.
+    type(extended_basis_type) :: basis_extd
+    !! Extended basis for the structure to evaluate.
+
+
+    !---------------------------------------------------------------------------
+    ! Set the grid and bounds
+    !---------------------------------------------------------------------------
+    grid_ = -1
+    grid_spacing_ = -1._real32
+    grid_offset_ = 0._real32
+    bounds_(1,:) = 0._real32
+    bounds_(2,:) = 1._real32
+    if(present(grid)) grid_ = grid
+    if(present(grid_offset)) grid_offset_ = grid_offset
+    if(present(grid_spacing)) grid_spacing_ = grid_spacing
+    if(present(bounds)) bounds_ = bounds
+
+    if(any(grid_.eq.-1))then
+       if(grid_spacing_.lt.0._real32)then
+          call stop_program("Grid or grid spacing not set. One must be set")
+          return
+       end if
+       do i = 1, 3
+          grid_(i) = nint( &
+               ( bounds_(2,i) - bounds_(1,i) ) * &
+               norm2(basis%lat(i,:)) / grid_spacing_ &
+          )
+       end do
+    end if
+    if(present(grid_output)) grid_output = grid_
+    call this%distributions%set_num_bins()
+
+
+    call basis_extd%copy(basis)
+    do i = 1, size(species_list)
+       call basis_extd%add_atom( &
+            species_list(i), &
+            position = [0._real32, 0._real32, 0._real32], &
+            mask = .false. &
+       )
+       species_idx_list(i) = &
+            findloc(basis_extd%spec(:)%name, strip_null(species_list(i)), dim=1)
+    end do
+    do is = 1, basis_extd%nspec
+       idx = this%distributions%get_element_index( &
+            basis_extd%spec(is)%name &
+       )
+       if(idx.eq.0)then
+          call stop_program( &
+               "Species "//&
+               trim(basis_extd%spec(is)%name)//&
+               " not found in distribution functions" &
+          )
+          return
+       end if
+    end do
+    call basis_extd%create_images( &
+         max_bondlength = this%distributions%cutoff_max(1) &
+    )
+
+
+    call this%distributions%set_element_map( &
+         [ basis_extd%spec(:)%name ] &
+    )
+    probability = get_gridpoints_and_viability( &
+         this%distributions, &
+         grid_, &
+         bounds_, &
+         basis_extd, &
+         species_idx_list, &
+         [ this%distributions%bond_info(:)%radius_covalent ], &
+         grid_offset = grid_offset_ &
+    )
+
+  end function get_probability_density
 !###############################################################################
 
 

@@ -7,7 +7,7 @@ module raffle__viability
   use omp_lib
 #endif
   use raffle__constants, only: real32
-  use raffle__misc_linalg, only: modu, inverse_3x3
+  use raffle__misc_linalg, only: inverse_3x3
   use raffle__geom_extd, only: extended_basis_type
   use raffle__dist_calcs, only: &
        get_min_dist_between_point_and_atom, get_min_dist
@@ -27,7 +27,7 @@ contains
   function get_gridpoints_and_viability(distribs_container, grid, bounds, &
        basis, &
        species_index_list, &
-       radius_list, atom_ignore_list, grid_offset) result(points)
+       radius_list, grid_offset) result(points)
     !! Return a list of viable gridpoints and their viability for each species.
     !!
     !! This function returns the viability of all viable gridpoints.
@@ -46,8 +46,6 @@ contains
     !! List of radii for each pair of elements.
     integer, dimension(:), intent(in) :: species_index_list
     !! List of species indices to add atoms to.
-    integer, dimension(:,:), intent(in) :: atom_ignore_list
-    !! List of atoms to ignore (i.e. indices of atoms not yet placed).
     real(real32), dimension(3), intent(in) :: grid_offset
     !! Offset for gridpoints.
     real(real32), dimension(:,:), allocatable :: points
@@ -126,13 +124,11 @@ contains
 !$omp parallel do default(shared) private(i,is,ia,l,atom_idx,idx)
     do is = 1, basis%nspec
        atom_loop: do ia = 1, basis%spec(is)%num
-          do l = 1, size(atom_ignore_list,dim=2), 1
-             if(all(atom_ignore_list(:,l).eq.[is,ia])) cycle atom_loop
-          end do
+          if(.not. basis%spec(is)%atom_mask(ia)) cycle atom_loop
 
           ! get the atom position in terms of the grid indices
           atom_idx = &
-               nint( ( basis%spec(is)%atom(ia,1:3) - offset )/ grid_scale )
+               nint( ( basis%spec(is)%atom(ia,1:3) - offset ) / grid_scale )
 
           ! if any one of the indicies is always outside of the grid, skip
           idx_lw = atom_idx - extent
@@ -184,14 +180,10 @@ contains
     do i = 1, num_points
        do concurrent ( is = 1 : size(species_index_list,1) )
           points(4,i) = &
-               modu( get_min_dist(&
-                    basis, [ points(1:3,i) ], .false., &
-                    ignore_list = atom_ignore_list &
-               ) )
+               norm2( get_min_dist(basis, [ points(1:3,i) ], .false. ) )
           points(4+is,i) = &
                evaluate_point( distribs_container, &
-                    points(1:3,i), species_index_list(is), basis, &
-                    atom_ignore_list, radius_list &
+                    points(1:3,i), species_index_list(is), basis, radius_list &
                )
        end do
     end do
@@ -205,7 +197,7 @@ contains
   subroutine update_gridpoints_and_viability( &
        points, distribs_container, basis, &
        species_index_list, &
-       atom, radius_list, atom_ignore_list &
+       atom, radius_list &
   )
     !! Update the list of viable gridpoints and their viability for each
     !! species.
@@ -226,14 +218,14 @@ contains
     !! List of radii for each pair of elements.
     integer, dimension(:), intent(in) :: species_index_list
     !! List of species indices to add atoms to.
-    integer, dimension(:,:), intent(in) :: atom_ignore_list
-    !! List of atoms to ignore (i.e. indices of atoms not yet placed).
 
     ! Local variables
     integer :: i, is
     !! Loop indices.
     integer :: num_points
     !! Number of gridpoints.
+    integer :: num_species
+    !! Number of species.
     real(real32) :: min_radius
     !! Minimum radius.
     real(real32) :: distance
@@ -244,6 +236,8 @@ contains
     !! Temporary list of gridpoints.
     real(real32), dimension(3) :: diff
     !! Difference between atom and gridpoint (direct coorindates).
+    real(real32), dimension(3) :: atom_pos
+    !! Position of atom in direct coordinates.
     real(real32), dimension(:,:), allocatable :: points_tmp
     !! Temporary list of gridpoints.
 
@@ -254,29 +248,33 @@ contains
     if(.not.allocated(points)) return
     num_points = size(points,dim=2)
     viable = .true.
-    min_radius = minval(radius_list) * distribs_container%radius_distance_tol(1)
-    associate( atom_pos => [ basis%spec(atom(1))%atom(atom(2),1:3) ] )
+    min_radius = max( &
+         distribs_container%cutoff_min(1), &
+         minval(radius_list) * distribs_container%radius_distance_tol(1) &
+    )
+    atom_pos = basis%spec(atom(1))%atom(atom(2),1:3)
+    num_species = size(species_index_list,1)
 !$omp parallel do default(shared) private(i,is,diff,distance)
-       do i = 1, num_points
-          diff = atom_pos - points(1:3,i)
-          diff = diff - ceiling(diff - 0.5_real32)
-          distance = modu( matmul( diff, basis%lat ) )
-          if( distance .lt. min_radius )then
-             viable(i) = .false.
-             cycle
-          elseif( distance .le. distribs_container%cutoff_max(1) )then
-             do concurrent( is = 1 : size(species_index_list,1) )
+    do i = 1, num_points
+       diff = atom_pos - points(1:3,i)
+       diff = diff - anint(diff)
+       distance = norm2( matmul( diff, basis%lat ) )
+       if( distance .lt. min_radius )then
+          viable(i) = .false.
+       else
+          if( distance .le. distribs_container%cutoff_max(1) )then
+             do concurrent( is = 1 : num_species )
                 points(4+is,i) = &
                      evaluate_point( distribs_container, &
                           points(1:3,i), species_index_list(is), basis, &
-                          atom_ignore_list, radius_list &
+                          radius_list &
                      )
              end do
           end if
           points(4,i) = min( points(4,i), distance )
-       end do
+       end if
+    end do
 !$omp end parallel do
-    end associate
 
     num_points = count(viable)
     if(num_points.lt.1)then

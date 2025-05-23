@@ -12,7 +12,7 @@ program test_generator
   character(len=100) :: filename
   type(raffle_generator_type) :: generator, generator2
   class(raffle_generator_type), allocatable :: generator_var
-  type(basis_type) :: basis_host, basis_host_expected
+  type(basis_type) :: basis_host, basis_expected
   type(basis_type), dimension(1) :: database
   type(basis_type), dimension(:), allocatable :: structures, structures_store
   integer, dimension(3) :: grid
@@ -144,34 +144,34 @@ program test_generator
 
 
   !-----------------------------------------------------------------------------
-  ! set up expected generated host structure
+  ! set up expected generated structure
   !-----------------------------------------------------------------------------
-  basis_host_expected%sysname = 'diamond+inserts'
-  basis_host_expected%nspec = 1
-  allocate(basis_host_expected%spec(basis_host_expected%nspec))
-  basis_host_expected%spec(1)%num = 16
-  basis_host_expected%spec(1)%name = 'C'
-  basis_host_expected%natom = sum(basis_host_expected%spec(:)%num)
-  allocate(basis_host_expected%spec(1)%atom(basis_host_expected%spec(1)%num, 3))
-  basis_host_expected%spec(1)%atom(1, :3) = [0.0, 0.0, 0.0]
-  basis_host_expected%spec(1)%atom(2, :3) = [0.5, 0.5, 0.0]
-  basis_host_expected%spec(1)%atom(3, :3) = [0.5, 0.0, 0.25]
-  basis_host_expected%spec(1)%atom(4, :3) = [0.0, 0.5, 0.25]
-  basis_host_expected%spec(1)%atom(5, :3) = [0.25, 0.25, 0.125]
-  basis_host_expected%spec(1)%atom(6, :3) = [0.75, 0.75, 0.125]
-  basis_host_expected%spec(1)%atom(7, :3) = [0.75, 0.25, 0.375]
-  basis_host_expected%spec(1)%atom(8, :3) = [0.25, 0.75, 0.375]
-  basis_host_expected%spec(1)%atom(9, :3) = [0.75, 0.25, 0.875]
-  basis_host_expected%spec(1)%atom(10, :3) = [0.75, 0.75, 0.625]
-  basis_host_expected%spec(1)%atom(11, :3) = [0.5, 0.0, 0.75]
-  basis_host_expected%spec(1)%atom(12, :3) = [0.25, 0.25, 0.625]
-  basis_host_expected%spec(1)%atom(13, :3) = [0.25, 0.75, 0.875]
-  basis_host_expected%spec(1)%atom(14, :3) = [0.5, 0.5, 0.5]
-  basis_host_expected%spec(1)%atom(15, :3) = [0.0, 0.5, 0.75]
-  basis_host_expected%spec(1)%atom(16, :3) = [0.0, 0.0, 0.5]
-  basis_host_expected%lat(1,:) = [3.560745109, 0.0, 0.0]
-  basis_host_expected%lat(2,:) = [0.0, 3.560745109, 0.0]
-  basis_host_expected%lat(3,:) = [0.0, 0.0, 7.121490218]
+  basis_expected%sysname = 'diamond+inserts'
+  basis_expected%nspec = 1
+  allocate(basis_expected%spec(basis_expected%nspec))
+  basis_expected%spec(1)%num = 16
+  basis_expected%spec(1)%name = 'C'
+  basis_expected%natom = sum(basis_expected%spec(:)%num)
+  allocate(basis_expected%spec(1)%atom(basis_expected%spec(1)%num, 3))
+  basis_expected%spec(1)%atom(1, :3) = [0.0, 0.0, 0.0]
+  basis_expected%spec(1)%atom(2, :3) = [0.5, 0.5, 0.0]
+  basis_expected%spec(1)%atom(3, :3) = [0.5, 0.0, 0.25]
+  basis_expected%spec(1)%atom(4, :3) = [0.0, 0.5, 0.25]
+  basis_expected%spec(1)%atom(5, :3) = [0.25, 0.25, 0.125]
+  basis_expected%spec(1)%atom(6, :3) = [0.75, 0.75, 0.125]
+  basis_expected%spec(1)%atom(7, :3) = [0.75, 0.25, 0.375]
+  basis_expected%spec(1)%atom(8, :3) = [0.25, 0.75, 0.375]
+  basis_expected%spec(1)%atom(9, :3) = [0.75, 0.25, 0.875]
+  basis_expected%spec(1)%atom(10, :3) = [0.75, 0.75, 0.625]
+  basis_expected%spec(1)%atom(11, :3) = [0.5, 0.0, 0.75]
+  basis_expected%spec(1)%atom(12, :3) = [0.25, 0.25, 0.625]
+  basis_expected%spec(1)%atom(13, :3) = [0.25, 0.75, 0.875]
+  basis_expected%spec(1)%atom(14, :3) = [0.5, 0.5, 0.5]
+  basis_expected%spec(1)%atom(15, :3) = [0.0, 0.5, 0.75]
+  basis_expected%spec(1)%atom(16, :3) = [0.0, 0.0, 0.5]
+  basis_expected%lat(1,:) = [3.560745109, 0.0, 0.0]
+  basis_expected%lat(2,:) = [0.0, 3.560745109, 0.0]
+  basis_expected%lat(3,:) = [0.0, 0.0, 7.121490218]
 
 
   !-----------------------------------------------------------------------------
@@ -293,9 +293,9 @@ program test_generator
   grid(2) = nint( 0.75 * generator%host%lat(2,2) / 0.2 )
   grid(3) = nint( 0.5 * generator%host%lat(3,3) / 0.2 )
   call assert( &
-        all( generator%grid .eq. grid ), &
-        'Generator failed to handle grid_spacing with bounds', &
-        success &
+       all( generator%grid .eq. grid ), &
+       'Generator failed to handle grid_spacing with bounds', &
+       success &
   )
 
   call generator%reset_bounds()
@@ -306,7 +306,7 @@ program test_generator
   ! set up generator
   !-----------------------------------------------------------------------------
   generator%distributions%kBT = 0.2
-  call generator%set_grid( grid_spacing = 0.2, grid_offset = [0.0, 0.0, 0.0] )
+  call generator%set_grid( grid_spacing = 0.15, grid_offset = [0.0, 0.0, 0.0] )
   generator%distributions%radius_distance_tol = [1.5, 2.5, 3.0, 6.0]
   do i = 1, 3
      tolerance(i) = 1._real32 / real(generator%grid(i),real32) / 2._real32
@@ -341,11 +341,11 @@ program test_generator
 
 
   !-----------------------------------------------------------------------------
-  ! compare the generated host structure
+  ! compare the generated structure
   !-----------------------------------------------------------------------------
   call assert(&
-       compare_bas(generator%structures(1), basis_host_expected, tolerance), &
-       'Generated host structure does not match expected host structure', &
+       compare_bas(generator%structures(1), basis_expected, tolerance), &
+       'Generated structure does not match expected structure', &
        success &
   )
 

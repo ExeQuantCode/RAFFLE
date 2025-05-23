@@ -33,6 +33,7 @@ program test_edit_geom
   bas%lat(1,:) = [0.0, 2.14, 2.14]
   bas%lat(2,:) = [2.14, 0.0, 2.14]
   bas%lat(3,:) = [2.14, 2.14, 0.0]
+  call bas%set_atom_mask()
 
 
   !-----------------------------------------------------------------------------
@@ -86,6 +87,7 @@ program test_edit_geom
   bas2%spec(2)%name = 'Ge'
   allocate(bas2%spec(2)%atom(bas2%spec(2)%num, 3))
   bas2%spec(2)%atom(1, :) = [0.25, 0.25, 0.25]
+  call bas2%set_atom_mask()
 
   rtmp1 = get_min_dist_between_point_and_species( &
        bas2,  &
@@ -98,8 +100,8 @@ program test_edit_geom
   rtmp2 = modu(loc)
 
   if ( abs(rtmp1 - rtmp2) .gt. 1.E-6 ) then
-      write(0,*) 'get_min_dist_between_point_and_species failed'
-      success = .false.
+     write(0,*) 'get_min_dist_between_point_and_species failed'
+     success = .false.
   end if
 
   rtmp1 = get_min_dist_between_point_and_species( &
@@ -111,10 +113,10 @@ program test_edit_geom
   loc = loc - ceiling(loc - 0.5)
   loc = matmul(loc, bas2%lat)
   rtmp2 = modu(loc)
- 
+
   if ( abs(rtmp1 - rtmp2) .gt. 1.E-6 ) then
-      write(0,*) 'get_min_dist_between_point_and_species failed'
-      success = .false.
+     write(0,*) 'get_min_dist_between_point_and_species failed'
+     success = .false.
   end if
 
 
@@ -122,9 +124,9 @@ program test_edit_geom
   ! Test get_dist_between_point_and_atom
   !-----------------------------------------------------------------------------
   rtmp1 = get_dist_between_point_and_atom( &
-         bas,  &
-         loc=[0.9, 0.9, 0.9],  &
-         atom=[1, 1] &
+       bas,  &
+       loc=[0.9, 0.9, 0.9],  &
+       atom=[1, 1] &
   )
   loc = bas%spec(1)%atom(1,:3) - [0.9, 0.9, 0.9]
   loc = matmul(loc, bas%lat)
@@ -135,15 +137,15 @@ program test_edit_geom
      success = .false.
   end if
   rtmp1 = get_dist_between_point_and_atom( &
-         bas,  &
-         loc=[0.9, 0.9, 0.9],  &
-         atom=[1, 2] &
+       bas,  &
+       loc=[0.9, 0.9, 0.9],  &
+       atom=[1, 2] &
   )
   loc = bas%spec(1)%atom(2,:3) - [0.9, 0.9, 0.9]
   loc = matmul(loc, bas%lat)
   rtmp2 = modu(loc)
   if ( abs(rtmp1 - rtmp2) .gt. 1.E-6 ) then
-   write(*,*) rtmp1, rtmp2
+     write(*,*) rtmp1, rtmp2
      write(0,*) 'get_dist_between_point_and_atom failed'
      success = .false.
   end if

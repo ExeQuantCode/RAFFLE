@@ -6,7 +6,7 @@ module raffle__geom_rw
   use raffle__constants, only: pi,real32
   use raffle__io_utils, only: stop_program, print_warning
   use raffle__misc, only: to_upper, to_lower, jump, icount, strip_null
-  use raffle__misc_linalg, only: modu, inverse_3x3
+  use raffle__misc_linalg, only: inverse_3x3
   implicit none
 
 
@@ -34,6 +34,8 @@ module raffle__geom_rw
      integer, allocatable, dimension(:) :: atom_idx
      !! The indices of the atoms of this species in the basis.
      !! For ASE compatibility.
+     logical, dimension(:), allocatable :: atom_mask
+     !! The mask of the atoms of this species.
      real(real32), allocatable ,dimension(:,:) :: atom
      !! The atomic positions of the species.
      real(real32) :: mass
@@ -72,8 +74,12 @@ module raffle__geom_rw
      !! Procedure to convert the basis to cartesian coordinates.
      procedure, pass(this) :: copy
      !! Procedure to copy the basis.
+     procedure, pass(this) :: set_atom_mask
+     !! Procedure to set the atom mask of the basis.
      procedure, pass(this) :: get_lattice_constants
      !! Procedure to get the lattice constants of the basis.
+     procedure, pass(this) :: add_atom
+     !! Procedure to add an atom to the basis.
      procedure, pass(this) :: remove_atom
      !! Procedure to remove an atom from the basis.
      procedure, pass(this) :: remove_atoms
@@ -153,6 +159,7 @@ contains
        istart = 1
        do i = 1, this%nspec
           iend = istart + this%spec(i)%num - 1
+          allocate(this%spec(i)%atom_mask(this%spec(i)%num), source = .true.)
           allocate(this%spec(i)%atom_idx(this%spec(i)%num))
           allocate(this%spec(i)%atom(this%spec(i)%num,3))
           if(present(atoms))then
@@ -388,6 +395,7 @@ contains
     natom = 0
     do i = 1, basis%nspec
        allocate(basis%spec(i)%atom_idx(basis%spec(i)%num))
+       allocate(basis%spec(i)%atom_mask(basis%spec(i)%num), source = .true.)
        allocate(basis%spec(i)%atom(basis%spec(i)%num,length_))
        basis%spec(i)%atom(:,:)=0._real32
        do j = 1, basis%spec(i)%num
@@ -587,6 +595,7 @@ contains
     do i = 1, basis%nspec
        basis%spec(i)%num = 0
        allocate(basis%spec(i)%atom_idx(tmp_natom(i)))
+       allocate(basis%spec(i)%atom_mask(tmp_natom(i)), source = .true.)
        allocate(basis%spec(i)%atom(tmp_natom(i),length_))
     end do
 
@@ -1302,7 +1311,7 @@ contains
 
 
     do i = 1, 3
-       abc_angle(1,i)=modu(lattice(i,:))
+       abc_angle(1,i)=norm2(lattice(i,:))
     end do
     do i = 1, 3
     end do
@@ -1363,8 +1372,8 @@ contains
 
 
     ! Local variables
-    integer :: i
-    !! Loop index.
+    integer :: i, j
+    !! Loop indices.
     integer :: length_, length_input
     !! The dimension of the basis atom positions.
 
@@ -1385,6 +1394,8 @@ contains
     !---------------------------------------------------------------------------
     if(allocated(this%spec))then
        do i = 1, this%nspec
+          if(allocated(this%spec(i)%atom_mask)) &
+               deallocate(this%spec(i)%atom_mask)
           if(allocated(this%spec(i)%atom_idx)) deallocate(this%spec(i)%atom_idx)
           if(allocated(this%spec(i)%atom)) deallocate(this%spec(i)%atom)
        end do
@@ -1397,11 +1408,19 @@ contains
     !---------------------------------------------------------------------------
     allocate(this%spec(basis%nspec))
     do i = 1, basis%nspec
+       allocate(this%spec(i)%atom_mask(basis%spec(i)%num), source = .true.)
        allocate(this%spec(i)%atom_idx(basis%spec(i)%num))
-       allocate(this%spec(i)%atom(&
-            basis%spec(i)%num,length_))
+       allocate(this%spec(i)%atom(basis%spec(i)%num,length_))
 
-       this%spec(i)%atom_idx = basis%spec(i)%atom_idx
+       if(allocated(basis%spec(i)%atom_mask)) &
+            this%spec(i)%atom_mask = basis%spec(i)%atom_mask
+
+       if(allocated(basis%spec(i)%atom_idx))then
+          this%spec(i)%atom_idx = basis%spec(i)%atom_idx
+       else
+          this%spec(i)%atom_idx = [ ( j, j = sum(basis%spec(1:i-1:1)%num) + 1, &
+               sum(basis%spec(1:i)%num) ) ]
+       end if
        if(length_input.eq.length_)then
           this%spec(i)%atom(:,:length_) = basis%spec(i)%atom(:,:length_)
        elseif(length_input.gt.length_)then
@@ -1430,6 +1449,134 @@ contains
 
 
 !###############################################################################
+  subroutine set_atom_mask(this, index_list)
+    !! Set the mask for the atoms in the basis.
+    implicit none
+
+    ! Arguments
+    class(basis_type), intent(inout) :: this
+    !! Parent. The basis.
+    integer, dimension(:,:), intent(in), optional :: index_list
+    !! The list of indices to set the mask for.
+
+    ! Local variables
+    integer :: i
+    !! Loop index.
+
+
+    do i = 1, this%nspec
+       if(.not.allocated(this%spec(i)%atom_mask))then
+          allocate( &
+               this%spec(i)%atom_mask(this%spec(i)%num), source = .true. &
+          )
+       end if
+    end do
+
+    if(present(index_list))then
+       do i = 1, size(index_list,2)
+          this%spec(index_list(1,i))%atom_mask(index_list(2,i)) = &
+               .not.this%spec(index_list(1,i))%atom_mask(index_list(2,i))
+       end do
+    end if
+
+  end subroutine set_atom_mask
+!###############################################################################
+
+
+!###############################################################################
+  subroutine add_atom(this, species, position, is_cartesian, mask)
+    !! Add an atom to the basis.
+    implicit none
+
+    ! Arguments
+    class(basis_type), intent(inout) :: this
+    !! Parent. The basis.
+    character(len=3), intent(in) :: species
+    !! The species of the atom to add.
+    real(real32), dimension(3), intent(in) :: position
+    !! The position of the atom to add.
+    logical, intent(in), optional :: is_cartesian
+    !! Optional. Boolean whether the position is in cartesian coordinates.
+    !! NOT YET IMPLEMENTED.
+    logical, intent(in), optional :: mask
+    !! Optional. Boolean whether to add a mask for the atom.
+
+    ! Local variables
+    integer :: j
+    !! Loop index.
+    integer :: idx
+    !! The index of the species in the basis.
+    integer :: length
+    !! The dimension of the basis atom positions.
+    logical :: mask_
+    !! Boolean mask for the atom.
+    integer, dimension(:), allocatable :: atom_idx
+    !! Temporary array.
+    logical, dimension(:), allocatable :: atom_mask
+    !! Temporary array.
+    real(real32), dimension(:,:), allocatable :: positions
+    !! Temporary array.
+    type(species_type), dimension(:), allocatable :: species_list
+    !! Temporary array.
+
+
+    mask_ = .true.
+    if(present(mask)) mask_ = mask
+
+    this%natom = this%natom + 1
+    length = size(this%spec(1)%atom,dim=2)
+    idx = findloc(this%spec(:)%name, strip_null(species), dim=1)
+    if(idx.eq.0)then
+       this%nspec = this%nspec + 1
+       allocate(species_list(this%nspec))
+       species_list(1:this%nspec-1) = this%spec(1:this%nspec-1)
+       deallocate(this%spec)
+       species_list(this%nspec)%name = strip_null(species)
+       species_list(this%nspec)%num = 1
+       call get_element_properties(species_list(this%nspec)%name, &
+            species_list(this%nspec)%mass, &
+            species_list(this%nspec)%charge, &
+            species_list(this%nspec)%radius &
+       )
+       allocate(species_list(this%nspec)%atom_idx(1))
+       allocate(species_list(this%nspec)%atom_mask(1), source = mask_)
+       species_list(this%nspec)%atom_idx(1) = this%natom
+       allocate(species_list(this%nspec)%atom(1,length))
+       species_list(this%nspec)%atom(1,:) = 0._real32
+       species_list(this%nspec)%atom(1,:3) = position
+       this%spec = species_list
+       deallocate(species_list)
+    else
+       allocate(atom_mask(this%spec(idx)%num+1), source = .true.)
+       if(allocated(this%spec(idx)%atom_mask))then
+          atom_mask(1:this%spec(idx)%num) = this%spec(idx)%atom_mask
+       end if
+       atom_mask(this%spec(idx)%num+1) = mask_
+       allocate(atom_idx(this%spec(idx)%num+1))
+       if(allocated(this%spec(idx)%atom_idx))then
+          atom_idx(1:this%spec(idx)%num) = this%spec(idx)%atom_idx
+       else
+          atom_idx(1:this%spec(idx)%num) = [ ( j, j = 1, this%spec(idx)%num ) ]
+       end if
+       atom_idx(this%spec(idx)%num+1) = this%natom
+       allocate(positions(this%spec(idx)%num+1,length))
+       positions = 0._real32
+       positions(1:this%spec(idx)%num,:) = this%spec(idx)%atom
+       positions(this%spec(idx)%num+1,:3) = position
+       this%spec(idx)%num = this%spec(idx)%num + 1
+       this%spec(idx)%atom_mask = atom_mask
+       this%spec(idx)%atom_idx = atom_idx
+       this%spec(idx)%atom = positions
+       deallocate(atom_mask)
+       deallocate(atom_idx)
+       deallocate(positions)
+    end if
+
+  end subroutine add_atom
+!###############################################################################
+
+
+!###############################################################################
   subroutine remove_atom(this, ispec, iatom)
     !! Remove an atom from the basis.
     implicit none
@@ -1447,6 +1594,8 @@ contains
     !! The index associated with the atom to remove.
     integer, dimension(:), allocatable :: atom_idx
     !! Temporary array to store the atomic indices.
+    logical, dimension(:), allocatable :: atom_mask
+    !! Temporary array to store the atomic masks.
     real(real32), dimension(:,:), allocatable :: atom
     !! Temporary array to store the atomic positions.
 
@@ -1461,19 +1610,25 @@ contains
              call stop_program("Atom to remove does not exist")
              return
           end if
+          allocate(atom_mask(this%spec(i)%num-1), source = .true.)
           allocate(atom_idx(this%spec(i)%num-1))
           allocate(atom(this%spec(i)%num-1,size(this%spec(i)%atom,2)))
           if(iatom.eq.1)then
+             atom_mask(1:this%spec(i)%num-1) = &
+                  this%spec(i)%atom_mask(2:this%spec(i)%num:1)
              atom_idx(1:this%spec(i)%num-1) = &
                   this%spec(i)%atom_idx(2:this%spec(i)%num:1)
              atom(1:this%spec(i)%num-1:1,:) = &
                   this%spec(i)%atom(2:this%spec(i)%num:1,:)
           elseif(iatom.eq.this%spec(i)%num)then
+             atom_mask(1:this%spec(i)%num-1) = &
+                  this%spec(i)%atom_mask(1:this%spec(i)%num-1:1)
              atom_idx(1:this%spec(i)%num-1) = &
                   this%spec(i)%atom_idx(1:this%spec(i)%num-1:1)
              atom(1:this%spec(i)%num-1:1,:) = &
                   this%spec(i)%atom(1:this%spec(i)%num-1:1,:)
           else
+             atom_mask(1:iatom-1:1) = this%spec(i)%atom_mask(1:iatom-1:1)
              atom_idx(1:iatom-1:1) = this%spec(i)%atom_idx(1:iatom-1:1)
              atom_idx(iatom:this%spec(i)%num-1:1) = &
                   this%spec(i)%atom_idx(iatom+1:this%spec(i)%num:1)
@@ -1482,12 +1637,14 @@ contains
                   this%spec(i)%atom(iatom+1:this%spec(i)%num:1,:)
           end if
           where(atom_idx(1:this%spec(i)%num-1:1).gt.remove_idx)
-               atom_idx(1:this%spec(i)%num-1:1) = &
-                    atom_idx(1:this%spec(i)%num-1:1) - 1
+             atom_idx(1:this%spec(i)%num-1:1) = &
+                  atom_idx(1:this%spec(i)%num-1:1) - 1
           end where
+          this%spec(i)%atom_mask = atom_mask
           this%spec(i)%atom_idx = atom_idx
           this%spec(i)%atom = atom
-          deallocate(this%spec(i)%atom_idx)
+          deallocate(atom_mask)
+          deallocate(atom_idx)
           deallocate(atom)
           this%spec(i)%num = this%spec(i)%num - 1
           this%natom = this%natom - 1

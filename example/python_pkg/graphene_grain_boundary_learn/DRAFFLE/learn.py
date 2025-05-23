@@ -8,6 +8,9 @@ import numpy as np
 import os
 from joblib import Parallel, delayed
 from ase.constraints import FixAtoms
+from pathlib import Path
+
+script_dir = Path(__file__).resolve().parent
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
@@ -59,24 +62,24 @@ def process_structure(i, atoms, num_structures_old, calc_params, optimise_struct
 if __name__ == "__main__":
 
     # check if mace file exists
-    if not os.path.exists("../mace-mpa-0-medium.model"):
+    if not os.path.exists(script_dir  / ".." / ".." / "mace-mpa-0-medium.model"):
         print("MACE-MPA-0 model file not found. Please download the model from the MACE website.")
         print("https://github.com/ACEsuit/mace-foundations/releases/tag/mace_mpa_0")
         exit(1)
 
     # set up the calculator
-    calc_params = { 'model': "../mace-mpa-0-medium.model" }
+    calc_params = { 'model':  script_dir/ ".." / ".." / "mace-mpa-0-medium.model" }
     calc = mace_mp(**calc_params)
 
     # set up the hosts
     hosts = []
-    host = read("../POSCAR_host_gb")
+    host = read(script_dir  / ".." / "POSCAR_host_gb")
     hosts.append(host)
 
     # set the parameters for the generator
     generator = raffle_generator()
     generator.distributions.set_history_len(10)
-    graphene = read("../POSCAR_graphene")
+    graphene = read(script_dir / ".." / "POSCAR_graphene")
     h2 = build.molecule("H2")
     graphene.calc = calc
     C_reference_energy = graphene.get_potential_energy() / len(graphene)

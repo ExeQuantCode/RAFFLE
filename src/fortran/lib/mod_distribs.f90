@@ -5,11 +5,11 @@ module raffle__distribs
   !! fucntions for individual materials.
   !! The distribution functions are used as fingerprints for atomic structures
   !! to identify similarities and differences between structures.
-  use raffle__constants, only: real32, pi
+  use raffle__constants, only: real32, pi, tau
   use raffle__io_utils, only: stop_program, print_warning
   use raffle__misc, only: strip_null, sort_str
   use raffle__misc_maths, only: triangular_number
-  use raffle__misc_linalg, only: get_angle, get_improper_dihedral_angle, modu
+  use raffle__misc_linalg, only: get_angle, get_improper_dihedral_angle
   use raffle__geom_rw, only: basis_type, get_element_properties
   use raffle__geom_extd, only: extended_basis_type
   use raffle__element_utils, only: &
@@ -176,7 +176,7 @@ contains
     !! Loop index.
     integer :: num_pairs
     !! Number of pairs and angles.
-    real(real32) :: bondlength
+    real(real32) :: bondlength, rtmp1, dist_max_smooth, dist_min_smooth
     !! Temporary real variables.
     logical :: success
     !! Boolean for success.
@@ -186,6 +186,8 @@ contains
     !! Basis for storing neighbour data.
     real(real32), dimension(3) :: eta
     !! Parameters for the distribution functions.
+    real(real32), dimension(4) :: tolerances
+    !! Tolerance for the distance between atoms for 3- and 4-body.
     real(real32), allocatable, dimension(:) :: angle_list, bondlength_list, &
          distance
     !! Temporary real arrays.
@@ -298,10 +300,10 @@ contains
     allocate(neighbour_basis%spec(1))
     allocate(neighbour_basis%image_spec(1))
     allocate(neighbour_basis%spec(1)%atom( &
-         sum(basis_extd%spec(:)%num)+sum(basis_extd%image_spec(:)%num), 3 &
+         sum(basis_extd%spec(:)%num)+sum(basis_extd%image_spec(:)%num), 4 &
     ) )
     allocate(neighbour_basis%image_spec(1)%atom( &
-         sum(basis_extd%spec(:)%num)+sum(basis_extd%image_spec(:)%num), 3 &
+         sum(basis_extd%spec(:)%num)+sum(basis_extd%image_spec(:)%num), 4 &
     ) )
     neighbour_basis%nspec = basis%nspec
     neighbour_basis%natom = 0
@@ -319,6 +321,12 @@ contains
           neighbour_basis%image_spec(1)%num = 0
           do js = 1, basis%nspec
              itmp1 = 0
+             tolerances(:) = radius_distance_tol_(:) * &
+                  bond_info(pair_index(is, js))%radius_covalent
+             tolerances(1) = max( cutoff_min_(1), tolerances(1) )
+             tolerances(3) = max( cutoff_min_(1), tolerances(3) )
+             tolerances(2) = min( cutoff_max_(1), tolerances(2) )
+             tolerances(4) = min( cutoff_max_(1), tolerances(4) )
 
              !------------------------------------------------------------------
              ! loop over all atoms inside the unit cell
@@ -331,7 +339,7 @@ contains
                           basis_extd%spec(is)%atom(ia,1:3) &
                      ], basis_extd%lat ) &
                 )
-                   bondlength = modu( vector )
+                   bondlength = norm2( vector )
 
                    if( &
                         bondlength .lt. cutoff_min_(1) .or. &
@@ -341,37 +349,45 @@ contains
                    ! add 2-body bond to store if within tolerances for 3-body
                    ! distance
                    if( &
-                        bondlength .ge. ( &
-                             bond_info(pair_index(is, js))%radius_covalent * &
-                             radius_distance_tol_(1) &
-                        ) .and. &
-                        bondlength .le. ( &
-                             bond_info(pair_index(is, js))%radius_covalent * &
-                             radius_distance_tol_(2) &
-                        ) &
+                        bondlength .ge. tolerances(1) .and. &
+                        bondlength .le. tolerances(2) &
                    ) then
                       neighbour_basis%spec(1)%num = &
                            neighbour_basis%spec(1)%num + 1
                       neighbour_basis%spec(1)%atom( &
-                           neighbour_basis%spec(1)%num,1:3) = vector
+                           neighbour_basis%spec(1)%num,1:3 &
+                      ) = vector
+                      neighbour_basis%spec(1)%atom( &
+                           neighbour_basis%spec(1)%num,4 &
+                      ) = -0.5_real32 * ( &
+                           cos( tau * ( bondlength - tolerances(1) ) / &
+                                ( &
+                                     min(cutoff_max_(1), tolerances(2)) - &
+                                     tolerances(1) &
+                                ) &
+                           ) - 1._real32 )
                    end if
 
                    ! add 2-body bond to store if within tolerances for 4-body
                    ! distance
                    if( &
-                        bondlength .ge. ( &
-                             bond_info(pair_index(is, js))%radius_covalent * &
-                             radius_distance_tol_(3) &
-                        ) .and. &
-                        bondlength .le. ( &
-                             bond_info(pair_index(is, js))%radius_covalent * &
-                             radius_distance_tol_(4) &
-                        ) &
+                        bondlength .ge. tolerances(3) .and. &
+                        bondlength .le. tolerances(4) &
                    ) then
                       neighbour_basis%image_spec(1)%num = &
                            neighbour_basis%image_spec(1)%num + 1
                       neighbour_basis%image_spec(1)%atom( &
-                           neighbour_basis%image_spec(1)%num,1:3) = vector
+                           neighbour_basis%image_spec(1)%num,1:3 &
+                      ) = vector
+                      neighbour_basis%image_spec(1)%atom( &
+                           neighbour_basis%image_spec(1)%num,4 &
+                      ) = -0.5_real32 * ( &
+                           cos( tau * ( bondlength - tolerances(3) ) / &
+                                ( &
+                                     min(cutoff_max_(1), tolerances(4)) - &
+                                     tolerances(3) &
+                                ) &
+                           ) - 1._real32 )
                    end if
 
                    !if(js.lt.js.or.(is.eq.js.and.ja.le.ia)) cycle
@@ -394,7 +410,7 @@ contains
                      ], basis_extd%lat ) &
                 )
 
-                   bondlength = modu( vector )
+                   bondlength = norm2( vector )
 
                    if( &
                         bondlength .lt. cutoff_min_(1) .or. &
@@ -404,39 +420,45 @@ contains
                    ! add 2-body bond to store if within tolerances for 3-body
                    ! distance
                    if( &
-                        bondlength .ge. ( &
-                             bond_info(pair_index(is, js))%radius_covalent * &
-                             radius_distance_tol_(1) &
-                        ) .and. &
-                        bondlength .le. ( &
-                             bond_info(pair_index(is, js))%radius_covalent * &
-                             radius_distance_tol_(2) &
-                        ) &
+                        bondlength .ge. tolerances(1) .and. &
+                        bondlength .le. tolerances(2) &
                    ) then
                       neighbour_basis%spec(1)%num = &
                            neighbour_basis%spec(1)%num + 1
                       neighbour_basis%spec(1)%atom( &
                            neighbour_basis%spec(1)%num,1:3 &
                       ) = vector
+                      neighbour_basis%spec(1)%atom( &
+                           neighbour_basis%spec(1)%num,4 &
+                      ) = -0.5_real32 * ( &
+                           cos( tau * ( bondlength - tolerances(1) ) / &
+                                ( &
+                                     min(cutoff_max_(1), tolerances(2)) - &
+                                     tolerances(1) &
+                                ) &
+                           ) - 1._real32 )
                    end if
 
                    ! add 2-body bond to store if within tolerances for 4-body
                    ! distance
                    if( &
-                        bondlength .ge. ( &
-                             bond_info(pair_index(is, js))%radius_covalent * &
-                             radius_distance_tol_(3) &
-                        ) .and. &
-                        bondlength .le. ( &
-                             bond_info(pair_index(is, js))%radius_covalent * &
-                             radius_distance_tol_(4) &
-                        ) &
+                        bondlength .ge. tolerances(3) .and. &
+                        bondlength .le. tolerances(4) &
                    ) then
                       neighbour_basis%image_spec(1)%num = &
                            neighbour_basis%image_spec(1)%num + 1
                       neighbour_basis%image_spec(1)%atom( &
                            neighbour_basis%image_spec(1)%num,1:3 &
                       ) = vector
+                      neighbour_basis%image_spec(1)%atom( &
+                           neighbour_basis%image_spec(1)%num,4 &
+                      ) = -0.5_real32 * ( &
+                           cos( tau * ( bondlength - tolerances(3) ) / &
+                                ( &
+                                     min(cutoff_max_(1), tolerances(4)) - &
+                                     tolerances(3) &
+                                ) &
+                           ) - 1._real32 )
                    end if
 
                    itmp1 = itmp1 + 1
@@ -504,8 +526,11 @@ contains
                 )
                 distance(idx) = &
                      ( &
-                          modu(neighbour_basis%spec(1)%atom(ja,:3)) ** 2 * &
-                          modu(neighbour_basis%spec(1)%atom(ka,:3)) ** 2 &
+                          neighbour_basis%spec(1)%atom(ja,4) * &
+                          neighbour_basis%spec(1)%atom(ka,4) &
+                     ) / ( &
+                          norm2(neighbour_basis%spec(1)%atom(ja,:3)) ** 2 * &
+                          norm2(neighbour_basis%spec(1)%atom(ka,:3)) ** 2 &
                      )
              end do
           end do
@@ -555,9 +580,15 @@ contains
                           [ neighbour_basis%image_spec(1)%atom(la,:3) ] &
                      )
                 distance(idx) = &
-                     modu(neighbour_basis%spec(1)%atom(ja,:3)) ** 2 * &
-                     modu(neighbour_basis%spec(1)%atom(ka,:3)) ** 2 * &
-                     modu(neighbour_basis%image_spec(1)%atom(la,:3)) ** 2
+                     ( &
+                          neighbour_basis%spec(1)%atom(ja,4) * &
+                          neighbour_basis%spec(1)%atom(ka,4) * &
+                          neighbour_basis%image_spec(1)%atom(la,4) &
+                     ) / ( &
+                          norm2(neighbour_basis%spec(1)%atom(ja,:3)) ** 2 * &
+                          norm2(neighbour_basis%spec(1)%atom(ka,:3)) ** 2 * &
+                          norm2(neighbour_basis%image_spec(1)%atom(la,:3)) ** 2 &
+                     )
              end do
           end do
           ! a NaN in the angle refers to one where two of the vectors are
@@ -583,9 +614,24 @@ contains
     !---------------------------------------------------------------------------
     ! apply the cutoff function to the 2-body distribution function
     !---------------------------------------------------------------------------
+    dist_max_smooth = cutoff_max_(1) - 0.25_real32
+    dist_min_smooth = cutoff_min_(1) + 0.25_real32
     do b = 1, nbins_(1)
-       this%df_2body(b,:) = this%df_2body(b,:) / ( cutoff_min_(1) + &
-            width_(1) * real(b-1, real32) ) ** 2
+       rtmp1 = cutoff_min_(1) + width_(1) * real(b-1, real32)
+       this%df_2body(b,:) = this%df_2body(b,:) / rtmp1 ** 2
+       if( rtmp1 .gt. dist_max_smooth )then
+          this%df_2body(b,:) = this%df_2body(b,:) * 0.5_real32 * &
+               ( 1._real32 + cos( pi * &
+                    ( rtmp1 - dist_max_smooth ) / &
+                    ( cutoff_max_(1) - dist_max_smooth ) &
+               ) )
+       elseif( rtmp1 .lt. dist_min_smooth )then
+          this%df_2body(b,:) = this%df_2body(b,:) * 0.5_real32 * &
+               ( 1._real32 + cos( pi * &
+                    ( rtmp1 - dist_min_smooth ) / &
+                    ( dist_min_smooth - cutoff_min_(1) ) &
+               ) )
+       end if
     end do
 
 
@@ -691,7 +737,7 @@ contains
                             value_list(i) - &
                             ( width * real(b-1, real32) + cutoff_min ) &
                        ) ** 2._real32 &
-                  ) / scale_list(i)
+                  ) * scale_list(i)
           end do
        end do
     end do

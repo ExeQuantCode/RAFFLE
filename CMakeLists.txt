@@ -74,6 +74,7 @@ set(LIB_DIR ${FORTRAN_SRC_DIR}/lib)
 set(LIB_FILES
 	mod_io_utils.F90
 	mod_constants.f90
+    mod_cache.f90
 	mod_misc.f90
     mod_tools_infile.f90
 	mod_misc_maths.f90

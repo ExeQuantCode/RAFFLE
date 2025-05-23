@@ -35,3 +35,9 @@ Whilst RAFFLE is a random sturcture search package designed primarlily for inter
    aluminium_tutorial
    Si-Ge_tutorial
    graphene_grain_boundary_tutorial
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Visualisation:
+
+   visualisation

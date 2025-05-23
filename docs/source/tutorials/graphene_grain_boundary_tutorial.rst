@@ -30,6 +30,9 @@ First, we must import the required packages:
     from raffle.generator import raffle_generator
     from mace.calculators import mace_mp
     import numpy as np
+    from pathlib import Path
+
+    script_dir = Path(__file__).resolve().parent
 
 
 Next, we need to set up the RAFFLE generator and the calculator to calculate the energies of the structures.
@@ -55,14 +58,14 @@ The host is read in from a file, but it can also be generated using the ARTEMIS 
 
   .. code-block:: python
 
-    host = read("../POSCAR_host_gb")
+    host = read(script_dir  / ".." / "POSCAR_host_gb")
     generator.set_host(host)
 
 We then need to set up the RAFFLE generator by creating the descriptor.
 
 .. code-block:: python
 
-    graphene = read("../POSCAR_graphene")
+    graphene = read(script_dir / ".." / "POSCAR_graphene")
     h2 = build.molecule("H2")
     graphene.calc = calc
     C_reference_energy = graphene.get_potential_energy() / len(graphene)

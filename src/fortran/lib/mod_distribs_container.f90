@@ -47,9 +47,12 @@ module raffle__distribs_container
      !! above the hull. If false, the formation energy from the element
      !! reference energies is used.
      real(real32) :: &
+          viability_2body_default = 0.1_real32, &
           viability_3body_default = 0.1_real32, &
           viability_4body_default = 0.1_real32
-     !! Default viability for the 3- and 4-body distribution functions.
+     !! Default viability for the 2-, 3-, and 4-body distribution functions.
+     logical :: smooth_viability = .true.
+     !! DEV FEATURE. Boolean whether to smooth the viability evaluation.
      logical, dimension(:), allocatable :: &
           in_dataset_2body, in_dataset_3body, in_dataset_4body
      !! Whether the 2-, 3-, and 4-body distribution functions are in
@@ -67,6 +70,8 @@ module raffle__distribs_container
      real(real32), dimension(3) :: &
           width = [ 0.025_real32, pi/64._real32, pi/64._real32 ]
      !! Width of the bins used in the 2-, 3-, and 4-body distribution functions.
+     real(real32), dimension(3) :: width_inv
+     !! Inverse of the width of the bins used in the 2-, 3-, and 4-body
      real(real32), dimension(3) :: &
           cutoff_min = [ 0.5_real32, 0._real32, 0._real32 ]
      !! Minimum cutoff for the 2-, 3-, and 4-body distribution functions.
@@ -138,7 +143,6 @@ module raffle__distribs_container
      !! Return the energies of elements in the container.
      !! Used in Python interface.
 
-
      procedure, pass(this) :: set_element_map
      !! Set the mapping of elements to distribution function elements.
      procedure, pass(this), private :: set_bond_info
@@ -155,7 +159,6 @@ module raffle__distribs_container
      !! Return the radii of all bonds in the container.
      !! Used in Python interface.
 
-
      procedure, pass(this) :: set_best_energy
      !! Set the best energy and system in the container.
      procedure, pass(this) :: initialise_gdfs
@@ -166,7 +169,6 @@ module raffle__distribs_container
      !! Evolve the learned distribution function.
      procedure, pass(this) :: is_converged
      !! Check if the learned distribution function has converged.
-
 
      procedure, pass(this) :: write_gdfs
      !! Write the generalised distribution functions to a file.
@@ -186,6 +188,8 @@ module raffle__distribs_container
      !! Return the index for bond_info given two elements.
      procedure, pass(this) :: get_element_index
      !! Return the index for element_info given one element.
+     procedure, pass(this) :: set_num_bins
+     !! Set the number of bins for the n-body distribution functions.
      procedure, pass(this) :: get_bin
      !! Return the bin index for a given distance.
      procedure, pass(this) :: get_2body
@@ -194,6 +198,11 @@ module raffle__distribs_container
      !! Return the 3-body distribution function.
      procedure, pass(this) :: get_4body
      !! Return the 4-body distribution function.
+
+     procedure, pass(this) :: generate_fingerprint
+     !! Calculate the distribution functions for a given system.
+     procedure, pass(this) :: generate_fingerprint_python
+     !! Calculate the distribution functions for a given system.
   end type distribs_container_type
 
   interface distribs_container_type
@@ -285,9 +294,13 @@ contains
 
 
     if(present(history_len)) distribs_container%history_len = history_len
+    if(allocated(distribs_container%history_deltas)) &
+         deallocate(distribs_container%history_deltas)
     if(distribs_container%history_len.ge.0) &
          allocate( &
-              distribs_container%history_deltas(history_len), &
+              distribs_container%history_deltas( &
+                   distribs_container%history_len &
+              ), &
               source = huge(0._real32) &
          )
 
@@ -1198,6 +1211,61 @@ contains
     output = this%gdf%df_4body
 
   end function get_4body
+!###############################################################################
+
+
+!###############################################################################
+  function generate_fingerprint(this, structure) result(output)
+    !! Generate a descriptor for the structure.
+    implicit none
+
+    ! Arguments
+    class(distribs_container_type), intent(inout) :: this
+    !! Parent. Instance of distribution functions container.
+    type(basis_type), intent(in) :: structure
+    !! Structure to generate the descriptor for.
+    type(distribs_type) :: output
+    !! Descriptor for the structure.
+
+    call output%calculate( &
+         structure, &
+         width = this%width, &
+         sigma = this%sigma, &
+         cutoff_min = this%cutoff_min, &
+         cutoff_max = this%cutoff_max, &
+         radius_distance_tol = this%radius_distance_tol &
+    )
+
+  end function generate_fingerprint
+!-------------------------------------------------------------------------------
+  subroutine generate_fingerprint_python( &
+       this, structure, output_2body, output_3body, output_4body &
+  )
+    !! Generate a descriptor for the structure.
+    implicit none
+
+    ! Arguments
+    class(distribs_container_type), intent(inout) :: this
+    !! Parent. Instance of distribution functions container.
+    type(basis_type), intent(in) :: structure
+    !! Structure to generate the descriptor for.
+    real(real32), dimension(:,:), intent(out) :: output_2body
+    !! 2-body descriptor for the structure.
+    real(real32), dimension(:,:), intent(out) :: output_3body
+    !! 3-body descriptor for the structure.
+    real(real32), dimension(:,:), intent(out) :: output_4body
+    !! 4-body descriptor for the structure.
+
+    ! Local variables
+    type(distribs_type) :: distrib
+    !! Descriptor for the structure.
+
+    distrib = this%generate_fingerprint(structure)
+    output_2body = distrib%df_2body
+    output_3body = distrib%df_3body
+    output_4body = distrib%df_4body
+
+  end subroutine generate_fingerprint_python
 !###############################################################################
 
 
@@ -2195,11 +2263,38 @@ contains
     integer :: idx
     !! Index of the element in the element_info array.
 
-    ! Local variables
-
     idx = findloc([ this%element_info(:)%name ], species, dim=1)
 
   end function get_element_index
+!###############################################################################
+
+
+!###############################################################################
+  subroutine set_num_bins(this)
+    !! Set the number of bins for the n-body distribution functions.
+    implicit none
+
+    ! Arguments
+    class(distribs_container_type), intent(inout) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
+
+    ! Local variables
+    integer :: i
+    !! Loop index.
+
+    do i = 1, 3
+       if(this%nbins(i).eq.-1)then
+          this%nbins(i) = 1 + &
+               nint( &
+                    ( this%cutoff_max(i) - this%cutoff_min(i) ) / &
+                    this%width(i) &
+               )
+       end if
+       this%width_inv(i) = ( this%nbins(i) - 1 ) / &
+            ( this%cutoff_max(i) - this%cutoff_min(i) )
+    end do
+
+  end subroutine set_num_bins
 !###############################################################################
 
 
@@ -2218,16 +2313,19 @@ contains
     integer :: bin
     !! Bin index for the value.
 
-    if(value .lt. this%cutoff_min(dim) - this%width(dim) .or. &
-         value .gt. this%cutoff_max(dim) + this%width(dim))then
-       bin = 0
-    else
-       bin = nint( &
-            ( this%nbins(dim) - 1 ) * &
-            ( value - this%cutoff_min(dim) ) / &
-            ( this%cutoff_max(dim) - this%cutoff_min(dim) ) &
-       ) + 1
-    end if
+    ! Local variables
+    real(real32) :: min_val, width_inv
+    !! Temporary variables.
+
+    ! Prefetch frequently accessed values
+    min_val = this%cutoff_min(dim)
+    width_inv = this%width_inv(dim)
+
+    ! Calculate bin using optimized operations
+    bin = nint((value - min_val) * width_inv) + 1
+
+    ! Ensure bin stays within bounds (floating point safety)
+    bin = min(max(bin, 1), this%nbins(dim))
 
   end function get_bin
 !###############################################################################
@@ -2352,15 +2450,7 @@ contains
     ! if present, add the system to the container
     !---------------------------------------------------------------------------
     if(present(system)) call this%add(system)
-    do i = 1, 3
-       if(this%nbins(i).eq.-1)then
-          this%nbins(i) = 1 + &
-               nint( &
-                    ( this%cutoff_max(i) - this%cutoff_min(i) ) / &
-                    this%width(i) &
-               )
-       end if
-    end do
+    call this%set_num_bins()
 
 
     !---------------------------------------------------------------------------
@@ -2681,6 +2771,8 @@ contains
     this%num_evaluated_allocated = size(this%system)
     this%num_evaluated = this%num_evaluated + num_evaluated
 
+    this%viability_2body_default = sum( this%gdf%df_2body ) / &
+         real( size( this%gdf%df_2body ), real32 )
     this%viability_3body_default = sum( this%gdf%df_3body ) / &
          real( size( this%gdf%df_3body ), real32 )
     this%viability_4body_default = sum( this%gdf%df_4body ) / &

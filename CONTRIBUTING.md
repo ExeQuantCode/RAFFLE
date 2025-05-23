@@ -92,7 +92,7 @@ When submitting your contributions, please ensure the following:
 - Reference any related issues or pull requests, if applicable.
 - Write unit tests for your contributions
 - Ensure all existing tests pass before submitting your changes.
-- Update the documentation to reflect your changes, if necessary (i.e. through FORD style commenting).
+- Update the documentation to reflect your changes, if necessary (i.e. through FORD style commenting for Fortran and NumPy docstrings style for Python).
 - Provide examples and usage instructions, if applicable.
 
 Follow the [Code Style](#code-style) when contributing code to this project to ensure compatibility and a uniform format to the project.
@@ -101,7 +101,7 @@ Follow the [Code Style](#code-style) when contributing code to this project to e
 ### Code Style
 - Follow the existing code style and conventions.
 - Use meaningful variable and function names.
-- Write clear and concise comments. For the Fortran library, use comments compatible with the [FORD Fortran Documenter](https://forddocs.readthedocs.io/en/stable/). For the Python wrapper, use comments compatible with [pandoc](https://pandoc.org).
+- Write clear and concise comments. For the Fortran library, use comments compatible with the [FORD Fortran Documenter](https://forddocs.readthedocs.io/en/stable/). For the Python wrapper, use comments compatible with [pandoc](https://pandoc.org), following the [NumPy style guide](https://numpydoc.readthedocs.io/en/latest/format.html).
 
 
 

@@ -10,7 +10,7 @@ module raffle__place_methods
   !!        as the starting point
   !! - min:  place the atom at the gridpoint with the highest viability
   use raffle__constants, only: real32, pi
-  use raffle__misc_linalg, only: modu, inverse_3x3
+  use raffle__misc_linalg, only: inverse_3x3
   use raffle__geom_extd, only: extended_basis_type
   use raffle__dist_calcs, only: &
        get_min_dist, &
@@ -32,7 +32,7 @@ contains
 
 !###############################################################################
   function place_method_void( &
-       points, basis, atom_ignore_list, viable &
+       points, basis, viable &
   ) result(point)
     !! VOID placement method.
     !!
@@ -45,8 +45,6 @@ contains
     !! List of gridpoints to consider.
     type(extended_basis_type), intent(inout) :: basis
     !! Structure to add atom to.
-    integer, dimension(:,:), intent(in) :: atom_ignore_list
-    !! List of atoms to ignore (i.e. indices of atoms not yet placed).
     logical, intent(out) :: viable
     !! Boolean to indicate if point is viable.
     real(real32), dimension(3) :: point
@@ -79,7 +77,7 @@ contains
 !###############################################################################
   function place_method_rand( distribs_container, &
        bounds, &
-       basis, atom_ignore_list, radius_list, max_attempts, viable &
+       basis, species, radius_list, max_attempts, viable &
   ) result(point)
     !! Random placement method.
     !!
@@ -93,8 +91,8 @@ contains
     !! Bounds of the unit cell.
     type(extended_basis_type), intent(inout) :: basis
     !! Structure to add atom to.
-    integer, dimension(:,:), intent(in) :: atom_ignore_list
-    !! List of atoms to ignore (i.e. indices of atoms not yet placed).
+    integer, intent(in) :: species
+    !! Species index to add atom to.
     real(real32), dimension(:), intent(in) :: radius_list
     !! List of radii for each pair of elements.
     integer, intent(in) :: max_attempts
@@ -140,11 +138,10 @@ contains
           if( &
                get_min_dist_between_point_and_species( &
                     basis, point, &
-                    species = js, &
-                    ignore_list = atom_ignore_list &
+                    species = js &
                ) .lt. max( &
                     distribs_container%cutoff_min(1), &
-                    radius_list(pair_index(atom_ignore_list(1,1),js)) * &
+                    radius_list(pair_index(species,js)) * &
                     distribs_container%radius_distance_tol(1) &
                ) &
           )then
@@ -162,7 +159,7 @@ contains
 !###############################################################################
   function place_method_walk( distribs_container, &
        bounds, &
-       basis, atom_ignore_list, &
+       basis, species, &
        radius_list, max_attempts, &
        step_size_coarse, step_size_fine, &
        viable &
@@ -185,14 +182,14 @@ contains
     !! Bounds of the unit cell.
     type(extended_basis_type), intent(inout) :: basis
     !! Structure to add atom to.
+    integer, intent(in) :: species
+    !! Species index to add atom to.
     integer, intent(in) :: max_attempts
     !! Limit on number of attempts.
     real(real32), intent(in) :: step_size_coarse, step_size_fine
     !! Step sizes for random walk.
     logical, intent(out) :: viable
     !! Boolean to indicate if point is viable.
-    integer, dimension(:,:), intent(in) :: atom_ignore_list
-    !! List of atoms to ignore (i.e. indices of atoms not yet placed).
     real(real32), dimension(:), intent(in) :: radius_list
     !! List of radii for each pair of elements.
     real(real32), dimension(3) :: point
@@ -221,7 +218,7 @@ contains
     ! test a random point in the unit cell
     !---------------------------------------------------------------------------
     do i = 1, 3
-       abc(i) = modu(basis%lat(i,:))
+       abc(i) = norm2(basis%lat(i,:))
     end do
     i = 0
     random_loop : do
@@ -231,8 +228,7 @@ contains
        site_vector = bounds(1,:) + ( bounds(2,:) - bounds(1,:) ) * site_vector
 
        site_value = evaluate_point( distribs_container, &
-            site_vector, atom_ignore_list(1,1), basis, &
-            atom_ignore_list, radius_list &
+            site_vector, species, basis, radius_list &
        )
        call random_number(rtmp1)
        if(rtmp1.lt.site_value) exit random_loop
@@ -272,8 +268,7 @@ contains
        ! evaluate the test point
        !------------------------------------------------------------------------
        test_value = evaluate_point( distribs_container, &
-            test_vector, atom_ignore_list(1,1), basis, &
-            atom_ignore_list, radius_list &
+            test_vector, species, basis, radius_list &
        )
        if(test_value.lt.1.E-6) cycle walk_loop
        !------------------------------------------------------------------------
@@ -318,7 +313,7 @@ contains
   function place_method_growth( distribs_container, &
        prior_point, prior_species, &
        bounds, &
-       basis, atom_ignore_list, &
+       basis, species, &
        radius_list, max_attempts, &
        step_size_coarse, step_size_fine, &
        viable &
@@ -345,14 +340,14 @@ contains
     !! Bounds of the unit cell.
     type(extended_basis_type), intent(inout) :: basis
     !! Structure to add atom to.
+    integer, intent(in) :: species
+    !! Species index to add atom to.
     integer, intent(in) :: max_attempts
     !! Limit on number of attempts.
     real(real32), intent(in) :: step_size_coarse, step_size_fine
     !! Step sizes for random walk.
     logical, intent(out) :: viable
     !! Boolean to indicate if point is viable.
-    integer, dimension(:,:), intent(in) :: atom_ignore_list
-    !! List of atoms to ignore (i.e. indices of atoms not yet placed).
     real(real32), dimension(:), intent(in) :: radius_list
     !! List of radii for each pair of elements.
     real(real32), dimension(3) :: point
@@ -382,7 +377,7 @@ contains
     ! get the lattice constants and the inverse lattice
     !---------------------------------------------------------------------------
     do i = 1, 3
-       abc(i) = modu(basis%lat(i,:))
+       abc(i) = norm2(basis%lat(i,:))
     end do
     inverse_lattice = inverse_3x3(basis%lat)
 
@@ -392,7 +387,7 @@ contains
     !---------------------------------------------------------------------------
     idx = distribs_container%get_pair_index( &
          basis%spec(prior_species)%name, &
-         basis%spec(atom_ignore_list(1,1))%name &
+         basis%spec(species)%name &
     )
     min_radius = &
          max( &
@@ -428,8 +423,7 @@ contains
        end do
        ! now evaluate the point and check if it passes the initial criteria
        site_value = evaluate_point( distribs_container, &
-            site_vector, atom_ignore_list(1,1), basis, &
-            atom_ignore_list, radius_list &
+            site_vector, species, basis, radius_list &
        )
        call random_number(rtmp1)
        if(rtmp1.lt.site_value) exit shell_loop
@@ -469,8 +463,7 @@ contains
        ! evaluate the test point
        !------------------------------------------------------------------------
        test_value = evaluate_point( distribs_container, &
-            test_vector, atom_ignore_list(1,1), basis, &
-            atom_ignore_list, radius_list &
+            test_vector, species, basis, radius_list &
        )
        if(test_value.lt.1.E-6) cycle walk_loop
        !------------------------------------------------------------------------

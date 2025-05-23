@@ -606,6 +606,29 @@ subroutine f90wrap_raffle_generator_type__array__method_ratio( &
     dshape(1:1) = shape(this_ptr%p%method_ratio)
     dloc = loc(this_ptr%p%method_ratio)
 end subroutine f90wrap_raffle_generator_type__array__method_ratio
+
+subroutine f90wrap_raffle_generator_type__array__method_ratio_default( &
+     this, nd, dtype, dshape, dloc &
+)
+    use raffle__generator, only: raffle_generator_type
+    use, intrinsic :: iso_c_binding, only : c_int
+    implicit none
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    integer(c_int), intent(in) :: this(2)
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer(c_int), intent(out) :: nd
+    integer(c_int), intent(out) :: dtype
+    integer(c_int), dimension(10), intent(out) :: dshape
+    integer*8, intent(out) :: dloc
+
+    nd = 1
+    dtype = 11
+    this_ptr = transfer(this, this_ptr)
+    dshape(1:1) = shape(this_ptr%p%method_ratio_default)
+    dloc = loc(this_ptr%p%method_ratio_default)
+end subroutine f90wrap_raffle_generator_type__array__method_ratio_default
 !###############################################################################
 
 
@@ -731,6 +754,28 @@ subroutine f90wrap_generator__raffle_generator_type_finalise(this)
     this_ptr = transfer(this, this_ptr)
     deallocate(this_ptr%p)
 end subroutine f90wrap_generator__raffle_generator_type_finalise
+!###############################################################################
+
+
+!###############################################################################
+! set placement method ratio
+!###############################################################################
+subroutine f90wrap_generator__set_method_ratio_default__binding__rgt( &
+     this, method_ratio &
+)
+    use raffle__generator, only: raffle_generator_type
+    implicit none
+
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    real(4), dimension(5), intent(in) :: method_ratio
+
+    this_ptr = transfer(this, this_ptr)
+    call this_ptr%p%set_method_ratio_default(method_ratio=method_ratio)
+end subroutine f90wrap_generator__set_method_ratio_default__binding__rgt
 !###############################################################################
 
 
@@ -1029,6 +1074,74 @@ subroutine f90wrap_generator__evaluate__binding__rgt(this, ret_viability, basis)
     basis_ptr = transfer(basis, basis_ptr)
     ret_viability = this_ptr%p%evaluate(basis=basis_ptr%p)
 end subroutine f90wrap_generator__evaluate__binding__rgt
+
+
+subroutine f90wrap_generator__get_probability_density__rgt( &
+     this, basis, species_list, grid, grid_offset, grid_spacing, bounds, &
+     n_ret_coords, n_ret_points, ret_grid, n0 &
+)
+    use raffle__generator, only: raffle_generator_type
+    use raffle__geom_rw, only: basis_type
+    use raffle__cache, only: store_probability_density
+    implicit none
+
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    type basis_type_ptr_type
+        type(basis_type), pointer :: p => NULL()
+    end type basis_type_ptr_type
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    type(basis_type_ptr_type) :: basis_ptr
+    integer, intent(in), dimension(2) :: basis
+    character(len=3), intent(in), dimension(n0) :: species_list
+    integer, dimension(3), intent(in), optional :: grid
+    real(4), dimension(3), intent(in), optional :: grid_offset
+    real(4), intent(in), optional :: grid_spacing
+    real(4), dimension(2,3), intent(in), optional :: bounds
+    integer, intent(out) :: n_ret_coords
+    integer, intent(out) :: n_ret_points
+    integer, dimension(3), intent(out) :: ret_grid
+    integer :: n0
+    !f2py intent(hide), depend(species_list) :: n0 = shape(species_list,0)
+
+    ! Local temporary array
+    real(4), allocatable, dimension(:,:) :: local_probability_density
+
+    ! Call the actual function
+    this_ptr = transfer(this, this_ptr)
+    basis_ptr = transfer(basis, basis_ptr)
+    local_probability_density = this_ptr%p%get_probability_density( &
+         basis = basis_ptr%p, &
+         species_list = species_list, &
+         grid = grid, &
+         grid_offset = grid_offset, &
+         grid_spacing = grid_spacing, &
+         bounds = bounds, &
+         grid_output = ret_grid &
+    )
+
+    n_ret_coords = size(local_probability_density, 1)
+    n_ret_points = size(local_probability_density, 2)
+
+    ! Store local_probability_density in the cache so Python can retrieve it
+    call store_probability_density( local_probability_density )
+end subroutine f90wrap_generator__get_probability_density__rgt
+
+
+subroutine f90wrap_retrieve_probability_density(probability_density, n0, n1)
+    use raffle__cache, only: retrieve_probability_density
+    implicit none
+
+    real(4), dimension(n0,n1) :: probability_density
+    integer :: n0
+    !f2py intent(hide), depend(probability_density) :: n0 = shape(probability_density,0)
+    integer :: n1
+    !f2py intent(hide), depend(probability_density) :: n1 = shape(probability_density,1)
+
+    probability_density = retrieve_probability_density()
+end subroutine f90wrap_retrieve_probability_density
 
 
 subroutine f90wrap_generator__print_settings__binding__rgt( &

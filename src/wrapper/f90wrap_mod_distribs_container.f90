@@ -269,6 +269,38 @@ subroutine f90wrap_distribs_container_type__set__viability_4body_default( &
     this_ptr = transfer(this, this_ptr)
     this_ptr%p%viability_4body_default = f90wrap_viability_4body_default
 end subroutine f90wrap_distribs_container_type__set__viability_4body_default
+
+subroutine f90wrap_distribs_container_type__get__smooth_viability( &
+     this, f90wrap_smooth_viability &
+)
+    use raffle__distribs_container, only: distribs_container_type
+    implicit none
+    type distribs_container_type_ptr_type
+        type(distribs_container_type), pointer :: p => NULL()
+    end type distribs_container_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(distribs_container_type_ptr_type) :: this_ptr
+    logical, intent(out) :: f90wrap_smooth_viability
+
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_smooth_viability = this_ptr%p%smooth_viability
+end subroutine f90wrap_distribs_container_type__get__smooth_viability
+
+subroutine f90wrap_distribs_container_type__set__smooth_viability( &
+     this, f90wrap_smooth_viability &
+)
+    use raffle__distribs_container, only: distribs_container_type
+    implicit none
+    type distribs_container_type_ptr_type
+        type(distribs_container_type), pointer :: p => NULL()
+    end type distribs_container_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(distribs_container_type_ptr_type) :: this_ptr
+    logical, intent(in) :: f90wrap_smooth_viability
+
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%smooth_viability = f90wrap_smooth_viability
+end subroutine f90wrap_distribs_container_type__set__smooth_viability
 !###############################################################################
 
 
@@ -1106,6 +1138,47 @@ subroutine f90wrap_raffle__dc__get_4body__binding__dc_type( &
     this_ptr = transfer(this, this_ptr)
     ret_output = this_ptr%p%get_4body()
 end subroutine f90wrap_raffle__dc__get_4body__binding__dc_type
+
+subroutine f90wrap_raffle__dc__generate_fingerprint_python__dc_type( &
+     this, structure, output_2body, output_3body, output_4body, &
+     n0, n1, n2, n3, n4, n5 &
+)
+    use raffle__distribs_container, only: distribs_container_type
+    use raffle__geom_rw, only: basis_type
+    implicit none
+
+    type basis_type_ptr_type
+        type(basis_type), pointer :: p => NULL()
+    end type basis_type_ptr_type
+    type distribs_container_type_ptr_type
+        type(distribs_container_type), pointer :: p => NULL()
+    end type distribs_container_type_ptr_type
+    type(distribs_container_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    type(basis_type_ptr_type) :: structure_ptr
+    integer, intent(in), dimension(2) :: structure
+    real(4), intent(inout), dimension(n0,n1) :: output_2body
+    real(4), intent(inout), dimension(n2,n3) :: output_3body
+    real(4), intent(inout), dimension(n4,n5) :: output_4body
+    integer :: n0
+    !f2py intent(hide), depend(output_2body) :: n0 = shape(output_2body,0)
+    integer :: n1
+    !f2py intent(hide), depend(output_2body) :: n1 = shape(output_2body,1)
+    integer :: n2
+    !f2py intent(hide), depend(output_3body) :: n2 = shape(output_3body,0)
+    integer :: n3
+    !f2py intent(hide), depend(output_3body) :: n3 = shape(output_3body,1)
+    integer :: n4
+    !f2py intent(hide), depend(output_4body) :: n4 = shape(output_4body,0)
+    integer :: n5
+    !f2py intent(hide), depend(output_4body) :: n5 = shape(output_4body,1)
+    this_ptr = transfer(this, this_ptr)
+    structure_ptr = transfer(structure, structure_ptr)
+    call this_ptr%p%generate_fingerprint_python( &
+        structure=structure_ptr%p, output_2body=output_2body, &
+        output_3body=output_3body, output_4body=output_4body &
+    )
+end subroutine f90wrap_raffle__dc__generate_fingerprint_python__dc_type
 
 subroutine f90wrap_raffle__dc__get_num_species__dc_type( &
      this, ret_num_species &

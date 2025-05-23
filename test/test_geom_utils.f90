@@ -53,7 +53,7 @@ program test_geom_utils
   bas2%lat(2,:) = [2.14, 0.0, 2.14]
   bas2%lat(3,:) = [2.14, 2.14, 0.0]
 
-  
+
   basis_merged = basis_merge(bas, bas2)
 
   if ( basis_merged%nspec .ne. 2 ) then
@@ -92,7 +92,44 @@ program test_geom_utils
           basis_merged%spec(2)%name
      success = .false.
   end if
+  if( any(.not.basis_merged%spec(1)%atom_mask) ) then
+     write(0,*) &
+          'basis_merge failed, atom mask for species 1 not all true'
+     success = .false.
+  end if
+  if( any(.not.basis_merged%spec(2)%atom_mask) ) then
+     write(0,*) &
+          'basis_merge failed, atom mask for species 2 not all true'
+     success = .false.
+  end if
 
+  basis_merged = basis_merge(bas, bas2, mask1 = .true., mask2 = .false.)
+  if( any(.not.basis_merged%spec(1)%atom_mask(:bas%spec(1)%num)) ) then
+     write(0,*) &
+          'basis_merge failed, atom mask for basis 1 not all true'
+     success = .false.
+  end if
+  if( any(basis_merged%spec(1)%atom_mask(bas%spec(1)%num+1:)) .or. &
+       any(basis_merged%spec(2)%atom_mask) &
+  ) then
+     write(0,*) &
+          'basis_merge failed, atom mask for basis 2 not all false'
+     success = .false.
+  end if
+
+  basis_merged = basis_merge(bas, bas2, mask1 = .false., mask2 = .true.)
+  if( any(basis_merged%spec(1)%atom_mask(:bas%spec(1)%num)) ) then
+     write(0,*) &
+          'basis_merge failed, atom mask for basis 1 not all false'
+     success = .false.
+  end if
+  if( any(.not.basis_merged%spec(1)%atom_mask(bas%spec(1)%num+1:)) .or. &
+       any(.not.basis_merged%spec(2)%atom_mask) &
+  ) then
+     write(0,*) &
+          'basis_merge failed, atom mask for basis 2 not all true'
+     success = .false.
+  end if
 
   !-----------------------------------------------------------------------------
   ! check for any failed tests

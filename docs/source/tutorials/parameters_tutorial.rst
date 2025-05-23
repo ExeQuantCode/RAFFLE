@@ -14,6 +14,7 @@ For a guide on how to build a database, see the :doc:`Databases tutorial </tutor
 
 Initialisation
 --------------
+
 RAFFLE is initialised by importing the generator object.
 This object is the main interface for the user to interact with the RAFFLE package.
 
@@ -60,6 +61,54 @@ As such, it is recommended that the user implement their own convergence check i
     The convergence criterion is not tested without explicitly setting the ``history_len`` parameter.
     The convergence criterion is also not enforced even when set, it is simply a check for the user to use.
 
+
+Placement methods
+-----------------
+
+RAFFLE uses a random sampling of five placement methods to place atoms in the host structure.
+These methods are:
+- ``rand``: Randomly place atoms in the host structure.
+- ``void``: Place atoms at the point furthest from the nearest atom in the host structure.
+- ``walk``: Start from a random position and walk to a local minimum in the RAFFLE-calculated probability.
+- ``grow``: Start from the previously placed atom and walk to a local minimum in the RAFFLE-calculated probability.
+- ``min``: Place atoms at the point of highest RAFFLE-calculated probability.
+
+The ratio of these methods can be set by the user.
+This can either be done on a per-generate method basis, or as a global setting.
+
+To set the default placement method ratios, the user can use the ``set_method_ratio_default`` method.
+
+.. code-block:: python
+
+    # Set default placement method ratios
+    generator.set_method_ratio_default(
+        method_ratio = {
+            'rand': 0.1,
+            'void': 0.1,
+            'walk': 0.25,
+            'grow': 0.25,
+            'min': 1.0
+        }
+    )
+
+These defaults will then be used for all generation methods where the user does not specify a method ratio.
+
+To set the placement method ratios for a specific generation method, the user can define the method ratio ``dict`` in the ``generate`` method.
+
+.. code-block:: python
+
+    # Set placement method ratios for a specific generation method
+    generator.generate(
+        method_ratio = {
+            'rand': 0.1,
+            'void': 0.1,
+            'walk': 0.25,
+            'grow': 0.25,
+            'min': 1.0
+        },
+        # Other generation parameters
+        ...
+    )
 
 
 Energy references

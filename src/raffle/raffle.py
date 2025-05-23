@@ -1893,6 +1893,51 @@ class Generator(f90wrap.runtime.FortranModule):
             _raffle.f90wrap_generator__init_seed__binding__rgt(this=self._handle, \
                 put=put, get=get, num_threads=num_threads)
 
+        def set_method_ratio_default(self, method_ratio : dict[str, float]):
+            """
+            Set the method of the five placement methods to be used.
+
+            This will be used as the default ratio if one is not provided as an input argument to the generate() method.
+
+            Parameters
+            ----------
+            method_ratio : dict[str, float]
+                The ratio of the walk method to the void method.
+            """            # check if method_ratio is provided, if so, use it only if method_ratio is not provided
+
+            # handle other names for the methods, such as random, growth, minimum, etc.
+            if "random" in method_ratio:
+                if "rand" in method_ratio:
+                    raise ValueError("Both random and rand are provided, use only one (random or rand)")
+                method_ratio["rand"] = method_ratio.pop("random")
+            if "growth" in method_ratio:
+                if "grow" in method_ratio:
+                    raise ValueError("Both growth and grow are provided, use only one (growth or grow)")
+                method_ratio["grow"] = method_ratio.pop("growth")
+            if "minimum" in method_ratio:
+                if "min" in method_ratio:
+                    raise ValueError("Both minimum and min are provided, use only one (minimum or min)")
+                method_ratio["min"] = method_ratio.pop("minimum")
+            if "global" in method_ratio:
+                if "min" in method_ratio:
+                    raise ValueError("Both global and min are provided, use only one (global or min)")
+                method_ratio["min"] = method_ratio.pop("global")
+
+            # exit if any other method is provided
+            for key in method_ratio.keys():
+                if key not in ["void", "rand", "walk", "grow", "min"]:
+                    raise ValueError(f"Unknown method {key} provided, use only void, rand (random), walk, grow (growth), or min (minimum/global)")
+
+            method_ratio_list = []
+            method_ratio_list.append(method_ratio.get("void", 0.0))
+            method_ratio_list.append(method_ratio.get("rand", 0.0)) # or method_ratio.get("random", 0.0))
+            method_ratio_list.append(method_ratio.get("walk", 0.0))
+            method_ratio_list.append(method_ratio.get("grow", 0.0)) # or method_ratio.get("growth", 0.0))
+            method_ratio_list.append(method_ratio.get("min", 0.0))  # or method_ratio.get("minimum", 0.0) or method_ratio.get("global", 0.0))
+
+            _raffle.f90wrap_generator__set_method_ratio_default__binding__rgt(this=self._handle, \
+                method_ratio=method_ratio_list)
+
         def set_max_attempts(self, max_attempts : int):
             """
             Set the walk-method maximum attempts parameter.
@@ -2081,7 +2126,7 @@ class Generator(f90wrap.runtime.FortranModule):
         def generate(self,
                      num_structures : int,
                     stoichiometry,
-                    method_ratio: dict = {"void": 0.0, "rand": 0.0, "walk": 0.0, "grow": 0.0, "min": 0.0},
+                    method_ratio: dict[str, float] = {"void": 0.0, "rand": 0.0, "walk": 0.0, "grow": 0.0, "min": 0.0},
                     method_probab : dict = None,
                     seed : int = None,
                     settings_out_file : str = None,
@@ -2167,7 +2212,7 @@ class Generator(f90wrap.runtime.FortranModule):
 
             # check if all values are 0.0, if so, set them to the default of all 1.0
             if all([val < 1E-6 for val in method_ratio_list]):
-                method_ratio_list = [1.0, 0.1, 0.5, 0.5, 1.0]
+                method_ratio_list = None
 
             # if stoichiometry is a dictionary, convert it to a stoichiometry_array
             if isinstance(stoichiometry, dict):
@@ -2536,7 +2581,7 @@ class Generator(f90wrap.runtime.FortranModule):
         @property
         def method_ratio(self):
             """
-            The ratio of methods to employ to generate a structure.
+            The last used ratio of methods to employ to generate a structure.
             """
             array_ndim, array_type, array_shape, array_handle = \
                 _raffle.f90wrap_raffle_generator_type__array__method_ratio(self._handle)
@@ -2552,6 +2597,26 @@ class Generator(f90wrap.runtime.FortranModule):
         @method_ratio.setter
         def method_ratio(self, method_ratio):
             self.method_ratio[...] = method_ratio
+
+        @property
+        def method_ratio_default(self):
+            """
+            The default ratio of methods to employ to generate a structure.
+            """
+            array_ndim, array_type, array_shape, array_handle = \
+                _raffle.f90wrap_raffle_generator_type__array__method_ratio_default(self._handle)
+            if array_handle in self._arrays:
+                method_ratio = self._arrays[array_handle]
+            else:
+                method_ratio = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                        self._handle,
+                                        _raffle.f90wrap_raffle_generator_type__array__method_ratio)
+                self._arrays[array_handle] = method_ratio
+            return method_ratio
+
+        @method_ratio_default.setter
+        def method_ratio_default(self, method_ratio):
+            self.method_ratio_default[...] = method_ratio
 
         def _init_array_structures(self):
             """

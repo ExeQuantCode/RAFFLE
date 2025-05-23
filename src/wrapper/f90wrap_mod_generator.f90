@@ -606,6 +606,29 @@ subroutine f90wrap_raffle_generator_type__array__method_ratio( &
     dshape(1:1) = shape(this_ptr%p%method_ratio)
     dloc = loc(this_ptr%p%method_ratio)
 end subroutine f90wrap_raffle_generator_type__array__method_ratio
+
+subroutine f90wrap_raffle_generator_type__array__method_ratio_default( &
+     this, nd, dtype, dshape, dloc &
+)
+    use raffle__generator, only: raffle_generator_type
+    use, intrinsic :: iso_c_binding, only : c_int
+    implicit none
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    integer(c_int), intent(in) :: this(2)
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer(c_int), intent(out) :: nd
+    integer(c_int), intent(out) :: dtype
+    integer(c_int), dimension(10), intent(out) :: dshape
+    integer*8, intent(out) :: dloc
+
+    nd = 1
+    dtype = 11
+    this_ptr = transfer(this, this_ptr)
+    dshape(1:1) = shape(this_ptr%p%method_ratio_default)
+    dloc = loc(this_ptr%p%method_ratio_default)
+end subroutine f90wrap_raffle_generator_type__array__method_ratio_default
 !###############################################################################
 
 
@@ -731,6 +754,28 @@ subroutine f90wrap_generator__raffle_generator_type_finalise(this)
     this_ptr = transfer(this, this_ptr)
     deallocate(this_ptr%p)
 end subroutine f90wrap_generator__raffle_generator_type_finalise
+!###############################################################################
+
+
+!###############################################################################
+! set placement method ratio
+!###############################################################################
+subroutine f90wrap_generator__set_method_ratio_default__binding__rgt( &
+     this, method_ratio &
+)
+    use raffle__generator, only: raffle_generator_type
+    implicit none
+
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    real(4), dimension(5), intent(in) :: method_ratio
+
+    this_ptr = transfer(this, this_ptr)
+    call this_ptr%p%set_method_ratio_default(method_ratio=method_ratio)
+end subroutine f90wrap_generator__set_method_ratio_default__binding__rgt
 !###############################################################################
 
 

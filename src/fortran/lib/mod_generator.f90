@@ -73,13 +73,18 @@ module raffle__generator
           walk_step_size_coarse = 1._real32, &
           walk_step_size_fine = 0.1_real32
      !! Step size for the walk and grow methods.
+     real(real32), dimension(5) :: method_ratio_default = &
+          [1.0_real32, 0.1_real32, 0.5_real32, 0.5_real32, 1.0_real32]
+     !! Default ratio of each placement method.
      real(real32), dimension(5) :: method_ratio
-     !! Ratio of each placement method.
+     !! Last used ratio of each placement method.
      type(basis_type), dimension(:), allocatable :: structures
      !! Generated structures.
    contains
      procedure, pass(this) :: init_seed
      !! Procedure to set the seed for the random number generator.
+     procedure, pass(this) :: set_method_ratio_default
+     !! Procedure to set the ratio of each placement method.
 
      procedure, pass(this) :: set_host
      !! Procedure to set the host structure.
@@ -239,6 +244,23 @@ contains
     if(present(num_threads)) num_threads = num_threads_
 
   end subroutine init_seed
+!###############################################################################
+
+
+!###############################################################################
+  subroutine set_method_ratio_default(this, method_ratio)
+    !! Set the ratio of each placement method.
+    implicit none
+
+    ! Arguments
+    class(raffle_generator_type), intent(inout) :: this
+    !! Instance of the raffle generator.
+    real(real32), dimension(5), intent(in) :: method_ratio
+    !! Ratio of each placement method.
+
+    this%method_ratio_default = method_ratio
+
+  end subroutine set_method_ratio_default
 !###############################################################################
 
 
@@ -552,9 +574,7 @@ contains
     !! Boolean to store the suppress_warnings value.
     type(basis_type) :: basis_template
     !! Basis of the structure to generate (i.e. allocated species and atoms).
-    real(real32), dimension(5) :: &
-         method_rand_limit = &
-              [1.0_real32, 0.1_real32, 0.5_real32, 0.5_real32, 1.0_real32]
+    real(real32), dimension(5) :: method_rand_limit
     !! Default ratio of each placement method.
 
     integer, dimension(:), allocatable :: seed_arr
@@ -579,19 +599,14 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Set the placement method selection limit numbers
+    ! Handle placement method optional argument
     !---------------------------------------------------------------------------
-    if(verbose_.gt.0) write(*,*) "Setting method ratios"
-    if(present(method_ratio)) method_rand_limit = method_ratio
+    if(present(method_ratio))then
+       method_rand_limit = method_ratio
+    else
+       method_rand_limit = this%method_ratio_default
+    end if
     this%method_ratio = method_rand_limit
-    ratio_norm = real(sum(method_rand_limit), real32)
-    method_rand_limit = method_rand_limit / ratio_norm
-    do i = 2, 5, 1
-       method_rand_limit(i) = method_rand_limit(i) + method_rand_limit(i-1)
-    end do
-    if(verbose_.gt.0) write(*,*) &
-         "Method random limits (void, rand, walk, grow, min): ", &
-         method_rand_limit
 
 
     !---------------------------------------------------------------------------
@@ -602,6 +617,21 @@ contains
           call this%print_settings(settings_out_file)
        end if
     end if
+
+
+    !---------------------------------------------------------------------------
+    ! Set the placement method selection limit numbers
+    !---------------------------------------------------------------------------
+    if(verbose_.gt.0) write(*,*) "Setting method ratio limits"
+    ratio_norm = real(sum(method_rand_limit), real32)
+    method_rand_limit = method_rand_limit / ratio_norm
+    do i = 2, 5, 1
+       method_rand_limit(i) = method_rand_limit(i) + method_rand_limit(i-1)
+    end do
+    if(verbose_.gt.0) write(*,*) &
+         "Method random limits (void, rand, walk, grow, min): ", &
+         method_rand_limit
+
 
     !---------------------------------------------------------------------------
     ! Set the random seed

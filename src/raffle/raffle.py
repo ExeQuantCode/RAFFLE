@@ -794,9 +794,58 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
     """
     @f90wrap.runtime.register_class("raffle.distribs_container_type")
     class distribs_container_type(f90wrap.runtime.FortranDerivedType):
-        def __init__(self, handle=None):
+        def __init__(
+                self, handle = None,
+                kBT : float = 0.2,
+                history_len = 10,
+                weight_by_hull : bool = False,
+                width : list[float] = None,
+                sigma : list[float] = None,
+                cutoff_min : list[float] = None,
+                cutoff_max : list[float] = None,
+                radius_distance_tol : list[float] = None,
+                element_energies : dict[str, float] = None,
+        ):
             """
             Create a ``Distribs_Container_Type`` object.
+
+            Parameters
+            ----------
+            history_len : int
+                Length of the history for checking convergence of descriptor.
+            kBT : float
+                Energy scale for the distribution functions.
+            weight_by_hull : bool
+                Whether to weight the distribution functions by the convex hull distance.
+            width : list[float]
+                List of distribution function widths.
+                The first element is the 2-body distribution function width,
+                the second element is the 3-body distribution function width,
+                and the third element is the 4-body distribution function width.
+            sigma : list[float]
+                List of sigma values.
+                The first element is the 2-body distribution function sigma,
+                the second element is the 3-body distribution function sigma,
+                and the third element is the 4-body distribution function sigma.
+            cutoff_min : list[float]
+                List of minimum cutoff values.
+                The first element is the 2-body distribution function minimum cutoff,
+                the second element is the 3-body distribution function minimum cutoff,
+                and the third element is the 4-body distribution function minimum cutoff.
+            cutoff_max : list[float]
+                List of maximum cutoff values.
+                The first element is the 2-body distribution function maximum cutoff,
+                the second element is the 3-body distribution function maximum cutoff,
+                and the third element is the 4-body distribution function maximum cutoff.
+            radius_distance_tol : list[float]
+                List of radius distance tolerance values.
+                The first two values are the lower and upper fractional bounds for the
+                3-body distribution function radius distance tolerance.
+                The third and fourth values are the lower and upper fractional bounds for the
+                4-body distribution function radius distance tolerance.
+            element_energies : dict[str, float]
+                Dictionary mapping element symbols to their formation energies.
+                This is used to calculate the formation energies for the distribution functions.
 
             Returns
             -------
@@ -808,6 +857,35 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             result = \
                 _raffle.f90wrap_raffle__dc__dc_type_initialise()
             self._handle = result[0] if isinstance(result, tuple) else result
+
+            if history_len is not None:
+                self.set_history_len(history_len)
+            if kBT is not None:
+                self.set_kBT(kBT)
+            if weight_by_hull is not None:
+                self.set_weight_method('energy_above_hull' if weight_by_hull else 'formation_energy')
+            if width is not None:
+                if not len(width) == 3:
+                    raise ValueError("width must be a list of exactly three floats")
+                self.set_width(width)
+            if sigma is not None:
+                if not len(sigma) == 3:
+                    raise ValueError("sigma must be a list of exactly three floats")
+                self.set_sigma(sigma)
+            if cutoff_min is not None:
+                if not len(cutoff_min) == 3:
+                    raise ValueError("cutoff_min must be a list of exactly three floats")
+                self.set_cutoff_min(cutoff_min)
+            if cutoff_max is not None:
+                if not len(cutoff_max) == 3:
+                    raise ValueError("cutoff_max must be a list of exactly three floats")
+                self.set_cutoff_max(cutoff_max)
+            if radius_distance_tol is not None:
+                if not len(radius_distance_tol) == 4:
+                    raise ValueError("radius_distance_tol must be a list of exactly four floats")
+                self.set_radius_distance_tol(radius_distance_tol)
+            if element_energies is not None:
+                self.set_element_energies(element_energies)
 
         def __del__(self):
             """
@@ -960,7 +1038,7 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
                 history_len=history_len)
 
         def create(self,
-                   basis_list,
+                   basis_list : Atoms | Geom_Rw.basis_array | list[Atoms],
                    energy_above_hull_list : list[float] = None,
                    deallocate_systems : bool = True,
                    verbose : int = None
@@ -993,7 +1071,7 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             )
 
         def update(self,
-                   basis_list,
+                   basis_list : Atoms | Geom_Rw.basis_array | list[Atoms],
                    energy_above_hull_list : list[float] = None,
                    from_host : bool = True,
                    deallocate_systems : bool = True,
@@ -1841,7 +1919,20 @@ class Generator(f90wrap.runtime.FortranModule):
     @f90wrap.runtime.register_class("raffle.raffle_generator")
     class raffle_generator(f90wrap.runtime.FortranDerivedType):
 
-        def __init__(self, handle=None, history_len : int = None):
+        def __init__(
+                self, handle=None,
+                seed : int | list[int] = None,
+                method_ratio : dict[str, float] = None,
+                max_walk_attempts : int = None,
+                walk_step_size_coarse : float = None,
+                walk_step_size_fine : float = None,
+                host : Atoms | Geom_Rw.basis = None,
+                grid : list[int] = None,
+                grid_spacing : float = None,
+                grid_offset : list[float] = None,
+                bounds : list[float] = None,
+                **kwargs
+        ):
             """
             Create a ``raffle_generator`` object.
 
@@ -1851,14 +1942,66 @@ class Generator(f90wrap.runtime.FortranModule):
 
             Parameters
             ----------
-            history_len : int
-                Length of the history for checking convergence of descriptor.
+            seed : int or list[int]
+                Seed for the random number generator. If a list is provided, it will use one for each thread.
+            method_ratio : dict[str, float]
+                Dictionary of the ratio of the five placement methods to be used.
+                The keys are the method names and the values are the ratios.
+                The methods are 'void', 'rand' (random), 'walk', 'grow' (growth), and 'min' (minimum/global).
+            max_walk_attempts : int
+                Maximum number of attempts to place an atom using the "walk" or "grow" method before skipping.
+            walk_step_size_coarse : float
+                Coarse step size for the "walk" or "grow" method.
+            walk_step_size_fine : float
+                Fine step size for the "walk" or "grow" method.
+            host : ase.Atoms or Geom_Rw.basis
+                Host structure for the generation.
+            grid : list[int]
+                Number of grid points in each dimension for the generation.
+            grid_spacing : float
+                Spacing for the grid.
+            grid_offset : list[float]
+                Offset for the grid in each dimension.
+            **kwargs
+                Additional keyword arguments to be passed to the generator.
             """
             f90wrap.runtime.FortranDerivedType.__init__(self)
             result = _raffle.f90wrap_generator__raffle_generator_type_initialise()
             self._handle = result[0] if isinstance(result, tuple) else result
-            if history_len is not None:
-                self.distributions.set_history_len(history_len)
+
+            if seed is not None:
+                self.init_seed(put=seed, get=None, num_threads=None)
+            if method_ratio is not None:
+                self.set_method_ratio_default(method_ratio)
+            if max_walk_attempts is not None:
+                self.set_max_attempts(max_walk_attempts)
+            if walk_step_size_coarse is not None or walk_step_size_fine is not None:
+                self.set_walk_step_size(coarse=walk_step_size_coarse, fine=walk_step_size_fine)
+
+            # handle the grid parameters
+            if grid is not None or grid_spacing is not None or grid_offset is not None:
+                if grid is not None:
+                    if not isinstance(grid, list):
+                        raise TypeError("grid must be a list of integers")
+                    if len(grid) != 3:
+                        raise ValueError("grid must be a list of three integers")
+                if grid_offset is not None:
+                    if not isinstance(grid_offset, list):
+                        raise TypeError("grid_offset must be a list of floats")
+                    if len(grid_offset) != 3:
+                        raise ValueError("grid_offset must be a list of three floats")
+
+                self.set_grid(grid=grid, grid_spacing=grid_spacing, grid_offset=grid_offset)
+
+            # handle additional keyword arguments, which go to the distributions container
+            self.distributions = raffle__distribs_container.distribs_container_type(**kwargs)
+
+            # host must be set after the distributions container is set, as it affects the distributions container
+            if host is not None:
+                self.set_host(host)
+
+            if bounds is not None:
+                self.set_bounds(bounds)
 
         def __del__(self):
             """
@@ -2095,7 +2238,7 @@ class Generator(f90wrap.runtime.FortranModule):
             """
             _raffle.f90wrap_generator__reset_grid__binding__raffle_generator_type(this=self._handle)
 
-        def set_bounds(self, bounds=None):
+        def set_bounds(self, bounds = None):
             """
             Set the bounding box for the generation.
 

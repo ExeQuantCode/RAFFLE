@@ -54,3 +54,8 @@ pca_model*.pkl
 .ipynb_checkpoints
 *.model
 *.vasp
+*.pkl
+meta.json
+context.json
+options.json
+procedure.py

@@ -40,7 +40,17 @@ calc_params = { 'model':  script_dir/ ".." / ".." / "mace-mpa-0-medium.model" }
 calc = mace_mp(**calc_params)
 
 # %%
-structures = generator.get_structures(calculator = calc)
+structures = [ abrupt.copy() ]
+structures.extend(generator.get_structures(calculator = calc))
+
+for structure in structures:
+    structure.calc = calc
+    structure.calc = SinglePointCalculator(
+        structure,
+        energy=structure.get_potential_energy(),
+        forces=structure.get_forces()
+    )
+
 
 write('SiGe_shifted_unrlxd.traj', structures)
 
@@ -49,6 +59,7 @@ view(structures)
 # %%
 
 for structure in structures:
+    structure.calc = calc
     optimizer = FIRE(structure)
     optimizer.run(fmax=0.05, steps=200)
     structure.calc = SinglePointCalculator(

@@ -38,7 +38,7 @@ Here is a script to run a single iteration of the RAFFLE generator for structure
     database = read("database.xyz", index=":")
     generator.distributions.create(database)
 
-    structures, status = generator.generate(
+    structures = generator.generate(
         num_structures = 1,
         stoichiometry = { 'C': 2 },
     )

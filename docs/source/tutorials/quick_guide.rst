@@ -80,19 +80,19 @@ Here is an example of how to run an iterative structure search with RAFFLE and c
     generator.distributions.create(database)
 
     num_structures_old = 0
+    rlxd_structures = []
     for i in range(10):
-        generator.generate(
+        structures = generator.generate(
             num_structures = 2,
             stoichiometry = { 'C': 2 },
             calc = calc
         )
-        structures = generator.get_structures()
         for structure in structures:
             optimiser = FIRE(structure)
             optimiser.run(fmax=0.05)
 
         generator.distributions.update(structures)
-        num_structures_old = len(structures)
+        rlxd_structures.extend(structures)
         if generator.distributions.is_converged():
             break
 

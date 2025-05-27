@@ -125,11 +125,11 @@ These are then weighted by energy (formation or convex hull) to form the RAFFLE 
 
 However, the individual fingerprints can also be extracted and visualised.
 
-The `raffle_generator` object has a method `get_fingerprint()` that returns the distribution functions for a provided structure.
+The `raffle_generator` object has a method `generate_fingerprint()` that returns the distribution functions for a provided structure.
 The output is a list of three numpy arrays, with the first array containing the 2-body fingerprint, the second array containing the 3-body fingerprint, and the third array containing the 4-body fingerprint.
 Each `n`-body fingerprint is a 2D array, with the first column containing the species index (or element pair index for the 2-body fingerprint) and the second column containing the binned fingerprint value.
 Like above, the bin lengths are set either explicitly or determined by the `cutoff_min`, `cutoff_max`, and `width` components of the generator.
-Here is an example of how to use the `get_fingerprint()` method:
+Here is an example of how to use the `generate_fingerprint()` method:
 
 .. code-block:: python
 

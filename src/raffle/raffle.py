@@ -887,6 +887,8 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             if element_energies is not None:
                 self.set_element_energies(element_energies)
 
+            self.agox_training_counter = 0
+
         def __del__(self):
             """
             Destructor for ``Distribs_Container_Type`` object.
@@ -1057,6 +1059,8 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             verbose : int
                 Verbosity level.
             """
+            self.agox_training_counter = 0
+
             if isinstance(basis_list, Atoms):
                 basis_list = geom_rw.basis_array(basis_list)
             elif isinstance(basis_list, list):
@@ -1078,6 +1082,7 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
                    energy_above_hull_list : list[float] = None,
                    from_host : bool = True,
                    deallocate_systems : bool = True,
+                   agox_training : bool = False,
                    verbose : int = None
         ):
             """
@@ -1093,17 +1098,25 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
                 Boolean whether to deallocate the atomic configurations after creating the distribution functions.
             from_host : bool
                 Boolean whether the provided basis_list is based on the host.
+            agox_training : bool
+                AGOX INTERNAL USE ONLY: Boolean whether to use the AGOX training mode.
             verbose : int
                 Verbosity level.
             """
             if isinstance(basis_list, Atoms):
                 basis_list = geom_rw.basis_array(basis_list)
             elif isinstance(basis_list, list):
+                if agox_training:
+                    num_basis = len(basis_list)
+                    if num_basis > self.agox_training_counter:
+                        basis_list = basis_list[self.agox_training_counter:]
+                        self.agox_training_counter = num_basis
                 atoms_list = [basis for basis in basis_list if isinstance(basis, Atoms)]
                 if len(atoms_list) == 0:
                     print("Warning: No valid ASE Atoms objects found in the basis_list, returning without updating")
                     return
                 basis_list = geom_rw.basis_array(atoms_list)
+
 
             _raffle.f90wrap_raffle__dc__update__binding__dc_type(this=self._handle, \
                 basis_list=basis_list._handle, \

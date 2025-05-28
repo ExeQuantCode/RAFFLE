@@ -1060,8 +1060,11 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             if isinstance(basis_list, Atoms):
                 basis_list = geom_rw.basis_array(basis_list)
             elif isinstance(basis_list, list):
-                if all([isinstance(basis, Atoms) for basis in basis_list]):
-                    basis_list = geom_rw.basis_array(basis_list)
+                atoms_list = [basis for basis in basis_list if isinstance(basis, Atoms)]
+                if len(atoms_list) == 0:
+                    print("Warning: No valid ASE Atoms objects found in the basis_list, using empty basis_array")
+                    return
+                basis_list = geom_rw.basis_array(atoms_list)
 
             _raffle.f90wrap_raffle__dc__create__binding__dc_type(this=self._handle, \
                 basis_list=basis_list._handle, \
@@ -1096,9 +1099,11 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             if isinstance(basis_list, Atoms):
                 basis_list = geom_rw.basis_array(basis_list)
             elif isinstance(basis_list, list):
-                if all([isinstance(basis, Atoms) for basis in basis_list]):
-                    basis_list = geom_rw.basis_array(basis_list)
-
+                atoms_list = [basis for basis in basis_list if isinstance(basis, Atoms)]
+                if len(atoms_list) == 0:
+                    print("Warning: No valid ASE Atoms objects found in the basis_list, returning without updating")
+                    return
+                basis_list = geom_rw.basis_array(atoms_list)
 
             _raffle.f90wrap_raffle__dc__update__binding__dc_type(this=self._handle, \
                 basis_list=basis_list._handle, \
@@ -1510,6 +1515,18 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
                 output_3body=output_3body, output_4body=output_4body)
 
             return output_2body, output_3body, output_4body
+
+        @property
+        def iteration(self):
+            """
+            Iteration number of the training of the distribution functions.
+            """
+            return _raffle.f90wrap_distribs_container_type__get__iteration(self._handle)
+
+        @iteration.setter
+        def iteration(self, iteration):
+            _raffle.f90wrap_distribs_container_type__set__iteration(self._handle, \
+                iteration)
 
         @property
         def num_evaluated(self):

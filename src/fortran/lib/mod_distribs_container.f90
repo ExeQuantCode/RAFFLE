@@ -32,6 +32,8 @@ module raffle__distribs_container
      !!
      !! This type contains the distribution functions for a set of atomic
      !! structures, alongside parameters for initialising the distributions.
+     integer :: iteration = -1
+     !! Iteration number for the update of the distribution functions.
      integer :: num_evaluated = 0
      !! Number of evaluated systems.
      integer :: num_evaluated_allocated = 0
@@ -539,6 +541,8 @@ contains
        suppress_warnings = suppress_warnings_store
     end if
 
+    this%iteration = 0
+
   end subroutine create
 !###############################################################################
 
@@ -696,6 +700,8 @@ contains
     if(verbose_ .eq. 0)then
        suppress_warnings = suppress_warnings_store
     end if
+
+    this%iteration = this%iteration + 1
 
   end subroutine update
 !###############################################################################

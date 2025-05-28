@@ -3,6 +3,38 @@
 !###############################################################################
 ! number of evaluated systems
 !###############################################################################
+subroutine f90wrap_distribs_container_type__get__iteration( &
+     this, f90wrap_iteration &
+)
+    use raffle__distribs_container, only: distribs_container_type
+    implicit none
+    type distribs_container_type_ptr_type
+        type(distribs_container_type), pointer :: p => NULL()
+    end type distribs_container_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(distribs_container_type_ptr_type) :: this_ptr
+    integer, intent(out) :: f90wrap_iteration
+
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_iteration = this_ptr%p%iteration
+end subroutine f90wrap_distribs_container_type__get__iteration
+
+subroutine f90wrap_distribs_container_type__set__iteration( &
+     this, f90wrap_iteration &
+)
+    use raffle__distribs_container, only: distribs_container_type
+    implicit none
+    type distribs_container_type_ptr_type
+        type(distribs_container_type), pointer :: p => NULL()
+    end type distribs_container_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(distribs_container_type_ptr_type) :: this_ptr
+    integer, intent(in) :: f90wrap_iteration
+
+    this_ptr = transfer(this, this_ptr)
+    this_ptr%p%iteration = f90wrap_iteration
+end subroutine f90wrap_distribs_container_type__set__iteration
+
 subroutine f90wrap_distribs_container_type__get__num_evaluated( &
      this, f90wrap_num_evaluated &
 )

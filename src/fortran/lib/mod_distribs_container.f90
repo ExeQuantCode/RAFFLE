@@ -48,10 +48,10 @@ module raffle__distribs_container
      !! Boolean whether to weight the distribution functions by the energy
      !! above the hull. If false, the formation energy from the element
      !! reference energies is used.
-     real(real32) :: &
-          viability_2body_default = 0.1_real32, &
-          viability_3body_default = 0.1_real32, &
-          viability_4body_default = 0.1_real32
+     real(real32), dimension(:), allocatable :: &
+          viability_2body_default, &
+          viability_3body_default, &
+          viability_4body_default
      !! Default viability for the 2-, 3-, and 4-body distribution functions.
      logical :: smooth_viability = .true.
      !! DEV FEATURE. Boolean whether to smooth the viability evaluation.
@@ -532,6 +532,20 @@ contains
        this%system(:)%energy_above_hull = energy_above_hull_list(:)
     end if
     call this%set_bond_info()
+
+    if(allocated(this%viability_2body_default)) &
+         deallocate(this%viability_2body_default)
+    if(allocated(this%viability_3body_default)) &
+         deallocate(this%viability_3body_default)
+    if(allocated(this%viability_4body_default)) &
+         deallocate(this%viability_4body_default)
+
+    allocate(this%viability_2body_default( size(this%element_info,1) ), &
+         source = 0.1_real32 )
+    allocate(this%viability_3body_default( size(this%element_info,1) ), &
+         source = 0.1_real32 )
+    allocate(this%viability_4body_default( size(this%element_info,1) ), &
+         source = 0.1_real32 )
     call this%evolve()
     if(deallocate_systems_) call this%deallocate_systems()
     if(this%host_system%defined) &
@@ -2777,12 +2791,23 @@ contains
     this%num_evaluated_allocated = size(this%system)
     this%num_evaluated = this%num_evaluated + num_evaluated
 
-    this%viability_2body_default = sum( this%gdf%df_2body ) / &
-         real( size( this%gdf%df_2body ), real32 )
-    this%viability_3body_default = sum( this%gdf%df_3body ) / &
-         real( size( this%gdf%df_3body ), real32 )
-    this%viability_4body_default = sum( this%gdf%df_4body ) / &
-         real( size( this%gdf%df_4body ), real32 )
+
+    do i = 1, size( this%element_info, 1)
+       this%viability_2body_default(i) = 0._real32
+       do j = 1, size( this%element_info, 1 )
+          idx1 = this%get_pair_index( &
+               this%element_info(i)%name, &
+               this%element_info(j)%name &
+          )
+         this%viability_2body_default(i) = this%viability_2body_default(i) + &
+              sum( this%gdf%df_2body(:,idx1) ) / &
+              real( size( this%gdf%df_2body,1 ), real32 )
+       end do
+    end do
+    this%viability_3body_default = sum( this%gdf%df_3body, 1 ) / &
+         real( size( this%gdf%df_3body, 1 ), real32 )
+    this%viability_4body_default = sum( this%gdf%df_4body, 1 ) / &
+         real( size( this%gdf%df_4body, 1 ), real32 )
 
   end subroutine evolve
 !###############################################################################

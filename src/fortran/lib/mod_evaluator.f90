@@ -78,6 +78,7 @@ contains
     viability_2body = 0._real32
     min_distance = distribs_container%cutoff_max(1)
     min_from_max_cutoff = 0._real32
+    element_idx = distribs_container%element_map(species)
 
 
     !---------------------------------------------------------------------------
@@ -263,7 +264,7 @@ contains
        ! This does not matter as, if there are no 2-body bonds, the point is
        ! not meant to be included in the viability set.
        ! The evaluator cannot comment on the viability of the point.
-       viability_2body = distribs_container%viability_2body_default
+       viability_2body = distribs_container%viability_2body_default(element_idx)
     else
        viability_2body = viability_2body / real( num_2body, real32 )
        if(min_distance .lt. 0.25_real32 )then
@@ -274,7 +275,7 @@ contains
           rtmp1 = 0.5_real32 * ( 1._real32 - &
                cos( pi * min_from_max_cutoff / 0.5_real32 ) )
           viability_2body = &
-               distribs_container%viability_2body_default * &
+               distribs_container%viability_2body_default(element_idx) * &
                abs( 1._real32 - rtmp1 ) + &
                rtmp1 * viability_2body
        end if
@@ -291,7 +292,6 @@ contains
     viability_3body = 1._real32
     viability_4body = 1._real32
     position_1 = matmul(position, basis%lat)
-    element_idx = distribs_container%element_map(species)
     has_4body = any(neighbour_basis%image_spec(:)%num .gt. 0)
     is_end = 0
     do is = 1, neighbour_basis%nspec, 1
@@ -347,14 +347,14 @@ contains
             1._real32 / real(num_3body,real32) &
        )
     else
-       viability_3body = distribs_container%viability_3body_default
+       viability_3body = distribs_container%viability_3body_default(element_idx)
     end if
     if(num_4body.gt.0)then
        viability_4body = viability_4body ** ( &
             1._real32 / real(num_4body,real32) &
        )
     else
-       viability_4body = distribs_container%viability_4body_default
+       viability_4body = distribs_container%viability_4body_default(element_idx)
     end if
 
 
@@ -448,7 +448,7 @@ contains
           )
           rtmp1 = weight_2 * sqrt( basis%spec(js)%atom(ja,4) )
           output = output * ( &
-               distribs_container%viability_3body_default * &
+               distribs_container%viability_3body_default(element_idx) * &
                abs( 1._real32 - rtmp1 ) + &
                rtmp1 * distribs_container%gdf%df_3body( bin, element_idx ) &
           ) ** power
@@ -508,7 +508,7 @@ contains
           )
           rtmp1 = weight_2_3 * ( basis%image_spec(ks)%atom(ka,4) ) ** third
           output = output * ( &
-               distribs_container%viability_4body_default * &
+               distribs_container%viability_4body_default(element_idx) * &
                abs( 1._real32 - rtmp1 ) + &
                rtmp1 * distribs_container%gdf%df_4body( bin, element_idx ) &
           ) ** power

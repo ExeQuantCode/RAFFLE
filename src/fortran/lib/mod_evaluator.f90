@@ -45,13 +45,13 @@ contains
     !! Suitability of the test point.
 
     ! Local variables
-    integer :: i, is, js, ia, ja, ia_end, ja_start, is_end
+    integer :: i, is, js, ia, ja, ia_end, ja_start, is_end, ks, ka
     !! Loop counters.
     integer :: element_idx
     !! Index of the query element.
     integer :: num_2body, num_3body, num_4body
     !! Number of 2-, 3- and 4-body interactions.
-    real(real32) :: viability_2body, rnum_3body
+    real(real32) :: viability_2body, rnum_2body, rnum_3body, rnum_4body
     !! Viability of the test point for 2-body interactions.
     real(real32) :: viability_3body, viability_4body
     !! Viability of the test point for 3- and 4-body interactions.
@@ -124,7 +124,7 @@ contains
        ! 2-body map
        ! check bondlength between test point and all other atoms
        !------------------------------------------------------------------------
-       atom_loop: do ia = 1, basis%spec(is)%num
+       atom_loop: do ia = 1, basis%spec(is)%num, 1
           ! Check if the atom is in the ignore list
           ! If it is, skip the atom.
           if(.not.basis%spec(is)%atom_mask(ia)) cycle atom_loop
@@ -245,6 +245,17 @@ contains
                   evaluate_2body_contributions( &
                        distribs_container, bondlength, pair_index(species,is) &
                   )
+             if( bondlength - tolerances(1) .lt. 0.25_real32 )then
+                rtmp1 = sin( (pi/2._real32) * ( bondlength - tolerances(1) ) / &
+                     0.25_real32 ) ** 2
+             elseif( distribs_container%cutoff_max(1) - bondlength .lt. 0.5_real32 )then
+                rtmp1 = sin( (pi/2._real32) * &
+                     ( distribs_container%cutoff_max(1) - bondlength ) / &
+                     0.5_real32 ) ** 2
+             else
+                rtmp1 = 1._real32
+             end if
+             rnum_2body = rnum_2body + rtmp1
              num_2body = num_2body + 1
           end associate
        end do image_loop
@@ -274,7 +285,7 @@ contains
        ! The evaluator cannot comment on the viability of the point.
        viability_2body = distribs_container%viability_2body_default(element_idx)
     else
-       viability_2body = viability_2body / real( num_2body, real32 )
+       viability_2body = viability_2body / rnum_2body
        if(min_distance .lt. 0.25_real32 )then
           viability_2body = viability_2body * 0.5_real32 * &
                ( 1._real32 - cos( pi * min_distance / 0.25_real32 ) )
@@ -295,7 +306,8 @@ contains
     ! for 3-bdoy, just cycle over neighbour_basis%spec
     ! for 4-body, cycle over neighbour_basis%spec for first two atoms,
     ! and neighbour_basis%image_spec for the third atom
-    rnum_3body = 0._real32
+    rnum_3body = 1._real32
+    rnum_4body = 1._real32
     num_3body = 0
     num_4body = 0
     viability_3body = 1._real32
@@ -310,21 +322,14 @@ contains
        ia_end = neighbour_basis%spec(is)%num - merge( 1, 0, is .eq. is_end )
        do ia = 1, ia_end, 1
           position_2 = neighbour_basis%spec(is)%atom(ia,1:4)
-          ! if( isnan(rtmp1) ) cycle
-          !rnum_3body = rnum_3body + sqrt( position_2(4) )
-          !rnum_3body = 0._real32
           rtmp1 = 0._real32
           do js = is, neighbour_basis%nspec, 1
              do ja =  merge(ia + 1, 1, js .eq. is), neighbour_basis%spec(js)%num
-                ! rtmp1 = sqrt( basis%spec(js)%atom(ja,4) )
-                ! if( isnan(rtmp1) ) cycle
-                rtmp1 = rtmp1 + sqrt( neighbour_basis%spec(js)%atom(ja,4) )
+                rtmp1 = rtmp1 + ( neighbour_basis%spec(js)%atom(ja,4) )
              end do
           end do
-          rtmp1 = rtmp1 * sqrt( position_2(4) )
-          !if( rtmp1 .lt. 1E-1_real32 ) cycle
-          rnum_3body = rnum_3body * ( 1._real32 + rtmp1)
-          !write(*,*) "3-body rnum_3body: ", rtmp1
+          rtmp1 = rtmp1 * position_2(4)
+          rnum_3body = rnum_3body + rtmp1
           !---------------------------------------------------------------------
           ! 3-body map
           ! check bondangle between test point and all other atoms
@@ -336,7 +341,6 @@ contains
                     position_2, &
                     neighbour_basis, element_idx, [is, ia] &
                ) )
-          num_3body = num_3body + 1
           if( has_4body )then
              do js = is, neighbour_basis%nspec
                 ja_start = merge(ia + 1, 1, js .eq. is)
@@ -346,7 +350,15 @@ contains
                    ! check improperdihedral angle between test point and all
                    ! other atoms
                    !------------------------------------------------------------
-                   rtmp1 = max( &
+                   rtmp1 = 0._real32
+                   do ks = 1, neighbour_basis%nspec, 1
+                      do ka = 1, neighbour_basis%image_spec(ks)%num
+                         rtmp1 = rtmp1 + neighbour_basis%image_spec(ks)%atom(ka,4)
+                      end do
+                   end do
+                   rtmp1 = rtmp1 * position_2(4) * neighbour_basis%spec(js)%atom(ja,4)
+                   rnum_4body = rnum_4body + rtmp1
+                   viability_4body = viability_4body * max( &
                         0._real32, &
                         evaluate_4body_contributions( distribs_container, &
                              position_1, &
@@ -354,8 +366,6 @@ contains
                              [ neighbour_basis%spec(js)%atom(ja,1:4) ], &
                              neighbour_basis, element_idx &
                         ) )
-                   viability_4body = viability_4body * rtmp1
-                   num_4body = num_4body + 1
                 end do
              end do
           end if
@@ -366,24 +376,16 @@ contains
     !---------------------------------------------------------------------------
     ! Normalise the angular viabilities
     !---------------------------------------------------------------------------
-    !viability_3body = viability_3body / distribs_container%viability_3body_default(element_idx)
-    !if(isnan(rnum_3body) .or. rnum_3body .lt. 0.01_real32)then
-    !   viability_3body = 1._real32 !distribs_container%viability_3body_default(element_idx)
-    !!else
-    !!   viability_3body = &!distribs_container%viability_3body_default(element_idx) * &
-    !!        viability_3body ** ( 1._real32 / real(rnum_3body,real32) )
-    !end if
+    viability_3body = viability_3body ** ( 1._real32 / real(rnum_3body,real32) )
     viability_3body = viability_3body * &
          distribs_container%viability_3body_default(element_idx)
 
+    viability_4body = viability_4body ** ( 1._real32 / real(rnum_4body,real32) )
+    viability_4body = viability_4body * &
+         distribs_container%viability_4body_default(element_idx)
 
-    if(num_4body.gt.0)then
-       viability_4body = viability_4body ** ( &
-            1._real32 / real(num_4body,real32) &
-       )
-    else
-       viability_4body = distribs_container%viability_4body_default(element_idx)
-    end if
+!     viability_2body = 1._real32
+!     viability_4body = 1._real32
 
 
     !---------------------------------------------------------------------------
@@ -460,21 +462,17 @@ contains
     !! Temporary variables.
 
 
-    num_3body_local = sum(basis%spec(current_idx(1):)%num) - current_idx(2)
     output = 1._real32
-    weight_2 = sqrt( position_2(4) )
+    weight_2 = ( position_2(4) )
     rnum_3body_local = 0._real32
     do js = current_idx(1), basis%nspec, 1
        start_idx = merge(current_idx(2) + 1, 1, js .eq. current_idx(1))
        do ja = start_idx, basis%spec(js)%num
-          ! rtmp1 = sqrt( basis%spec(js)%atom(ja,4) )
-          ! if( isnan(rtmp1) ) cycle
           rnum_3body_local = rnum_3body_local + sqrt( basis%spec(js)%atom(ja,4) )
        end do
     end do
     rnum_3body_local = rnum_3body_local * weight_2
-!     if( isnan(rnum_3body_local) .or. rnum_3body_local .lt. 0.5_real32) return
-    power = 1._real32 / ( 1._real32 + rnum_3body_local )
+    power = 1._real32 / ( rnum_3body_local + 1._real32 )
     species_loop: do js = current_idx(1), basis%nspec, 1
        start_idx = merge(current_idx(2) + 1, 1, js .eq. current_idx(1))
        atom_loop: do ja = start_idx, basis%spec(js)%num
@@ -485,13 +483,12 @@ contains
                     [ basis%spec(js)%atom(ja,1:3) ] &
                ), dim = 2 &
           )
-          rtmp1 = weight_2 * sqrt( basis%spec(js)%atom(ja,4) )
+          rtmp1 = weight_2 * basis%spec(js)%atom(ja,4)
           output = output * ( &
-               !distribs_container%viability_3body_default(element_idx) * &
                abs( 1._real32 - rtmp1 ) + &
                rtmp1 * distribs_container%gdf%df_3body( bin, element_idx ) / &
                distribs_container%viability_3body_default(element_idx) &
-          ) ** power
+          )
        end do atom_loop
     end do species_loop
 
@@ -534,8 +531,8 @@ contains
     num_4body_local = sum(basis%image_spec(:)%num)
     output = 1._real32
     power = 1._real32 / real( num_4body_local, real32 )
-    third = 1._real32 / 3._real32
-    weight_2_3 = ( position_2(4) * position_3(4) ) ** third
+    !third = 1._real32 / 3._real32
+    weight_2_3 = ( position_2(4) * position_3(4) ) !** third
     species_loop: do ks = 1, basis%nspec, 1
        atom_loop: do ka = 1, basis%image_spec(ks)%num
           bin = distribs_container%get_bin( &
@@ -546,12 +543,12 @@ contains
                     [ basis%image_spec(ks)%atom(ka,1:3) ] &
                ), dim = 3 &
           )
-          rtmp1 = weight_2_3 * ( basis%image_spec(ks)%atom(ka,4) ) ** third
+          rtmp1 = weight_2_3 * basis%image_spec(ks)%atom(ka,4)
           output = output * ( &
-               distribs_container%viability_4body_default(element_idx) * &
                abs( 1._real32 - rtmp1 ) + &
-               rtmp1 * distribs_container%gdf%df_4body( bin, element_idx ) &
-          ) ** power
+               rtmp1 * distribs_container%gdf%df_4body( bin, element_idx ) / &
+               distribs_container%viability_4body_default(element_idx) &
+          )
        end do atom_loop
     end do species_loop
 

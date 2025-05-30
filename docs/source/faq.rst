@@ -72,6 +72,27 @@ Next, if you are using ``pip``, then the following command is found to result in
 This ensures that the correct Python version is being called, and that the correct version of ``pip`` is being used.
 
 
+Issues with running RAFFLE
+==========================
+
+Sometimes, RAFFLE installs correctly, but you may encounter issues when running it.
+This is often due to missing dependencies or incorrect environment variables.
+
+Missing Fortran libraries
+--------------------------
+
+Sometimes, installation works fine, but you may encounter an error when running RAFFLE that looks like this:
+
+.. code-block:: text
+
+    ImportError: libgfortran.so.5: cannot open shared object file: No such file or directory
+
+To fix this, you need to install the correct version of the gfortran library.
+If you are using a conda environment, you can do this by running the following command:
+
+.. code-block:: bash
+
+    conda install -c conda-forge libgfortran-ng libgfortran5
 
 
 General

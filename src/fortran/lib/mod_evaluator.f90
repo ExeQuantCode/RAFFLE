@@ -51,7 +51,7 @@ contains
     !! Index of the query element.
     integer :: num_2body, num_3body, num_4body
     !! Number of 2-, 3- and 4-body interactions.
-    real(real32) :: viability_2body
+    real(real32) :: viability_2body, rnum_3body
     !! Viability of the test point for 2-body interactions.
     real(real32) :: viability_3body, viability_4body
     !! Viability of the test point for 3- and 4-body interactions.
@@ -59,8 +59,8 @@ contains
     !! Temporary variables.
     logical :: has_4body
     !! Boolean whether the system has 4-body interactions.
-    real(real32) :: cos_scale1, cos_scale2
-    !! Cosine scales for the 3- and 4-body interactions.
+    real(real32) :: sin_scale1, sin_scale2
+    !! Sine scales for the 3- and 4-body interactions.
     real(real32), dimension(3) :: position_1
     !! Cartesian coordinates of the test point.
     real(real32), dimension(4) :: position_2
@@ -118,8 +118,8 @@ contains
        tolerances(3) = max( distribs_container%cutoff_min(1), tolerances(3) )
        tolerances(2) = min( distribs_container%cutoff_max(1), tolerances(2) )
        tolerances(4) = min( distribs_container%cutoff_max(1), tolerances(4) )
-       cos_scale1 = tau / ( tolerances(2) - tolerances(1) )
-       cos_scale2 = tau / ( tolerances(4) - tolerances(3) )
+       sin_scale1 = pi / ( tolerances(2) - tolerances(1) )
+       sin_scale2 = pi / ( tolerances(4) - tolerances(3) )
        !------------------------------------------------------------------------
        ! 2-body map
        ! check bondlength between test point and all other atoms
@@ -144,10 +144,14 @@ contains
                 neighbour_basis%spec(is)%atom( &
                      neighbour_basis%spec(is)%num,:3 &
                 ) = matmul(position_store, basis%lat)
-                neighbour_basis%spec(is)%atom( &
-                     neighbour_basis%spec(is)%num,4 &
-                ) = 0.5_real32 * abs( 1._real32 - &
-                     cos( cos_scale1 * ( bondlength - tolerances(1) ) ) )
+                rtmp1 = sin( sin_scale1 * ( bondlength - tolerances(1) ) ) ** 2._real32
+                if( isnan(rtmp1) .or. rtmp1 .lt. 0.01_real32 )then
+                   neighbour_basis%spec(is)%num = neighbour_basis%spec(is)%num - 1
+                else
+                   neighbour_basis%spec(is)%atom( &
+                        neighbour_basis%spec(is)%num,4 &
+                   ) = rtmp1
+                end if
              end if
 
              if( bondlength .ge. tolerances(3) .and. &
@@ -162,8 +166,8 @@ contains
                 ) = matmul(position_store, basis%lat)
                 neighbour_basis%image_spec(is)%atom( &
                      neighbour_basis%image_spec(is)%num,4 &
-                ) = 0.5_real32 * abs( 1._real32 - &
-                     cos( cos_scale2 * ( bondlength - tolerances(3) ) ) )
+                ) = abs( sin( sin_scale2 * ( bondlength - tolerances(3) ) &
+                     ) ** 2._real32 )
              end if
 
              !------------------------------------------------------------------
@@ -202,10 +206,14 @@ contains
                 neighbour_basis%spec(is)%atom( &
                      neighbour_basis%spec(is)%num,:3 &
                 ) = matmul(position_store, basis%lat)
-                neighbour_basis%spec(is)%atom( &
-                     neighbour_basis%spec(is)%num,4 &
-                ) = 0.5_real32 * ( 1._real32 - &
-                     cos( cos_scale1 * ( bondlength - tolerances(1) ) ) )
+                rtmp1 = sin( sin_scale1 * ( bondlength - tolerances(1) ) ) ** 2._real32
+                if( isnan(rtmp1) .or. rtmp1 .lt. 0.01_real32 )then
+                   neighbour_basis%spec(is)%num = neighbour_basis%spec(is)%num - 1
+                else
+                   neighbour_basis%spec(is)%atom( &
+                        neighbour_basis%spec(is)%num,4 &
+                   ) = rtmp1
+                end if
              end if
 
              if( bondlength .ge. tolerances(3) .and. &
@@ -218,8 +226,8 @@ contains
                 ) = matmul(position_store, basis%lat)
                 neighbour_basis%image_spec(is)%atom( &
                      neighbour_basis%image_spec(is)%num,4 &
-                ) =  0.5_real32 * abs( 1._real32 - &
-                     cos( cos_scale2 * ( bondlength - tolerances(3) ) ) )
+                ) =  abs( sin( sin_scale2 * ( bondlength - tolerances(3) ) &
+                     ) ** 2._real32 )
              end if
 
              !------------------------------------------------------------------
@@ -287,6 +295,7 @@ contains
     ! for 3-bdoy, just cycle over neighbour_basis%spec
     ! for 4-body, cycle over neighbour_basis%spec for first two atoms,
     ! and neighbour_basis%image_spec for the third atom
+    rnum_3body = 0._real32
     num_3body = 0
     num_4body = 0
     viability_3body = 1._real32
@@ -301,6 +310,21 @@ contains
        ia_end = neighbour_basis%spec(is)%num - merge( 1, 0, is .eq. is_end )
        do ia = 1, ia_end, 1
           position_2 = neighbour_basis%spec(is)%atom(ia,1:4)
+          ! if( isnan(rtmp1) ) cycle
+          !rnum_3body = rnum_3body + sqrt( position_2(4) )
+          !rnum_3body = 0._real32
+          rtmp1 = 0._real32
+          do js = is, neighbour_basis%nspec, 1
+             do ja =  merge(ia + 1, 1, js .eq. is), neighbour_basis%spec(js)%num
+                ! rtmp1 = sqrt( basis%spec(js)%atom(ja,4) )
+                ! if( isnan(rtmp1) ) cycle
+                rtmp1 = rtmp1 + sqrt( neighbour_basis%spec(js)%atom(ja,4) )
+             end do
+          end do
+          rtmp1 = rtmp1 * sqrt( position_2(4) )
+          !if( rtmp1 .lt. 1E-1_real32 ) cycle
+          rnum_3body = rnum_3body * ( 1._real32 + rtmp1)
+          !write(*,*) "3-body rnum_3body: ", rtmp1
           !---------------------------------------------------------------------
           ! 3-body map
           ! check bondangle between test point and all other atoms
@@ -342,13 +366,17 @@ contains
     !---------------------------------------------------------------------------
     ! Normalise the angular viabilities
     !---------------------------------------------------------------------------
-    if(num_3body.gt.0)then
-       viability_3body = viability_3body ** ( &
-            1._real32 / real(num_3body,real32) &
-       )
-    else
-       viability_3body = distribs_container%viability_3body_default(element_idx)
-    end if
+    !viability_3body = viability_3body / distribs_container%viability_3body_default(element_idx)
+    !if(isnan(rnum_3body) .or. rnum_3body .lt. 0.01_real32)then
+    !   viability_3body = 1._real32 !distribs_container%viability_3body_default(element_idx)
+    !!else
+    !!   viability_3body = &!distribs_container%viability_3body_default(element_idx) * &
+    !!        viability_3body ** ( 1._real32 / real(rnum_3body,real32) )
+    !end if
+    viability_3body = viability_3body * &
+         distribs_container%viability_3body_default(element_idx)
+
+
     if(num_4body.gt.0)then
        viability_4body = viability_4body ** ( &
             1._real32 / real(num_4body,real32) &
@@ -422,8 +450,8 @@ contains
     !! Loop indices.
     integer :: bin
     !! Bin for the distribution function.
-    integer :: num_3body_local
-    !! Number of 3-body interactions local to the current atom pair.
+    real(real32) :: rnum_3body_local
+    !! Fraction number of 3-body interactions local to the current atom pair.
     real(real32) :: power
     !! Power for the contribution to the viability.
     integer :: start_idx
@@ -434,8 +462,19 @@ contains
 
     num_3body_local = sum(basis%spec(current_idx(1):)%num) - current_idx(2)
     output = 1._real32
-    power = 1._real32 / real( num_3body_local, real32 )
     weight_2 = sqrt( position_2(4) )
+    rnum_3body_local = 0._real32
+    do js = current_idx(1), basis%nspec, 1
+       start_idx = merge(current_idx(2) + 1, 1, js .eq. current_idx(1))
+       do ja = start_idx, basis%spec(js)%num
+          ! rtmp1 = sqrt( basis%spec(js)%atom(ja,4) )
+          ! if( isnan(rtmp1) ) cycle
+          rnum_3body_local = rnum_3body_local + sqrt( basis%spec(js)%atom(ja,4) )
+       end do
+    end do
+    rnum_3body_local = rnum_3body_local * weight_2
+!     if( isnan(rnum_3body_local) .or. rnum_3body_local .lt. 0.5_real32) return
+    power = 1._real32 / ( 1._real32 + rnum_3body_local )
     species_loop: do js = current_idx(1), basis%nspec, 1
        start_idx = merge(current_idx(2) + 1, 1, js .eq. current_idx(1))
        atom_loop: do ja = start_idx, basis%spec(js)%num
@@ -448,9 +487,10 @@ contains
           )
           rtmp1 = weight_2 * sqrt( basis%spec(js)%atom(ja,4) )
           output = output * ( &
-               distribs_container%viability_3body_default(element_idx) * &
+               !distribs_container%viability_3body_default(element_idx) * &
                abs( 1._real32 - rtmp1 ) + &
-               rtmp1 * distribs_container%gdf%df_3body( bin, element_idx ) &
+               rtmp1 * distribs_container%gdf%df_3body( bin, element_idx ) / &
+               distribs_container%viability_3body_default(element_idx) &
           ) ** power
        end do atom_loop
     end do species_loop

@@ -406,7 +406,8 @@ contains
     !---------------------------------------------------------------------------
     ! Combine the 2-, 3- and 4-body viabilities to get the overall viability
     !---------------------------------------------------------------------------
-    output = viability_2body * viability_3body * viability_4body
+    output = viability_2body * &
+         ( viability_3body * viability_4body ) ** ( 1._real32/2._real32)
 
   end function evaluate_point
 !###############################################################################

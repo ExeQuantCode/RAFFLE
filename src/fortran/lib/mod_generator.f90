@@ -74,7 +74,7 @@ module raffle__generator
           walk_step_size_fine = 0.1_real32
      !! Step size for the walk and grow methods.
      real(real32), dimension(5) :: method_ratio_default = &
-          [1.0_real32, 0.1_real32, 0.5_real32, 0.5_real32, 1.0_real32]
+          [0.1_real32, 0.01_real32, 0.25_real32, 0.25_real32, 1.0_real32]
      !! Default ratio of each placement method.
      real(real32), dimension(5) :: method_ratio
      !! Last used ratio of each placement method.
@@ -607,6 +607,8 @@ contains
        method_rand_limit = this%method_ratio_default
     end if
     this%method_ratio = method_rand_limit
+    if(verbose_.gt.0) write(*,*) &
+         "Method ratio (void, rand, walk, grow, min): ", this%method_ratio
 
 
     !---------------------------------------------------------------------------

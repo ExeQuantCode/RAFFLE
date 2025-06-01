@@ -45,10 +45,12 @@ contains
     !! Suitability of the test point.
 
     ! Local variables
-    integer :: i, is, js, ia, ja, ia_end, ja_start, is_end, ks, ka
+    integer :: i, is, js, ia, ja, ia_end, ja_start, is_end, bin_2body
     !! Loop counters.
     integer :: element_idx
     !! Index of the query element.
+    real(real32) :: dist
+    !! Distance of highest 2-body peak in distribution function.
     real(real32) :: rnum_2body, rnum_3body, rnum_4body, rnum_4body_power
     !! Fractional number of 2-, 3- and 4-body interactions.
     real(real32) :: viability_2body, viability_3body, viability_4body
@@ -100,8 +102,9 @@ contains
     allocate(neighbour_basis%image_spec(basis%nspec))
     neighbour_basis%nspec = basis%nspec
     neighbour_basis%lat = basis%lat
-    rnum_2body = 0._real32
+    rnum_2body = 1._real32
     rnum_4body_power = 0._real32
+    viability_2body = 1._real32
     species_loop: do is = 1, basis%nspec
        allocate(neighbour_basis%spec(is)%atom( &
             basis%spec(is)%num+basis%image_spec(is)%num, 4 &
@@ -119,6 +122,10 @@ contains
        tolerances(4) = min( distribs_container%cutoff_max(1), tolerances(4) )
        sin_scale1 = pi / ( tolerances(2) - tolerances(1) )
        sin_scale2 = pi / ( tolerances(4) - tolerances(3) )
+       bin_2body = &
+            maxloc(distribs_container%gdf%df_2body(:,pair_index(species,is)), dim=1)
+       dist = distribs_container%cutoff_min(1) + &
+            (bin_2body - 1) * distribs_container%width(1)
        !------------------------------------------------------------------------
        ! 2-body map
        ! check bondlength between test point and all other atoms
@@ -189,7 +196,7 @@ contains
              viability_2body = viability_2body + &
                   evaluate_2body_contributions( &
                        distribs_container, bondlength, pair_index(species,is) &
-                  )
+                  ) / distribs_container%viability_2body_default(element_idx)
              if( bondlength - tolerances(1) .lt. 0.25_real32 )then
                 rtmp1 = sin( (pi/2._real32) * ( bondlength - tolerances(1) ) / &
                      0.25_real32 ) ** 2
@@ -200,7 +207,8 @@ contains
              else
                 rtmp1 = 1._real32
              end if
-             rnum_2body = rnum_2body + rtmp1
+             rnum_2body = rnum_2body + &
+                  rtmp1 * max(1._real32, ( dist / bondlength ) ** 2._real32 )
           end associate
        end do atom_loop
 
@@ -265,7 +273,7 @@ contains
              viability_2body = viability_2body + &
                   evaluate_2body_contributions( &
                        distribs_container, bondlength, pair_index(species,is) &
-                  )
+                  ) / distribs_container%viability_2body_default(element_idx)
              if( bondlength - tolerances(1) .lt. 0.25_real32 )then
                 rtmp1 = sin( (pi/2._real32) * ( bondlength - tolerances(1) ) / &
                      0.25_real32 ) ** 2
@@ -276,7 +284,8 @@ contains
              else
                 rtmp1 = 1._real32
              end if
-             rnum_2body = rnum_2body + rtmp1
+             rnum_2body = rnum_2body + &
+                  rtmp1 * max(1._real32, ( dist / bondlength ) ** 2._real32 )
           end associate
        end do image_loop
        !------------------------------------------------------------------------
@@ -306,17 +315,16 @@ contains
        viability_2body = distribs_container%viability_2body_default(element_idx)
     else
        viability_2body = viability_2body / rnum_2body
-       if(min_distance .lt. 0.25_real32 )then
-          viability_2body = viability_2body * 0.5_real32 * &
-               ( 1._real32 - cos( pi * min_distance / 0.25_real32 ) )
-       end if
        if( min_from_max_cutoff .lt. 0.5_real32 )then
           rtmp1 = 0.5_real32 * ( 1._real32 - &
                cos( pi * min_from_max_cutoff / 0.5_real32 ) )
           viability_2body = &
-               distribs_container%viability_2body_default(element_idx) * &
                abs( 1._real32 - rtmp1 ) + &
                rtmp1 * viability_2body
+       end if
+       if(min_distance .lt. 0.25_real32 )then
+          viability_2body = viability_2body * 0.5_real32 * &
+               ( 1._real32 - cos( pi * min_distance / 0.25_real32 ) )
        end if
     end if
 
@@ -395,19 +403,20 @@ contains
     ! Normalise the angular viabilities
     !---------------------------------------------------------------------------
     viability_3body = viability_3body ** ( 1._real32 / rnum_3body )
-    viability_3body = viability_3body / &
-         distribs_container%viability_3body_default(element_idx)
 
     viability_4body = viability_4body ** ( 1._real32 / rnum_4body )
-    viability_4body = viability_4body / &
-         distribs_container%viability_4body_default(element_idx)
 
 
     !---------------------------------------------------------------------------
     ! Combine the 2-, 3- and 4-body viabilities to get the overall viability
     !---------------------------------------------------------------------------
-    output = viability_2body * &
-         ( viability_3body * viability_4body ) ** ( 1._real32/2._real32)
+    output = viability_2body * viability_3body * viability_4body
+
+    output = output * &
+         distribs_container%viability_2body_default(element_idx) / ( &
+              distribs_container%viability_3body_default(element_idx) * &
+              distribs_container%viability_4body_default(element_idx) &
+         )
 
   end function evaluate_point
 !###############################################################################

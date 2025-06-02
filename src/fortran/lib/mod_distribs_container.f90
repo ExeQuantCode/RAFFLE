@@ -2792,22 +2792,37 @@ contains
     this%num_evaluated = this%num_evaluated + num_evaluated
 
 
-    do i = 1, size( this%element_info, 1)
-       this%viability_2body_default(i) = 0._real32
-       do j = 1, size( this%element_info, 1 )
-          idx1 = this%get_pair_index( &
-               this%element_info(i)%name, &
-               this%element_info(j)%name &
-          )
-          this%viability_2body_default(i) = this%viability_2body_default(i) + &
-               sum( this%gdf%df_2body(:,idx1) ) / &
-               real( size( this%gdf%df_2body,1 ), real32 )
-       end do
-    end do
-    this%viability_3body_default = real( size( this%gdf%df_3body, 1 ), real32 ) / &
-         sum( this%gdf%df_3body, 1 )
-    this%viability_4body_default = real( size( this%gdf%df_4body, 1 ), real32 ) / &
-         sum( this%gdf%df_4body, 1 )
+    !---------------------------------------------------------------------------
+    ! species-dependent average value for distribution functions
+    !---------------------------------------------------------------------------
+    ! do i = 1, size( this%element_info, 1)
+    !    this%viability_2body_default(i) = 0._real32
+    !    do j = 1, size( this%element_info, 1 )
+    !       idx1 = this%get_pair_index( &
+    !            this%element_info(i)%name, &
+    !            this%element_info(j)%name &
+    !       )
+    !       this%viability_2body_default(i) = this%viability_2body_default(i) + &
+    !            sum( this%gdf%df_2body(:,idx1) ) / &
+    !            real( size( this%gdf%df_2body,1 ), real32 )
+    !    end do
+    ! end do
+    ! this%viability_3body_default = real( size( this%gdf%df_3body, 1 ), real32 ) / &
+    !      sum( this%gdf%df_3body, 1 )
+    ! this%viability_4body_default = real( size( this%gdf%df_4body, 1 ), real32 ) / &
+    !      sum( this%gdf%df_4body, 1 )
+
+
+    !---------------------------------------------------------------------------
+    ! species-averaged value for distribution functions
+    !---------------------------------------------------------------------------
+    this%viability_2body_default(:) = sum( this%gdf%df_2body ) / &
+         real( size( this%gdf%df_2body,1 ), real32 )
+    this%viability_3body_default(:) = real( size( this%gdf%df_3body, 1 ), real32 ) / &
+         sum( this%gdf%df_3body )
+    this%viability_4body_default(:) = real( size( this%gdf%df_4body, 1 ), real32 ) / &
+         sum( this%gdf%df_4body )
+
 
   end subroutine evolve
 !###############################################################################

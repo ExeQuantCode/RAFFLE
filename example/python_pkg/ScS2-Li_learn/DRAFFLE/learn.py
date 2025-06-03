@@ -7,6 +7,9 @@ from ase.io import write, read
 import numpy as np
 import os
 from joblib import Parallel, delayed
+from pathlib import Path
+
+script_dir = Path(__file__).resolve().parent
 
 # Function to relax a structure
 def process_structure(i, atoms, num_structures_old, calc_params, optimise_structure, iteration, calc):
@@ -59,7 +62,7 @@ if __name__ == "__main__":
     calc = CHGNetCalculator()
     
     # read the host
-    host = read("../ScS2.vasp")
+    host = read(script_dir/ ".." / "ScS2.vasp")
     host.calc = calc
     host_reference_energy = host.get_potential_energy() / len(host)
 

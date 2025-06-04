@@ -1,0 +1,13 @@
+{
+    "status": "running",
+    "identifier": "FfogBWj27zEU3dW2Ut7yHY",
+    "procedure": {
+        "name": "procedure.py",
+        "context": false,
+        "type": "ScriptProcedure",
+        "function_name": "raffle_agox",
+        "path": "/home/pitfield/RAFFLE/example/python_pkg/agox_runs/comparisons/tight_relax/FfogBWj27zEU3dW2Ut7yHY-exp/shephex/procedure.py"
+    },
+    "options_path": "shephex/options.json",
+    "time_stamp": 1748947409.073382
+}

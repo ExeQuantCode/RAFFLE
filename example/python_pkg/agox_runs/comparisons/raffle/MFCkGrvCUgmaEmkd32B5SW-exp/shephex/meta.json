@@ -1,0 +1,12 @@
+{
+    "status": "completed",
+    "identifier": "MFCkGrvCUgmaEmkd32B5SW",
+    "procedure": {
+        "name": "procedure.py",
+        "context": false,
+        "type": "ScriptProcedure",
+        "function_name": "raffle_agox"
+    },
+    "options_path": "shephex/options.json",
+    "time_stamp": 1747575894.1539013
+}

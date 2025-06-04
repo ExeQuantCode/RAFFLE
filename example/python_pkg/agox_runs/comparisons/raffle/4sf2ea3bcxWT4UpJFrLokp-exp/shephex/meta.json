@@ -1,0 +1,13 @@
+{
+    "status": "failed",
+    "identifier": "4sf2ea3bcxWT4UpJFrLokp",
+    "procedure": {
+        "name": "procedure.py",
+        "context": false,
+        "type": "ScriptProcedure",
+        "function_name": "raffle_agox",
+        "path": "/home/pitfield/RAFFLE/example/python_pkg/agox_runs/comparisons/raffle/4sf2ea3bcxWT4UpJFrLokp-exp/shephex/procedure.py"
+    },
+    "options_path": "shephex/options.json",
+    "time_stamp": 1747482901.9987507
+}

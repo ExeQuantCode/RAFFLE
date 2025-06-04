@@ -1,0 +1,12 @@
+{
+    "status": "failed",
+    "identifier": "6LUyRrxx2ufMLNcmX5JTWK",
+    "procedure": {
+        "name": "procedure.py",
+        "context": false,
+        "type": "ScriptProcedure",
+        "function_name": "raffle_agox"
+    },
+    "options_path": "shephex/options.json",
+    "time_stamp": 1747575896.5794184
+}

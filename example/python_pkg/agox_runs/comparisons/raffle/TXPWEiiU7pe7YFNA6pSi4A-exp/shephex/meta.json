@@ -1,0 +1,13 @@
+{
+    "status": "failed",
+    "identifier": "TXPWEiiU7pe7YFNA6pSi4A",
+    "procedure": {
+        "name": "procedure.py",
+        "context": false,
+        "type": "ScriptProcedure",
+        "function_name": "raffle_agox",
+        "path": "/home/pitfield/RAFFLE/example/python_pkg/agox_runs/comparisons/raffle/TXPWEiiU7pe7YFNA6pSi4A-exp/shephex/procedure.py"
+    },
+    "options_path": "shephex/options.json",
+    "time_stamp": 1747575859.5119731
+}

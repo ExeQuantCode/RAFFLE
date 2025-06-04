@@ -1,0 +1,12 @@
+{
+    "status": "submitted",
+    "identifier": "9fneafT4z4o4sCYV94eobQ",
+    "procedure": {
+        "name": "procedure.py",
+        "context": false,
+        "type": "ScriptProcedure",
+        "function_name": "raffle_agox"
+    },
+    "options_path": "shephex/options.json",
+    "time_stamp": 1747575899.5138752
+}

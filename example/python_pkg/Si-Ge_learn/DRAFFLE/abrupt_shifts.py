@@ -11,7 +11,7 @@ from artemis.generator import artemis_generator
 script_dir = Path(__file__).resolve().parent
 
 # %%
-abrupt = read('SiGe_abrupt_resized.vasp')
+abrupt = read('SiGe_abrupt_interface_rescaled.vasp')
 abrupt.set_pbc(True)
 
 # %%
@@ -25,8 +25,16 @@ generator.set_shift_method(
     num_shifts = 20
 )
 # %%
-generator.regenerate(abrupt, verbose=1)
+structures = generator.regenerate(abrupt, verbose=1)
 
+# %%
+# make directory for the structures
+output_dir = script_dir / "SiGe_shifted_structures"
+output_dir.mkdir(parents=True, exist_ok=True)
+for i, structure in enumerate(structures):
+    write(output_dir / f'SiGe_shifted_{i}.vasp', structure, format='vasp', sort=True, direct=True)
+
+exit()
 # %%
 
 # check if mace file exists

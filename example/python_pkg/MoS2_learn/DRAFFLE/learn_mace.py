@@ -1,4 +1,4 @@
-from chgnet.model import CHGNetCalculator
+from mace.calculators import mace_mp
 from ase.calculators.singlepoint import SinglePointCalculator
 from raffle.generator import raffle_generator
 from ase import build, Atoms
@@ -59,8 +59,8 @@ def process_structure(i, atoms, calc_params, optimise_structure, calc):
 if __name__ == "__main__":
 
     # set up the calculator
-    calc_params = {}
-    calc = CHGNetCalculator()
+    calc_params = { 'model':  "medium", 'dispersion': True }
+    calc = mace_mp(**calc_params)
 
     # set up the hosts
     hosts = []

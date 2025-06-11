@@ -1,4 +1,5 @@
 from mace.calculators import mace_mp
+from chgnet.model import CHGNetCalculator
 from ase.calculators.singlepoint import SinglePointCalculator
 from raffle.generator import raffle_generator
 from ase import build
@@ -68,6 +69,8 @@ if __name__ == "__main__":
         exit(1)
 
     # set up the calculator
+    # calc_params = {}
+    # calc = CHGNetCalculator()
     calc_params = { 'model':  script_dir/ ".." / ".." / "mace-mpa-0-medium.model" }
     calc = mace_mp(**calc_params)
 
@@ -128,6 +131,7 @@ if __name__ == "__main__":
     num_structures_old = 0
     optimise_structure = True
     converged = False
+    generator.init_seed(put=seed)
     # start the iterations, loop over the hosts, then repeat the process X times
     for ival in range(40):
         if converged:
@@ -145,7 +149,6 @@ if __name__ == "__main__":
             generator.generate(
                 num_structures = 5,
                 stoichiometry = { 'C': 15 },
-                seed = seed*1000+iter,
                 method_ratio = {"void": 0.1, "rand": 0.01, "walk": 0.25, "grow": 0.25, "min": 1.0},
                 verbose = 0,
             )

@@ -7,6 +7,9 @@ from ase.io import write, read
 import numpy as np
 import os
 from joblib import Parallel, delayed
+from pathlib import Path
+
+script_dir = Path(__file__).resolve().parent
 
 
 # Function to relax a structure
@@ -61,16 +64,16 @@ if __name__ == "__main__":
 
     hosts = []
     # get all hosts in ../../data/C-MgO_hosts/ directory
-    for filename in os.listdir("../../data/C-MgO_hosts/"):
+    for filename in os.listdir(script_dir / ".." / ".." / ".." / "data" / "C-MgO_hosts"):
         if filename.startswith("POSCAR"):
-            atoms = read(f"../../data/C-MgO_hosts/{filename}")
+            atoms = read(script_dir / ".." / ".." / ".." / "data" / "C-MgO_hosts" / filename)
             if not all(element == 'C' for element in set(atoms.get_chemical_symbols())):
                 print(f"Skipping {filename} as it has non-carbon atoms")
                 continue
             elif len(atoms) > 20:
                 print(f"Skipping {filename} as it has more than 20 atoms (want to do smaller cells for now)")
                 continue
-            hosts.append(read(f"../../data/C-MgO_hosts/{filename}"))
+            hosts.append(read(script_dir / ".." / ".." / ".." / "data" / "C-MgO_hosts" / filename))
             hosts[-1].calc = calc
 
     # set up element reference energies
@@ -141,25 +144,27 @@ if __name__ == "__main__":
 
     # read C-Mg-O database, obtained from Materials Project
     print("Reading database")
-    database = read("../database.xyz", index=":")
+    # database = read("../database.xyz", index=":")
+    database = [ C_reference, Mg_reference, O_reference, MgO_atom ]
+    generator.distributions.create(database, deallocate_systems=False)
 
-    # set up the initial database
-    initial_database = []
-    for i, atoms in enumerate(database):
-        if atoms.calc is None:
-            database.remove(atoms)
-            continue
-        # check if any other species in the system other than C, Mg, O
-        if not all(element in ['C', 'Mg', 'O'] for element in set(atoms.get_chemical_symbols())):
-            print(f"Skipping structure {i} as it has non-C-Mg-O atoms")
-            continue
-        atoms.calc = calc
-        initial_database.append(atoms)
-    initial_database.append(C_reference)
-    initial_database.append(Mg_reference)
-    initial_database.append(O_reference)
-    initial_database.append(MgO_atom)
-    generator.distributions.create(initial_database, deallocate_systems=False)
+    # # set up the initial database
+    # initial_database = []
+    # for i, atoms in enumerate(database):
+    #     if atoms.calc is None:
+    #         database.remove(atoms)
+    #         continue
+    #     # check if any other species in the system other than C, Mg, O
+    #     if not all(element in ['C', 'Mg', 'O'] for element in set(atoms.get_chemical_symbols())):
+    #         print(f"Skipping structure {i} as it has non-C-Mg-O atoms")
+    #         continue
+    #     atoms.calc = calc
+    #     initial_database.append(atoms)
+    # initial_database.append(C_reference)
+    # initial_database.append(Mg_reference)
+    # initial_database.append(O_reference)
+    # initial_database.append(MgO_atom)
+    # generator.distributions.create(initial_database, deallocate_systems=False)
 
     # set parameters
     seed = 0
@@ -188,6 +193,7 @@ if __name__ == "__main__":
     mass_C = 12.011
     mass_Mg = 24.305
     mass_O = 15.999
+    generator.init_seed(put=seed)
     # loop over all hosts
     for host in hosts:
         print("setting host")
@@ -228,8 +234,7 @@ if __name__ == "__main__":
             generator.generate(
                 num_structures = 5,
                 stoichiometry = { 'Mg': num_atoms_Mg, 'O': num_atoms_O },
-                seed = seed*1000+iter,
-                method_ratio = {"void": 1.0, "rand": 0.001, "walk": 1.0, "grow": 0.0, "min": 1.0},
+                method_ratio = {"void": 0.1, "rand": 0.01, "walk": 0.25, "grow": 0.25, "min": 1.0},
                 verbose = 0,
             )
 
@@ -255,6 +260,7 @@ if __name__ == "__main__":
                     generated_structures[num_structures_old + i],
                     energy=generated_structures[num_structures_old + i].get_potential_energy(),
                     forces=generated_structures[num_structures_old + i].get_forces()
+                )
             
             # Start parallel execution
             print("Starting parallel execution")

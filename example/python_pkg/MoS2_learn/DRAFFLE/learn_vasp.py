@@ -1,4 +1,4 @@
-from chgnet.model import CHGNetCalculator
+from ase.calculators.vasp import Vasp
 from ase.calculators.singlepoint import SinglePointCalculator
 from raffle.generator import raffle_generator
 from ase import build, Atoms
@@ -15,10 +15,10 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 # Function to relax a structure
-def process_structure(i, atoms, calc_params, optimise_structure, calc):
+def process_structure(i, atoms, calc_params, optimise_structure, iteration):
     # Check if the structure has already been processed
     
-    # calc = Vasp(**calc_params, label=f"struct{i}", directory=f"iteration{iteration}/struct{i}/", txt=f"stdout{i}.o")
+    calc = Vasp(**calc_params, label=f"struct{i}", directory=f"iteration{iteration}/struct{i}/", txt=f"stdout{i}.o")
     atoms.calc = calc
     # positions_initial = atoms.get_positions()
 
@@ -49,7 +49,7 @@ def process_structure(i, atoms, calc_params, optimise_structure, calc):
         print(f"Distance too small: {atoms.get_all_distances(mic=True).min()}")
         return None, None, None
     
-    if abs(energy_rlxd - energy_unrlxd) > 5.0:
+    if abs(energy_rlxd - energy_unrlxd) > 10.0:
         print(f"Energy difference too large: {energy_rlxd} vs {energy_unrlxd}")
         return None, None, None
     
@@ -59,8 +59,20 @@ def process_structure(i, atoms, calc_params, optimise_structure, calc):
 if __name__ == "__main__":
 
     # set up the calculator
-    calc_params = {}
-    calc = CHGNetCalculator()
+    calc_params = {
+        "command": "$HOME/DVASP/vasp.6.4.3/bin/vasp_std",
+        # "label": "iteration",
+        # "txt": "stdout.o",
+        "lwave": False,
+        "lcharg": False,
+        "istart": 0,
+        "icharg": 2,
+        "xc": 'pbe',
+        "setups": {'C': ''},
+        "kpts": (3, 3, 2),
+        "ivdw": 11,
+    }
+    calc = Vasp(**calc_params, label="tmp", directory="tmp", txt="stdout.o")
 
     # set up the hosts
     hosts = []
@@ -80,6 +92,7 @@ if __name__ == "__main__":
         energies_rlxd_filename = f"energies_rlxd_seed{seed}.txt"
         energies_unrlxd_filename = f"energies_unrlxd_seed{seed}.txt"
         generator = raffle_generator()
+        # generator.distributions.read_gdfs("gdfs_seed0.txt")
         generator.distributions.set_element_energies(
             {
                 'Mo': -23.00869551/2,
@@ -94,9 +107,9 @@ if __name__ == "__main__":
         # set the initial database
         Mo_bulk = read(script_dir/ ".." / "Mo.poscar")
         Mo_bulk.calc = calc
-        S_bulk = read(script_dir/ ".." / "S.poscar")
-        S_bulk.calc = calc
+        S_bulk = read(script_dir/ ".." / "S.xyz")
         initial_database = [Mo_bulk, S_bulk]
+
         generator.distributions.create(initial_database)
         
         # set the host
@@ -115,13 +128,19 @@ if __name__ == "__main__":
         else:
             open(energies_unrlxd_filename, "w").close()
 
+        # delete .traj files if they exist
+        if os.path.exists(f"unrlxd_structures_seed{seed}.xyz"):
+            os.remove(f"unrlxd_structures_seed{seed}.xyz")
+        if os.path.exists(f"rlxd_structures_seed{seed}.xyz"):
+            os.remove(f"rlxd_structures_seed{seed}.xyz")
+
         # initialise the number of structures generated
-        num_structures_old = 0
+        num_structures_tot = 0
         unrlxd_structures = []
         rlxd_structures = []
         generator.init_seed(put=seed)
         # start the iterations
-        for iter in range(200):
+        for iter in range(40):
             # generate the structures
             generated_structures = generator.generate(
                 num_structures = 5,
@@ -153,7 +172,7 @@ if __name__ == "__main__":
             # Start parallel execution
             print("Starting parallel execution")
             results = Parallel(n_jobs=5)(
-                delayed(process_structure)(i, generated_structures[i].copy(), calc_params, optimise_structure, calc=calc)
+                delayed(process_structure)(i, generated_structures[i].copy(), calc_params, optimise_structure, iter)
                 for i in range(len(generated_structures))
             )
 
@@ -186,18 +205,18 @@ if __name__ == "__main__":
 
             # write the structures to files
             for i in range(num_structures_new):
-                write(iterdir+f"POSCAR_{i}", rlxd_structures[num_structures_old + i])
+                write(iterdir+f"POSCAR_{i}", rlxd_structures[num_structures_tot + i])
                 print(f"Structure {i} energy per atom: {energies_rlxd[i]}")
                 # append energy per atom to the 'energies_unrlxd_filename' file
                 with open(energies_unrlxd_filename, "a") as energy_file:
-                    energy_file.write(f"{i+num_structures_old} {energies_unrlxd[i]}\n")
+                    energy_file.write(f"{i+num_structures_tot} {energies_unrlxd[i]}\n")
                 # append energy per atom to the 'energies_rlxd_filename' file
                 with open(energies_rlxd_filename, "a") as energy_file:
-                    energy_file.write(f"{i+num_structures_old} {energies_rlxd[i]}\n")
+                    energy_file.write(f"{i+num_structures_tot} {energies_rlxd[i]}\n")
 
             # update the distribution functions
             print("Updating distributions")
-            generator.distributions.update(generated_structures, from_host=False, deallocate_systems=False)
+            generator.distributions.update(rlxd_structures[num_structures_tot:], from_host=False, deallocate_systems=False)
 
             # print the new distribution functions to a file
             print("Printing distributions")
@@ -207,8 +226,12 @@ if __name__ == "__main__":
             generator.distributions.write_4body(iterdir+"df4.txt")
             generator.distributions.deallocate_systems()
 
+            write(f"unrlxd_structures_seed{seed}.xyz", unrlxd_structures[num_structures_tot:], append=True)
+            write(f"rlxd_structures_seed{seed}.xyz", rlxd_structures[num_structures_tot:], append=True)
+
             # update the number of structures generated
-            num_structures_old += num_structures_new
+            num_structures_tot += num_structures_new
+
 
         # Write the final distribution functions to a file
         generator.distributions.write_gdfs(f"gdfs_seed{seed}.txt")
@@ -227,8 +250,6 @@ if __name__ == "__main__":
                 energy_file.write(f"{int(entry[0])} {float(entry[1])}\n")
 
         # Write the structures to files
-        write(f"unrlxd_structures_seed{seed}.traj", unrlxd_structures)
-        write(f"rlxd_structures_seed{seed}.traj", rlxd_structures)
         print("All generated and relaxed structures written")
 
     print("Learning complete")

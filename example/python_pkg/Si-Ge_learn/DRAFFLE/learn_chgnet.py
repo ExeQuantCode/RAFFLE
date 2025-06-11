@@ -1,9 +1,10 @@
+from mace.calculators import mace_mp
 from chgnet.model import CHGNetCalculator
 from ase.calculators.singlepoint import SinglePointCalculator
 from raffle.generator import raffle_generator
-from ase import Atoms
+from ase import build
 from ase.optimize import FIRE
-from ase.io import write, read
+from ase.io import read, write
 import numpy as np
 import os
 from joblib import Parallel, delayed
@@ -11,12 +12,15 @@ from pathlib import Path
 
 script_dir = Path(__file__).resolve().parent
 
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
 # Function to relax a structure
 def process_structure(i, atoms, num_structures_old, calc_params, optimise_structure, iteration, calc):
     # Check if the structure has already been processed
     if i < num_structures_old:
-        return
-    
+        return None, None, None
+
     # calc = Vasp(**calc_params, label=f"struct{i}", directory=f"iteration{iteration}/struct{i}/", txt=f"stdout{i}.o")
     inew = i - num_structures_old
     atoms.calc = calc
@@ -29,11 +33,11 @@ def process_structure(i, atoms, num_structures_old, calc_params, optimise_struct
     if optimise_structure:
         optimizer = FIRE(atoms, trajectory = f"traje{inew}.traj", logfile=f"optimisation{inew}.log")
         try:
-            optimizer.run(fmax=0.02, steps=300)
+            optimizer.run(fmax=0.05, steps=100)
         except Exception as e:
             print(f"Optimisation failed: {e}")
             return None, None, None
-    
+
     # Save the optimised structure and its energy per atom
     energy_rlxd = atoms.get_potential_energy() / len(atoms)
 
@@ -47,62 +51,72 @@ def process_structure(i, atoms, num_structures_old, calc_params, optimise_struct
     if distances.min() < 1.0:
         print(f"Distance too small: {atoms.get_all_distances(mic=True).min()}")
         return None, None, None
-    
+
     if abs(energy_rlxd - energy_unrlxd) > 10.0:
         print(f"Energy difference too large: {energy_rlxd} vs {energy_unrlxd}")
         return None, None, None
-    
+
     return atoms, energy_unrlxd, energy_rlxd
 
 
 if __name__ == "__main__":
 
-    # set up the calculator
+    # # set up the calculator
     calc_params = {}
     calc = CHGNetCalculator()
-    
-    # read the host
-    host = read(script_dir/ ".." / "ScS2.vasp")
-    host.calc = calc
-    host_reference_energy = host.get_potential_energy() / len(host)
 
-    # deform the host
+    # set up the hosts
     hosts = []
-    for a in [0.8, 0.9, 1.0, 1.1, 1.2]:
-        for c in [1.0, 1.1, 1.2, 1.3, 1.4]:
-            atom = host.copy()
-            atom.set_cell([a * host.cell[0], a * host.cell[1], c * host.cell[2]], scale_atoms=True)
-            hosts.append(atom)
-            hosts[-1].calc = calc
-            print(hosts[-1])
 
-    # get reference energies
-    Li_reference = Atoms(
-        "Li2",
-        positions=[[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
-        cell=[3.42, 3.42, 3.42],
-        pbc=[True, True, True],
-    )
-    Li_reference.calc = calc
-    Li_reference_energy = Li_reference.get_potential_energy() / len(Li_reference)
+    Si_bulk = build.bulk("Si", crystalstructure="diamond", a=5.43)
+    Si_bulk.calc = calc
+    Si_reference_energy = Si_bulk.get_potential_energy() / len(Si_bulk)
+    # Si_cubic = build.make_supercell(Si_bulk, [[-1, 1, 1], [1, -1, 1], [1, 1, -1]])
+    Ge_bulk = build.bulk("Ge", crystalstructure="diamond", a=5.65)
+    Ge_bulk.calc = calc
+    # Ge_cubic = build.make_supercell(Ge_bulk, [[-1, 1, 1], [1, -1, 1], [1, 1, -1]])
+    Ge_reference_energy = Ge_bulk.get_potential_energy() / len(Ge_bulk)
 
+    # Si_supercell = build.make_supercell(Si_cubic, [[2, 0, 0], [0, 2, 0], [0, 0, 1]])
+    # Ge_supercell = build.make_supercell(Ge_cubic, [[2, 0, 0], [0, 2, 0], [0, 0, 1]])
+
+    # Si_surface = build.surface(Si_supercell, indices=(0, 0, 1), layers=2)
+    # Ge_surface = build.surface(Ge_supercell, indices=(0, 0, 1), layers=2)
+
+    # Si_slab = build.surface(Si_supercell, indices=(0, 0, 1), layers=2, vacuum=12, periodic=True)
+    # Si_slab.calc = calc
+    # Ge_slab = build.surface(Ge_supercell, indices=(0, 0, 1), layers=2, vacuum=12, periodic=True)
+    # Ge_slab.calc = calc
+
+    # host = build.stack(Si_surface, Ge_surface, axis=2, distance= 5.43/2 + 5.65/2)
+    # cell = host.get_cell()
+    # print("Host cell: ", host.get_cell())
+    # cell[2, 2] -= 3.8865 # (5.43 + 5.65) / 2 * 3/4
+    # host.set_cell(cell, scale_atoms=False)
+
+    print("element reference energies:", {'Si': Si_reference_energy, 'Ge': Ge_reference_energy})
+
+    host = read("../host.traj")
+    hosts.append(host)
+
+    # set the parameters for the generator
     generator = raffle_generator()
     generator.distributions.set_element_energies(
         {
-            'Sc': 0.0,
-            'S': 0.0,
-            'Li': Li_reference_energy,
+            'Si': Si_reference_energy,
+            'Ge': Ge_reference_energy,
         }
     )
+
     # set energy scale
-    generator.distributions.set_kBT(0.4)
+    generator.distributions.set_kBT(0.2)
 
     # set the distribution function widths (2-body, 3-body, 4-body)
-    generator.distributions.set_width([0.025, np.pi/200.0, np.pi/200.0])
+    generator.distributions.set_width([0.04, np.pi/160.0, np.pi/160.0])
 
     # set the initial database
-    initial_database = [host, Li_reference]
-    generator.distributions.create(initial_database)
+    initial_database = [Si_bulk, Ge_bulk]
+    generator.distributions.create(initial_database, deallocate_systems=False)
 
     # set the parameters for the generator
     seed = 0
@@ -110,7 +124,7 @@ if __name__ == "__main__":
     # check if the energies file exists, if not create it
     energies_rlxd_filename = f"energies_rlxd_seed{seed}.txt"
     energies_unrlxd_filename = f"energies_unrlxd_seed{seed}.txt"
-    
+
     if os.path.exists(energies_rlxd_filename):
         with open(energies_rlxd_filename, "w") as energy_file:
             pass
@@ -129,21 +143,21 @@ if __name__ == "__main__":
     rlxd_structures = []
     num_structures_old = 0
     optimise_structure = True
-    generator.init_seed(seed)
-    # loop over host cells
-    for host in hosts:
-        print("setting host")
-        generator.set_host(host)
-        volume = host.get_volume()
+    # start the iterations, loop over the hosts, then repeat the process X times
+    generator.init_seed(put=seed)
+    for ival in range(40):
+        for host in hosts:
+            print("setting host")
+            generator.set_host(host)
+            generator.set_bounds([[0, 0, 0.34], [1, 1, 0.52]])
 
-        # loop over intercalation concentration
-        for num_atoms in range(1, 3):
             iter += 1
+            print(f"Iteration {iter}")
 
             # generate the structures
             generator.generate(
                 num_structures = 5,
-                stoichiometry = { 'Li': num_atoms },
+                stoichiometry = { 'Si': 16, 'Ge': 16 },
                 method_ratio = {"void": 0.1, "rand": 0.01, "walk": 0.25, "grow": 0.25, "min": 1.0},
                 verbose = 0,
             )
@@ -165,6 +179,7 @@ if __name__ == "__main__":
             for i in range(num_structures_new - num_structures_old):
                 write(iterdir+f"POSCAR_unrlxd_{i}", generated_structures[num_structures_old + i])
                 print(f"Structure {i} energy per atom: {generated_structures[num_structures_old + i].get_potential_energy() / len(generated_structures[num_structures_old + i])}")
+                # print(f"Structure {i} energy per unit area: {( generated_structures[num_structures_old + i].get_potential_energy() - Si_slab.get_potential_energy() - Ge_slab.get_potential_energy() ) / (2 * ( cell[0, 0] * cell[1, 1] ) )}")
                 unrlxd_structures.append(generated_structures[num_structures_old + i].copy())
                 unrlxd_structures[-1].calc = SinglePointCalculator(
                     generated_structures[num_structures_old + i],
@@ -172,7 +187,6 @@ if __name__ == "__main__":
                     forces=generated_structures[num_structures_old + i].get_forces()
                 )
 
-            
             # Start parallel execution
             print("Starting parallel execution")
             results = Parallel(n_jobs=5)(
@@ -196,6 +210,8 @@ if __name__ == "__main__":
 
             # Remove structures that failed the checks
             for j, atoms in reversed(list(enumerate(generated_structures))):
+                if j < num_structures_old:
+                    continue
                 if atoms is None:
                     energy_unrlxd = np.delete(energy_unrlxd, j-num_structures_old)
                     energy_rlxd = np.delete(energy_rlxd, j-num_structures_old)
@@ -203,7 +219,7 @@ if __name__ == "__main__":
                     del unrlxd_structures[j]
                     del rlxd_structures[j]
                     generator.remove_structure(j)
-            num_structures_new = len(generated_structures) 
+            num_structures_new = len(generated_structures)
 
             # write the structures to files
             for i in range(num_structures_new - num_structures_old):
@@ -231,7 +247,8 @@ if __name__ == "__main__":
             # update the number of structures generated
             num_structures_old = num_structures_new
 
-        # Write the final distribution functions to a file
+
+    # Write the final distribution functions to a file
     generator.distributions.write_gdfs(f"gdfs_seed{seed}.txt")
 
     # Read energies from the file

@@ -1,9 +1,10 @@
 # from mace.calculators import mace_mp
 # from ase.calculators.vasp import Vasp
 from chgnet.model import CHGNetCalculator
+from ase.calculators.singlepoint import SinglePointCalculator
 from raffle.generator import raffle_generator
 from ase import build, Atoms
-from ase.optimize import BFGS, FIRE
+from ase.optimize import FIRE
 from ase.io import write
 from ase.visualize import view
 import numpy as np
@@ -31,17 +32,10 @@ def runInParallel(*fns):
     print(results)
 
 
-def process_structure_with_queue(i, structure, num_old, calc_params, optimise_structure, iteration, queue):
-    # Perform the computation
-    result = process_structure(i, structure, num_old, calc_params, optimise_structure, iteration)
-    queue.put(result)  # Report completion
-
-def process_structure(i, atoms, num_structures_old, calc_params, optimise_structure, iteration):
-    if i < num_structures_old:
-        return
+def process_structure(i, atoms, calc_params, optimise_structure, calc):
+    # Check if the structure has already been processed
     
     # calc = Vasp(**calc_params, label=f"struct{i}", directory=f"iteration{iteration}/struct{i}/", txt=f"stdout{i}.o")
-    inew = i - num_structures_old
     atoms.calc = calc
     # positions_initial = atoms.get_positions()
 
@@ -51,7 +45,7 @@ def process_structure(i, atoms, num_structures_old, calc_params, optimise_struct
 
     # Optimise the structure if requested
     if optimise_structure:
-        optimizer = FIRE(atoms, trajectory = f"traje{inew}.traj", logfile=f"optimisation{inew}.log")
+        optimizer = FIRE(atoms, trajectory = f"traje{i}.traj", logfile=f"optimisation{i}.log")
         try:
             optimizer.run(fmax=0.05, steps=100)
         except Exception as e:
@@ -72,7 +66,7 @@ def process_structure(i, atoms, num_structures_old, calc_params, optimise_struct
         print(f"Distance too small: {atoms.get_all_distances(mic=True).min()}")
         return None, None, None
     
-    if abs(energy_rlxd - energy_unrlxd) > 10.0:
+    if abs(energy_rlxd - energy_unrlxd) > 5.0:
         print(f"Energy difference too large: {energy_rlxd} vs {energy_unrlxd}")
         return None, None, None
     
@@ -137,9 +131,17 @@ if __name__ == "__main__":
     """
     #void_val; rand_val; walk_val; grow_val; min_val
     ##############[  V,   R,   W,   G,   M]    
-    method_val = [85.0, 15.0, 0.0, 0.0, 0.0] #change
-
-
+    method_dicts = [
+        {"void":  1.0, "rand":  0.0, "walk":  0.0, "grow":  0.0, "min":  0.0},
+        {"void":  0.0, "rand":  1.0, "walk":  0.0, "grow":  0.0, "min":  0.0},
+        {"void":  0.0, "rand":  0.0, "walk":  1.0, "grow":  0.0, "min":  0.0},
+        {"void":  0.0, "rand":  0.0, "walk":  0.0, "grow":  1.0, "min":  0.0},
+        {"void":  0.0, "rand":  0.0, "walk":  0.0, "grow":  0.0, "min":  1.0},
+        {"void": 85.0, "rand": 15.0, "walk":  0.0, "grow":  0.0, "min":  0.0},
+        {"void":  0.0, "rand": 15.0, "walk": 85.0, "grow":  0.0, "min":  0.0},
+        {"void":  0.0, "rand": 15.0, "walk":  0.0, "grow": 85.0, "min":  0.0},
+        {"void":  0.0, "rand": 15.0, "walk":  0.0, "grow":  0.0, "min": 85.0},
+    ]
 
     hosts = []
     for crystal_structure in crystal_structures:
@@ -166,8 +168,26 @@ if __name__ == "__main__":
     density = 1.61 # u/A^3
     # num_atoms = 7
 
-    for seed in range(1):
-        print(f"Seed: {seed}")
+    # get the current directory
+    cwd = os.getcwd()
+    print(f"Current working directory: {cwd}")
+
+    seed = 0
+    for methods in method_dicts:
+        # move to the cwd
+        os.chdir(cwd)
+        print(f"Changed directory to {cwd}")
+
+        # print the methods
+        print(f"Method: {methods}")
+
+        # make method directory
+        method_dir = f"method_v{methods['void']}_r{methods['rand']}_w{methods['walk']}_g{methods['grow']}_m{methods['min']}/"
+        if not os.path.exists(method_dir):
+            os.makedirs(method_dir)
+        os.chdir(method_dir)
+        print(f"Changed directory to {method_dir}")
+        
         energies_rlxd_filename = f"energies_rlxd_seed{seed}.txt"
         energies_unrlxd_filename = f"energies_unrlxd_seed{seed}.txt"
         generator = raffle_generator()
@@ -198,11 +218,17 @@ if __name__ == "__main__":
         else:
             open(energies_unrlxd_filename, "w").close()
 
+        # delete .traj files if they exist
+        if os.path.exists(f"unrlxd_structures_seed{seed}.xyz"):
+            os.remove(f"unrlxd_structures_seed{seed}.xyz")
+        if os.path.exists(f"rlxd_structures_seed{seed}.xyz"):
+            os.remove(f"rlxd_structures_seed{seed}.xyz")
 
-        num_structures_old = 0
+        num_structures_tot = 0
         unrlxd_structures = []
         rlxd_structures = []
-        iter2 = 0
+        iter2 = -1
+        generator.init_seed(put=seed)
         for iter in range(10):
             for host in hosts:
                 generator.set_host(host)
@@ -215,17 +241,16 @@ if __name__ == "__main__":
                 print(f"Volume: {volume}")
                 print(f"Number of atoms: {num_atoms}")
     
-                generator.generate(
+                generated_structures = generator.generate(
                     num_structures = 5,
                     stoichiometry = { 'Al': num_atoms },
-                    seed = seed*1000+iter,
-                    method_ratio = {"void": method_val[0], "rand": method_val[1], "walk": method_val[2], "grow": method_val[3], "min": method_val[4]},
+                    method_ratio = methods,
                     verbose = 0,
+                    calc = calc,
                 )
 
                 # print the number of structures generated
                 print("Total number of structures generated: ", generator.num_structures)
-                generated_structures = generator.get_structures(calc)
                 num_structures_new = len(generated_structures)
 
                 # check if directory iteration[iter] exists, if not create it
@@ -235,51 +260,63 @@ if __name__ == "__main__":
                 generator.print_settings(iterdir+"generator_settings.txt")
 
                 # set up list of energies
-                energy_unrlxd = np.zeros(num_structures_new - num_structures_old)
-                energy_rlxd = np.zeros(num_structures_new - num_structures_old)
-                for i in range(num_structures_new - num_structures_old):
-                    write(iterdir+f"POSCAR_unrlxd_{i}", generated_structures[num_structures_old + i])
-                    print(f"Structure {i} energy per atom: {generated_structures[num_structures_old + i].get_potential_energy() / len(generated_structures[num_structures_old + i])}")
-                    unrlxd_structures.append(deepcopy(generated_structures[num_structures_old + i]))
-                
+                for i in reversed(range(len(generated_structures))):
+                    if generated_structures[i] is None:
+                        print(f"Structure {i} is None, skipping")
+                        del generated_structures[i]
+                        continue
+                    write(iterdir+f"POSCAR_unrlxd_{i}", generated_structures[i])
+                    print(f"Structure {i} energy per atom: {generated_structures[i].get_potential_energy() / len(generated_structures[i])}")
+
+            
                 # Start parallel execution
                 print("Starting parallel execution")
                 results = Parallel(n_jobs=5)(
-                    delayed(process_structure)(i, deepcopy(generated_structures[i]), num_structures_old, calc_params, optimise_structure, iteration=seed)
-                    for i in range(num_structures_old, num_structures_new)
+                    delayed(process_structure)(i, generated_structures[i].copy(), calc_params, optimise_structure, calc=calc)
+                    for i in range(len(generated_structures))
                 )
 
                 # Wait for all futures to complete
+                energies_unrlxd = []
+                energies_rlxd = []
                 for j, result in enumerate(results):
-                    generated_structures[j+num_structures_old], energy_unrlxd[j], energy_rlxd[j] = result
-                    rlxd_structures.append(deepcopy(generated_structures[j+num_structures_old]))
+                    rlxd_generated_structure, energy_unrlxd, energy_rlxd = result
+                    if rlxd_generated_structure is None:
+                        print("Structure failed the checks")
+                        continue
+                    else:
+                        unrlxd_structures.append(generated_structures[j].copy())
+                        unrlxd_structures[-1].calc = SinglePointCalculator(
+                            generated_structures[j],
+                            energy=generated_structures[j].get_potential_energy(),
+                            forces=generated_structures[j].get_forces()
+                        )
+                        rlxd_structures.append(rlxd_generated_structure.copy())
+                        rlxd_structures[-1].calc = SinglePointCalculator(
+                            rlxd_generated_structure,
+                            energy=rlxd_generated_structure.get_potential_energy(),
+                            forces=rlxd_generated_structure.get_forces()
+                        )
+                        energies_unrlxd.append(energy_unrlxd)
+                        energies_rlxd.append(energy_rlxd)
                 print("All futures completed")
+                num_structures_new = len(energies_unrlxd)
 
-                # Remove structures that failed the checks
-                for j, atoms in reversed(list(enumerate(generated_structures))):
-                    if atoms is None:
-                        energy_unrlxd = np.delete(energy_unrlxd, j-num_structures_old)
-                        energy_rlxd = np.delete(energy_rlxd, j-num_structures_old)
-                        del generated_structures[j]
-                        # del unrlxd_structures[j]
-                        del rlxd_structures[j]
-                        generator.remove_structure(j)
-                num_structures_new = len(generated_structures) 
 
                 # write the structures to files
-                for i in range(num_structures_new - num_structures_old):
-                    write(iterdir+f"POSCAR_{i}", generated_structures[num_structures_old + i])
-                    print(f"Structure {i} energy per atom: {energy_rlxd[i]}")
+                for i in range(num_structures_new):
+                    write(iterdir+f"POSCAR_{i}", rlxd_structures[num_structures_tot + i])
+                    print(f"Structure {i} energy per atom: {energies_rlxd[i]}")
                     # append energy per atom to the 'energies_unrlxd_filename' file
                     with open(energies_unrlxd_filename, "a") as energy_file:
-                        energy_file.write(f"{i+num_structures_old} {energy_unrlxd[i]}\n")
+                        energy_file.write(f"{i+num_structures_tot} {energies_unrlxd[i]}\n")
                     # append energy per atom to the 'energies_rlxd_filename' file
                     with open(energies_rlxd_filename, "a") as energy_file:
-                        energy_file.write(f"{i+num_structures_old} {energy_rlxd[i]}\n")
+                        energy_file.write(f"{i+num_structures_tot} {energies_rlxd[i]}\n")
 
                 # update the distribution functions
                 print("Updating distributions")
-                generator.distributions.update(generated_structures[num_structures_old:], from_host=False, deallocate_systems=False)
+                generator.distributions.update(rlxd_structures[num_structures_tot:], from_host=False, deallocate_systems=False)
 
                 # print the new distribution functions to a file
                 print("Printing distributions")
@@ -289,8 +326,12 @@ if __name__ == "__main__":
                 generator.distributions.write_4body(iterdir+"df4.txt")
                 generator.distributions.deallocate_systems()
 
+                write(f"unrlxd_structures_seed{seed}.xyz", unrlxd_structures[num_structures_tot:], append=True)
+                write(f"rlxd_structures_seed{seed}.xyz", rlxd_structures[num_structures_tot:], append=True)
+
                 # update the number of structures generated
-                num_structures_old = num_structures_new
+                num_structures_tot += num_structures_new
+
 
         generator.distributions.write_gdfs(f"gdfs_seed{seed}.txt")
 

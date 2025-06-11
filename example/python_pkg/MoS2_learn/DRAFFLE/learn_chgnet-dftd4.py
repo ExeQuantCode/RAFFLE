@@ -1,4 +1,6 @@
+from dftd4.ase import DFTD4
 from chgnet.model import CHGNetCalculator
+from ase.calculators.mixing import SumCalculator
 from ase.calculators.singlepoint import SinglePointCalculator
 from raffle.generator import raffle_generator
 from ase import build, Atoms
@@ -49,7 +51,7 @@ def process_structure(i, atoms, calc_params, optimise_structure, calc):
         print(f"Distance too small: {atoms.get_all_distances(mic=True).min()}")
         return None, None, None
     
-    if abs(energy_rlxd - energy_unrlxd) > 5.0:
+    if abs(energy_rlxd - energy_unrlxd) > 10.0:
         print(f"Energy difference too large: {energy_rlxd} vs {energy_unrlxd}")
         return None, None, None
     
@@ -60,7 +62,7 @@ if __name__ == "__main__":
 
     # set up the calculator
     calc_params = {}
-    calc = CHGNetCalculator()
+    calc = SumCalculator( [ DFTD4(method='PBE'), CHGNetCalculator() ] )
 
     # set up the hosts
     hosts = []
@@ -150,18 +152,13 @@ if __name__ == "__main__":
                 print(f"Structure {i} energy per atom: {generated_structures[i].get_potential_energy() / len(generated_structures[i])}")
 
             
-            # Start parallel execution
-            print("Starting parallel execution")
-            results = Parallel(n_jobs=5)(
-                delayed(process_structure)(i, generated_structures[i].copy(), calc_params, optimise_structure, calc=calc)
-                for i in range(len(generated_structures))
-            )
-
             # Wait for all futures to complete
             energies_unrlxd = []
             energies_rlxd = []
-            for j, result in enumerate(results):
-                rlxd_generated_structure, energy_unrlxd, energy_rlxd = result
+            for j in range(len(generated_structures)):
+                rlxd_generated_structure, energy_unrlxd, energy_rlxd = process_structure(
+                    j, generated_structures[j].copy(), calc_params, optimise_structure, calc=calc
+                )
                 if rlxd_generated_structure is None:
                     print("Structure failed the checks")
                     continue

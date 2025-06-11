@@ -126,6 +126,7 @@ if __name__ == "__main__":
         unrlxd_structures = []
         rlxd_structures = []
         iter2 = 0
+        generator.init_seed(seed)
         # start the iterations, loop over the hosts, then repeat the process X times
         for iter in range(10):
             for host in hosts:
@@ -144,8 +145,7 @@ if __name__ == "__main__":
                 generator.generate(
                     num_structures = 5,
                     stoichiometry = { 'Al': num_atoms },
-                    seed = seed*1000+iter,
-                    method_ratio = {"void": 0.5, "rand": 0.001, "walk": 0.5, "grow": 0.0, "min": 1.0},
+                    method_ratio = {"void": 0.1, "rand": 0.01, "walk": 0.25, "grow": 0.25, "min": 1.0},
                     verbose = 0,
                 )
 

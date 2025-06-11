@@ -1,9 +1,10 @@
 from mace.calculators import mace_mp
+from chgnet.model import CHGNetCalculator
 from ase.calculators.singlepoint import SinglePointCalculator
 from raffle.generator import raffle_generator
 from ase import build
 from ase.optimize import FIRE
-from ase.io import write
+from ase.io import read, write
 import numpy as np
 import os
 from joblib import Parallel, delayed
@@ -76,29 +77,32 @@ if __name__ == "__main__":
     Si_bulk = build.bulk("Si", crystalstructure="diamond", a=5.43)
     Si_bulk.calc = calc
     Si_reference_energy = Si_bulk.get_potential_energy() / len(Si_bulk)
-    Si_cubic = build.make_supercell(Si_bulk, [[-1, 1, 1], [1, -1, 1], [1, 1, -1]])
+    # Si_cubic = build.make_supercell(Si_bulk, [[-1, 1, 1], [1, -1, 1], [1, 1, -1]])
     Ge_bulk = build.bulk("Ge", crystalstructure="diamond", a=5.65)
     Ge_bulk.calc = calc
-    Ge_cubic = build.make_supercell(Ge_bulk, [[-1, 1, 1], [1, -1, 1], [1, 1, -1]])
+    # Ge_cubic = build.make_supercell(Ge_bulk, [[-1, 1, 1], [1, -1, 1], [1, 1, -1]])
     Ge_reference_energy = Ge_bulk.get_potential_energy() / len(Ge_bulk)
 
-    Si_supercell = build.make_supercell(Si_cubic, [[2, 0, 0], [0, 2, 0], [0, 0, 1]])
-    Ge_supercell = build.make_supercell(Ge_cubic, [[2, 0, 0], [0, 2, 0], [0, 0, 1]])
+    # Si_supercell = build.make_supercell(Si_cubic, [[2, 0, 0], [0, 2, 0], [0, 0, 1]])
+    # Ge_supercell = build.make_supercell(Ge_cubic, [[2, 0, 0], [0, 2, 0], [0, 0, 1]])
 
-    Si_surface = build.surface(Si_supercell, indices=(0, 0, 1), layers=2)
-    Ge_surface = build.surface(Ge_supercell, indices=(0, 0, 1), layers=2)
+    # Si_surface = build.surface(Si_supercell, indices=(0, 0, 1), layers=2)
+    # Ge_surface = build.surface(Ge_supercell, indices=(0, 0, 1), layers=2)
 
-    Si_slab = build.surface(Si_supercell, indices=(0, 0, 1), layers=2, vacuum=12, periodic=True)
-    Si_slab.calc = calc
-    Ge_slab = build.surface(Ge_supercell, indices=(0, 0, 1), layers=2, vacuum=12, periodic=True)
-    Ge_slab.calc = calc
+    # Si_slab = build.surface(Si_supercell, indices=(0, 0, 1), layers=2, vacuum=12, periodic=True)
+    # Si_slab.calc = calc
+    # Ge_slab = build.surface(Ge_supercell, indices=(0, 0, 1), layers=2, vacuum=12, periodic=True)
+    # Ge_slab.calc = calc
 
-    host = build.stack(Si_surface, Ge_surface, axis=2, distance= 5.43/2 + 5.65/2)
-    cell = host.get_cell()
-    print("Host cell: ", host.get_cell())
-    cell[2, 2] -= 3.8865 # (5.43 + 5.65) / 2 * 3/4
-    host.set_cell(cell, scale_atoms=False)
+    # host = build.stack(Si_surface, Ge_surface, axis=2, distance= 5.43/2 + 5.65/2)
+    # cell = host.get_cell()
+    # print("Host cell: ", host.get_cell())
+    # cell[2, 2] -= 3.8865 # (5.43 + 5.65) / 2 * 3/4
+    # host.set_cell(cell, scale_atoms=False)
 
+    print("element reference energies:", {'Si': Si_reference_energy, 'Ge': Ge_reference_energy})
+
+    host = read(script_dir / "host.traj")
     hosts.append(host)
 
     # set the parameters for the generator
@@ -146,6 +150,7 @@ if __name__ == "__main__":
     num_structures_old = 0
     optimise_structure = True
     # start the iterations, loop over the hosts, then repeat the process X times
+    generator.init_seed(put=seed)
     for ival in range(40):
         for host in hosts:
             print("setting host")
@@ -159,7 +164,6 @@ if __name__ == "__main__":
             generator.generate(
                 num_structures = 5,
                 stoichiometry = { 'Si': 16, 'Ge': 16 },
-                seed = seed*1000+iter,
                 method_ratio = {"void": 0.1, "rand": 0.01, "walk": 0.25, "grow": 0.25, "min": 1.0},
                 verbose = 0,
             )

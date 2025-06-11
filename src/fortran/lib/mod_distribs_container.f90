@@ -863,6 +863,7 @@ contains
     read(unit, *) buffer1, buffer2, this%radius_distance_tol
     read(unit, '(A)') buffer
     nspec = icount(buffer(index(buffer,"elements")+8:))
+    if(allocated(this%element_info)) deallocate(this%element_info)
     allocate(this%element_info(nspec))
     read(buffer, *) buffer1, buffer2, this%element_info(:)%name
     read(unit, *) buffer1, buffer2, this%element_info(:)%energy

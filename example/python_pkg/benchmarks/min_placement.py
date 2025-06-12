@@ -1,3 +1,9 @@
+import os
+nthreads = 1
+os.environ["OMP_NUM_THREADS"] = str(nthreads)
+os.environ["OPENBLAS_NUM_THREADS"] = str(nthreads)
+os.environ["MKL_NUM_THREADS"] = str(nthreads)
+
 import pytest
 import time
 import numpy as np

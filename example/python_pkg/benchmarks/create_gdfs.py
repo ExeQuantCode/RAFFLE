@@ -1,4 +1,9 @@
 import os
+nthreads = 1
+os.environ["OMP_NUM_THREADS"] = str(nthreads)
+os.environ["OPENBLAS_NUM_THREADS"] = str(nthreads)
+os.environ["MKL_NUM_THREADS"] = str(nthreads)
+
 import glob
 from raffle.generator import raffle_generator
 import pytest

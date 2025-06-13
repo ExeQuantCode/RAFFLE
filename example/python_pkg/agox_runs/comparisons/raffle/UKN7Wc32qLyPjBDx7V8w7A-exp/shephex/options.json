@@ -1,8 +1,0 @@
-{
-    "kwargs": {
-        "train": true,
-        "index": 9,
-        "n_dist": 4
-    },
-    "args": []
-}

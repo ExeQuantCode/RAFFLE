@@ -5,7 +5,7 @@ AGOX tutorial
 =============
 
 RAFFLE is implemented into AGOX as a generator, allowing it to be used in conjunction with other AGOX features such database management and optimisation routines.
-The generator is designed to be used with the AGOX framework, which provides a user-friendly way to set up and run RAFFLE-based structure searches.
+The generator is designed to be used with the AGOX framework (:footcite:t:`Christiansen2022AtomisticGlobalOptimization`), which provides a user-friendly way to set up and run RAFFLE-based structure searches.
 
 This tutorial will guide you through the process of setting up and using the RAFFLE generator within AGOX.
 The example script can be found in the following directory:

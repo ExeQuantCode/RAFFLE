@@ -113,7 +113,7 @@ def raffle_agox(train=True, n_dist=4, index=42):
         sampler=None,
         train=train,
         seed=seed,
-        gen_params = {"void": 0.0, "rand": 0.1, "walk": 0.25, "grow": 0.25, "min": 1.0})
+        method_ratio = {"void": 0.0, "rand": 0.1, "walk": 0.25, "grow": 0.25, "min": 1.0})
 
     ##############################################################################
     # Search Settings:

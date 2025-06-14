@@ -6,6 +6,8 @@ import numpy
 import warnings
 from ase import Atoms
 import re
+from collections import Counter
+from ase.data import chemical_symbols
 
 
 class Geom_Rw(f90wrap.runtime.FortranModule):
@@ -2169,6 +2171,9 @@ class Generator(f90wrap.runtime.FortranModule):
             ase.Atoms
                 The host structure for the generation.
             """
+            is_defined = _raffle.f90wrap_raffle_generator_type__get__host_defined(self._handle)
+            if not is_defined:
+                return None
             output = \
                 _raffle.f90wrap_generator__get_host__binding__rgt(this=self._handle)
             output = f90wrap.runtime.lookup_class("raffle.basis").from_handle(output, \
@@ -2268,6 +2273,29 @@ class Generator(f90wrap.runtime.FortranModule):
             """
             _raffle.f90wrap_generator__reset_grid__binding__raffle_generator_type(this=self._handle)
 
+        def get_bounds(self):
+            """
+            Get the bounding box for the generation.
+
+            Returns
+            -------
+            bounds : list[list[float]]
+                The bounding box within which to constrain placement of atoms.
+                In the form [[a_min, b_min, c_min], [a_max, b_max, c_max]].
+                Values given in direct (crystal) coordinates, ranging from 0 to 1.
+            """
+
+            array_ndim, array_type, array_shape, array_handle = \
+                _raffle.f90wrap_raffle_generator_type__array__bounds(this=self._handle)
+            if array_handle in self._arrays:
+                bounds = self._arrays[array_handle]
+            else:
+                bounds = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                        self._handle,
+                                        _raffle.f90wrap_raffle_generator_type__array__bounds)
+                self._arrays[array_handle] = bounds
+            return bounds
+
         def set_bounds(self, bounds = None):
             """
             Set the bounding box for the generation.
@@ -2276,7 +2304,7 @@ class Generator(f90wrap.runtime.FortranModule):
             ----------
             bounds : list[list[float]]:
                 The bounding box within which to constrain placement of atoms.
-                In the form [[a_min, a_max], [b_min, b_max], [c_min, c_max]].
+                In the form [[a_min, b_min, c_min], [a_max, b_max, c_max]].
                 Values given in direct (crystal) coordinates, ranging from 0 to 1.
             """
             # check if bounds is a list of length 2
@@ -2402,6 +2430,10 @@ class Generator(f90wrap.runtime.FortranModule):
                     else:
                         num = re.findall(r'\d+', s)[0]
                     stoichiometry[element] = int(num)
+                stoichiometry = Generator.stoichiometry_array(dict=stoichiometry)
+            elif isinstance(stoichiometry, list) and all(isinstance(i, int) for i in stoichiometry):
+                stoichiometry = [chemical_symbols[n] for n in stoichiometry]
+                stoichiometry = dict(Counter(stoichiometry))
                 stoichiometry = Generator.stoichiometry_array(dict=stoichiometry)
 
             exit_code = _raffle.f90wrap_generator__generate__binding__rgt(

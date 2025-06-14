@@ -283,6 +283,27 @@ end subroutine f90wrap_raffle_generator_type__set__num_structures
 !###############################################################################
 ! host handling
 !###############################################################################
+subroutine f90wrap_raffle_generator_type__get__host_defined( &
+     this, f90wrap_host_is_defined &
+)
+    use raffle__generator, only: raffle_generator_type
+    use raffle__geom_rw, only: basis_type
+    implicit none
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    type basis_type_ptr_type
+        type(basis_type), pointer :: p => NULL()
+    end type basis_type_ptr_type
+    integer, intent(in)   :: this(2)
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    logical, intent(out) :: f90wrap_host_is_defined
+    type(basis_type_ptr_type) :: host_ptr
+
+    this_ptr = transfer(this, this_ptr)
+    f90wrap_host_is_defined = this_ptr%p%distributions%host_system%defined
+end subroutine f90wrap_raffle_generator_type__get__host_defined
+
 subroutine f90wrap_raffle_generator_type__get__host(this, f90wrap_host)
     use raffle__generator, only: raffle_generator_type
     use raffle__geom_rw, only: basis_type

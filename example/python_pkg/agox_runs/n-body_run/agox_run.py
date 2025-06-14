@@ -101,10 +101,8 @@ def raffle_agox(train=True, n_dist=4, index=42):
 
 
     generator = RaffleGenerator(**environment.get_confinement(),
-        host=template,
         database=database,
         environment=environment,
-        species=species_to_place,
         element_energies=element_energies,
         transfer_data=[template_copy],
         order=1,

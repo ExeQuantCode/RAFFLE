@@ -23,7 +23,7 @@ contains
     real(real32), allocatable :: probability_density(:,:)
     if(.not.allocated(cached_probability_density)) then
        write(0,*) "Probability density not allocated. Returning zero array."
-       probability_density = 0._real32
+       allocate(probability_density(1,1), source = 0._real32)
     else
        allocate(probability_density, source = cached_probability_density)
     end if

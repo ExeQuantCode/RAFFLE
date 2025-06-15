@@ -189,4 +189,4 @@ Other arguments exist that are not specific to the RAFFLE generator, but are use
 
 - ``database``: The database object to use for storing the generated structures.
 
-Documentation of these arguments can be found in the AGOX documentation: https://agox.gitlab.io/agox/generators/
+Documentation of these arguments can be found in the AGOX documentation: https://agox.gitlab.io/agox/generators/generators.html

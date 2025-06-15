@@ -754,11 +754,15 @@ contains
        return
     end if
     open(newunit=unit, file=file)
+    write(unit, '("# history_len ",I0)') this%history_len
+    write(fmt, '("(""# history_deltas""",I0,"(1X,ES0.8))")') &
+         size(this%history_deltas)
+    write(unit, fmt) this%history_deltas
     write(unit, '("# nbins",3(1X,I0))') this%nbins
-    write(unit, '("# width",3(1X,ES0.4))') this%width
-    write(unit, '("# sigma",3(1X,ES0.4))') this%sigma
-    write(unit, '("# cutoff_min",3(1X,ES0.4))') this%cutoff_min
-    write(unit, '("# cutoff_max",3(1X,ES0.4))') this%cutoff_max
+    write(unit, '("# width",3(1X,ES0.8))') this%width
+    write(unit, '("# sigma",3(1X,ES0.8))') this%sigma
+    write(unit, '("# cutoff_min",3(1X,ES0.8))') this%cutoff_min
+    write(unit, '("# cutoff_max",3(1X,ES0.8))') this%cutoff_max
     write(unit, '("# radius_distance_tol",4(1X,ES0.4))') &
          this%radius_distance_tol
     write(fmt, '("(""# "",A,",I0,"(1X,A))")') size(this%element_info)
@@ -836,6 +840,8 @@ contains
     ! Local variables
     integer :: unit
     !! File unit.
+    integer :: iostat
+    !! I/O status.
 
     integer :: i
     !! Loop index.
@@ -843,7 +849,7 @@ contains
     !! Number of species.
     logical :: exist
     !! Boolean whether the file exists.
-    character(256) :: buffer, buffer1, buffer2
+    character(256) :: buffer, buffer1
     !! Buffer for reading lines.
 
     ! check if file exists
@@ -855,46 +861,90 @@ contains
 
     ! read the file
     open(newunit=unit, file=file)
-    read(unit, *) buffer1, buffer2, this%nbins
-    read(unit, *) buffer1, buffer2, this%width
-    read(unit, *) buffer1, buffer2, this%sigma
-    read(unit, *) buffer1, buffer2, this%cutoff_min
-    read(unit, *) buffer1, buffer2, this%cutoff_max
-    read(unit, *) buffer1, buffer2, this%radius_distance_tol
-    read(unit, '(A)') buffer
-    nspec = icount(buffer(index(buffer,"elements")+8:))
-    if(allocated(this%element_info)) deallocate(this%element_info)
-    allocate(this%element_info(nspec))
-    read(buffer, *) buffer1, buffer2, this%element_info(:)%name
-    read(unit, *) buffer1, buffer2, this%element_info(:)%energy
-    do i = 1, nspec
-       call this%set_element_energy( &
-            this%element_info(i)%name, &
-            this%element_info(i)%energy &
-       )
-       call this%element_info(i)%set(this%element_info(i)%name)
+    do
+       read(unit, '(A)', iostat=iostat) buffer
+       if(iostat.ne.0) exit
+       buffer = trim(adjustl(buffer))
+       if(trim(buffer) .eq. "") cycle
+       if(buffer(1:1) .ne. "#") cycle
+       ! get the header
+       buffer = trim(adjustl(buffer(2:)))
+       if(trim(adjustl(buffer)) .eq. "2-body") exit
+       if(index(buffer, "history_len") .ne. 0) then
+          read(buffer, *) buffer1, this%history_len
+          call this%set_history_len(this%history_len)
+       else if(index(buffer, "history_deltas") .ne. 0) then
+          read(buffer, *) buffer1, this%history_deltas
+       else if(index(buffer, "nbins") .ne. 0) then
+          read(buffer, *) buffer1, this%nbins
+       else if(index(buffer, "width") .ne. 0) then
+          read(buffer, *) buffer1, this%width
+       else if(index(buffer, "sigma") .ne. 0) then
+          read(buffer, *) buffer1, this%sigma
+       else if(index(buffer, "cutoff_min") .ne. 0) then
+          read(buffer, *) buffer1, this%cutoff_min
+       else if(index(buffer, "cutoff_max") .ne. 0) then
+          read(buffer, *) buffer1, this%cutoff_max
+       else if(index(buffer, "radius_distance_tol") .ne. 0) then
+          read(buffer, *) buffer1, this%radius_distance_tol
+       else if(index(buffer, "elements") .ne. 0) then
+          nspec = icount(buffer(index(buffer,"elements")+8:))
+          if(allocated(this%element_info)) deallocate(this%element_info)
+          allocate(this%element_info(nspec))
+          read(buffer, *) buffer1, this%element_info(:)%name
+       else if(index(buffer, "energies") .ne. 0) then
+          read(buffer, *) buffer1, this%element_info(:)%energy
+          do i = 1, nspec
+             call this%set_element_energy( &
+                  this%element_info(i)%name, &
+                  this%element_info(i)%energy &
+             )
+             call this%element_info(i)%set(this%element_info(i)%name)
+          end do
+          call this%update_bond_info()
+          allocate(this%best_energy_per_species(nspec))
+          allocate(this%norm_3body(nspec))
+          allocate(this%norm_4body(nspec))
+          allocate(this%in_dataset_3body(nspec))
+          allocate(this%in_dataset_4body(nspec))
+          allocate(this%best_energy_pair(size(this%bond_info)))
+          allocate(this%norm_2body(size(this%bond_info)))
+          allocate(this%in_dataset_2body(size(this%bond_info)))
+       else if(index(buffer, "best_energy_per_element") .ne. 0) then
+          read(buffer, *) buffer1, this%best_energy_per_species
+       else if(index(buffer, "3-body_norm") .ne. 0) then
+          read(buffer, *) buffer1, this%norm_3body
+       else if(index(buffer, "4-body_norm") .ne. 0) then
+          read(buffer, *) buffer1, this%norm_4body
+       else if(index(buffer, "in_dataset_3body") .ne. 0) then
+          read(buffer, *) buffer1, this%in_dataset_3body
+       else if(index(buffer, "in_dataset_4body") .ne. 0) then
+          read(buffer, *) buffer1, this%in_dataset_4body
+       else if(index(buffer, "element_pairs") .ne. 0) then
+          read(buffer, *) buffer1, this%bond_info(:)%element(1)
+          read(buffer, *) buffer1, this%bond_info(:)%element(2)
+       else if(index(buffer, "radii") .ne. 0) then
+          read(buffer, *) buffer1, this%bond_info(:)%radius_covalent
+       else if(index(buffer, "best_energy_per_pair") .ne. 0) then
+          read(buffer, *) buffer1, this%best_energy_pair
+       else if(index(buffer, "3-body_norm") .ne. 0) then
+          read(buffer, *) buffer1, this%norm_3body
+       else if(index(buffer, "4-body_norm") .ne. 0) then
+          read(buffer, *) buffer1, this%norm_4body
+       else if(index(buffer, "in_dataset_3body") .ne. 0) then
+          read(buffer, *) buffer1, this%in_dataset_3body
+       else if(index(buffer, "in_dataset_4body") .ne. 0) then
+          read(buffer, *) buffer1, this%in_dataset_4body
+       else if(index(buffer, "2-body_norm") .ne. 0) then
+          read(buffer, *) buffer1, this%norm_2body
+       else if(index(buffer, "in_dataset_2body") .ne. 0) then
+          read(buffer, *) buffer1, this%in_dataset_2body
+       else
+          write(0,*) "Unknown header: ", trim(buffer)
+          cycle
+       end if
     end do
-    call this%update_bond_info()
-    allocate(this%best_energy_per_species(nspec))
-    allocate(this%norm_3body(nspec))
-    allocate(this%norm_4body(nspec))
-    allocate(this%in_dataset_3body(nspec))
-    allocate(this%in_dataset_4body(nspec))
-    read(unit, *) buffer1, buffer2, this%best_energy_per_species
-    read(unit, *) buffer1, buffer2, this%norm_3body
-    read(unit, *) buffer1, buffer2, this%norm_4body
-    read(unit, *) buffer1, buffer2, this%in_dataset_3body
-    read(unit, *) buffer1, buffer2, this%in_dataset_4body
-    read(unit, *)
-    allocate(this%best_energy_pair(size(this%bond_info)))
-    allocate(this%norm_2body(size(this%bond_info)))
-    allocate(this%in_dataset_2body(size(this%bond_info)))
-    read(unit, *) buffer1, buffer2, this%bond_info(:)%radius_covalent
-    read(unit, *) buffer1, buffer2, this%best_energy_pair
-    read(unit, *) buffer1, buffer2, this%norm_2body
-    read(unit, *) buffer1, buffer2, this%in_dataset_2body
-    read(unit, *)
-    read(unit, *)
+
     read(unit, *)
     allocate(this%gdf%df_2body(this%nbins(1),size(this%bond_info)))
     do i = 1, this%nbins(1)
@@ -2803,8 +2853,6 @@ contains
     !! Convergence flag.
 
     ! Local variables
-    integer :: i, j
-    !! Loop index.
     real(real32) :: threshold_
     !! Threshold for convergence.
 

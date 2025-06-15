@@ -298,7 +298,6 @@ subroutine f90wrap_raffle_generator_type__get__host_defined( &
     integer, intent(in)   :: this(2)
     type(raffle_generator_type_ptr_type) :: this_ptr
     logical, intent(out) :: f90wrap_host_is_defined
-    type(basis_type_ptr_type) :: host_ptr
 
     this_ptr = transfer(this, this_ptr)
     f90wrap_host_is_defined = this_ptr%p%distributions%host_system%defined

@@ -47,7 +47,7 @@ contains
     integer, intent(in) :: n
     !! The index of the triangular number to return.
 
-    real(real32) :: output
+    integer :: output
     !! The nth triangular number.
 
     output = n * ( n + 1 ) / 2

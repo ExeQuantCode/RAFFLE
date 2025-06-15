@@ -2,30 +2,16 @@ import matplotlib
 
 matplotlib.use("Agg")
 
-import numpy as np
-from ase import Atoms
-from ase.optimize import BFGS
 
 from agox import AGOX
 from agox.databases import Database
 from agox.environments import Environment
 from agox.evaluators import LocalOptimizationEvaluator
 from agox.generators import RattleGenerator
-from agox.models.descriptors import SOAP
-from agox.models.GPR import SparseGPR
-from agox.models.GPR.kernels import RBF
-from agox.models.GPR.kernels import Constant as C
-from agox.postprocessors.ray_relax import ParallelRelaxPostprocess
-from agox.samplers import MetropolisSampler
 import shephex
-from ase import build
 
 @shephex.chain()
 def raffle_agox(train=True, n_dist=4, index=42):
-    # Manually set seed and database-index
-    seed = index
-    database_index = index
-    np.random.seed(seed)
 
     # Using argparse if e.g. using array-jobs on Slurm to do several independent searches.
     # from argparse import ArgumentParser
@@ -40,12 +26,19 @@ def raffle_agox(train=True, n_dist=4, index=42):
     # System & general settings:
     ##############################################################################
 
+    import numpy as np
     from ase import Atoms
     from ase.io import write
     from ase.calculators.singlepoint import SinglePointCalculator
     from agox.generators.raffle import RaffleGenerator, bounds_to_confinement
     from mace.calculators import mace_mp
     from agox.utils.replica_exchange.priors import get_prior
+
+
+    # Manually set seed and database-index
+    seed = index
+    database_index = index
+    np.random.seed(seed)
 
     chg = get_prior("chg")
     mace = get_prior("mace")
@@ -77,7 +70,7 @@ def raffle_agox(train=True, n_dist=4, index=42):
     #write("template.traj", template)
     print(indices)
 
-    confinement_corner, confinement_cell = bounds_to_confinement([[0, 0, 0.0], [1, 1, 1]],template)
+    confinement_corner, confinement_cell = bounds_to_confinement([[0, 0, 0], [1, 1, 1]],template)
 
     element_energies = {'C': C_reference_energy}
     species_to_place={"C" : indices}

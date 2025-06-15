@@ -2315,6 +2315,16 @@ class Generator(f90wrap.runtime.FortranModule):
                 if not ( isinstance(bound, list) or isinstance(bound, numpy.ndarray) ) or len(bound) != 3:
                     raise ValueError("each element of bounds must be a list of length 3")
 
+            # assert that bounds are in the range [0, 1]
+            for bound in bounds:
+                for value in bound:
+                    if not (0.0 <= value <= 1.0):
+                        raise ValueError("bounds must be in the range [0, 1]")
+
+            # assert that a_max > a_min, b_max > b_min, c_max > c_min
+            if not (bounds[0][0] < bounds[1][0] and bounds[0][1] < bounds[1][1] and bounds[0][2] < bounds[1][2]):
+                raise ValueError("bounds must be in the form [[a_min, b_min, c_min], [a_max, b_max, c_max]] with a_max > a_min, b_max > b_min, c_max > c_min")
+
             _raffle.f90wrap_generator__set_bounds__binding__rgt(this=self._handle, \
                 bounds=bounds)
 

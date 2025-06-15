@@ -502,6 +502,12 @@ contains
     real(real32), dimension(2,3), intent(in) :: bounds
     !! Bounds for atom placement.
 
+    ! check if bounds has zero volume, if so, return
+    if( any(bounds(2,:) .le. bounds(1,:)) ) then
+       call stop_program("Bounds have zero volume")
+       return
+    end if
+
     this%bounds = bounds
     call this%set_grid()
 

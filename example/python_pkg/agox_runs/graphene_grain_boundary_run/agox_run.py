@@ -101,7 +101,6 @@ def raffle_agox(index=42, void=0.1, rand=0.01, walk=0.25, grow=0.25, min=1.0):
         host=template,
         database=database,
         environment=environment,
-        species=species_to_place,
         element_energies=element_energies,
         transfer_data=[graphene],
         order=1,

@@ -14,6 +14,9 @@ The example script can be found in the following directory:
 
     raffle/example/python_pkg/agox_runs/Si-Ge_run/agox_run.py
 
+Requirements
+------------
+
 This script utilises the `hex` slurm experiment management package.
 The script is designed to run on a slurm cluster, but can also be run locally by removing the slurm-specific code.
 `hex` can be installed via pip:
@@ -35,7 +38,9 @@ To use the RAFFLE generator, you need to install the `raffle_generator` branch o
     cd agox
     pip install -e .
 
-The RAFFLE generator differs slightly from the standard AGOX generator, as it requires a host structure to be provided directly to the generator.
+The RAFFLE generator differs slightly from the standard AGOX generator.
+If using `from_host` in RAFFLE, then the host structure must be provided to the generator directly in addition to the environment.
+Otherwise, the host structure (without information regarding the system's energy) is provided automatically by the AGOX framework.
 
 An environment must be set up for the search, this defines the host structure, the stoichiometry of atoms to be added, and the bounding box for the search.
 The bounding box must first be defined in terms of a lower left and upper right corner, which can be done using the `bounds_to_confinement` function.
@@ -93,15 +98,17 @@ The RAFFLE generator can then be set up using the `RaffleGenerator` class in AGO
 
     generator = RaffleGenerator(
         **environment.get_confinement(),
-        host = template,
+        element_energies =  {
+            'Si': -4.0,
+            'Ge': -3.5
+        }, # example element energies
         database = database,
-        environment = environment,
-        species = symbols,
         n_structures = 5,
         ...
     )
 
 This sets up the RAFFLE generator to generate 5 structures each iteration, using the host structure and the environment defined earlier.
+A more extensive list of arguments specific to the RAFFLE generator can be found at the end of this tutorial in the section :ref:`raffle_generator_arguments`.
 
 Evaluators and structure filters can be set up as usual in AGOX.
 For example, to set up an evaluator to perform structural optimisation, and a pre- and post-process filter that removes structures with bondlengths less than a certain value, you can use the following code:
@@ -143,3 +150,43 @@ Finally, the AGOX search can be set up and run using the `AGOX` class in AGOX:
 
     ## Run the AGOX search for N_iterations
     agox.run(N_iterations=40)
+
+
+.. _raffle_generator_arguments:
+
+RAFFLE generator specific arguments
+-----------------------------------
+
+The RAFFLE generator has several specific arguments that can be set to control the generation of structures.
+The required argument for the RAFFLE generator is:
+
+- ``element_energies``: A dictionary of element energies, taking the form ``{'Si': -4.0, 'Ge': -3.5}``. These are reference energies for the elements in the system, similar to chemical potentials.
+
+More information on this can be found in :ref:`element-energies`.
+
+Other optional arguments that can be set include:
+
+- ``n_structures``: The number of structures to generate in each iteration.
+- ``host``: The host structure to use for the generation. This can be an ASE Atoms object.
+- ``kBT``: The weighting factor for scaling the importance of different atomic features based on their system's relative energy.
+- ``history_len``: The length of the history for tracking change in the generalised descriptor.
+- ``width``: The width of the Gaussian functions used in the distribution functions (list of three floats, for 2-, 3-, and 4-body interactions).
+- ``sigma``: The standard deviation of the Gaussian functions used in the distribution functions (list of three floats, for 2-, 3-, and 4-body interactions).
+- ``cutoff_min``: The minimum cutoff for the Gaussian functions (list of three floats, for 2-, 3-, and 4-body interactions).
+- ``cutoff_max``: The maximum cutoff for the Gaussian functions (list of three floats, for 2-, 3-, and 4-body interactions).
+- ``radius_distance_tol``: The radius distance tolerance for the element-pair covalent radii (list of four floats, for 3-body min, 3-body max, 4-body min, and 4-body max interactions).
+- ``transfer_data``: A list of ASE Atoms objects used to initialise the generalised descriptor.
+- ``method_ratio``: The ratio of placement methods to use in the generation (dictionary with keys `void`, `rand`, `walk`, `grow`, and `min`, and values as floats representing the relative importance of each method).
+- ``deallocate_systems``: A boolean flag to indicate whether to deallocate the individual distribution functions of systems after they have been combined into the generalised descriptor.
+- ``from_host``: A boolean flag to indicate whether to represent the energies with respect to the host structure.
+- ``max_walk_attempts``: The maximum number of attempts to place an atom using the `walk` method before giving up.
+- ``walk_step_size_coarse``: The initial/coarse step size for the `walk` method.
+- ``walk_step_size_fine``: The final/fine step size for the `walk` method.
+- ``grid_spacing``: The spacing of the grid used for the `void` and `min` methods.
+- ``seed``: A random seed for reproducibility.
+
+Other arguments exist that are not specific to the RAFFLE generator, but are used in the AGOX framework, such as:
+
+- ``database``: The database object to use for storing the generated structures.
+
+Documentation of these arguments can be found in the AGOX documentation: https://agox.gitlab.io/agox/generators/

@@ -111,6 +111,8 @@ To set the placement method ratios for a specific generation method, the user ca
     )
 
 
+.. _element-energies:
+
 Energy references
 -----------------
 

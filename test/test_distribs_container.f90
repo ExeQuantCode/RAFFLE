@@ -83,9 +83,11 @@ program test_distribs_container
   call test_set_radius_distance_tol(success)
   call test_create([basis_graphite], success)
   call test_update([basis_graphite, basis_diamond], success)
+  call test_read_write_gdfs([basis_graphite, basis_diamond], success)
 
   call test_create([basis_diamond, basis_mgo], success)
   call test_update([basis_diamond, basis_mgo], success)
+  call test_read_write_gdfs([basis_diamond, basis_mgo], success)
   !  call test_write_read(success)
   !  call test_write_2body(success)
   !  call test_write_3body(success)
@@ -231,6 +233,41 @@ contains
          "History delta list was not allocated", &
          success &
     )
+
+    ! Call the subroutine to set the history length when already allocated
+    history_len = 3
+    call distribs_container%set_history_len(history_len)
+
+    ! Check if the history length was set correctly
+     call assert( &
+           distribs_container%history_len .eq. history_len, &
+           "History length was not set correctly after reallocation", &
+           success &
+     )
+
+     call assert( &
+           allocated(distribs_container%history_deltas) .and. &
+           size(distribs_container%history_deltas, 1) .eq. history_len, &
+           "History delta list was not reallocated", &
+           success &
+     )
+
+     ! Call the subroutine to set the history length to zero
+     history_len = 0
+     call distribs_container%set_history_len(history_len)
+
+     ! Check if the history length was set correctly
+     call assert( &
+          distribs_container%history_len .eq. history_len, &
+          "History length was not set to zero", &
+          success &
+     )
+
+     call assert( &
+          .not.allocated(distribs_container%history_deltas), &
+          "History deltas was not deallocated", &
+          success &
+     )
 
   end subroutine test_set_history_len
 
@@ -392,6 +429,7 @@ contains
     type(distribs_container_type) :: distribs_container
     type(basis_type), dimension(size(basis,1)) :: basis_list
     character(len=3), dimension(:), allocatable :: elements
+    real(real32), dimension(:), allocatable :: energy_above_hull
 
     ! Initialise basis_list
     do i = 1, size(basis,1)
@@ -584,6 +622,29 @@ contains
          success &
     )
 
+    allocate(energy_above_hull(10))
+    energy_above_hull = 0._real32
+
+    write(*,*) "Testing energy_above_hull error handling"
+    call distribs_container%create( &
+         basis_list, deallocate_systems=.false., &
+         energy_above_hull_list=energy_above_hull &
+    )
+    write(*,*) "Handled error: energy_above_hull provided but weight_by_hull is false"
+    distribs_container%weight_by_hull = .true.
+    call distribs_container%create( &
+         basis_list, deallocate_systems=.false., &
+         energy_above_hull_list=energy_above_hull &
+    )
+    write(*,*) "Handled error: energy_above_hull and basis_list sizes do not match"
+    deallocate(energy_above_hull)
+    allocate(energy_above_hull(size(basis_list,1)))
+    energy_above_hull = 0._real32
+    call distribs_container%create( &
+         basis_list, deallocate_systems=.false., &
+         energy_above_hull_list=energy_above_hull &
+    )
+
   end subroutine test_create
 
   subroutine test_update(basis, success)
@@ -597,6 +658,7 @@ contains
     type(distribs_container_type) :: distribs_container
     type(basis_type), dimension(size(basis,1)) :: basis_list
     character(len=3), dimension(:), allocatable :: elements
+    real(real32), dimension(:), allocatable :: energy_above_hull
 
     ! Initialise basis_list
     do i = 1, size(basis,1)
@@ -651,6 +713,42 @@ contains
          "system not correctly deallocated",  &
          success &
     )
+
+    ! Check history length
+    call distribs_container%set_history_len(10)
+    call distribs_container%update( &
+         basis_list, deallocate_systems=.false. &
+    )
+    call assert( &
+         distribs_container%history_deltas(1) .ne. huge(0._real32), &
+         "History delta not set on update", &
+         success &
+    )
+
+    allocate(energy_above_hull(10))
+    energy_above_hull = 0._real32
+
+    write(*,*) "Testing energy_above_hull error handling"
+    call distribs_container%update( &
+         basis_list, deallocate_systems=.false., &
+         energy_above_hull_list=energy_above_hull &
+    )
+    write(*,*) "Handled error: energy_above_hull provided but weight_by_hull is false"
+    distribs_container%weight_by_hull = .true.
+    call distribs_container%update( &
+         basis_list, deallocate_systems=.false., &
+         energy_above_hull_list=energy_above_hull &
+    )
+    write(*,*) "Handled error: energy_above_hull and basis_list sizes do not match"
+    deallocate(energy_above_hull)
+    allocate(energy_above_hull(size(basis_list,1)))
+    energy_above_hull = 0._real32
+    call distribs_container%update( &
+         basis_list, deallocate_systems=.false., &
+         energy_above_hull_list=energy_above_hull, &
+         from_host = .true. &
+    )
+    write(*,*) "Handled error: from_host and energy_above_hull provided"
 
   end subroutine test_update
 
@@ -908,6 +1006,123 @@ contains
 
 
   end subroutine test_get_bin
+
+  subroutine test_read_write_gdfs(basis, success)
+    implicit none
+    type(basis_type), dimension(:), intent(in) :: basis
+    logical, intent(inout) :: success
+
+     type(distribs_container_type) :: distribs_container, distribs_container_read
+     character(len=100) :: filename
+
+    ! Set up a test filename
+    filename = 'test_gdfs.dat'
+
+    ! Create a dummy distribs_container
+    call distribs_container%set_history_len(10)
+    call distribs_container%set_width([0.1_real32, 0.1_real32, 0.1_real32])
+    call distribs_container%set_sigma([0.2_real32, 0.2_real32, 0.2_real32])
+    call distribs_container%create([basis], deallocate_systems=.false.)
+
+    ! Write the GDFs to a file
+    call distribs_container%write_gdfs(filename)
+
+    ! Check if the file exists
+    inquire(file=filename, exist=success)
+    call assert(success, "GDF file was not created", success)
+
+    ! Read the GDFs from the file
+    call distribs_container_read%read_gdfs(filename)
+
+    ! Check if the GDFs were read correctly
+    call assert( &
+         allocated(distribs_container_read%gdf%df_2body), &
+         "2-body GDF was not read correctly", &
+         success &
+    )
+    call assert( &
+         allocated(distribs_container_read%gdf%df_3body), &
+         "3-body GDF was not read correctly", &
+         success &
+    )
+    call assert( &
+         allocated(distribs_container_read%gdf%df_4body), &
+         "4-body GDF was not read correctly", &
+         success &
+    )
+
+    ! Check if the read width, sigma, and history length match
+    call assert( &
+         all( &
+              abs( &
+                   distribs_container_read%width - &
+                   distribs_container%width &
+              ) .lt. 1.E-6_real32 &
+         ), &
+         "Width was not read correctly", &
+         success &
+    )
+    call assert( &
+         all( &
+              abs( &
+                   distribs_container_read%sigma - &
+                   distribs_container%sigma &
+              ) .lt. 1.E-6_real32 &
+         ), &
+         "Sigma was not read correctly", &
+         success &
+    )
+    call assert( &
+         distribs_container_read%history_len .eq. distribs_container%history_len, &
+         "History length was not read correctly", &
+         success &
+    )
+    call assert( &
+         all( &
+              abs( 1._real32 - &
+                   distribs_container_read%history_deltas / &
+                   distribs_container%history_deltas &
+              ) .lt. 1.E-4_real32 &
+         ), &
+         "History deltas were not read correctly", &
+         success &
+    )
+    call assert( &
+         all( &
+              abs( &
+                   distribs_container_read%cutoff_min - &
+                   distribs_container%cutoff_min &
+              ) .lt. 1.E-6_real32 &
+         ), &
+         "Cutoff min was not read correctly", &
+         success &
+    )
+    call assert( &
+         all( &
+              abs( &
+                   distribs_container_read%cutoff_max - &
+                   distribs_container%cutoff_max &
+              ) .lt. 1.E-6_real32 &
+         ), &
+         "Cutoff max was not read correctly", &
+         success &
+    )
+    call assert( &
+         all( &
+              abs( &
+                   distribs_container_read%radius_distance_tol - &
+                   distribs_container%radius_distance_tol &
+              ) .lt. 1.E-6_real32 &
+         ), &
+         "Radius distance tolerance was not read correctly", &
+         success &
+    )
+    call assert( &
+         all( distribs_container_read%nbins .eq. distribs_container%nbins ), &
+         "Number of bins was not read correctly", &
+         success &
+    )
+  end subroutine test_read_write_gdfs
 
 !###############################################################################
 

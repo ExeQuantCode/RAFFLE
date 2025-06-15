@@ -6,7 +6,6 @@ program test_tools_infile
 
   integer :: ival = 0
   logical :: ltmp1
-  real(real32) :: rtmp1
   character(256) :: stmp1
   character(256) :: line
 

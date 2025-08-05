@@ -94,6 +94,23 @@ If you are using a conda environment, you can do this by running the following c
 
     conda install -c conda-forge libgfortran-ng libgfortran5
 
+Sometimes, this is an issue of the library path not being set correctly.
+To fix this, you can set the environment variables ``PATH`` and ``LD_LIBRARY_PATH`` to include the paths to the gfortran library.
+You can do this by running the following command:
+
+.. code-block:: bash
+
+    export LD_LIBRARY_PATH=<PATH_TO_GFORTRAN_LIBRARY>:$LD_LIBRARY_PATH
+    export PATH=<PATH_TO_GFORTRAN_BINARY>:$PATH
+
+An example of this would be:
+
+.. code-block:: bash
+
+    export LD_LIBRARY_PATH=$(brew --prefix gfortran)/lib:$LD_LIBRARY_PATH
+    export PATH=$(brew --prefix gfortran)/bin:$PATH
+
+Sometimes, ``lib64`` is the correct directory instead of ``lib``.
 
 General
 =======

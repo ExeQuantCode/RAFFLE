@@ -6,6 +6,7 @@ program test_place_methods
   use raffle__geom_rw, only: basis_type
   use raffle__geom_extd, only: extended_basis_type
   use raffle__generator, only: raffle_generator_type
+  use raffle__bounds, only: bounds_container_type
   implicit none
 
   integer :: num_seed, seed
@@ -17,11 +18,12 @@ program test_place_methods
   real(real32), dimension(2, 3) :: bounds
   character(3), dimension(1) :: element_symbols
   real(real32), dimension(1) :: element_energies
+  type(bounds_container_type), dimension(0) :: bounds_container
 
   integer, dimension(:), allocatable :: seed_arr
   type(basis_type), allocatable :: database(:)
   integer, dimension(:,:), allocatable :: atom_ignore_list
-  
+
   logical :: success = .true.
 
 
@@ -94,7 +96,7 @@ program test_place_methods
   seed = 0
   call random_seed(size=num_seed)
   allocate(seed_arr(num_seed))
-  seed_arr = seed 
+  seed_arr = seed
   call random_seed(put=seed_arr)
   call basis_extd%copy(basis)
   call basis_extd%set_atom_mask( atom_ignore_list )
@@ -113,7 +115,7 @@ program test_place_methods
   viable = .true.
   point = place_method_rand( &
        generator%distributions, &
-       bounds, &
+       bounds_container, bounds, &
        basis_extd, &
        atom_ignore_list(1,1), &
        radius_list = [ 0.5_real32 ], &
@@ -136,7 +138,7 @@ program test_place_methods
   viable = .true.
   point = place_method_walk( &
        generator%distributions, &
-       bounds, &
+       bounds_container, bounds, &
        basis_extd, &
        atom_ignore_list(1,1), &
        radius_list = [ 0.5_real32 ], &
@@ -163,6 +165,7 @@ program test_place_methods
        generator%distributions, &
        prior_point = [0.45_real32, 0.45_real32, 0.45_real32], &
        prior_species = 1, &
+       bounds_container = bounds_container, &
        bounds = bounds, &
        basis = basis_extd, &
        species = atom_ignore_list(1,1), &
@@ -234,7 +237,7 @@ contains
     gridpoints = get_gridpoints_and_viability( &
          distributions, &
          grid, &
-         bounds, &
+         bounds_container, bounds, &
          basis_copy, &
          [ 1 ], &
          [ distributions%bond_info(:)%radius_covalent ], &

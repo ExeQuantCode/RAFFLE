@@ -935,6 +935,44 @@ subroutine f90wrap_generator__reset_grid__binding__raffle_generator_type(this)
     call this_ptr%p%reset_grid()
 end subroutine f90wrap_generator__reset_grid__binding__raffle_generator_type
 
+subroutine f90wrap_generator__add_bounds__binding__rgt(this, shape_bn, origin, lengths, vectors, &
+    is_fractional_coordinates, exit_code, n0)
+    use raffle__generator, only: raffle_generator_type
+    implicit none
+
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    character*(*), intent(in) :: shape_bn
+    real(4), dimension(3), intent(in) :: origin
+    real(4), intent(in), optional, dimension(n0) :: lengths
+    real(4), dimension(3,3), intent(in), optional :: vectors
+    logical, intent(in), optional :: is_fractional_coordinates
+    integer, optional, intent(inout) :: exit_code
+    integer :: n0
+    !f2py intent(hide), depend(lengths) :: n0 = shape(lengths,0)
+    this_ptr = transfer(this, this_ptr)
+    call this_ptr%p%add_bounds(shape=shape_bn, origin=origin, lengths=lengths, vectors=vectors, &
+        is_fractional_coordinates=is_fractional_coordinates, exit_code=exit_code)
+end subroutine f90wrap_generator__add_bounds__binding__rgt
+
+subroutine f90wrap_generator__remove_bounds__binding__rgt(this, index_bn, exit_code)
+    use raffle__generator, only: raffle_generator_type
+    implicit none
+
+    type raffle_generator_type_ptr_type
+        type(raffle_generator_type), pointer :: p => NULL()
+    end type raffle_generator_type_ptr_type
+    type(raffle_generator_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    integer, intent(in) :: index_bn
+    integer, optional, intent(inout) :: exit_code
+    this_ptr = transfer(this, this_ptr)
+    call this_ptr%p%remove_bounds(index=index_bn, exit_code=exit_code)
+end subroutine f90wrap_generator__remove_bounds__binding__rgt
+
 subroutine f90wrap_generator__set_bounds__binding__rgt(this, bounds)
     use raffle__generator, only: raffle_generator_type
     implicit none

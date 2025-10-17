@@ -88,6 +88,7 @@ set(LIB_FILES
 	mod_viability.f90
 	mod_distribs.f90
 	mod_distribs_host.f90
+    mod_bounds.f90
 )
 
 set(SPECIAL_LIB_FILES

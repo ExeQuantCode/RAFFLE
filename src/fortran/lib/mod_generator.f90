@@ -9,10 +9,12 @@ module raffle__generator
   use raffle__constants, only: real32
   use raffle__tools_infile, only: assign_val, assign_vec
   use raffle__misc, only: strip_null, set, shuffle, sort1D, sort2D, to_upper
+  use raffle__misc_linalg, only: inverse_3x3
   use raffle__geom_rw, only: basis_type
   use raffle__geom_extd, only: extended_basis_type
   use raffle__distribs_container, only: distribs_container_type
   use raffle__geom_utils, only: basis_merge
+  use raffle__bounds, only: bounds_container_type, abstract_bounds_type
   use raffle__place_methods, only: &
        place_method_void, place_method_rand, &
        place_method_growth, place_method_walk, &
@@ -64,6 +66,7 @@ module raffle__generator
                0.0_real32, 1.0_real32 &
           /), [2,3] &
      )
+     type(bounds_container_type), dimension(:), allocatable :: bounds_container
      !! Bounds for atom placement.
      type(distribs_container_type) :: distributions
      !! Distribution function container for the 2-, 3-, and 4-body interactions.
@@ -96,6 +99,16 @@ module raffle__generator
      !! Procedure to set the grid for the raffle generator.
      procedure, pass(this) :: reset_grid
      !! Procedure to reset the grid for the raffle generator.
+
+     procedure, pass(this) :: add_bounds_type
+     !! Procedure to add a new bounds type to the raffle generator.
+     procedure, pass(this) :: add_bounds
+     !! Procedure to add bounds for the raffle generator.
+     procedure, pass(this) :: remove_bounds
+     !! Procedure to remove bounds for the raffle generator.
+     procedure, pass(this) :: set_bounds_extent
+     !! Procedure to get the extent of the bounds for the raffle generator.
+
      procedure, pass(this) :: set_bounds
      !! Procedure to set the bounds for the raffle generator.
      procedure, pass(this) :: reset_bounds
@@ -516,6 +529,237 @@ contains
 
 
 !###############################################################################
+  subroutine add_bounds_type(this, bounds_type)
+    !! Add bounds to the raffle generator.
+    !!
+    !! This procedure adds bounds to the raffle generator. The bounds are
+    !! used to determine the placement of atoms in the host structure.
+    implicit none
+
+    ! Arguments
+    class(raffle_generator_type), intent(inout) :: this
+    !! Instance of the raffle generator.
+    class(abstract_bounds_type) :: bounds_type
+    !! Bounds to add.
+
+    ! Local arguments
+    integer :: i, j
+    !! Loop indices.
+    type(bounds_container_type), dimension(:), allocatable :: bounds_container
+    !! Local bounds container.
+
+    if(.not.allocated(this%bounds_container))then
+       allocate(bounds_container(1))
+    else
+       allocate(bounds_container(size(this%bounds_container)+1))
+       bounds_container(:size(this%bounds_container)) = this%bounds_container
+    end if
+    bounds_container(size(bounds_container))%bounds = bounds_type
+
+    this%bounds_container = bounds_container
+
+    ! get the min and max bounds from the bounds container
+    call this%set_bounds_extent()
+    call this%set_grid()
+
+  end subroutine add_bounds_type
+!###############################################################################
+
+
+!###############################################################################
+  subroutine add_bounds( &
+       this, shape, origin, lengths, vectors, is_fractional_coordinates, &
+       exit_code &
+  )
+    !! Add bounds to the raffle generator.
+    !!
+    !! This procedure adds bounds to the raffle generator. The bounds are
+    !! used to determine the placement of atoms in the host structure.
+    implicit none
+
+    ! Arguments
+    class(raffle_generator_type), intent(inout) :: this
+    !! Instance of the raffle generator.
+    character(len=*), intent(in) :: shape
+    !! Type of bounds to add (e.g. 'box', 'sphere').
+    real(real32), dimension(3), intent(in) :: origin
+    !! Origin of the bounds.
+    real(real32), dimension(:), intent(in), optional :: lengths
+    !! Lengths of the bounds (for box bounds).
+    real(real32), dimension(3,3), intent(in), optional :: vectors
+    !! Vectors defining the bounds (for parallelepiped bounds).
+    logical, intent(in), optional :: is_fractional_coordinates
+    !! Boolean whether the origin and lengths are given in fractional coordinates.
+    integer, intent(out), optional :: exit_code
+    !! Exit status.
+
+    ! Local arguments
+    integer :: i, j
+    !! Loop indices.
+    type(bounds_container_type), dimension(:), allocatable :: bounds_container
+    !! Local bounds container.
+    real(real32), dimension(2,3) :: min_max, min_max_new
+    !! Minimum and maximum bounds.
+    real(real32), dimension(:), allocatable :: lengths_
+    !! Local lengths array.
+    real(real32), dimension(3,3) :: vectors_
+    !! Local vectors array.
+    logical :: is_fractional_coordinates_
+    !! Local boolean whether the origin and lengths are given in fractional coordinates.
+    integer :: exit_code_
+    !! Exit code.
+
+    exit_code_ = 0
+
+    if(.not.allocated(this%bounds_container))then
+       allocate(bounds_container(1))
+    else
+       allocate(bounds_container(size(this%bounds_container)+1))
+       bounds_container(:size(this%bounds_container)) = this%bounds_container
+    end if
+
+    if(present(lengths)) allocate(lengths_, source=lengths)
+    if(present(vectors)) vectors_ = vectors
+    is_fractional_coordinates_ = .false.
+    if(present(is_fractional_coordinates)) &
+         is_fractional_coordinates_ = is_fractional_coordinates
+
+
+    call bounds_container(size(bounds_container))%add_bounds( &
+         shape=shape, &
+         origin=origin, &
+         lengths=lengths, &
+         vectors=vectors, &
+         is_fractional_coordinates=is_fractional_coordinates, &
+         exit_code = exit_code_ &
+    )
+
+    if(exit_code_ .ne. 0)then
+       if(present(exit_code)) exit_code = exit_code_
+       return
+    end if
+
+    this%bounds_container = bounds_container
+
+    ! get the min and max bounds from the bounds container
+    call this%set_bounds_extent()
+    call this%set_grid()
+
+  end subroutine add_bounds
+!###############################################################################
+
+
+!###############################################################################
+  subroutine remove_bounds(this, index, exit_code)
+    !! Remove bounds from the raffle generator.
+    !!
+    !! This procedure removes bounds from the raffle generator. The bounds are
+    !! used to determine the placement of atoms in the host structure.
+    implicit none
+
+    ! Arguments
+    class(raffle_generator_type), intent(inout) :: this
+    !! Instance of the raffle generator.
+    integer, intent(in) :: index
+    !! Index of the bounds to remove.
+    integer, intent(out), optional :: exit_code
+    !! Exit status.
+
+    ! Local arguments
+    integer :: i, j
+    !! Loop indices.
+    type(bounds_container_type), dimension(:), allocatable :: bounds_container
+    !! Local bounds container.
+    real(real32), dimension(2,3) :: min_max, min_max_new
+    !! Minimum and maximum bounds.
+    integer :: exit_code_
+    !! Exit code.
+
+    exit_code_ = 0
+
+    if(.not.allocated(this%bounds_container))then
+       call stop_program("No bounds to remove")
+       exit_code_ = 1
+       if(present(exit_code)) exit_code = exit_code_
+       return
+    elseif(index.lt.1 .or. index.gt.size(this%bounds_container))then
+       call stop_program("Index out of bounds")
+       exit_code_ = 1
+       if(present(exit_code)) exit_code = exit_code_
+       return
+    end if
+
+    if(size(this%bounds_container).eq.1)then
+       deallocate(this%bounds_container)
+       call this%reset_bounds()
+       if(present(exit_code)) exit_code = exit_code_
+       return
+    end if
+
+    allocate(bounds_container(size(this%bounds_container)-1))
+    if(index.gt.1) &
+         bounds_container(1:index-1) = this%bounds_container(1:index-1)
+    if(index.lt.size(this%bounds_container)) &
+         bounds_container(index:size(bounds_container)) = &
+              this%bounds_container(index+1:size(this%bounds_container))
+    this%bounds_container = bounds_container
+
+    ! get the min and max bounds from the bounds container
+    call this%set_bounds_extent()
+    call this%set_grid()
+
+    if(present(exit_code)) exit_code = exit_code_
+
+  end subroutine remove_bounds
+!###############################################################################
+
+
+!###############################################################################
+  subroutine set_bounds_extent(this)
+    !! Get the extent of the bounds for the raffle generator.
+    !!
+    !! This procedure returns the extent of the bounds for the raffle generator.
+    implicit none
+
+    ! Arguments
+    class(raffle_generator_type), intent(inout) :: this
+    !! Instance of the raffle generator.
+
+    ! Local variables
+    integer :: i, j
+    !! Loop indices.
+    real(real32), dimension(2,3) :: bounds, bounds_new
+    !! Bounds for atom placement.
+    real(real32), dimension(3,3) :: invlat
+    !! Inverse of the lattice vectors.
+
+    if(.not.allocated(this%bounds_container))then
+       this%bounds(1,:) = 0.0_real32
+       this%bounds(2,:) = 1.0_real32
+    else
+       invlat = inverse_3x3(this%host%lat)
+       bounds = this%bounds_container(1)%bounds%get_extent()
+       if(.not.this%bounds_container(1)%bounds%is_fractional_coordinates)then
+          bounds = matmul(bounds, invlat)
+       end if
+       do i = 2, size(this%bounds_container), 1
+          bounds_new = this%bounds_container(i)%bounds%get_extent()
+          if(.not.this%bounds_container(i)%bounds%is_fractional_coordinates)then
+             bounds_new = matmul(bounds_new, invlat)
+          end if
+          do j = 1, 3, 1
+             if(bounds_new(1,j) .lt. bounds(1,j)) bounds(1,j) = bounds_new(1,j)
+             if(bounds_new(2,j) .gt. bounds(2,j)) bounds(2,j) = bounds_new(2,j)
+          end do
+       end do
+       this%bounds = bounds
+    end if
+
+  end subroutine set_bounds_extent
+!###############################################################################
+
+
+!###############################################################################
   subroutine reset_bounds(this)
     !! Reset the grid for the raffle generator.
     implicit none
@@ -524,6 +768,7 @@ contains
     class(raffle_generator_type), intent(inout) :: this
     !! Instance of the raffle generator.
 
+    if(allocated(this%bounds_container)) deallocate(this%bounds_container)
     this%bounds(1,:) = 0.0_real32
     this%bounds(2,:) = 1.0_real32
   end subroutine reset_bounds
@@ -881,6 +1126,7 @@ contains
     gridpoint_viability = get_gridpoints_and_viability( &
          this%distributions, &
          this%grid, &
+         this%bounds_container, &
          this%bounds, &
          basis, &
          species_index_list, &
@@ -934,6 +1180,7 @@ contains
           if(verbose.gt.0) write(*,*) "Add Atom Random"
           point = place_method_rand( &
                this%distributions, &
+               this%bounds_container, &
                this%bounds, &
                basis, &
                placement_list_shuffled(1,iplaced+1), &
@@ -945,6 +1192,7 @@ contains
           if(verbose.gt.0) write(*,*) "Add Atom Walk"
           point = place_method_walk( &
                this%distributions, &
+               this%bounds_container, &
                this%bounds, &
                basis, &
                placement_list_shuffled(1,iplaced+1), &
@@ -958,6 +1206,7 @@ contains
              if(verbose.gt.0) write(*,*) "Add Atom Random (growth seed)"
              point = place_method_rand( &
                   this%distributions, &
+                  this%bounds_container, &
                   this%bounds, &
                   basis, &
                   placement_list_shuffled(1,iplaced+1), &
@@ -973,6 +1222,7 @@ contains
                        placement_list_shuffled(2,iplaced),:3 &
                   ), &
                   placement_list_shuffled(1,iplaced), &
+                  this%bounds_container, &
                   this%bounds, &
                   basis, &
                   placement_list_shuffled(1,iplaced+1), &
@@ -1273,6 +1523,8 @@ contains
     !! Bounds for atom placement.
     type(extended_basis_type) :: basis_extd
     !! Extended basis for the structure to evaluate.
+    type(bounds_container_type), dimension(:), allocatable :: bounds_container
+    !! Container for the bounds.
 
 
     !---------------------------------------------------------------------------
@@ -1332,12 +1584,14 @@ contains
     )
 
 
+    allocate(bounds_container(0))
     call this%distributions%set_element_map( &
          [ basis_extd%spec(:)%name ] &
     )
     probability = get_gridpoints_and_viability( &
          this%distributions, &
          grid_, &
+         bounds_container, &
          bounds_, &
          basis_extd, &
          species_idx_list, &

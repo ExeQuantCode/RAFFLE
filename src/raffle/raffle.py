@@ -2296,6 +2296,41 @@ class Generator(f90wrap.runtime.FortranModule):
                 self._arrays[array_handle] = bounds
             return bounds
 
+        def add_bounds(self, shape_bn, origin, lengths=None, vectors=None, \
+            is_fractional_coordinates=None, exit_code=None):
+            """
+            Add a bounding shape for the generation.
+
+
+            Parameters
+            ----------
+            this : Raffle_Generator_Type
+            shape_bn : str
+            origin : list[float]
+            lengths : list[float]
+            vectors : list[list[float]]
+            is_fractional_coordinates : bool
+            exit_code : int
+
+            """
+            _raffle.f90wrap_generator__add_bounds__binding__rgt(this=self._handle, \
+                shape_bn=shape_bn, origin=origin, lengths=lengths, vectors=vectors, \
+                is_fractional_coordinates=is_fractional_coordinates, exit_code=exit_code)
+
+        def remove_bounds(self, index_bn, exit_code=None):
+            """
+            Remove the bounding shape with the given index.
+
+            Parameters
+            ----------
+            this : Raffle_Generator_Type
+            index_bn : int
+            exit_code : int
+
+            """
+            _raffle.f90wrap_generator__remove_bounds__binding__rgt(this=self._handle, \
+                index_bn=index_bn, exit_code=exit_code)
+
         def set_bounds(self, bounds = None):
             """
             Set the bounding box for the generation.
@@ -2334,16 +2369,17 @@ class Generator(f90wrap.runtime.FortranModule):
             """
             _raffle.f90wrap_generator__reset_bounds__binding__rgt(this=self._handle)
 
-        def generate(self,
-                     num_structures : int,
-                    stoichiometry,
-                    method_ratio: dict[str, float] = {"void": 0.0, "rand": 0.0, "walk": 0.0, "grow": 0.0, "min": 0.0},
-                    method_probab : dict = None,
-                    seed : int = None,
-                    settings_out_file : str = None,
-                    verbose : int = 0,
-                    return_exit_code : bool = False,
-                    calc = None
+        def generate(
+                self,
+                num_structures : int,
+                stoichiometry,
+                method_ratio: dict[str, float] = {"void": 0.0, "rand": 0.0, "walk": 0.0, "grow": 0.0, "min": 0.0},
+                method_probab : dict = None,
+                seed : int = None,
+                settings_out_file : str = None,
+                verbose : int = 0,
+                return_exit_code : bool = False,
+                calc = None
         ):
             """
             Generate structures using the RAFFLE method.

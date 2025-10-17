@@ -205,7 +205,7 @@ program test_evaluator_BTO
   gridpoints = get_gridpoints_and_viability( &
        generator%distributions, &
        generator%grid, &
-       generator%bounds, &
+       generator%bounds_container, generator%bounds, &
        basis_host, &
        [ 1, 2, 3 ], &
        [ generator%distributions%bond_info(:)%radius_covalent ], &

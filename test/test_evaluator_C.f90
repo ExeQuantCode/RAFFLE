@@ -189,6 +189,7 @@ program test_evaluator_C
   gridpoints = get_gridpoints_and_viability( &
        generator%distributions, &
        generator%grid, &
+       generator%bounds_container, &
        generator%bounds, &
        basis_host, &
        [ 1 ], &

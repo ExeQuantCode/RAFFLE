@@ -5,6 +5,7 @@ program test_place_methods
   use raffle__constants, only: real32
   use raffle__geom_rw, only: basis_type
   use raffle__geom_extd, only: extended_basis_type
+  use raffle__bounds, only: bounds_container_type
   implicit none
 
   type(basis_type) :: basis
@@ -58,6 +59,7 @@ contains
     real(real32), dimension(:,:), allocatable :: points
     real(real32), dimension(3) :: grid_offset
     real(real32), dimension(2,3) :: bounds
+    type(bounds_container_type), dimension(0) :: bounds_container
 
     ! Initialise test data
     grid = [10, 10, 10]
@@ -94,7 +96,7 @@ contains
     ! Call the function to test
     points = get_gridpoints_and_viability( &
          distribs_container, &
-         grid, bounds, &
+         grid, bounds_container, bounds, &
          basis_copy, &
          [ 1 ], &
          radius_list, &
@@ -134,6 +136,7 @@ contains
     real(real32), dimension(:,:), allocatable :: points
     real(real32), dimension(3) :: grid_offset
     real(real32), dimension(2,3) :: bounds
+    type(bounds_container_type), dimension(0) :: bounds_container
 
     ! Initialise test data
     grid = [10, 10, 10]
@@ -170,7 +173,7 @@ contains
     ! Call the function to test
     points = get_gridpoints_and_viability( &
          distribs_container, &
-         grid, bounds, &
+         grid, bounds_container, bounds, &
          basis_copy, &
          [ 1 ], &
          radius_list, &

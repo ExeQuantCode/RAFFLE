@@ -17,6 +17,7 @@ module raffle__place_methods
        get_min_dist_between_point_and_species
   use raffle__evaluator, only: evaluate_point
   use raffle__distribs_container, only: distribs_container_type
+  use raffle__bounds, only: bounds_container_type
   implicit none
 
 
@@ -76,7 +77,7 @@ contains
 
 !###############################################################################
   function place_method_rand( distribs_container, &
-       bounds, &
+       bounds_container, bounds, &
        basis, species, radius_list, max_attempts, viable &
   ) result(point)
     !! Random placement method.
@@ -87,6 +88,8 @@ contains
     ! Arguments
     type(distribs_container_type), intent(in) :: distribs_container
     !! Distribution function (gvector) container.
+    type(bounds_container_type), dimension(:), intent(in) :: bounds_container
+    !! Container for the bounds.
     real(real32), dimension(2,3), intent(in) :: bounds
     !! Bounds of the unit cell.
     type(extended_basis_type), intent(inout) :: basis
@@ -103,10 +106,14 @@ contains
     !! Point to add atom to.
 
     ! Local variables
-    integer :: i, is, js
+    integer :: i, j, is, js
     !! Loop indices.
+    integer :: itmp1
+    !! Temporary integer.
     real(real32) :: rtmp1
     !! random number.
+    logical :: use_bounds
+    !! Boolean whether bounds are to be used.
     real(real32), dimension(3) :: rvec1
     !! random vector.
     integer, dimension(basis%nspec,basis%nspec) :: pair_index
@@ -131,9 +138,19 @@ contains
     !---------------------------------------------------------------------------
     ! find a random gridpoint that is not too close to any other atom
     !---------------------------------------------------------------------------
+    use_bounds = size(bounds_container) .gt. 0
     atom_loop: do i = 1, max_attempts
-       call random_number(rvec1)
-       point = bounds(1,:) + ( bounds(2,:) - bounds(1,:) ) * rvec1
+       if(use_bounds) then
+          call random_number(rtmp1)
+          itmp1 = floor( rtmp1 * real(size(bounds_container), kind=real32) ) + 1
+          point = bounds_container(itmp1)%bounds%get_random_point_within_bounds()
+       else
+          call random_number(rvec1)
+          point = bounds(1,:) + ( bounds(2,:) - bounds(1,:) ) * rvec1
+          ! do j = 1, size(bounds_container)
+          !    if(.not. bounds_container(j)%bounds%is_within_bounds(point, basis%lat)) cycle atom_loop
+          ! end do
+       end if
        do js = 1, basis%nspec
           if( &
                get_min_dist_between_point_and_species( &
@@ -158,7 +175,7 @@ contains
 
 !###############################################################################
   function place_method_walk( distribs_container, &
-       bounds, &
+       bounds_container, bounds, &
        basis, species, &
        radius_list, max_attempts, &
        step_size_coarse, step_size_fine, &
@@ -178,6 +195,8 @@ contains
     ! Arguments
     type(distribs_container_type), intent(in) :: distribs_container
     !! Distribution function (gvector) container.
+    type(bounds_container_type), dimension(:), intent(in) :: bounds_container
+    !! Container for the bounds.
     real(real32), dimension(2,3), intent(in) :: bounds
     !! Bounds of the unit cell.
     type(extended_basis_type), intent(inout) :: basis
@@ -226,6 +245,11 @@ contains
        if(i.gt.max_attempts) return
        call random_number(site_vector)
        site_vector = bounds(1,:) + ( bounds(2,:) - bounds(1,:) ) * site_vector
+       do j = 1, size(bounds_container)
+          if(.not. bounds_container(j)%bounds%is_within_bounds( &
+               site_vector, basis%lat &
+          ) ) cycle random_loop
+       end do
 
        site_value = evaluate_point( distribs_container, &
             site_vector, species, basis, radius_list &
@@ -262,6 +286,11 @@ contains
        do j = 1, 3
           if(test_vector(j).lt.bounds(1,j) .or. test_vector(j).ge.bounds(2,j)) &
                cycle walk_loop
+       end do
+       do j = 1, size(bounds_container)
+          if(.not. bounds_container(j)%bounds%is_within_bounds( &
+               test_vector, basis%lat &
+          ) ) cycle walk_loop
        end do
 
        !------------------------------------------------------------------------
@@ -312,7 +341,7 @@ contains
 !###############################################################################
   function place_method_growth( distribs_container, &
        prior_point, prior_species, &
-       bounds, &
+       bounds_container, bounds, &
        basis, species, &
        radius_list, max_attempts, &
        step_size_coarse, step_size_fine, &
@@ -336,6 +365,8 @@ contains
     !! Point to start walk from.
     integer, intent(in) :: prior_species
     !! Species of last atom placed.
+    type(bounds_container_type), dimension(:), intent(in) :: bounds_container
+    !! Container for the bounds.
     real(real32), dimension(2,3), intent(in) :: bounds
     !! Bounds of the unit cell.
     type(extended_basis_type), intent(inout) :: basis
@@ -421,6 +452,11 @@ contains
           if(site_vector(j).lt.bounds(1,j) .or. site_vector(j).ge.bounds(2,j)) &
                cycle shell_loop
        end do
+       do j = 1, size(bounds_container)
+          if(.not. bounds_container(j)%bounds%is_within_bounds( &
+               site_vector, basis%lat &
+          ) ) cycle shell_loop
+       end do
        ! now evaluate the point and check if it passes the initial criteria
        site_value = evaluate_point( distribs_container, &
             site_vector, species, basis, radius_list &
@@ -457,6 +493,11 @@ contains
        do j = 1, 3
           if(test_vector(j).lt.bounds(1,j) .or. test_vector(j).ge.bounds(2,j)) &
                cycle walk_loop
+       end do
+       do j = 1, size(bounds_container)
+          if(.not. bounds_container(j)%bounds%is_within_bounds( &
+               test_vector, basis%lat &
+          ) ) cycle walk_loop
        end do
 
        !------------------------------------------------------------------------

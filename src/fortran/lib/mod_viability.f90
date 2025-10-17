@@ -13,6 +13,7 @@ module raffle__viability
        get_min_dist_between_point_and_atom, get_min_dist
   use raffle__evaluator, only: evaluate_point
   use raffle__distribs_container, only: distribs_container_type
+  use raffle__bounds, only: bounds_container_type
   implicit none
 
 
@@ -24,7 +25,8 @@ module raffle__viability
 contains
 
 !###############################################################################
-  function get_gridpoints_and_viability(distribs_container, grid, bounds, &
+  function get_gridpoints_and_viability(distribs_container, grid, &
+       bounds_container, bounds, &
        basis, &
        species_index_list, &
        radius_list, grid_offset) result(points)
@@ -40,6 +42,8 @@ contains
     !! Structure to add atom to.
     integer, dimension(3), intent(in) :: grid
     !! Number of gridpoints in each direction.
+    type(bounds_container_type), dimension(:), intent(in) :: bounds_container
+    !! Container of bounding shapes.
     real(real32), dimension(2,3), intent(in) :: bounds
     !! Bounds of the unit cell.
     real(real32), dimension(:), intent(in) :: radius_list
@@ -107,20 +111,38 @@ contains
     allocate(idx_list(1:3, product( extent * 2 + [ 1, 1, 1] )))
     do i = -extent(1), extent(1), 1
        do j = -extent(2), extent(2), 1
-          do k = -extent(3), extent(3), 1
+          k_loop: do k = -extent(3), extent(3), 1
              point = matmul( [ i, j, k ] / real(grid,real32), basis%lat)
              if ( norm2(point) .lt. min_radius ) then
                 num_points = num_points + 1
                 idx_list(:, num_points) = [ i, j, k]
              end if
-          end do
+          end do k_loop
        end do
     end do
+
+
+    !---------------------------------------------------------------------------
+    ! apply stencil of bounding shapes to include only gridpoints within bounds
+    !---------------------------------------------------------------------------
+    viable = .true.
+!$omp parallel do default(shared) private(i,j,point)
+    do i = 1, num_points
+       point = offset + grid_scale * real( mod( [(i-1) / (grid(2)*grid(1)), &
+            mod((i-1)/grid(1), grid(2)), mod(i-1, grid(1))], real32), real32)
+       bounds_loop: do j = 1, size(bounds_container)
+          if(.not. bounds_container(j)%bounds%is_within_bounds(point,basis%lat))then
+             viable(i) = .false.
+             exit bounds_loop
+          end if
+       end do bounds_loop
+    end do
+!$omp end parallel do
+
 
     !---------------------------------------------------------------------------
     ! apply stencil to exclude gridpoints too close to atoms
     !---------------------------------------------------------------------------
-    viable = .true.
 !$omp parallel do default(shared) private(i,is,ia,l,atom_idx,idx)
     do is = 1, basis%nspec
        atom_loop: do ia = 1, basis%spec(is)%num
@@ -143,6 +165,7 @@ contains
 
 !$omp parallel do default(shared) private(i,idx)
           do i = 1, num_points
+             if(.not. viable(i)) cycle
              idx = idx_list(:,i) + atom_idx
              idx = modulo( idx, grid_wo_bounds )
              if( any( idx .ge. grid ) ) cycle
@@ -156,6 +179,7 @@ contains
        end do atom_loop
     end do
 !$omp end parallel do
+
 
     !---------------------------------------------------------------------------
     ! get the viable gridpoints in the unit cell

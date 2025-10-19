@@ -144,6 +144,8 @@ contains
           call random_number(rtmp1)
           itmp1 = floor( rtmp1 * real(size(bounds_container), kind=real32) ) + 1
           point = bounds_container(itmp1)%bounds%get_random_point_within_bounds()
+          ! convert to fractional coordinates
+          point = matmul(point, inverse_3x3(basis%lat))
        else
           call random_number(rvec1)
           point = bounds(1,:) + ( bounds(2,:) - bounds(1,:) ) * rvec1

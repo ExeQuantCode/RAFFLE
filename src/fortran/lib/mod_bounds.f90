@@ -282,8 +282,8 @@ contains
        exit_code_ = 1
     end select
 
+    if(present(exit_code)) exit_code = exit_code_
     if(exit_code_ .ne. 0)then
-       if(present(exit_code)) exit_code = exit_code_
        return
     end if
     if(present(is_fractional_coordinates)) &

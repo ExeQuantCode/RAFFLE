@@ -626,7 +626,7 @@ contains
 
 
     call bounds_container(size(bounds_container))%add_bounds( &
-         shape=shape, &
+         shape=strip_null(shape), &
          origin=origin, &
          lengths=lengths, &
          vectors=vectors, &
@@ -634,8 +634,8 @@ contains
          exit_code = exit_code_ &
     )
 
+    if(present(exit_code)) exit_code = exit_code_
     if(exit_code_ .ne. 0)then
-       if(present(exit_code)) exit_code = exit_code_
        return
     end if
 

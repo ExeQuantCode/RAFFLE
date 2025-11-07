@@ -1,6 +1,6 @@
 program test_mod_element_utils
   use raffle__element_utils
-  use raffle__geom_rw, only: get_element_properties
+  use atomstruc, only: get_element_properties
   use coreutils, only: real32
   implicit none
 

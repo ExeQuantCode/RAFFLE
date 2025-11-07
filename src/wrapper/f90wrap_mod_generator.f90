@@ -287,7 +287,7 @@ subroutine f90wrap_raffle_generator_type__get__host_defined( &
      this, f90wrap_host_is_defined &
 )
     use raffle__generator, only: raffle_generator_type
-    use raffle__geom_rw, only: basis_type
+    use atomstruc, only: basis_type
     implicit none
     type raffle_generator_type_ptr_type
         type(raffle_generator_type), pointer :: p => NULL()
@@ -305,7 +305,7 @@ end subroutine f90wrap_raffle_generator_type__get__host_defined
 
 subroutine f90wrap_raffle_generator_type__get__host(this, f90wrap_host)
     use raffle__generator, only: raffle_generator_type
-    use raffle__geom_rw, only: basis_type
+    use atomstruc, only: basis_type
     implicit none
     type raffle_generator_type_ptr_type
         type(raffle_generator_type), pointer :: p => NULL()
@@ -325,7 +325,7 @@ end subroutine f90wrap_raffle_generator_type__get__host
 
 subroutine f90wrap_raffle_generator_type__set__host(this, f90wrap_host)
     use raffle__generator, only: raffle_generator_type
-    use raffle__geom_rw, only: basis_type
+    use atomstruc, only: basis_type
     implicit none
     type raffle_generator_type_ptr_type
         type(raffle_generator_type), pointer :: p => NULL()
@@ -660,7 +660,7 @@ subroutine f90wrap_raffle_generator_type__array_getitem__structures( &
 )
 
     use raffle__generator, only: raffle_generator_type
-    use raffle__geom_rw, only: basis_type
+    use atomstruc, only: basis_type
     implicit none
 
     type raffle_generator_type_ptr_type
@@ -693,7 +693,7 @@ subroutine f90wrap_raffle_generator_type__array_setitem__structures( &
 )
 
     use raffle__generator, only: raffle_generator_type
-    use raffle__geom_rw, only: basis_type
+    use atomstruc, only: basis_type
     implicit none
 
     type raffle_generator_type_ptr_type
@@ -726,7 +726,7 @@ subroutine f90wrap_raffle_generator_type__array_len__structures( &
 )
 
     use raffle__generator, only: raffle_generator_type
-    use raffle__geom_rw, only: basis_type
+    use atomstruc, only: basis_type
     implicit none
 
     type raffle_generator_type_ptr_type
@@ -830,7 +830,7 @@ end subroutine f90wrap_generator__init_seed__binding__rgt
 ! generator type procedure bindings
 !###############################################################################
 subroutine f90wrap_generator__set_host__binding__rgt(this, host)
-    use raffle__geom_rw, only: basis_type
+    use atomstruc, only: basis_type
     use raffle__generator, only: raffle_generator_type
     implicit none
 
@@ -850,7 +850,7 @@ subroutine f90wrap_generator__set_host__binding__rgt(this, host)
 end subroutine f90wrap_generator__set_host__binding__rgt
 
 subroutine f90wrap_generator__get_host__binding__rgt(ret_output, this)
-    use raffle__geom_rw, only: basis_type
+    use atomstruc, only: basis_type
     use raffle__generator, only: raffle_generator_type
     implicit none
 
@@ -966,7 +966,7 @@ subroutine f90wrap_generator__generate__binding__rgt( &
        this, num_structures, stoichiometry, &
        method_ratio, seed, settings_out_file, verbose, exit_code &
 )
-    use raffle__geom_rw, only: basis_type
+    use atomstruc, only: basis_type
     use raffle__generator, only: raffle_generator_type, stoichiometry_type
     implicit none
 
@@ -1007,7 +1007,7 @@ subroutine f90wrap_generator__generate__binding__rgt( &
 end subroutine f90wrap_generator__generate__binding__rgt
 
 subroutine f90wrap_generator__get_structures__binding__rgt(this, ret_structures)
-    use raffle__geom_rw, only: basis_type
+    use atomstruc, only: basis_type
     use raffle__generator, only: raffle_generator_type
     implicit none
 
@@ -1033,7 +1033,7 @@ subroutine f90wrap_generator__get_structures__binding__rgt(this, ret_structures)
 end subroutine f90wrap_generator__get_structures__binding__rgt
 
 subroutine f90wrap_generator__set_structures__binding__rgt(this, structures)
-    use raffle__geom_rw, only: basis_type
+    use atomstruc, only: basis_type
     use raffle__generator, only: raffle_generator_type
     implicit none
 
@@ -1075,7 +1075,7 @@ subroutine f90wrap_generator__remove_structure__binding__rgt(this, index_bn, n0)
 end subroutine f90wrap_generator__remove_structure__binding__rgt
 
 subroutine f90wrap_generator__evaluate__binding__rgt(this, ret_viability, basis)
-    use raffle__geom_rw, only: basis_type
+    use atomstruc, only: basis_type
     use raffle__generator, only: raffle_generator_type
     implicit none
 
@@ -1101,7 +1101,7 @@ subroutine f90wrap_generator__get_probability_density__rgt( &
      n_ret_coords, n_ret_points, ret_grid, n0 &
 )
     use raffle__generator, only: raffle_generator_type
-    use raffle__geom_rw, only: basis_type
+    use atomstruc, only: basis_type
     use raffle__cache, only: store_probability_density
     implicit none
 

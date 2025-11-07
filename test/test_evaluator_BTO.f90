@@ -1,7 +1,7 @@
 program test_evaluator_BTO
   use coreutils, only: real32, pi, test_error_handling
-  use raffle__geom_rw, only: basis_type, geom_write
-  use raffle__geom_extd, only: extended_basis_type
+  use atomstruc, only: basis_type, geom_write
+  use atomstruc, only: extended_basis_type
   use raffle__evaluator, only: evaluate_point
   use raffle__generator, only: raffle_generator_type
   use raffle__viability, only: get_gridpoints_and_viability
@@ -89,18 +89,18 @@ program test_evaluator_BTO
   allocate(database(1)%spec(database(1)%nspec))
   database(1)%spec(1)%num = 1
   database(1)%spec(1)%name = 'Ba'
-  allocate(database(1)%spec(1)%atom(database(1)%spec(1)%num, 3))
-  database(1)%spec(1)%atom(1, :3) = [0.0, 0.0, 0.0]
+  allocate(database(1)%spec(1)%atom(3, database(1)%spec(1)%num))
+  database(1)%spec(1)%atom(:3, 1) = [0.0, 0.0, 0.0]
   database(1)%spec(2)%num = 1
   database(1)%spec(2)%name = 'Ti'
-  allocate(database(1)%spec(2)%atom(database(1)%spec(2)%num, 3))
-  database(1)%spec(2)%atom(1, :3) = [0.5, 0.5, 0.5]
+  allocate(database(1)%spec(2)%atom(3, database(1)%spec(2)%num))
+  database(1)%spec(2)%atom(:3, 1) = [0.5, 0.5, 0.5]
   database(1)%spec(3)%num = 3
   database(1)%spec(3)%name = 'O'
-  allocate(database(1)%spec(3)%atom(database(1)%spec(3)%num, 3))
-  database(1)%spec(3)%atom(1, :3) = [0.5, 0.5, 0.0]
-  database(1)%spec(3)%atom(2, :3) = [0.5, 0.0, 0.5]
-  database(1)%spec(3)%atom(3, :3) = [0.0, 0.5, 0.5]
+  allocate(database(1)%spec(3)%atom(3, database(1)%spec(3)%num))
+  database(1)%spec(3)%atom(:3, 1) = [0.5, 0.5, 0.0]
+  database(1)%spec(3)%atom(:3, 2) = [0.5, 0.0, 0.5]
+  database(1)%spec(3)%atom(:3, 3) = [0.0, 0.5, 0.5]
 
   database(1)%lat(1,:) = [4.01, 0.0, 0.0]
   database(1)%lat(2,:) = [0.0, 4.01, 0.0]
@@ -140,23 +140,23 @@ program test_evaluator_BTO
   allocate(basis_host%spec(basis_host%nspec))
   basis_host%spec(1)%num = 2
   basis_host%spec(1)%name = 'Ba'
-  allocate(basis_host%spec(1)%atom(basis_host%spec(1)%num, 3))
-  basis_host%spec(1)%atom(1, :3) = [0.0, 0.0, 0.0]
-  basis_host%spec(1)%atom(2, :3) = [0.0, 0.0, 0.5]
+  allocate(basis_host%spec(1)%atom(3, basis_host%spec(1)%num))
+  basis_host%spec(1)%atom(:3, 1) = [0.0, 0.0, 0.0]
+  basis_host%spec(1)%atom(:3, 2) = [0.0, 0.0, 0.5]
   basis_host%spec(2)%num = 2
   basis_host%spec(2)%name = 'Ti'
-  allocate(basis_host%spec(2)%atom(basis_host%spec(2)%num, 3))
-  basis_host%spec(2)%atom(1, :3) = [0.5, 0.5, 0.25]
-  basis_host%spec(2)%atom(2, :3) = [0.5, 0.5, 0.75]
+  allocate(basis_host%spec(2)%atom(3, basis_host%spec(2)%num))
+  basis_host%spec(2)%atom(:3, 1) = [0.5, 0.5, 0.25]
+  basis_host%spec(2)%atom(:3, 2) = [0.5, 0.5, 0.75]
   basis_host%spec(3)%num = 6
   basis_host%spec(3)%name = 'O'
-  allocate(basis_host%spec(3)%atom(basis_host%spec(3)%num, 3))
-  basis_host%spec(3)%atom(1, :3) = [0.5, 0.5, 0.0]
-  basis_host%spec(3)%atom(2, :3) = [0.5, 0.0, 0.25]
-  basis_host%spec(3)%atom(3, :3) = [0.0, 0.5, 0.25]
-  basis_host%spec(3)%atom(4, :3) = [0.5, 0.5, 0.5]
-  basis_host%spec(3)%atom(5, :3) = [0.5, 0.0, 0.75]
-  basis_host%spec(3)%atom(6, :3) = [0.0, 0.5, 0.75]
+  allocate(basis_host%spec(3)%atom(3, basis_host%spec(3)%num))
+  basis_host%spec(3)%atom(:3, 1) = [0.5, 0.5, 0.0]
+  basis_host%spec(3)%atom(:3, 2) = [0.5, 0.0, 0.25]
+  basis_host%spec(3)%atom(:3, 3) = [0.0, 0.5, 0.25]
+  basis_host%spec(3)%atom(:3, 4) = [0.5, 0.5, 0.5]
+  basis_host%spec(3)%atom(:3, 5) = [0.5, 0.0, 0.75]
+  basis_host%spec(3)%atom(:3, 6) = [0.0, 0.5, 0.75]
   basis_host%lat(1,:) = [4.01, 0.0, 0.0]
   basis_host%lat(2,:) = [0.0, 4.01, 0.0]
   basis_host%lat(3,:) = [0.0, 0.0, 8.00]
@@ -232,7 +232,7 @@ program test_evaluator_BTO
      do is = 1, basis_host%nspec
         atom_loop: do ia = 1, basis_host%spec(is)%num
            if(.not.basis_host%spec(is)%atom_mask(ia)) cycle atom_loop
-           write(unit,*) basis_host%spec(is)%atom(ia,:3)
+           write(unit,*) basis_host%spec(is)%atom(:3,ia)
         end do atom_loop
      end do
      write(unit,*)
@@ -271,7 +271,7 @@ program test_evaluator_BTO
                      abs( &
                           gridpoints(1:3,best_loc) - &
                           basis_host%spec(atom_ignore_list(1,ja))%atom( &
-                               atom_ignore_list(2,ja),:3 &
+                               :3, atom_ignore_list(2,ja) &
                           ) &
                      ) .lt. tolerance + 1.E-6_real32 &
                 ) &

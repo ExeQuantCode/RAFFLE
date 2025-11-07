@@ -9,8 +9,8 @@ module raffle__distribs
        strip_null, sort_str, &
        get_angle, get_improper_dihedral_angle
   use raffle__misc_maths, only: triangular_number
-  use raffle__geom_rw, only: basis_type, get_element_properties
-  use raffle__geom_extd, only: extended_basis_type
+  use atomstruc, only: basis_type, get_element_properties
+  use atomstruc, only: extended_basis_type
   use raffle__element_utils, only: &
        element_type, element_bond_type, &
        element_database, element_bond_database
@@ -299,10 +299,10 @@ contains
     allocate(neighbour_basis%spec(1))
     allocate(neighbour_basis%image_spec(1))
     allocate(neighbour_basis%spec(1)%atom( &
-         sum(basis_extd%spec(:)%num)+sum(basis_extd%image_spec(:)%num), 4 &
+         4, sum(basis_extd%spec(:)%num)+sum(basis_extd%image_spec(:)%num) &
     ) )
     allocate(neighbour_basis%image_spec(1)%atom( &
-         sum(basis_extd%spec(:)%num)+sum(basis_extd%image_spec(:)%num), 4 &
+         4, sum(basis_extd%spec(:)%num)+sum(basis_extd%image_spec(:)%num) &
     ) )
     neighbour_basis%nspec = basis%nspec
     neighbour_basis%natom = 0
@@ -334,8 +334,8 @@ contains
 
                 associate( vector =>  matmul( &
                      [ &
-                          basis_extd%spec(js)%atom(ja,1:3) - &
-                          basis_extd%spec(is)%atom(ia,1:3) &
+                          basis_extd%spec(js)%atom(1:3,ja) - &
+                          basis_extd%spec(is)%atom(1:3,ia) &
                      ], basis_extd%lat ) &
                 )
                    bondlength = norm2( vector )
@@ -354,10 +354,10 @@ contains
                       neighbour_basis%spec(1)%num = &
                            neighbour_basis%spec(1)%num + 1
                       neighbour_basis%spec(1)%atom( &
-                           neighbour_basis%spec(1)%num,1:3 &
+                           1:3,neighbour_basis%spec(1)%num &
                       ) = vector
                       neighbour_basis%spec(1)%atom( &
-                           neighbour_basis%spec(1)%num,4 &
+                           4,neighbour_basis%spec(1)%num &
                       ) = -0.5_real32 * ( &
                            cos( tau * ( bondlength - tolerances(1) ) / &
                                 ( &
@@ -376,10 +376,10 @@ contains
                       neighbour_basis%image_spec(1)%num = &
                            neighbour_basis%image_spec(1)%num + 1
                       neighbour_basis%image_spec(1)%atom( &
-                           neighbour_basis%image_spec(1)%num,1:3 &
+                           1:3,neighbour_basis%image_spec(1)%num &
                       ) = vector
                       neighbour_basis%image_spec(1)%atom( &
-                           neighbour_basis%image_spec(1)%num,4 &
+                           4,neighbour_basis%image_spec(1)%num &
                       ) = -0.5_real32 * ( &
                            cos( tau * ( bondlength - tolerances(3) ) / &
                                 ( &
@@ -404,8 +404,8 @@ contains
              image_loop: do ja = 1, basis_extd%image_spec(js)%num
                 associate( vector =>  matmul( &
                      [ &
-                          basis_extd%image_spec(js)%atom(ja,1:3) - &
-                          basis_extd%spec(is)%atom(ia,1:3) &
+                          basis_extd%image_spec(js)%atom(1:3,ja) - &
+                          basis_extd%spec(is)%atom(1:3,ia) &
                      ], basis_extd%lat ) &
                 )
 
@@ -425,10 +425,10 @@ contains
                       neighbour_basis%spec(1)%num = &
                            neighbour_basis%spec(1)%num + 1
                       neighbour_basis%spec(1)%atom( &
-                           neighbour_basis%spec(1)%num,1:3 &
+                           1:3,neighbour_basis%spec(1)%num &
                       ) = vector
                       neighbour_basis%spec(1)%atom( &
-                           neighbour_basis%spec(1)%num,4 &
+                           4,neighbour_basis%spec(1)%num &
                       ) = -0.5_real32 * ( &
                            cos( tau * ( bondlength - tolerances(1) ) / &
                                 ( &
@@ -447,10 +447,10 @@ contains
                       neighbour_basis%image_spec(1)%num = &
                            neighbour_basis%image_spec(1)%num + 1
                       neighbour_basis%image_spec(1)%atom( &
-                           neighbour_basis%image_spec(1)%num,1:3 &
+                           1:3,neighbour_basis%image_spec(1)%num &
                       ) = vector
                       neighbour_basis%image_spec(1)%atom( &
-                           neighbour_basis%image_spec(1)%num,4 &
+                           4,neighbour_basis%image_spec(1)%num &
                       ) = -0.5_real32 * ( &
                            cos( tau * ( bondlength - tolerances(3) ) / &
                                 ( &
@@ -520,16 +520,16 @@ contains
                      (ka - ja) &
                 )
                 angle_list(idx) = get_angle( &
-                     [ neighbour_basis%spec(1)%atom(ja,:3) ], &
-                     [ neighbour_basis%spec(1)%atom(ka,:3) ] &
+                     [ neighbour_basis%spec(1)%atom(:3,ja) ], &
+                     [ neighbour_basis%spec(1)%atom(:3,ka) ] &
                 )
                 distance(idx) = &
                      ( &
-                          neighbour_basis%spec(1)%atom(ja,4) * &
-                          neighbour_basis%spec(1)%atom(ka,4) &
+                          neighbour_basis%spec(1)%atom(4,ja) * &
+                          neighbour_basis%spec(1)%atom(4,ka) &
                      ) / ( &
-                          norm2(neighbour_basis%spec(1)%atom(ja,:3)) ** 2 * &
-                          norm2(neighbour_basis%spec(1)%atom(ka,:3)) ** 2 &
+                          norm2(neighbour_basis%spec(1)%atom(:3,ja)) ** 2 * &
+                          norm2(neighbour_basis%spec(1)%atom(:3,ka)) ** 2 &
                      )
              end do
           end do
@@ -574,19 +574,19 @@ contains
                 ) * neighbour_basis%image_spec(1)%num + la
                 angle_list(idx) = &
                      get_improper_dihedral_angle( &
-                          [ neighbour_basis%spec(1)%atom(ja,:3) ], &
-                          [ neighbour_basis%spec(1)%atom(ka,:3) ], &
-                          [ neighbour_basis%image_spec(1)%atom(la,:3) ] &
+                          [ neighbour_basis%spec(1)%atom(:3,ja) ], &
+                          [ neighbour_basis%spec(1)%atom(:3,ka) ], &
+                          [ neighbour_basis%image_spec(1)%atom(:3,la) ] &
                      )
                 distance(idx) = &
                      ( &
-                          neighbour_basis%spec(1)%atom(ja,4) * &
-                          neighbour_basis%spec(1)%atom(ka,4) * &
-                          neighbour_basis%image_spec(1)%atom(la,4) &
+                          neighbour_basis%spec(1)%atom(4,ja) * &
+                          neighbour_basis%spec(1)%atom(4,ka) * &
+                          neighbour_basis%image_spec(1)%atom(4,la) &
                      ) / ( &
-                          norm2(neighbour_basis%spec(1)%atom(ja,:3)) ** 2 * &
-                          norm2(neighbour_basis%spec(1)%atom(ka,:3)) ** 2 * &
-                          norm2(neighbour_basis%image_spec(1)%atom(la,:3)) ** 2 &
+                          norm2(neighbour_basis%spec(1)%atom(:3,ja)) ** 2 * &
+                          norm2(neighbour_basis%spec(1)%atom(:3,ka)) ** 2 * &
+                          norm2(neighbour_basis%image_spec(1)%atom(:3,la)) ** 2 &
                      )
              end do
           end do

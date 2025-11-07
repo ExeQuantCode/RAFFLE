@@ -7,7 +7,7 @@ module raffle__evaluator
   !! bond angles and dihedral angles between the test point and all atoms.
   use coreutils, only: real32, tau, pi, &
        get_angle, get_improper_dihedral_angle
-  use raffle__geom_extd, only: extended_basis_type
+  use atomstruc, only: extended_basis_type
   use raffle__distribs_container, only: distribs_container_type
   implicit none
 
@@ -104,10 +104,10 @@ contains
     num_2body = 0
     species_loop: do is = 1, basis%nspec
        allocate(neighbour_basis%spec(is)%atom( &
-            basis%spec(is)%num+basis%image_spec(is)%num, 4 &
+            4, basis%spec(is)%num+basis%image_spec(is)%num &
        ) )
        allocate(neighbour_basis%image_spec(is)%atom( &
-            basis%spec(is)%num+basis%image_spec(is)%num, 4 &
+            4, basis%spec(is)%num+basis%image_spec(is)%num &
        ) )
        neighbour_basis%spec(is)%num = 0
        neighbour_basis%image_spec(is)%num = 0
@@ -127,7 +127,7 @@ contains
           ! Check if the atom is in the ignore list
           ! If it is, skip the atom.
           if(.not.basis%spec(is)%atom_mask(ia)) cycle atom_loop
-          associate( position_store => [ basis%spec(is)%atom(ia,1:3) ] )
+          associate( position_store => [ basis%spec(is)%atom(1:3,ia) ] )
              bondlength = norm2( matmul(position - position_store, basis%lat) )
              if( bondlength .gt. distribs_container%cutoff_max(1) ) &
                   cycle atom_loop
@@ -141,10 +141,10 @@ contains
                 ! atoms to consider for 3-body interactions.
                 neighbour_basis%spec(is)%num = neighbour_basis%spec(is)%num + 1
                 neighbour_basis%spec(is)%atom( &
-                     neighbour_basis%spec(is)%num,:3 &
+                     :3, neighbour_basis%spec(is)%num &
                 ) = matmul(position_store, basis%lat)
                 neighbour_basis%spec(is)%atom( &
-                     neighbour_basis%spec(is)%num,4 &
+                     4, neighbour_basis%spec(is)%num &
                 ) = 0.5_real32 * abs( 1._real32 - &
                      cos( cos_scale1 * ( bondlength - tolerances(1) ) ) )
              end if
@@ -157,10 +157,10 @@ contains
                 neighbour_basis%image_spec(is)%num = &
                      neighbour_basis%image_spec(is)%num + 1
                 neighbour_basis%image_spec(is)%atom( &
-                     neighbour_basis%image_spec(is)%num,:3 &
+                     :3, neighbour_basis%image_spec(is)%num &
                 ) = matmul(position_store, basis%lat)
                 neighbour_basis%image_spec(is)%atom( &
-                     neighbour_basis%image_spec(is)%num,4 &
+                     4, neighbour_basis%image_spec(is)%num &
                 ) = 0.5_real32 * abs( 1._real32 - &
                      cos( cos_scale2 * ( bondlength - tolerances(3) ) ) )
              end if
@@ -190,7 +190,7 @@ contains
        ! distance.
        !------------------------------------------------------------------------
        image_loop: do ia = 1, basis%image_spec(is)%num, 1
-          associate( position_store => [ basis%image_spec(is)%atom(ia,1:3) ] )
+          associate( position_store => [ basis%image_spec(is)%atom(1:3,ia) ] )
              bondlength = norm2( matmul(position - position_store, basis%lat) )
              if( bondlength .gt. distribs_container%cutoff_max(1) ) &
                   cycle image_loop
@@ -199,10 +199,10 @@ contains
              elseif( bondlength .le. tolerances(2) )then
                 neighbour_basis%spec(is)%num = neighbour_basis%spec(is)%num + 1
                 neighbour_basis%spec(is)%atom( &
-                     neighbour_basis%spec(is)%num,:3 &
+                     :3, neighbour_basis%spec(is)%num &
                 ) = matmul(position_store, basis%lat)
                 neighbour_basis%spec(is)%atom( &
-                     neighbour_basis%spec(is)%num,4 &
+                     4, neighbour_basis%spec(is)%num &
                 ) = 0.5_real32 * ( 1._real32 - &
                      cos( cos_scale1 * ( bondlength - tolerances(1) ) ) )
              end if
@@ -213,10 +213,10 @@ contains
                 neighbour_basis%image_spec(is)%num = &
                      neighbour_basis%image_spec(is)%num + 1
                 neighbour_basis%image_spec(is)%atom( &
-                     neighbour_basis%image_spec(is)%num,:3 &
+                     :3, neighbour_basis%image_spec(is)%num &
                 ) = matmul(position_store, basis%lat)
                 neighbour_basis%image_spec(is)%atom( &
-                     neighbour_basis%image_spec(is)%num,4 &
+                     4, neighbour_basis%image_spec(is)%num &
                 ) =  0.5_real32 * abs( 1._real32 - &
                      cos( cos_scale2 * ( bondlength - tolerances(3) ) ) )
              end if
@@ -246,10 +246,10 @@ contains
        ! only here for testing purposes.
        !------------------------------------------------------------------------
        if(.not.distribs_container%smooth_viability)then
-          neighbour_basis%spec(is)%atom(1:neighbour_basis%spec(is)%num,4) = &
+          neighbour_basis%spec(is)%atom(4,1:neighbour_basis%spec(is)%num) = &
                1._real32
           neighbour_basis%image_spec(is)%atom( &
-               1:neighbour_basis%image_spec(is)%num,4 &
+               4, 1:neighbour_basis%image_spec(is)%num &
           ) = 1._real32
        end if
     end do species_loop
@@ -300,7 +300,7 @@ contains
     do is = 1, is_end, 1
        ia_end = neighbour_basis%spec(is)%num - merge( 1, 0, is .eq. is_end )
        do ia = 1, ia_end, 1
-          position_2 = neighbour_basis%spec(is)%atom(ia,1:4)
+          position_2 = neighbour_basis%spec(is)%atom(1:4,ia)
           !---------------------------------------------------------------------
           ! 3-body map
           ! check bondangle between test point and all other atoms
@@ -327,7 +327,7 @@ contains
                         evaluate_4body_contributions( distribs_container, &
                              position_1, &
                              position_2, &
-                             [ neighbour_basis%spec(js)%atom(ja,1:4) ], &
+                             [ neighbour_basis%spec(js)%atom(1:4,ja) ], &
                              neighbour_basis, element_idx &
                         ) )
                    viability_4body = viability_4body * rtmp1
@@ -443,10 +443,10 @@ contains
                get_angle( &
                     position_2(1:3), &
                     position_1, &
-                    [ basis%spec(js)%atom(ja,1:3) ] &
+                    [ basis%spec(js)%atom(1:3,ja) ] &
                ), dim = 2 &
           )
-          rtmp1 = weight_2 * sqrt( basis%spec(js)%atom(ja,4) )
+          rtmp1 = weight_2 * sqrt( basis%spec(js)%atom(4,ja) )
           output = output * ( &
                distribs_container%viability_3body_default * &
                abs( 1._real32 - rtmp1 ) + &
@@ -503,10 +503,10 @@ contains
                     position_1, &
                     position_2(1:3), &
                     position_3(1:3), &
-                    [ basis%image_spec(ks)%atom(ka,1:3) ] &
+                    [ basis%image_spec(ks)%atom(1:3,ka) ] &
                ), dim = 3 &
           )
-          rtmp1 = weight_2_3 * ( basis%image_spec(ks)%atom(ka,4) ) ** third
+          rtmp1 = weight_2_3 * ( basis%image_spec(ks)%atom(4,ka) ) ** third
           output = output * ( &
                distribs_container%viability_4body_default * &
                abs( 1._real32 - rtmp1 ) + &

@@ -2,8 +2,8 @@ program test_place_methods
   use raffle__viability
   use raffle__distribs_container, only: distribs_container_type
   use coreutils, only: real32, test_error_handling
-  use raffle__geom_rw, only: basis_type
-  use raffle__geom_extd, only: extended_basis_type
+  use atomstruc, only: basis_type
+  use atomstruc, only: extended_basis_type
   implicit none
 
   type(basis_type) :: basis
@@ -16,9 +16,9 @@ program test_place_methods
   allocate(basis%spec(basis%nspec))
   basis%spec(1)%name = 'C'
   basis%spec(1)%num = 2
-  allocate(basis%spec(1)%atom(basis%spec(1)%num,3))
-  basis%spec(1)%atom(1,:) = [0.0_real32, 0.0_real32, 0.0_real32]
-  basis%spec(1)%atom(2,:) = [0.5_real32, 0.5_real32, 0.5_real32]
+  allocate(basis%spec(1)%atom(3,basis%spec(1)%num))
+  basis%spec(1)%atom(:,1) = [0.0_real32, 0.0_real32, 0.0_real32]
+  basis%spec(1)%atom(:,2) = [0.5_real32, 0.5_real32, 0.5_real32]
   basis%lat = 0.0_real32
   basis%lat(1,1) = 5.0_real32
   basis%lat(2,2) = 5.0_real32

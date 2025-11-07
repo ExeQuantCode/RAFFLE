@@ -8,10 +8,10 @@ module raffle__generator
   use coreutils, only: real32, stop_program, print_warning, suppress_warnings, &
        strip_null, to_upper, set, shuffle, sort1D, sort2D
   use raffle__tools_infile, only: assign_val, assign_vec
-  use raffle__geom_rw, only: basis_type
-  use raffle__geom_extd, only: extended_basis_type
+  use atomstruc, only: basis_type
+  use atomstruc, only: extended_basis_type
   use raffle__distribs_container, only: distribs_container_type
-  use raffle__geom_utils, only: basis_merge
+  use atomstruc, only: basis_merge
   use raffle__place_methods, only: &
        place_method_void, place_method_rand, &
        place_method_growth, place_method_walk, &
@@ -378,7 +378,7 @@ contains
     do is = 1, host%nspec
        atom_loop: do ia = 1, host%spec(is)%num
           do i = 1, size(intf_loc_)
-             dist = host%spec(is)%atom(ia,axis) - intf_loc_(i)
+             dist = host%spec(is)%atom(axis,ia) - intf_loc_(i)
              dist = dist - ceiling(dist - 0.5_real32)
              if( abs(dist * lattice_const) .le. depth_ )then
                 num_remove = num_remove + 1
@@ -687,7 +687,7 @@ contains
             [ ( k, k = j + 1, j + basis_template%spec(i)%num, 1 ) ]
        j = j + basis_template%spec(i)%num
        allocate( &
-            basis_template%spec(i)%atom(basis_template%spec(i)%num,3), &
+            basis_template%spec(i)%atom(3,basis_template%spec(i)%num), &
             source = 0._real32 &
        )
     end do
@@ -969,7 +969,7 @@ contains
              point = place_method_growth( &
                   this%distributions, &
                   basis%spec(placement_list_shuffled(1,iplaced))%atom( &
-                       placement_list_shuffled(2,iplaced),:3 &
+                       :3, placement_list_shuffled(2,iplaced) &
                   ), &
                   placement_list_shuffled(1,iplaced), &
                   this%bounds, &
@@ -1034,7 +1034,7 @@ contains
        end if
        iplaced = iplaced + 1
        basis%spec(placement_list_shuffled(1,iplaced))%atom( &
-            placement_list_shuffled(2,iplaced),:3) = point(:3)
+            :3, placement_list_shuffled(2,iplaced)) = point(:3)
        basis%spec(placement_list_shuffled(1,iplaced))%atom_mask( &
             placement_list_shuffled(2,iplaced)) = .true.
        call basis%update_images( &
@@ -1218,7 +1218,7 @@ contains
           basis_extd%spec(is)%atom_mask(ia) = .false.
           viability = viability + &
                evaluate_point( this%distributions, &
-                    [ basis%spec(is)%atom(ia,1:3) ], &
+                    [ basis%spec(is)%atom(1:3,ia) ], &
                     is, basis_extd, &
                     [ this%distributions%bond_info(:)%radius_covalent ] &
                )

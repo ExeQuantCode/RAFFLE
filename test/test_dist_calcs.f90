@@ -1,7 +1,7 @@
 program test_edit_geom
   !! Test program for the module edit_geom.
   use coreutils, only: real32
-  use raffle__geom_rw, only: basis_type
+  use atomstruc, only: basis_type
   use raffle__dist_calcs, only: &
        get_min_dist, &
        get_min_dist_between_point_and_atom, &
@@ -25,8 +25,8 @@ program test_edit_geom
   bas%spec(1)%num = 2
   bas%spec(1)%name = 'Si'
   allocate(bas%spec(1)%atom(bas%spec(1)%num, 3))
-  bas%spec(1)%atom(1, :) = [0.0, 0.0, 0.0]
-  bas%spec(1)%atom(2, :) = [0.25, 0.25, 0.25]
+  bas%spec(1)%atom(:, 1) = [0.0, 0.0, 0.0]
+  bas%spec(1)%atom(:, 2) = [0.25, 0.25, 0.25]
 
   ! Initialise silicon lattice
   bas%lat(1,:) = [0.0, 2.14, 2.14]
@@ -80,12 +80,12 @@ program test_edit_geom
   allocate(bas2%spec(bas2%nspec))
   bas2%spec(1)%num = 1
   bas2%spec(1)%name = 'Si'
-  allocate(bas2%spec(1)%atom(bas2%spec(1)%num, 3))
-  bas2%spec(1)%atom(1, :) = [0.0, 0.0, 0.0]
+  allocate(bas2%spec(1)%atom(3, bas2%spec(1)%num))
+  bas2%spec(1)%atom(:, 1) = [0.0, 0.0, 0.0]
   bas2%spec(2)%num = 1
   bas2%spec(2)%name = 'Ge'
-  allocate(bas2%spec(2)%atom(bas2%spec(2)%num, 3))
-  bas2%spec(2)%atom(1, :) = [0.25, 0.25, 0.25]
+  allocate(bas2%spec(2)%atom(3, bas2%spec(2)%num))
+  bas2%spec(2)%atom(:, 1) = [0.25, 0.25, 0.25]
   call bas2%set_atom_mask()
 
   rtmp1 = get_min_dist_between_point_and_species( &
@@ -93,7 +93,7 @@ program test_edit_geom
        loc=[0.9, 0.9, 0.9],  &
        species=1 &
   )
-  loc = bas2%spec(1)%atom(1,:3) - [0.9, 0.9, 0.9]
+  loc = bas2%spec(1)%atom(:3,1) - [0.9, 0.9, 0.9]
   loc = loc - ceiling(loc - 0.5)
   loc = matmul(loc, bas2%lat)
   rtmp2 = norm2(loc)
@@ -108,7 +108,7 @@ program test_edit_geom
        loc=[0.9, 0.9, 0.9],  &
        species=2 &
   )
-  loc = bas2%spec(2)%atom(1,:3) - [0.9, 0.9, 0.9]
+  loc = bas2%spec(2)%atom(:3,1) - [0.9, 0.9, 0.9]
   loc = loc - ceiling(loc - 0.5)
   loc = matmul(loc, bas2%lat)
   rtmp2 = norm2(loc)
@@ -127,7 +127,7 @@ program test_edit_geom
        loc=[0.9, 0.9, 0.9],  &
        atom=[1, 1] &
   )
-  loc = bas%spec(1)%atom(1,:3) - [0.9, 0.9, 0.9]
+  loc = bas%spec(1)%atom(:3,1) - [0.9, 0.9, 0.9]
   loc = matmul(loc, bas%lat)
   rtmp2 = norm2(loc)
   if ( abs(rtmp1 - rtmp2) .gt. 1.E-6 ) then
@@ -140,7 +140,7 @@ program test_edit_geom
        loc=[0.9, 0.9, 0.9],  &
        atom=[1, 2] &
   )
-  loc = bas%spec(1)%atom(2,:3) - [0.9, 0.9, 0.9]
+  loc = bas%spec(1)%atom(:3,2) - [0.9, 0.9, 0.9]
   loc = matmul(loc, bas%lat)
   rtmp2 = norm2(loc)
   if ( abs(rtmp1 - rtmp2) .gt. 1.E-6 ) then

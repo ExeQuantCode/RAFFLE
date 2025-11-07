@@ -619,7 +619,7 @@ end subroutine f90wrap_raffle__dc__set_history_len__binding__dc_type
 subroutine f90wrap_raffle__dc__create__binding__dc_type( &
      this, basis_list, deallocate_systems, verbose, energy_above_hull_list, n0 &
 )
-    use raffle__geom_rw, only: basis_type
+    use atomstruc, only: basis_type
     use raffle__distribs_container, only: distribs_container_type
     implicit none
 
@@ -658,7 +658,7 @@ subroutine f90wrap_raffle__dc__update__binding__dc_type( &
        this, basis_list, &
          from_host, deallocate_systems, verbose, energy_above_hull_list, n0 &
 )
-    use raffle__geom_rw, only: basis_type
+    use atomstruc, only: basis_type
     use raffle__distribs_container, only: distribs_container_type
     implicit none
 
@@ -723,7 +723,7 @@ end subroutine f90wrap_raffle__dc__deallocate_systems__binding__dc_type
 subroutine f90wrap_raffle__dc__add_basis__binding__dc_type( &
      this, basis &
 )
-    use raffle__geom_rw, only: basis_type
+    use atomstruc, only: basis_type
     use raffle__distribs_container, only: distribs_container_type
     implicit none
 
@@ -1176,7 +1176,7 @@ subroutine f90wrap_raffle__dc__generate_fingerprint_python__dc_type( &
      n0, n1, n2, n3, n4, n5 &
 )
     use raffle__distribs_container, only: distribs_container_type
-    use raffle__geom_rw, only: basis_type
+    use atomstruc, only: basis_type
     implicit none
 
     type basis_type_ptr_type

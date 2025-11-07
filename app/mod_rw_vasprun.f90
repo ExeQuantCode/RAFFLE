@@ -4,7 +4,7 @@ module rw_vasprun
   !! This module provides the procedures for reading the energy and atomic
   !! structure from a VASP vasprun.xml file.
   use coreutils, only: real32, stop_program
-  use raffle__geom_rw, only: basis_type
+  use atomstruc, only: basis_type
   implicit none
 
 
@@ -326,7 +326,7 @@ contains
     basis%spec(:)%num  = number_list
     basis%spec(:)%mass = mass_list
     do is = 1, basis%nspec
-       allocate(basis%spec(is)%atom(basis%spec(is)%num,3))
+       allocate(basis%spec(is)%atom(3,basis%spec(is)%num))
     end do
 
 
@@ -390,7 +390,7 @@ contains
           is = is + 1
        end if
        read( line, '(3X,A3,3(1X,F16.8))' ) buffer, &
-            basis%spec(is)%atom(ia,:3)
+            basis%spec(is)%atom(:3,ia)
     end do
     found = .true.
 

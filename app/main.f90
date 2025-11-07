@@ -9,7 +9,7 @@ program raffle_program
   use inputs
   use read_structures, only: get_gdfs_from_data
   use raffle, only: raffle_generator_type, distribs_container_type
-  use raffle__geom_rw, only: geom_read, geom_write, basis_type
+  use atomstruc, only: geom_read, geom_write, basis_type
   implicit none
 
   ! Local variables

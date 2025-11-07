@@ -2,8 +2,8 @@ program test_place_methods
   use coreutils, only: real32, test_error_handling
   use raffle__place_methods
   use raffle__distribs_container, only: distribs_container_type
-  use raffle__geom_rw, only: basis_type
-  use raffle__geom_extd, only: extended_basis_type
+  use atomstruc, only: basis_type
+  use atomstruc, only: extended_basis_type
   use raffle__generator, only: raffle_generator_type
   implicit none
 
@@ -36,15 +36,15 @@ program test_place_methods
   allocate(database(1)%spec(database(1)%nspec))
   database(1)%spec(1)%num = 8
   database(1)%spec(1)%name = 'C'
-  allocate(database(1)%spec(1)%atom(database(1)%spec(1)%num, 3))
-  database(1)%spec(1)%atom(1, :3) = [0.0, 0.0, 0.0]
-  database(1)%spec(1)%atom(2, :3) = [0.5, 0.5, 0.0]
-  database(1)%spec(1)%atom(3, :3) = [0.5, 0.0, 0.5]
-  database(1)%spec(1)%atom(4, :3) = [0.0, 0.5, 0.5]
-  database(1)%spec(1)%atom(5, :3) = [0.25, 0.25, 0.25]
-  database(1)%spec(1)%atom(6, :3) = [0.75, 0.75, 0.25]
-  database(1)%spec(1)%atom(7, :3) = [0.75, 0.25, 0.75]
-  database(1)%spec(1)%atom(8, :3) = [0.25, 0.75, 0.75]
+  allocate(database(1)%spec(1)%atom(3, database(1)%spec(1)%num))
+  database(1)%spec(1)%atom(:3, 1) = [0.0, 0.0, 0.0]
+  database(1)%spec(1)%atom(:3, 2) = [0.5, 0.5, 0.0]
+  database(1)%spec(1)%atom(:3, 3) = [0.5, 0.0, 0.5]
+  database(1)%spec(1)%atom(:3, 4) = [0.0, 0.5, 0.5]
+  database(1)%spec(1)%atom(:3, 5) = [0.25, 0.25, 0.25]
+  database(1)%spec(1)%atom(:3, 6) = [0.75, 0.75, 0.25]
+  database(1)%spec(1)%atom(:3, 7) = [0.75, 0.25, 0.75]
+  database(1)%spec(1)%atom(:3, 8) = [0.25, 0.75, 0.75]
 
   database(1)%lat(1,:) = [3.5607451090903233, 0.0, 0.0]
   database(1)%lat(2,:) = [0.0, 3.5607451090903233, 0.0]
@@ -57,9 +57,9 @@ program test_place_methods
   allocate(basis%spec(basis%nspec))
   basis%spec(1)%name = 'C'
   basis%spec(1)%num = 2
-  allocate(basis%spec(1)%atom(basis%spec(1)%num,3))
-  basis%spec(1)%atom(1,:) = [0.0_real32, 0.0_real32, 0.0_real32]
-  basis%spec(1)%atom(2,:) = [0.5_real32, 0.5_real32, 0.5_real32]
+  allocate(basis%spec(1)%atom(3, basis%spec(1)%num))
+  basis%spec(1)%atom(:,1) = [0.0_real32, 0.0_real32, 0.0_real32]
+  basis%spec(1)%atom(:,2) = [0.5_real32, 0.5_real32, 0.5_real32]
   basis%lat = 0.0_real32
   basis%lat(1,1) = 5.0_real32
   basis%lat(2,2) = 5.0_real32

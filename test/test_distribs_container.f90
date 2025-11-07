@@ -2,7 +2,7 @@ program test_distribs_container
   use coreutils, only: real32, pi, test_error_handling
   use raffle__distribs_container, only: &
        distribs_container_type
-  use raffle__geom_rw, only: basis_type
+  use atomstruc, only: basis_type
   implicit none
 
   logical :: success = .true.
@@ -16,15 +16,15 @@ program test_distribs_container
   allocate(basis_diamond%spec(basis_diamond%nspec))
   basis_diamond%spec(1)%num = 8
   basis_diamond%spec(1)%name = 'C'
-  allocate(basis_diamond%spec(1)%atom(basis_diamond%spec(1)%num, 3))
-  basis_diamond%spec(1)%atom(1, :3) = [0.0, 0.0, 0.0]
-  basis_diamond%spec(1)%atom(2, :3) = [0.5, 0.5, 0.0]
-  basis_diamond%spec(1)%atom(3, :3) = [0.5, 0.0, 0.5]
-  basis_diamond%spec(1)%atom(4, :3) = [0.0, 0.5, 0.5]
-  basis_diamond%spec(1)%atom(5, :3) = [0.25, 0.25, 0.25]
-  basis_diamond%spec(1)%atom(6, :3) = [0.75, 0.75, 0.25]
-  basis_diamond%spec(1)%atom(7, :3) = [0.75, 0.25, 0.75]
-  basis_diamond%spec(1)%atom(8, :3) = [0.25, 0.75, 0.75]
+  allocate(basis_diamond%spec(1)%atom(3,basis_diamond%spec(1)%num))
+  basis_diamond%spec(1)%atom(:3, 1) = [0.0, 0.0, 0.0]
+  basis_diamond%spec(1)%atom(:3, 2) = [0.5, 0.5, 0.0]
+  basis_diamond%spec(1)%atom(:3, 3) = [0.5, 0.0, 0.5]
+  basis_diamond%spec(1)%atom(:3, 4) = [0.0, 0.5, 0.5]
+  basis_diamond%spec(1)%atom(:3, 5) = [0.25, 0.25, 0.25]
+  basis_diamond%spec(1)%atom(:3, 6) = [0.75, 0.75, 0.25]
+  basis_diamond%spec(1)%atom(:3, 7) = [0.75, 0.25, 0.75]
+  basis_diamond%spec(1)%atom(:3, 8) = [0.25, 0.75, 0.75]
 
   basis_diamond%lat(1,:) = [3.5607451090903233, 0.0, 0.0]
   basis_diamond%lat(2,:) = [0.0, 3.5607451090903233, 0.0]
@@ -37,11 +37,11 @@ program test_distribs_container
   allocate(basis_graphite%spec(basis_graphite%nspec))
   basis_graphite%spec(1)%num = 4
   basis_graphite%spec(1)%name = 'C'
-  allocate(basis_graphite%spec(1)%atom(basis_graphite%spec(1)%num, 3))
-  basis_graphite%spec(1)%atom(1, :3) = [0.0, 0.0, 0.25]
-  basis_graphite%spec(1)%atom(2, :3) = [0.0, 0.0, 0.75]
-  basis_graphite%spec(1)%atom(3, :3) = [1.0/3.0, 2.0/3.0, 0.25]
-  basis_graphite%spec(1)%atom(4, :3) = [2.0/3.0, 1.0/3.0, 0.75]
+  allocate(basis_graphite%spec(1)%atom(3,basis_graphite%spec(1)%num))
+  basis_graphite%spec(1)%atom(:3, 1) = [0.0, 0.0, 0.25]
+  basis_graphite%spec(1)%atom(:3, 2) = [0.0, 0.0, 0.75]
+  basis_graphite%spec(1)%atom(:3, 3) = [1.0/3.0, 2.0/3.0, 0.25]
+  basis_graphite%spec(1)%atom(:3, 4) = [2.0/3.0, 1.0/3.0, 0.75]
 
   basis_graphite%lat(1,:) = [1.2336456308015413, -2.1367369110836267, 0.0]
   basis_graphite%lat(2,:) = [1.2336456308015413,  2.1367369110836267, 0.0]
@@ -54,18 +54,18 @@ program test_distribs_container
   allocate(basis_mgo%spec(basis_mgo%nspec))
   basis_mgo%spec(1)%num = 4
   basis_mgo%spec(1)%name = 'Mg'
-  allocate(basis_mgo%spec(1)%atom(basis_mgo%spec(1)%num, 3))
-  basis_mgo%spec(1)%atom(1, :3) = [0.0, 0.0, 0.0]
-  basis_mgo%spec(1)%atom(2, :3) = [0.5, 0.5, 0.0]
-  basis_mgo%spec(1)%atom(3, :3) = [0.5, 0.0, 0.5]
-  basis_mgo%spec(1)%atom(4, :3) = [0.0, 0.5, 0.5]
+  allocate(basis_mgo%spec(1)%atom(3, basis_mgo%spec(1)%num))
+  basis_mgo%spec(1)%atom(:3, 1) = [0.0, 0.0, 0.0]
+  basis_mgo%spec(1)%atom(:3, 2) = [0.5, 0.5, 0.0]
+  basis_mgo%spec(1)%atom(:3, 3) = [0.5, 0.0, 0.5]
+  basis_mgo%spec(1)%atom(:3, 4) = [0.0, 0.5, 0.5]
   basis_mgo%spec(2)%num = 4
   basis_mgo%spec(2)%name = 'O'
-  allocate(basis_mgo%spec(2)%atom(basis_mgo%spec(2)%num, 3))
-  basis_mgo%spec(2)%atom(1, :3) = [0.5, 0.0, 0.0]
-  basis_mgo%spec(2)%atom(2, :3) = [0.0, 0.5, 0.0]
-  basis_mgo%spec(2)%atom(3, :3) = [0.0, 0.0, 0.5]
-  basis_mgo%spec(2)%atom(4, :3) = [0.5, 0.5, 0.5]
+  allocate(basis_mgo%spec(2)%atom(3, basis_mgo%spec(2)%num))
+  basis_mgo%spec(2)%atom(:3, 1) = [0.5, 0.0, 0.0]
+  basis_mgo%spec(2)%atom(:3, 2) = [0.0, 0.5, 0.0]
+  basis_mgo%spec(2)%atom(:3, 3) = [0.0, 0.0, 0.5]
+  basis_mgo%spec(2)%atom(:3, 4) = [0.5, 0.5, 0.5]
 
   basis_mgo%lat(1,:) = [4.19, 0.0, 0.0]
   basis_mgo%lat(2,:) = [0.0, 4.19, 0.0]

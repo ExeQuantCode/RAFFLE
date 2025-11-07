@@ -4,7 +4,7 @@ module raffle__dist_calcs
   !! This module contains procedures to calculate the distance between atoms
   !! and other points in the system.
   use coreutils, only: pi,real32, get_angle
-  use raffle__geom_rw, only: basis_type
+  use atomstruc, only: basis_type
   implicit none
 
 
@@ -83,7 +83,7 @@ contains
     do js = 1, basis%nspec
        atmloop: do ja = 1, basis%spec(js)%num
           if(.not.basis%spec(js)%atom_mask(ja)) cycle atmloop
-          vdtmp1 = basis%spec(js)%atom(ja,:3) - loc
+          vdtmp1 = basis%spec(js)%atom(:3,ja) - loc
           if(lignore_close.and.norm2(vdtmp1).lt.tol_) cycle atmloop
           if(axis_.gt.0)then
              if(abs(vdtmp1(axis_)).lt.tol_) cycle atmloop
@@ -134,7 +134,7 @@ contains
     real(real32), dimension(3) :: vec
     !! Vector between the point and the atom.
 
-    vec = loc - basis%spec(atom(1))%atom(atom(2),:3)
+    vec = loc - basis%spec(atom(1))%atom(:3,atom(2))
     vec = vec - ceiling(vec - 0.5_real32)
     vec = matmul(vec,basis%lat)
     dist = norm2(vec)
@@ -174,7 +174,7 @@ contains
     dist = huge(0._real32)
     atom_loop: do ia = 1,basis%spec(species)%num
        if(.not.basis%spec(species)%atom_mask(ia)) cycle atom_loop
-       vec = loc - basis%spec(species)%atom(ia,:3)
+       vec = loc - basis%spec(species)%atom(:3,ia)
        vec = vec - ceiling(vec - 0.5_real32)
        vec = matmul(vec, basis%lat)
        rtmp1 = norm2(vec)
@@ -206,7 +206,7 @@ contains
     real(real32), dimension(3) :: vec
     !! Vector between the point and the atom.
 
-    vec = loc - basis%spec(atom(1))%atom(atom(2),:3)
+    vec = loc - basis%spec(atom(1))%atom(:3,atom(2))
     vec = matmul(vec,basis%lat)
     dist = norm2(vec)
 

@@ -1,6 +1,6 @@
 program test_generator
   use coreutils, only: real32, test_error_handling
-  use raffle__geom_rw, only: basis_type
+  use atomstruc, only: basis_type
   use raffle__generator, only: raffle_generator_type, stoichiometry_type
   implicit none
 
@@ -77,15 +77,15 @@ program test_generator
   allocate(database(1)%spec(database(1)%nspec))
   database(1)%spec(1)%num = 8
   database(1)%spec(1)%name = 'C'
-  allocate(database(1)%spec(1)%atom(database(1)%spec(1)%num, 3))
-  database(1)%spec(1)%atom(1, :3) = [0.0, 0.0, 0.0]
-  database(1)%spec(1)%atom(2, :3) = [0.5, 0.5, 0.0]
-  database(1)%spec(1)%atom(3, :3) = [0.5, 0.0, 0.5]
-  database(1)%spec(1)%atom(4, :3) = [0.0, 0.5, 0.5]
-  database(1)%spec(1)%atom(5, :3) = [0.25, 0.25, 0.25]
-  database(1)%spec(1)%atom(6, :3) = [0.75, 0.75, 0.25]
-  database(1)%spec(1)%atom(7, :3) = [0.75, 0.25, 0.75]
-  database(1)%spec(1)%atom(8, :3) = [0.25, 0.75, 0.75]
+  allocate(database(1)%spec(1)%atom(3, database(1)%spec(1)%num))
+  database(1)%spec(1)%atom(:3, 1) = [0.0, 0.0, 0.0]
+  database(1)%spec(1)%atom(:3, 2) = [0.5, 0.5, 0.0]
+  database(1)%spec(1)%atom(:3, 3) = [0.5, 0.0, 0.5]
+  database(1)%spec(1)%atom(:3, 4) = [0.0, 0.5, 0.5]
+  database(1)%spec(1)%atom(:3, 5) = [0.25, 0.25, 0.25]
+  database(1)%spec(1)%atom(:3, 6) = [0.75, 0.75, 0.25]
+  database(1)%spec(1)%atom(:3, 7) = [0.75, 0.25, 0.75]
+  database(1)%spec(1)%atom(:3, 8) = [0.25, 0.75, 0.75]
 
   database(1)%lat(1,:) = [3.5607451090903233, 0.0, 0.0]
   database(1)%lat(2,:) = [0.0, 3.5607451090903233, 0.0]
@@ -113,15 +113,15 @@ program test_generator
   basis_host%spec(1)%num = 8
   basis_host%spec(1)%name = 'C'
   basis_host%natom = sum(basis_host%spec(:)%num)
-  allocate(basis_host%spec(1)%atom(basis_host%spec(1)%num, 3))
-  basis_host%spec(1)%atom(1, :3) = [0.0, 0.0, 0.0]
-  basis_host%spec(1)%atom(2, :3) = [0.5, 0.5, 0.0]
-  basis_host%spec(1)%atom(3, :3) = [0.5, 0.0, 0.25]
-  basis_host%spec(1)%atom(4, :3) = [0.0, 0.5, 0.25]
-  basis_host%spec(1)%atom(5, :3) = [0.25, 0.25, 0.125]
-  basis_host%spec(1)%atom(6, :3) = [0.75, 0.75, 0.125]
-  basis_host%spec(1)%atom(7, :3) = [0.75, 0.25, 0.375]
-  basis_host%spec(1)%atom(8, :3) = [0.25, 0.75, 0.375]
+  allocate(basis_host%spec(1)%atom(3, basis_host%spec(1)%num))
+  basis_host%spec(1)%atom(:3, 1) = [0.0, 0.0, 0.0]
+  basis_host%spec(1)%atom(:3, 2) = [0.5, 0.5, 0.0]
+  basis_host%spec(1)%atom(:3, 3) = [0.5, 0.0, 0.25]
+  basis_host%spec(1)%atom(:3, 4) = [0.0, 0.5, 0.25]
+  basis_host%spec(1)%atom(:3, 5) = [0.25, 0.25, 0.125]
+  basis_host%spec(1)%atom(:3, 6) = [0.75, 0.75, 0.125]
+  basis_host%spec(1)%atom(:3, 7) = [0.75, 0.25, 0.375]
+  basis_host%spec(1)%atom(:3, 8) = [0.25, 0.75, 0.375]
   basis_host%lat(1,:) = [3.560745109, 0.0, 0.0]
   basis_host%lat(2,:) = [0.0, 3.560745109, 0.0]
   basis_host%lat(3,:) = [0.0, 0.0, 7.121490218]
@@ -150,23 +150,23 @@ program test_generator
   basis_expected%spec(1)%num = 16
   basis_expected%spec(1)%name = 'C'
   basis_expected%natom = sum(basis_expected%spec(:)%num)
-  allocate(basis_expected%spec(1)%atom(basis_expected%spec(1)%num, 3))
-  basis_expected%spec(1)%atom(1, :3) = [0.0, 0.0, 0.0]
-  basis_expected%spec(1)%atom(2, :3) = [0.5, 0.5, 0.0]
-  basis_expected%spec(1)%atom(3, :3) = [0.5, 0.0, 0.25]
-  basis_expected%spec(1)%atom(4, :3) = [0.0, 0.5, 0.25]
-  basis_expected%spec(1)%atom(5, :3) = [0.25, 0.25, 0.125]
-  basis_expected%spec(1)%atom(6, :3) = [0.75, 0.75, 0.125]
-  basis_expected%spec(1)%atom(7, :3) = [0.75, 0.25, 0.375]
-  basis_expected%spec(1)%atom(8, :3) = [0.25, 0.75, 0.375]
-  basis_expected%spec(1)%atom(9, :3) = [0.75, 0.25, 0.875]
-  basis_expected%spec(1)%atom(10, :3) = [0.75, 0.75, 0.625]
-  basis_expected%spec(1)%atom(11, :3) = [0.5, 0.0, 0.75]
-  basis_expected%spec(1)%atom(12, :3) = [0.25, 0.25, 0.625]
-  basis_expected%spec(1)%atom(13, :3) = [0.25, 0.75, 0.875]
-  basis_expected%spec(1)%atom(14, :3) = [0.5, 0.5, 0.5]
-  basis_expected%spec(1)%atom(15, :3) = [0.0, 0.5, 0.75]
-  basis_expected%spec(1)%atom(16, :3) = [0.0, 0.0, 0.5]
+  allocate(basis_expected%spec(1)%atom(3, basis_expected%spec(1)%num))
+  basis_expected%spec(1)%atom(:3, 1) = [0.0, 0.0, 0.0]
+  basis_expected%spec(1)%atom(:3, 2) = [0.5, 0.5, 0.0]
+  basis_expected%spec(1)%atom(:3, 3) = [0.5, 0.0, 0.25]
+  basis_expected%spec(1)%atom(:3, 4) = [0.0, 0.5, 0.25]
+  basis_expected%spec(1)%atom(:3, 5) = [0.25, 0.25, 0.125]
+  basis_expected%spec(1)%atom(:3, 6) = [0.75, 0.75, 0.125]
+  basis_expected%spec(1)%atom(:3, 7) = [0.75, 0.25, 0.375]
+  basis_expected%spec(1)%atom(:3, 8) = [0.25, 0.75, 0.375]
+  basis_expected%spec(1)%atom(:3, 9) = [0.75, 0.25, 0.875]
+  basis_expected%spec(1)%atom(:3, 10) = [0.75, 0.75, 0.625]
+  basis_expected%spec(1)%atom(:3, 11) = [0.5, 0.0, 0.75]
+  basis_expected%spec(1)%atom(:3, 12) = [0.25, 0.25, 0.625]
+  basis_expected%spec(1)%atom(:3, 13) = [0.25, 0.75, 0.875]
+  basis_expected%spec(1)%atom(:3, 14) = [0.5, 0.5, 0.5]
+  basis_expected%spec(1)%atom(:3, 15) = [0.0, 0.5, 0.75]
+  basis_expected%spec(1)%atom(:3, 16) = [0.0, 0.0, 0.5]
   basis_expected%lat(1,:) = [3.560745109, 0.0, 0.0]
   basis_expected%lat(2,:) = [0.0, 3.560745109, 0.0]
   basis_expected%lat(3,:) = [0.0, 0.0, 7.121490218]
@@ -550,11 +550,11 @@ contains
              if( &
                   all( &
                        abs( &
-                            bas1%spec(is)%atom(ia,:3) - &
-                            bas2%spec(is)%atom(ja,:3) - &
+                            bas1%spec(is)%atom(:3,ia) - &
+                            bas2%spec(is)%atom(:3,ja) - &
                             ceiling( &
-                                 bas1%spec(is)%atom(ia,:3) - &
-                                 bas2%spec(is)%atom(ja,:3) - &
+                                 bas1%spec(is)%atom(:3,ia) - &
+                                 bas2%spec(is)%atom(:3,ja) - &
                                  0.5_real32 &
                             ) &
                        ) .lt. 2._real32 * tolerance + 1.E-6_real32 &
@@ -563,7 +563,7 @@ contains
           end do
           if(.not. ltmp1) then
              write(0,*) 'Generator failed to produce expected atom: ', is, ia
-             write(0,*) bas1%spec(is)%atom(ia,:3), bas2%spec(is)%atom(ia,:3)
+             write(0,*) bas1%spec(is)%atom(:3,ia), bas2%spec(is)%atom(:3,ia)
              output = .false.
           end if
        end do

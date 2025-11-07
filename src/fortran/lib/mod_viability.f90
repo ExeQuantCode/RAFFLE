@@ -7,7 +7,7 @@ module raffle__viability
   use omp_lib
 #endif
   use coreutils, only: real32, inverse_3x3
-  use raffle__geom_extd, only: extended_basis_type
+  use atomstruc, only: extended_basis_type
   use raffle__dist_calcs, only: &
        get_min_dist_between_point_and_atom, get_min_dist
   use raffle__evaluator, only: evaluate_point
@@ -127,7 +127,7 @@ contains
 
           ! get the atom position in terms of the grid indices
           atom_idx = &
-               nint( ( basis%spec(is)%atom(ia,1:3) - offset ) / grid_scale )
+               nint( ( basis%spec(is)%atom(1:3,ia) - offset ) / grid_scale )
 
           ! if any one of the indicies is always outside of the grid, skip
           idx_lw = atom_idx - extent
@@ -251,7 +251,7 @@ contains
          distribs_container%cutoff_min(1), &
          minval(radius_list) * distribs_container%radius_distance_tol(1) &
     )
-    atom_pos = basis%spec(atom(1))%atom(atom(2),1:3)
+    atom_pos = basis%spec(atom(1))%atom(1:3,atom(2))
     num_species = size(species_index_list,1)
 !$omp parallel do default(shared) private(i,is,diff,distance)
     do i = 1, num_points

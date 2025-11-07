@@ -1,7 +1,7 @@
 program test_evaluator_C
   use coreutils, only: real32, pi, test_error_handling
-  use raffle__geom_rw, only: basis_type, geom_write
-  use raffle__geom_extd, only: extended_basis_type
+  use atomstruc, only: basis_type, geom_write
+  use atomstruc, only: extended_basis_type
   use raffle__evaluator, only: evaluate_point
   use raffle__generator, only: raffle_generator_type
   use raffle__viability, only: get_gridpoints_and_viability
@@ -89,15 +89,15 @@ program test_evaluator_C
   allocate(database(1)%spec(database(1)%nspec))
   database(1)%spec(1)%num = 8
   database(1)%spec(1)%name = 'C'
-  allocate(database(1)%spec(1)%atom(database(1)%spec(1)%num, 3))
-  database(1)%spec(1)%atom(1, :3) = [0.0, 0.0, 0.0]
-  database(1)%spec(1)%atom(2, :3) = [0.5, 0.5, 0.0]
-  database(1)%spec(1)%atom(3, :3) = [0.5, 0.0, 0.5]
-  database(1)%spec(1)%atom(4, :3) = [0.0, 0.5, 0.5]
-  database(1)%spec(1)%atom(5, :3) = [0.25, 0.25, 0.25]
-  database(1)%spec(1)%atom(6, :3) = [0.75, 0.75, 0.25]
-  database(1)%spec(1)%atom(7, :3) = [0.75, 0.25, 0.75]
-  database(1)%spec(1)%atom(8, :3) = [0.25, 0.75, 0.75]
+  allocate(database(1)%spec(1)%atom(3, database(1)%spec(1)%num))
+  database(1)%spec(1)%atom(:3, 1) = [0.0, 0.0, 0.0]
+  database(1)%spec(1)%atom(:3, 2) = [0.5, 0.5, 0.0]
+  database(1)%spec(1)%atom(:3, 3) = [0.5, 0.0, 0.5]
+  database(1)%spec(1)%atom(:3, 4) = [0.0, 0.5, 0.5]
+  database(1)%spec(1)%atom(:3, 5) = [0.25, 0.25, 0.25]
+  database(1)%spec(1)%atom(:3, 6) = [0.75, 0.75, 0.25]
+  database(1)%spec(1)%atom(:3, 7) = [0.75, 0.25, 0.75]
+  database(1)%spec(1)%atom(:3, 8) = [0.25, 0.75, 0.75]
 
   database(1)%lat(1,:) = [3.5607451090903233, 0.0, 0.0]
   database(1)%lat(2,:) = [0.0, 3.5607451090903233, 0.0]
@@ -125,23 +125,23 @@ program test_evaluator_C
   basis_host%spec(1)%num = 16
   basis_host%spec(1)%name = 'C'
   basis_host%natom = sum(basis_host%spec(:)%num)
-  allocate(basis_host%spec(1)%atom(basis_host%spec(1)%num, 3))
-  basis_host%spec(1)%atom(1, :3) = [0.0, 0.0, 0.0]
-  basis_host%spec(1)%atom(2, :3) = [0.5, 0.5, 0.0]
-  basis_host%spec(1)%atom(3, :3) = [0.5, 0.0, 0.25]
-  basis_host%spec(1)%atom(4, :3) = [0.0, 0.5, 0.25]
-  basis_host%spec(1)%atom(5, :3) = [0.25, 0.25, 0.125]
-  basis_host%spec(1)%atom(6, :3) = [0.75, 0.75, 0.125]
-  basis_host%spec(1)%atom(7, :3) = [0.75, 0.25, 0.375]
-  basis_host%spec(1)%atom(8, :3) = [0.25, 0.75, 0.375]
-  basis_host%spec(1)%atom(9, :3) = [0.0, 0.0, 0.5]
-  basis_host%spec(1)%atom(10, :3) = [0.5, 0.5, 0.5]
-  basis_host%spec(1)%atom(11, :3) = [0.75, 0.25, 0.875]
-  basis_host%spec(1)%atom(12, :3) = [0.25, 0.75, 0.875]
-  basis_host%spec(1)%atom(13, :3) = [0.0, 0.5, 0.75]
-  basis_host%spec(1)%atom(14, :3) = [0.5, 0.0, 0.75]
-  basis_host%spec(1)%atom(15, :3) = [0.75, 0.75, 0.625]
-  basis_host%spec(1)%atom(16, :3) = [0.25, 0.25, 0.625]
+  allocate(basis_host%spec(1)%atom(3, basis_host%spec(1)%num))
+  basis_host%spec(1)%atom(:3, 1) = [0.0, 0.0, 0.0]
+  basis_host%spec(1)%atom(:3, 2) = [0.5, 0.5, 0.0]
+  basis_host%spec(1)%atom(:3, 3) = [0.5, 0.0, 0.25]
+  basis_host%spec(1)%atom(:3, 4) = [0.0, 0.5, 0.25]
+  basis_host%spec(1)%atom(:3, 5) = [0.25, 0.25, 0.125]
+  basis_host%spec(1)%atom(:3, 6) = [0.75, 0.75, 0.125]
+  basis_host%spec(1)%atom(:3, 7) = [0.75, 0.25, 0.375]
+  basis_host%spec(1)%atom(:3, 8) = [0.25, 0.75, 0.375]
+  basis_host%spec(1)%atom(:3, 9) = [0.0, 0.0, 0.5]
+  basis_host%spec(1)%atom(:3, 10) = [0.5, 0.5, 0.5]
+  basis_host%spec(1)%atom(:3, 11) = [0.75, 0.25, 0.875]
+  basis_host%spec(1)%atom(:3, 12) = [0.25, 0.75, 0.875]
+  basis_host%spec(1)%atom(:3, 13) = [0.0, 0.5, 0.75]
+  basis_host%spec(1)%atom(:3, 14) = [0.5, 0.0, 0.75]
+  basis_host%spec(1)%atom(:3, 15) = [0.75, 0.75, 0.625]
+  basis_host%spec(1)%atom(:3, 16) = [0.25, 0.25, 0.625]
   basis_host%lat(1,:) = [3.560745109, 0.0, 0.0]
   basis_host%lat(2,:) = [0.0, 3.560745109, 0.0]
   basis_host%lat(3,:) = [0.0, 0.0, 7.121490218]
@@ -216,7 +216,7 @@ program test_evaluator_C
      do is = 1, basis_host%nspec
         atom_loop: do ia = 1, basis_host%spec(is)%num
            if(.not.basis_host%spec(is)%atom_mask(ia)) cycle atom_loop
-           write(unit,*) basis_host%spec(is)%atom(ia,:3)
+           write(unit,*) basis_host%spec(is)%atom(:3,ia)
         end do atom_loop
      end do
      write(unit,*)
@@ -250,7 +250,7 @@ program test_evaluator_C
              all( &
                   abs( &
                        gridpoints(1:3,best_loc) - &
-                       basis_host%spec(1)%atom(atom_ignore_list(2,ja),:3) &
+                       basis_host%spec(1)%atom(:3,atom_ignore_list(2,ja)) &
                   ) .lt. tolerance + 1.E-6_real32 &
              ) &
         ) ltmp1 = .true.

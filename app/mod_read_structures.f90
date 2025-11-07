@@ -7,7 +7,7 @@ module read_structures
   !! NOTE: This does not currently handle relaxations in POSCAR/CONTCAR format.
   !! NOTE: This does not currently restart from a printed distribs_container.
   use coreutils, only: real32, stop_program, grep
-  use raffle__geom_rw, only: basis_type, geom_read, geom_write, igeom_input
+  use atomstruc, only: basis_type, geom_read, geom_write, igeom_input
   use rw_vasprun, only: get_energy_from_vasprun, get_structure_from_vasprun
   use raffle__distribs_container, only: distribs_container_type
   implicit none

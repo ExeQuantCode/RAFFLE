@@ -1,6 +1,5 @@
 program test_evaluator_C
   use coreutils, only: real32, pi, test_error_handling
-  use raffle__misc_linalg, only: modu
   use raffle__geom_rw, only: basis_type, geom_write
   use raffle__geom_extd, only: extended_basis_type
   use raffle__evaluator, only: evaluate_point
@@ -209,9 +208,9 @@ program test_evaluator_C
      write(unit,'("#grid",3(1X,I0),3(1X,F0.3))') &
           generator%grid, generator%grid_offset
      write(unit,'("#lat",3(1X,F0.3))') &
-          modu(basis_host%lat(1,:)), &
-          modu(basis_host%lat(2,:)), &
-          modu(basis_host%lat(3,:))
+          norm2(basis_host%lat(1,:)), &
+          norm2(basis_host%lat(2,:)), &
+          norm2(basis_host%lat(3,:))
      write(fmt,'("(""#species"",",I0,"(1X,A3))")') basis_host%nspec
      write(unit,fmt) basis_host%spec(:)%name
      do is = 1, basis_host%nspec

@@ -3,9 +3,8 @@ module raffle__geom_utils
   !!
   !! This module contains procedures that are used to manipulate the geometry
   !! of the system. The geometry type used is defined in the geom_rw module.
-  use coreutils, only: pi,real32
+  use coreutils, only: pi,real32, get_angle
   use raffle__geom_rw, only: basis_type
-  use raffle__misc_linalg, only: modu, get_angle
   implicit none
 
 

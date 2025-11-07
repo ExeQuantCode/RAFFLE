@@ -1,6 +1,5 @@
 program test_generator
   use coreutils, only: real32, test_error_handling
-  use raffle__misc_linalg, only: modu
   use raffle__geom_rw, only: basis_type
   use raffle__generator, only: raffle_generator_type, stoichiometry_type
   implicit none
@@ -133,7 +132,7 @@ program test_generator
   !-----------------------------------------------------------------------------
   generator_var = raffle_generator_type(host = basis_host)
   do i = 1, 3
-     tolerance(i) = 1.E-6_real32 / modu(basis_host%lat(i,:))
+     tolerance(i) = 1.E-6_real32 / norm2(basis_host%lat(i,:))
   end do
   call assert(compare_bas(generator_var%host, basis_host, tolerance), &
        'Generator failed to set host structure', &
@@ -178,7 +177,7 @@ program test_generator
   !-----------------------------------------------------------------------------
   call generator%set_host( basis_host )
   do i = 1, 3
-     tolerance(i) = 1.E-6_real32 / modu(basis_host%lat(i,:))
+     tolerance(i) = 1.E-6_real32 / norm2(basis_host%lat(i,:))
   end do
   call assert(compare_bas(generator%host, basis_host, tolerance), &
        'Generator failed to set host structure', &

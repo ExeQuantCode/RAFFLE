@@ -2,7 +2,6 @@ program test_edit_geom
   !! Test program for the module edit_geom.
   use coreutils, only: real32
   use raffle__geom_rw, only: basis_type
-  use raffle__misc_linalg, only: modu
   use raffle__dist_calcs, only: &
        get_min_dist, &
        get_min_dist_between_point_and_atom, &
@@ -39,12 +38,12 @@ program test_edit_geom
   !-----------------------------------------------------------------------------
   ! Test get_min_dist
   !-----------------------------------------------------------------------------
-  rtmp1 = modu(get_min_dist(bas, loc=[0.9, 0.9, 0.9], lignore_close = .true.))
+  rtmp1 = norm2(get_min_dist(bas, loc=[0.9, 0.9, 0.9], lignore_close = .true.))
 
   loc = [1.0, 1.0, 1.0] - [0.9, 0.9, 0.9]
   loc = loc - ceiling(loc - 0.5)
   loc = matmul(loc, bas%lat)
-  rtmp2 = modu(loc)
+  rtmp2 = norm2(loc)
 
   if ( abs(rtmp1 - rtmp2) .gt. 1.E-6 ) then
      write(0,*) 'get_min_dist failed'
@@ -64,7 +63,7 @@ program test_edit_geom
   loc = [1.0, 1.0, 1.0] - [0.9, 0.9, 0.9]
   loc = loc - ceiling(loc - 0.5)
   loc = matmul(loc, bas%lat)
-  rtmp2 = modu(loc)
+  rtmp2 = norm2(loc)
 
   if ( abs(rtmp1 - rtmp2) .gt. 1.E-6 ) then
      write(0,*) 'get_min_dist_between_point_and_atom failed'
@@ -97,7 +96,7 @@ program test_edit_geom
   loc = bas2%spec(1)%atom(1,:3) - [0.9, 0.9, 0.9]
   loc = loc - ceiling(loc - 0.5)
   loc = matmul(loc, bas2%lat)
-  rtmp2 = modu(loc)
+  rtmp2 = norm2(loc)
 
   if ( abs(rtmp1 - rtmp2) .gt. 1.E-6 ) then
      write(0,*) 'get_min_dist_between_point_and_species failed'
@@ -112,7 +111,7 @@ program test_edit_geom
   loc = bas2%spec(2)%atom(1,:3) - [0.9, 0.9, 0.9]
   loc = loc - ceiling(loc - 0.5)
   loc = matmul(loc, bas2%lat)
-  rtmp2 = modu(loc)
+  rtmp2 = norm2(loc)
 
   if ( abs(rtmp1 - rtmp2) .gt. 1.E-6 ) then
      write(0,*) 'get_min_dist_between_point_and_species failed'
@@ -130,7 +129,7 @@ program test_edit_geom
   )
   loc = bas%spec(1)%atom(1,:3) - [0.9, 0.9, 0.9]
   loc = matmul(loc, bas%lat)
-  rtmp2 = modu(loc)
+  rtmp2 = norm2(loc)
   if ( abs(rtmp1 - rtmp2) .gt. 1.E-6 ) then
      write(*,*) rtmp1, rtmp2
      write(0,*) 'get_dist_between_point_and_atom failed'
@@ -143,7 +142,7 @@ program test_edit_geom
   )
   loc = bas%spec(1)%atom(2,:3) - [0.9, 0.9, 0.9]
   loc = matmul(loc, bas%lat)
-  rtmp2 = modu(loc)
+  rtmp2 = norm2(loc)
   if ( abs(rtmp1 - rtmp2) .gt. 1.E-6 ) then
      write(*,*) rtmp1, rtmp2
      write(0,*) 'get_dist_between_point_and_atom failed'

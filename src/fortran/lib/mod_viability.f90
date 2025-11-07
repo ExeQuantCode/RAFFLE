@@ -6,8 +6,7 @@ module raffle__viability
 #ifdef _OPENMP
   use omp_lib
 #endif
-  use coreutils, only: real32
-  use raffle__misc_linalg, only: inverse_3x3
+  use coreutils, only: real32, inverse_3x3
   use raffle__geom_extd, only: extended_basis_type
   use raffle__dist_calcs, only: &
        get_min_dist_between_point_and_atom, get_min_dist

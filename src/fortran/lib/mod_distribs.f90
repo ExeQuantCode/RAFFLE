@@ -6,9 +6,9 @@ module raffle__distribs
   !! The distribution functions are used as fingerprints for atomic structures
   !! to identify similarities and differences between structures.
   use coreutils, only: real32, pi, tau, stop_program, print_warning, &
-       strip_null, sort_str
+       strip_null, sort_str, &
+       get_angle, get_improper_dihedral_angle
   use raffle__misc_maths, only: triangular_number
-  use raffle__misc_linalg, only: get_angle, get_improper_dihedral_angle
   use raffle__geom_rw, only: basis_type, get_element_properties
   use raffle__geom_extd, only: extended_basis_type
   use raffle__element_utils, only: &

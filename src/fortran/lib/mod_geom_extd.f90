@@ -4,8 +4,7 @@ module raffle__geom_extd
   !! This module is designed to extend the basis set to include images of atoms
   !! within a specified distance of the unit cell. This is useful for
   !! calculating interactions between atoms that are not within the unit cell.
-  use coreutils, only: real32, pi
-  use raffle__misc_linalg, only: cross, inverse_3x3
+  use coreutils, only: real32, pi, cross, inverse_3x3
   use raffle__geom_rw, only: basis_type, species_type
   implicit none
 

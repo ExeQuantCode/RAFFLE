@@ -3,9 +3,8 @@ module raffle__dist_calcs
   !!
   !! This module contains procedures to calculate the distance between atoms
   !! and other points in the system.
-  use coreutils, only: pi,real32
+  use coreutils, only: pi,real32, get_angle
   use raffle__geom_rw, only: basis_type
-  use raffle__misc_linalg, only: get_angle
   implicit none
 
 

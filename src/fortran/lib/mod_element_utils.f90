@@ -6,8 +6,7 @@ module raffle__element_utils
   !! of the elements and bonds in the system, respectively.
   !! The element and bond types are used by other modules to store the
   !! properties relevant to an individual system.
-  use raffle__constants, only: real32
-  use raffle__io_utils, only: print_warning
+  use coreutils, only: real32, print_warning
   implicit none
 
   private
@@ -30,15 +29,15 @@ module raffle__element_utils
 
 
   type :: element_bond_type
-     !! Type for storing the properties of a bond between two elements.    
+     !! Type for storing the properties of a bond between two elements.
      real(real32) :: radius_covalent = 0._real32
      character(3), dimension(2) :: element
    contains
      procedure, pass(this) :: set => set_bond
   end type element_bond_type
   type(element_bond_type), dimension(:), allocatable :: element_bond_database
-  
-   
+
+
   interface element_type
      !! Constructor for the element type.
      module function init_element_type( &
@@ -49,7 +48,7 @@ module raffle__element_utils
      end function init_element_type
   end interface element_type
 
-   
+
   interface element_bond_type
      !! Constructor for the element bond type.
      module function init_element_bond_type( &

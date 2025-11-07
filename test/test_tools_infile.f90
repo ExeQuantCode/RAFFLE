@@ -1,5 +1,5 @@
 program test_tools_infile
-  use raffle__constants, only: real32
+  use coreutils, only: real32
   use raffle__tools_infile
   implicit none
 

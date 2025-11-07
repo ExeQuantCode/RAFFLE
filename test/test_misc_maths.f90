@@ -1,7 +1,6 @@
 program test_misc_maths
-  use raffle__io_utils, only: test_error_handling
+  use coreutils, only: real32, test_error_handling
   use raffle__misc_maths
-  use raffle__constants, only: real32
   implicit none
 
   logical :: success = .true.

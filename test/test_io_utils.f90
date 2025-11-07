@@ -6,14 +6,6 @@ program test_io_utils
   logical :: success = .true.
   character(100) :: message
 
-  ! Test stop_program subroutine
-  test_error_handling = .true.
-  message = "Test error message"
-  call stop_program(message)
-
-  ! Test print_warning subroutine
-  call print_warning("This is a test warning message")
-  
   ! Test print_version subroutine
   call print_version()
 

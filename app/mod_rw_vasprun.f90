@@ -3,8 +3,7 @@ module rw_vasprun
   !!
   !! This module provides the procedures for reading the energy and atomic
   !! structure from a VASP vasprun.xml file.
-  use raffle__constants, only: real32
-  use raffle__io_utils, only: stop_program
+  use coreutils, only: real32, stop_program
   use raffle__geom_rw, only: basis_type
   implicit none
 
@@ -237,8 +236,8 @@ contains
     !! List of masses and valencies.
     character(len=40), dimension(:), allocatable :: pseudo_list
     !! List of pseudopotential file names.
-    
-    
+
+
     found = .false.
 
     !---------------------------------------------------------------------------

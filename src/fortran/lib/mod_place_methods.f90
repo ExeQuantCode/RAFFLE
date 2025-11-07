@@ -9,8 +9,7 @@ module raffle__place_methods
   !! - growth: place the atom using a random walk, with last placement point
   !!        as the starting point
   !! - min:  place the atom at the gridpoint with the highest viability
-  use raffle__constants, only: real32, pi
-  use raffle__misc_linalg, only: inverse_3x3
+  use coreutils, only: real32, pi, inverse_3x3
   use raffle__geom_extd, only: extended_basis_type
   use raffle__dist_calcs, only: &
        get_min_dist, &

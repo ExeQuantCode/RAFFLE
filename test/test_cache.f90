@@ -1,7 +1,7 @@
 program test_cache
   use raffle__io_utils
   use raffle__cache
-  use raffle__constants, only: real32
+  use coreutils, only: real32
   implicit none
 
   logical :: success = .true.

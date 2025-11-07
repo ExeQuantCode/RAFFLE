@@ -5,10 +5,9 @@ module raffle__generator
   !! random structures from a host structure. The raffle generator uses
   !! distribution functions to determine the placement of atoms in the
   !! provided host structure.
-  use raffle__io_utils, only: stop_program, print_warning, suppress_warnings
-  use raffle__constants, only: real32
+  use coreutils, only: real32, stop_program, print_warning, suppress_warnings, &
+       strip_null, to_upper, set, shuffle, sort1D, sort2D
   use raffle__tools_infile, only: assign_val, assign_vec
-  use raffle__misc, only: strip_null, set, shuffle, sort1D, sort2D, to_upper
   use raffle__geom_rw, only: basis_type
   use raffle__geom_extd, only: extended_basis_type
   use raffle__distribs_container, only: distribs_container_type

@@ -5,9 +5,8 @@ module raffle__distribs
   !! fucntions for individual materials.
   !! The distribution functions are used as fingerprints for atomic structures
   !! to identify similarities and differences between structures.
-  use raffle__constants, only: real32, pi, tau
-  use raffle__io_utils, only: stop_program, print_warning
-  use raffle__misc, only: strip_null, sort_str
+  use coreutils, only: real32, pi, tau, stop_program, print_warning, &
+       strip_null, sort_str
   use raffle__misc_maths, only: triangular_number
   use raffle__misc_linalg, only: get_angle, get_improper_dihedral_angle
   use raffle__geom_rw, only: basis_type, get_element_properties

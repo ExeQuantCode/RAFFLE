@@ -5,9 +5,7 @@ program raffle_program
   !! the distribution functions of the elements and bonds. The structures are
   !! generated using a random structure generator, which is based on the
   !! the RAFFLE method.
-  use raffle__constants, only: real32
-  use raffle__io_utils, only: stop_program
-  use raffle__misc, only: touch
+  use coreutils, only: real32, stop_program, touch
   use inputs
   use read_structures, only: get_gdfs_from_data
   use raffle, only: raffle_generator_type, distribs_container_type

@@ -1,8 +1,7 @@
 program test_place_methods
-  use raffle__io_utils
+  use coreutils, only: real32, test_error_handling
   use raffle__place_methods
   use raffle__distribs_container, only: distribs_container_type
-  use raffle__constants, only: real32
   use raffle__geom_rw, only: basis_type
   use raffle__geom_extd, only: extended_basis_type
   use raffle__generator, only: raffle_generator_type
@@ -21,7 +20,7 @@ program test_place_methods
   integer, dimension(:), allocatable :: seed_arr
   type(basis_type), allocatable :: database(:)
   integer, dimension(:,:), allocatable :: atom_ignore_list
-  
+
   logical :: success = .true.
 
 
@@ -94,7 +93,7 @@ program test_place_methods
   seed = 0
   call random_seed(size=num_seed)
   allocate(seed_arr(num_seed))
-  seed_arr = seed 
+  seed_arr = seed
   call random_seed(put=seed_arr)
   call basis_extd%copy(basis)
   call basis_extd%set_atom_mask( atom_ignore_list )

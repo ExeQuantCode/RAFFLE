@@ -9,8 +9,7 @@ module raffle__tools_infile
   !! License: http://creativecommons.org/licenses/by/3.0/
   !! This module has been copied and modified with permission from the
   !! original authors.
-  use raffle__constants, only: real32
-  use raffle__misc, only: grep,icount
+  use coreutils, only: real32, grep, icount
 
   implicit none
 

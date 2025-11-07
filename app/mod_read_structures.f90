@@ -6,9 +6,7 @@ module read_structures
   !! generalised vectors (gvectors, aka distribution functions).
   !! NOTE: This does not currently handle relaxations in POSCAR/CONTCAR format.
   !! NOTE: This does not currently restart from a printed distribs_container.
-  use raffle__constants, only: real32
-  use raffle__io_utils, only: stop_program
-  use raffle__misc, only: grep
+  use coreutils, only: real32, stop_program, grep
   use raffle__misc_linalg, only: modu
   use raffle__geom_rw, only: basis_type, geom_read, geom_write, igeom_input
   use rw_vasprun, only: get_energy_from_vasprun, get_structure_from_vasprun

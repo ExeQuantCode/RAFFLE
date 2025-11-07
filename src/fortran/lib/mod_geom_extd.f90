@@ -4,7 +4,7 @@ module raffle__geom_extd
   !! This module is designed to extend the basis set to include images of atoms
   !! within a specified distance of the unit cell. This is useful for
   !! calculating interactions between atoms that are not within the unit cell.
-  use raffle__constants, only: real32, pi
+  use coreutils, only: real32, pi
   use raffle__misc_linalg, only: cross, inverse_3x3
   use raffle__geom_rw, only: basis_type, species_type
   implicit none
@@ -248,7 +248,7 @@ contains
     !! List of indices for the lattice vectors.
     logical :: is_cartesian_
     !! Boolean whether the point is in cartesian coordinates.
-        
+
 
     !---------------------------------------------------------------------------
     ! check if the point is in cartesian coordinates
@@ -272,7 +272,7 @@ contains
     ! get the length of the projection vector
     ! if negative, then the point is inside the unit cell
     ! if positive, then the point is outside the unit cell
-    ! if the projection falls outside of the cell edges, use edge or corner 
+    ! if the projection falls outside of the cell edges, use edge or corner
     ! distances
     face_loop: do i = 1, 3
        index_list = cshift(index_list, 1)
@@ -294,7 +294,7 @@ contains
           is_outside = .true.
 
           ! check if projection is outside the surface
-          
+
           inverse_projection = matmul(projection, inverse_lattice)
           if( &
                any( inverse_projection .lt. 0._real32 ) .or. &
@@ -362,7 +362,7 @@ contains
     !! Distance of the point from the plane.
     real(real32), dimension(3) :: vector_to_plane
     !! Vector from the point to the plane.
-    
+
     vector_to_plane = point - plane_point
 
     distance = &

@@ -1,7 +1,6 @@
 program test_geom_extd
   !! Test program for the module geom_extd.
-  use raffle__io_utils
-  use raffle__constants, only: real32
+  use coreutils, only: real32, test_error_handling
   use raffle__geom_extd
   implicit none
 
@@ -176,7 +175,7 @@ contains
     bas%lcart = .false.
     bas%pbc = .true.
     deallocate(bas%spec)
-    
+
   end subroutine uninitialise_bas
 
   subroutine assert(condition, message, success)

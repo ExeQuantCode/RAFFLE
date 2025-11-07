@@ -5,7 +5,7 @@ module raffle__evaluator
   !! the system with each point in the map representing the suitability of
   !! that point for a new atom. The map is built by checking the bond lengths,
   !! bond angles and dihedral angles between the test point and all atoms.
-  use raffle__constants, only: real32, tau, pi
+  use coreutils, only: real32, tau, pi
   use raffle__misc_linalg, only: modu, get_angle, get_improper_dihedral_angle
   use raffle__geom_extd, only: extended_basis_type
   use raffle__distribs_container, only: distribs_container_type

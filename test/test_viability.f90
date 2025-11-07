@@ -1,8 +1,7 @@
 program test_place_methods
-  use raffle__io_utils
   use raffle__viability
   use raffle__distribs_container, only: distribs_container_type
-  use raffle__constants, only: real32
+  use coreutils, only: real32, test_error_handling
   use raffle__geom_rw, only: basis_type
   use raffle__geom_extd, only: extended_basis_type
   implicit none

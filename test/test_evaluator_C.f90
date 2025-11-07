@@ -1,6 +1,5 @@
 program test_evaluator_C
-  use raffle__io_utils
-  use raffle__constants, only: real32, pi
+  use coreutils, only: real32, pi, test_error_handling
   use raffle__misc_linalg, only: modu
   use raffle__geom_rw, only: basis_type, geom_write
   use raffle__geom_extd, only: extended_basis_type

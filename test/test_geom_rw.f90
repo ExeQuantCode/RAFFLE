@@ -1,6 +1,6 @@
 program test_geom_rw
   !! Test program for the module geom_rw.
-  use raffle__constants, only: pi,real32
+  use coreutils, only: pi,real32
   use raffle__geom_rw, only: &
        basis_type, &
        geom_read, geom_write, &
@@ -154,7 +154,7 @@ program test_geom_rw
      success = .false.
   end if
 
-  
+
   !-----------------------------------------------------------------------------
   ! test copy geometry
   !-----------------------------------------------------------------------------
@@ -163,7 +163,7 @@ program test_geom_rw
   check = compare_bas(bas1, bas2)
   if(.not.check) success = .false.
 
-  
+
   !-----------------------------------------------------------------------------
   ! test coordinate system conversion
   !-----------------------------------------------------------------------------
@@ -183,7 +183,7 @@ program test_geom_rw
      success = .false.
   end if
 
-  
+
   !-----------------------------------------------------------------------------
   ! test element parameters
   !-----------------------------------------------------------------------------
@@ -328,7 +328,7 @@ contains
     bas%lcart = .false.
     bas%pbc = .true.
     deallocate(bas%spec)
-    
+
   end subroutine uninitialise_bas
 
 end program test_geom_rw

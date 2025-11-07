@@ -1,7 +1,6 @@
 program test_misc_linalg
-  use raffle__io_utils
+  use coreutils, only: real32, pi, test_error_handling
   use raffle__misc_linalg
-  use raffle__constants, only: real32, pi
   implicit none
 
   logical :: success = .true.

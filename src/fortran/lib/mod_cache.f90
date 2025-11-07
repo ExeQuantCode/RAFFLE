@@ -1,5 +1,5 @@
 module raffle__cache
-  use raffle__constants, only: real32
+  use coreutils, only: real32
   implicit none
 
   private

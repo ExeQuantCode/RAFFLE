@@ -3,10 +3,8 @@ module raffle__geom_rw
   !!
   !! This module contains the procedures to read and write geometry files.
   !! It also contains the derived types used to store the geometry data.
-  use raffle__constants, only: pi,real32
-  use raffle__io_utils, only: stop_program, print_warning
-  use raffle__misc, only: to_upper, to_lower, jump, icount, strip_null
-  use raffle__misc_linalg, only: inverse_3x3
+  use coreutils, only: pi, real32, stop_program, print_warning, &
+       to_upper, to_lower, jump, icount, strip_null, inverse_3x3
   implicit none
 
 
@@ -1669,7 +1667,7 @@ contains
 !###############################################################################
   subroutine remove_atoms(this, atoms)
     !! Remove atoms from the basis.
-    use raffle__misc, only: swap
+    use coreutils, only: swap
     implicit none
 
     ! Arguments

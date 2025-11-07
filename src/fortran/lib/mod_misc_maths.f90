@@ -1,7 +1,6 @@
 module raffle__misc_maths
   !! Module for miscellaneous mathematical functions.
-  use raffle__io_utils, only: stop_program
-  use raffle__constants, only: real32
+  use coreutils, only: real32, stop_program
   implicit none
 
 

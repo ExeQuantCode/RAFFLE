@@ -4,10 +4,10 @@ module inputs
   !! This module reads the input file and sets the global variables for the
   !! program. NOTE: this module is not intended to be used in a library, it is
   !! only included in the executable program.
-  use raffle__misc, only: file_check,flagmaker, icount, to_lower
+  use coreutils, only: real32, pi, file_check, flagmaker, icount, to_lower, &
+       stop_program, print_warning
   use raffle__generator, only: stoichiometry_type
-  use raffle__constants, only: real32, pi
-  use raffle__io_utils
+  use raffle__io_utils, only: print_build_info
   implicit none
 
 

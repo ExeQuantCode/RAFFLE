@@ -1,6 +1,6 @@
 module raffle__misc_linalg
   !! Module contains various linear algebra functions and subroutines.
-  use raffle__constants, only: real32, pi
+  use coreutils, only: real32, pi
   implicit none
 
 

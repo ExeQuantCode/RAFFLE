@@ -66,6 +66,26 @@ endif()
 # enable testing
 enable_testing()
 
+
+# Fetch coreutils dependency
+include(FetchContent)
+FetchContent_Declare(
+    coreutils
+    GIT_REPOSITORY https://github.com/nedtaylor/coreutils
+    GIT_TAG v0.1.0
+    OVERRIDE_FIND_PACKAGE
+)
+FetchContent_MakeAvailable(coreutils)
+
+# Fetch atomstruc dependency
+FetchContent_Declare(
+    atomstruc
+    GIT_REPOSITORY https://github.com/nedtaylor/atomstruc
+    GIT_TAG column-major-order
+    EXCLUDE_FROM_ALL
+)
+FetchContent_MakeAvailable(atomstruc)
+
 # Define the sources
 set(SRC_DIR src)
 set(FORTRAN_SRC_DIR ${SRC_DIR}/fortran)
@@ -73,12 +93,9 @@ set(LIB_DIR ${FORTRAN_SRC_DIR}/lib)
 
 set(LIB_FILES
 	mod_io_utils.F90
-	mod_constants.f90
     mod_cache.f90
-	mod_misc.f90
     mod_tools_infile.f90
 	mod_misc_maths.f90
-	mod_misc_linalg.f90
 	mod_dist_calcs.f90
 	mod_element_utils.f90
 	mod_evaluator.f90
@@ -89,7 +106,6 @@ set(LIB_FILES
 )
 
 set(SPECIAL_LIB_FILES
-	mod_geom_rw.f90
 	mod_distribs_container.f90
 	mod_generator.f90
 )
@@ -186,7 +202,8 @@ set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${PPFLAGS}")
 # create the library
 add_library(${PROJECT_NAME} STATIC ${PREPENDED_LIB_FILES} ${PREPENDED_SRC_FILES})
 set_target_properties(${PROJECT_NAME} PROPERTIES Fortran_MODULE_DIRECTORY ${MODULE_DIR})
-target_link_libraries(${PROJECT_NAME} PUBLIC)
+target_link_libraries(${PROJECT_NAME} PUBLIC coreutils atomstruc)
+target_include_directories(${PROJECT_NAME} PUBLIC $<TARGET_PROPERTY:coreutils,Fortran_MODULE_DIRECTORY> $<TARGET_PROPERTY:atomstruc,Fortran_MODULE_DIRECTORY>)
 
 # replace ".f90" with ".mod"
 string(REGEX REPLACE "\\.[^.]*$" ".mod" MODULE_FILES "${SRC_FILES}")
@@ -374,18 +391,24 @@ if (BUILD_PYTHON)
     # Create a Python module using f2py
     add_custom_command(
         OUTPUT ${F2PY_OUTPUT_FILE}
-        COMMAND CC="${CMAKE_C_COMPILER}" LDFLAGS="-L${CMAKE_BUILD_DIR}" LIBS="-lraffle" ${F2PY_EXECUTABLE}
+        COMMAND CC="${CMAKE_C_COMPILER}" LDFLAGS="-L${CMAKE_BUILD_DIR} -L$<TARGET_FILE_DIR:coreutils> -L$<TARGET_FILE_DIR:atomstruc> " LIBS="-lraffle -lcoreutils -latomstruc" ${F2PY_EXECUTABLE}
         -c
         -m _${PROJECT_NAME}
         -I${MODULE_DIR}
+        -I$<TARGET_PROPERTY:atomstruc,Fortran_MODULE_DIRECTORY>
+        -I$<TARGET_PROPERTY:coreutils,Fortran_MODULE_DIRECTORY>
         --f90flags="${PPFLAGS}"
         ${GOMPFLAGS}
         --backend meson
         ${F90WRAP_FILE}
         -L${CMAKE_BUILD_DIR}
         -lraffle
+        -L$<TARGET_FILE_DIR:coreutils>
+        -lcoreutils
+        -L$<TARGET_FILE_DIR:atomstruc>
+        -latomstruc
         # --build-dir ${CMAKE_BUILD_DIR}/Dmeson
-        DEPENDS ${F90WRAP_FILE} ${CMAKE_BUILD_DIR}/raffle/python_copied ${PROJECT_NAME}
+        DEPENDS ${F90WRAP_FILE} ${CMAKE_BUILD_DIR}/raffle/python_copied ${PROJECT_NAME} coreutils atomstruc
         WORKING_DIRECTORY ${CMAKE_BUILD_DIR}/raffle
         COMMENT "Creating Python module using f2py"
     )

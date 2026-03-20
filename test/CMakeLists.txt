@@ -1,13 +1,8 @@
 message(STATUS "Building tests")
 foreach(execid
-    misc
     misc_maths
-    misc_linalg
     cache
     element_utils
-    geom_rw
-    geom_utils
-    geom_extd
     dist_calcs
     place_methods
     viability

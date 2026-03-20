@@ -95,7 +95,7 @@ contains
           else
              vdtmp1 = vdtmp1 - ceiling(vdtmp1 - 0.5_real32)
           end if
-          vdtmp2 = matmul(vdtmp1,basis%lat)
+          vdtmp2 = matmul(basis%lat,vdtmp1)
           dtmp1 = norm2(vdtmp2)
           if(dtmp1.lt.min_bond)then
              min_bond = dtmp1
@@ -136,7 +136,7 @@ contains
 
     vec = loc - basis%spec(atom(1))%atom(:3,atom(2))
     vec = vec - ceiling(vec - 0.5_real32)
-    vec = matmul(vec,basis%lat)
+    vec = matmul(basis%lat, vec)
     dist = norm2(vec)
 
   end function get_min_dist_between_point_and_atom
@@ -176,7 +176,7 @@ contains
        if(.not.basis%spec(species)%atom_mask(ia)) cycle atom_loop
        vec = loc - basis%spec(species)%atom(:3,ia)
        vec = vec - ceiling(vec - 0.5_real32)
-       vec = matmul(vec, basis%lat)
+       vec = matmul(basis%lat, vec)
        rtmp1 = norm2(vec)
        if( rtmp1 .lt. dist ) dist = rtmp1
     end do atom_loop
@@ -207,7 +207,7 @@ contains
     !! Vector between the point and the atom.
 
     vec = loc - basis%spec(atom(1))%atom(:3,atom(2))
-    vec = matmul(vec,basis%lat)
+    vec = matmul(basis%lat, vec)
     dist = norm2(vec)
 
   end function get_dist_between_point_and_atom

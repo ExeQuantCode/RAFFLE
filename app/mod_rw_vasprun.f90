@@ -356,7 +356,7 @@ contains
           )
           return
        end if
-       read( line, '(4X,A3,3(1X,F16.8))' ) buffer, basis%lat(i,:)
+       read( line, '(4X,A3,3(1X,F16.8))' ) buffer, basis%lat(:,i)
     end do
 
 

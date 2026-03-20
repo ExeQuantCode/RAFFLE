@@ -217,7 +217,7 @@ contains
     ! test a random point in the unit cell
     !---------------------------------------------------------------------------
     do i = 1, 3
-       abc(i) = norm2(basis%lat(i,:))
+       abc(i) = norm2(basis%lat(:,i))
     end do
     i = 0
     random_loop : do
@@ -376,7 +376,7 @@ contains
     ! get the lattice constants and the inverse lattice
     !---------------------------------------------------------------------------
     do i = 1, 3
-       abc(i) = norm2(basis%lat(i,:))
+       abc(i) = norm2(basis%lat(:,i))
     end do
     inverse_lattice = inverse_3x3(basis%lat)
 
@@ -414,7 +414,7 @@ contains
             rvec1(1) * cos(rvec1(3)) &
        ]
        ! convert from cartesian to direct
-       rvec1 = matmul(rvec1, inverse_lattice)
+       rvec1 = matmul(inverse_lattice, rvec1)
        site_vector = prior_point + rvec1
        do j = 1, 3
           if(site_vector(j).lt.bounds(1,j) .or. site_vector(j).ge.bounds(2,j)) &

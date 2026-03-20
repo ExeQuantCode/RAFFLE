@@ -333,10 +333,10 @@ contains
              atom_loop: do ja = 1, basis_extd%spec(js)%num
 
                 associate( vector =>  matmul( &
-                     [ &
+                     basis_extd%lat, [ &
                           basis_extd%spec(js)%atom(1:3,ja) - &
                           basis_extd%spec(is)%atom(1:3,ia) &
-                     ], basis_extd%lat ) &
+                     ] ) &
                 )
                    bondlength = norm2( vector )
 
@@ -403,10 +403,10 @@ contains
              !------------------------------------------------------------------
              image_loop: do ja = 1, basis_extd%image_spec(js)%num
                 associate( vector =>  matmul( &
-                     [ &
+                     basis_extd%lat, [ &
                           basis_extd%image_spec(js)%atom(1:3,ja) - &
                           basis_extd%spec(is)%atom(1:3,ia) &
-                     ], basis_extd%lat ) &
+                     ] ) &
                 )
 
                    bondlength = norm2( vector )

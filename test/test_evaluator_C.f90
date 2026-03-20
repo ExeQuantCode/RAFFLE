@@ -99,9 +99,9 @@ program test_evaluator_C
   database(1)%spec(1)%atom(:3, 7) = [0.75, 0.25, 0.75]
   database(1)%spec(1)%atom(:3, 8) = [0.25, 0.75, 0.75]
 
-  database(1)%lat(1,:) = [3.5607451090903233, 0.0, 0.0]
-  database(1)%lat(2,:) = [0.0, 3.5607451090903233, 0.0]
-  database(1)%lat(3,:) = [0.0, 0.0, 3.5607451090903233]
+  database(1)%lat(:,1) = [3.5607451090903233, 0.0, 0.0]
+  database(1)%lat(:,2) = [0.0, 3.5607451090903233, 0.0]
+  database(1)%lat(:,3) = [0.0, 0.0, 3.5607451090903233]
   database(1)%energy = -72.213492
 
 
@@ -142,9 +142,9 @@ program test_evaluator_C
   basis_host%spec(1)%atom(:3, 14) = [0.5, 0.0, 0.75]
   basis_host%spec(1)%atom(:3, 15) = [0.75, 0.75, 0.625]
   basis_host%spec(1)%atom(:3, 16) = [0.25, 0.25, 0.625]
-  basis_host%lat(1,:) = [3.560745109, 0.0, 0.0]
-  basis_host%lat(2,:) = [0.0, 3.560745109, 0.0]
-  basis_host%lat(3,:) = [0.0, 0.0, 7.121490218]
+  basis_host%lat(:,1) = [3.560745109, 0.0, 0.0]
+  basis_host%lat(:,2) = [0.0, 3.560745109, 0.0]
+  basis_host%lat(:,3) = [0.0, 0.0, 7.121490218]
 
   ! set up atom_ignore_list
   allocate(atom_ignore_list(2,8))
@@ -208,9 +208,9 @@ program test_evaluator_C
      write(unit,'("#grid",3(1X,I0),3(1X,F0.3))') &
           generator%grid, generator%grid_offset
      write(unit,'("#lat",3(1X,F0.3))') &
-          norm2(basis_host%lat(1,:)), &
-          norm2(basis_host%lat(2,:)), &
-          norm2(basis_host%lat(3,:))
+          norm2(basis_host%lat(:,1)), &
+          norm2(basis_host%lat(:,2)), &
+          norm2(basis_host%lat(:,3))
      write(fmt,'("(""#species"",",I0,"(1X,A3))")') basis_host%nspec
      write(unit,fmt) basis_host%spec(:)%name
      do is = 1, basis_host%nspec

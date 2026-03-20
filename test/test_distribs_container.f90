@@ -26,9 +26,9 @@ program test_distribs_container
   basis_diamond%spec(1)%atom(:3, 7) = [0.75, 0.25, 0.75]
   basis_diamond%spec(1)%atom(:3, 8) = [0.25, 0.75, 0.75]
 
-  basis_diamond%lat(1,:) = [3.5607451090903233, 0.0, 0.0]
-  basis_diamond%lat(2,:) = [0.0, 3.5607451090903233, 0.0]
-  basis_diamond%lat(3,:) = [0.0, 0.0, 3.5607451090903233]
+  basis_diamond%lat(:,1) = [3.5607451090903233, 0.0, 0.0]
+  basis_diamond%lat(:,2) = [0.0, 3.5607451090903233, 0.0]
+  basis_diamond%lat(:,3) = [0.0, 0.0, 3.5607451090903233]
   basis_diamond%energy = -72.213492
 
   ! graphite cell
@@ -43,9 +43,9 @@ program test_distribs_container
   basis_graphite%spec(1)%atom(:3, 3) = [1.0/3.0, 2.0/3.0, 0.25]
   basis_graphite%spec(1)%atom(:3, 4) = [2.0/3.0, 1.0/3.0, 0.75]
 
-  basis_graphite%lat(1,:) = [1.2336456308015413, -2.1367369110836267, 0.0]
-  basis_graphite%lat(2,:) = [1.2336456308015413,  2.1367369110836267, 0.0]
-  basis_graphite%lat(3,:) = [0.0, 0.0, 7.8030730000000004]
+  basis_graphite%lat(:,1) = [1.2336456308015413, -2.1367369110836267, 0.0]
+  basis_graphite%lat(:,2) = [1.2336456308015413,  2.1367369110836267, 0.0]
+  basis_graphite%lat(:,3) = [0.0, 0.0, 7.8030730000000004]
   basis_graphite%energy = -36.86795585
 
   ! diamond cell
@@ -67,9 +67,9 @@ program test_distribs_container
   basis_mgo%spec(2)%atom(:3, 3) = [0.0, 0.0, 0.5]
   basis_mgo%spec(2)%atom(:3, 4) = [0.5, 0.5, 0.5]
 
-  basis_mgo%lat(1,:) = [4.19, 0.0, 0.0]
-  basis_mgo%lat(2,:) = [0.0, 4.19, 0.0]
-  basis_mgo%lat(3,:) = [0.0, 0.0, 4.19]
+  basis_mgo%lat(:,1) = [4.19, 0.0, 0.0]
+  basis_mgo%lat(:,2) = [0.0, 4.19, 0.0]
+  basis_mgo%lat(:,3) = [0.0, 0.0, 4.19]
   basis_mgo%energy = -20.0
 
   call test_init_distribs_container(success)

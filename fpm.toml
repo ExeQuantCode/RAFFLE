@@ -13,7 +13,7 @@ source-dir="src/fortran"
 
 [dependencies]
 coreutils = { git = "https://github.com/nedtaylor/coreutils" }
-atomstruc = { git = "https://github.com/nedtaylor/atomstruc" }
+atomstruc = { git = "https://github.com/nedtaylor/atomstruc", branch = "column-major-order" }
 openmp = "*"
 
 [fortran]

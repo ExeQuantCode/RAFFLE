@@ -102,9 +102,9 @@ program test_evaluator_BTO
   database(1)%spec(3)%atom(:3, 2) = [0.5, 0.0, 0.5]
   database(1)%spec(3)%atom(:3, 3) = [0.0, 0.5, 0.5]
 
-  database(1)%lat(1,:) = [4.01, 0.0, 0.0]
-  database(1)%lat(2,:) = [0.0, 4.01, 0.0]
-  database(1)%lat(3,:) = [0.0, 0.0, 4.00]
+  database(1)%lat(:,1) = [4.01, 0.0, 0.0]
+  database(1)%lat(:,2) = [0.0, 4.01, 0.0]
+  database(1)%lat(:,3) = [0.0, 0.0, 4.00]
   database(1)%energy = -41.0
 
 
@@ -157,9 +157,9 @@ program test_evaluator_BTO
   basis_host%spec(3)%atom(:3, 4) = [0.5, 0.5, 0.5]
   basis_host%spec(3)%atom(:3, 5) = [0.5, 0.0, 0.75]
   basis_host%spec(3)%atom(:3, 6) = [0.0, 0.5, 0.75]
-  basis_host%lat(1,:) = [4.01, 0.0, 0.0]
-  basis_host%lat(2,:) = [0.0, 4.01, 0.0]
-  basis_host%lat(3,:) = [0.0, 0.0, 8.00]
+  basis_host%lat(:,1) = [4.01, 0.0, 0.0]
+  basis_host%lat(:,2) = [0.0, 4.01, 0.0]
+  basis_host%lat(:,3) = [0.0, 0.0, 8.00]
 
   ! set up atom_ignore_list
   allocate(atom_ignore_list(2,5))
@@ -224,9 +224,9 @@ program test_evaluator_BTO
      write(unit,'("#grid",3(1X,I0),3(1X,F0.3))') &
           generator%grid, generator%grid_offset
      write(unit,'("#lat",3(1X,F0.3))') &
-          norm2(basis_host%lat(1,:)), &
-          norm2(basis_host%lat(2,:)), &
-          norm2(basis_host%lat(3,:))
+          norm2(basis_host%lat(:,1)), &
+          norm2(basis_host%lat(:,2)), &
+          norm2(basis_host%lat(:,3))
      write(fmt,'("(""#species"",",I0,"(1X,A3))")') basis_host%nspec
      write(unit,fmt) basis_host%spec(:)%name
      do is = 1, basis_host%nspec

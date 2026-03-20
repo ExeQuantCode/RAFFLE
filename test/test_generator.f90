@@ -87,9 +87,9 @@ program test_generator
   database(1)%spec(1)%atom(:3, 7) = [0.75, 0.25, 0.75]
   database(1)%spec(1)%atom(:3, 8) = [0.25, 0.75, 0.75]
 
-  database(1)%lat(1,:) = [3.5607451090903233, 0.0, 0.0]
-  database(1)%lat(2,:) = [0.0, 3.5607451090903233, 0.0]
-  database(1)%lat(3,:) = [0.0, 0.0, 3.5607451090903233]
+  database(1)%lat(:,1) = [3.5607451090903233, 0.0, 0.0]
+  database(1)%lat(:,2) = [0.0, 3.5607451090903233, 0.0]
+  database(1)%lat(:,3) = [0.0, 0.0, 3.5607451090903233]
   database(1)%energy = -72.213492
 
 
@@ -122,9 +122,9 @@ program test_generator
   basis_host%spec(1)%atom(:3, 6) = [0.75, 0.75, 0.125]
   basis_host%spec(1)%atom(:3, 7) = [0.75, 0.25, 0.375]
   basis_host%spec(1)%atom(:3, 8) = [0.25, 0.75, 0.375]
-  basis_host%lat(1,:) = [3.560745109, 0.0, 0.0]
-  basis_host%lat(2,:) = [0.0, 3.560745109, 0.0]
-  basis_host%lat(3,:) = [0.0, 0.0, 7.121490218]
+  basis_host%lat(:,1) = [3.560745109, 0.0, 0.0]
+  basis_host%lat(:,2) = [0.0, 3.560745109, 0.0]
+  basis_host%lat(:,3) = [0.0, 0.0, 7.121490218]
 
 
   !-----------------------------------------------------------------------------
@@ -132,7 +132,7 @@ program test_generator
   !-----------------------------------------------------------------------------
   generator_var = raffle_generator_type(host = basis_host)
   do i = 1, 3
-     tolerance(i) = 1.E-6_real32 / norm2(basis_host%lat(i,:))
+     tolerance(i) = 1.E-6_real32 / norm2(basis_host%lat(:,i))
   end do
   call assert(compare_bas(generator_var%host, basis_host, tolerance), &
        'Generator failed to set host structure', &
@@ -167,9 +167,9 @@ program test_generator
   basis_expected%spec(1)%atom(:3, 14) = [0.5, 0.5, 0.5]
   basis_expected%spec(1)%atom(:3, 15) = [0.0, 0.5, 0.75]
   basis_expected%spec(1)%atom(:3, 16) = [0.0, 0.0, 0.5]
-  basis_expected%lat(1,:) = [3.560745109, 0.0, 0.0]
-  basis_expected%lat(2,:) = [0.0, 3.560745109, 0.0]
-  basis_expected%lat(3,:) = [0.0, 0.0, 7.121490218]
+  basis_expected%lat(:,1) = [3.560745109, 0.0, 0.0]
+  basis_expected%lat(:,2) = [0.0, 3.560745109, 0.0]
+  basis_expected%lat(:,3) = [0.0, 0.0, 7.121490218]
 
 
   !-----------------------------------------------------------------------------
@@ -177,7 +177,7 @@ program test_generator
   !-----------------------------------------------------------------------------
   call generator%set_host( basis_host )
   do i = 1, 3
-     tolerance(i) = 1.E-6_real32 / norm2(basis_host%lat(i,:))
+     tolerance(i) = 1.E-6_real32 / norm2(basis_host%lat(:,i))
   end do
   call assert(compare_bas(generator%host, basis_host, tolerance), &
        'Generator failed to set host structure', &

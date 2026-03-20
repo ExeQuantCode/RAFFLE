@@ -29,9 +29,9 @@ program test_edit_geom
   bas%spec(1)%atom(:, 2) = [0.25, 0.25, 0.25]
 
   ! Initialise silicon lattice
-  bas%lat(1,:) = [0.0, 2.14, 2.14]
-  bas%lat(2,:) = [2.14, 0.0, 2.14]
-  bas%lat(3,:) = [2.14, 2.14, 0.0]
+  bas%lat(:,1) = [0.0, 2.14, 2.14]
+  bas%lat(:,2) = [2.14, 0.0, 2.14]
+  bas%lat(:,3) = [2.14, 2.14, 0.0]
   call bas%set_atom_mask()
 
 
@@ -42,7 +42,7 @@ program test_edit_geom
 
   loc = [1.0, 1.0, 1.0] - [0.9, 0.9, 0.9]
   loc = loc - ceiling(loc - 0.5)
-  loc = matmul(loc, bas%lat)
+  loc = matmul(bas%lat, loc)
   rtmp2 = norm2(loc)
 
   if ( abs(rtmp1 - rtmp2) .gt. 1.E-6 ) then
@@ -62,7 +62,7 @@ program test_edit_geom
 
   loc = [1.0, 1.0, 1.0] - [0.9, 0.9, 0.9]
   loc = loc - ceiling(loc - 0.5)
-  loc = matmul(loc, bas%lat)
+  loc = matmul(bas%lat, loc)
   rtmp2 = norm2(loc)
 
   if ( abs(rtmp1 - rtmp2) .gt. 1.E-6 ) then
@@ -95,7 +95,7 @@ program test_edit_geom
   )
   loc = bas2%spec(1)%atom(:3,1) - [0.9, 0.9, 0.9]
   loc = loc - ceiling(loc - 0.5)
-  loc = matmul(loc, bas2%lat)
+  loc = matmul(bas2%lat, loc)
   rtmp2 = norm2(loc)
 
   if ( abs(rtmp1 - rtmp2) .gt. 1.E-6 ) then
@@ -110,7 +110,7 @@ program test_edit_geom
   )
   loc = bas2%spec(2)%atom(:3,1) - [0.9, 0.9, 0.9]
   loc = loc - ceiling(loc - 0.5)
-  loc = matmul(loc, bas2%lat)
+  loc = matmul(bas2%lat, loc)
   rtmp2 = norm2(loc)
 
   if ( abs(rtmp1 - rtmp2) .gt. 1.E-6 ) then
@@ -128,7 +128,7 @@ program test_edit_geom
        atom=[1, 1] &
   )
   loc = bas%spec(1)%atom(:3,1) - [0.9, 0.9, 0.9]
-  loc = matmul(loc, bas%lat)
+  loc = matmul(bas%lat, loc)
   rtmp2 = norm2(loc)
   if ( abs(rtmp1 - rtmp2) .gt. 1.E-6 ) then
      write(*,*) rtmp1, rtmp2
@@ -141,7 +141,7 @@ program test_edit_geom
        atom=[1, 2] &
   )
   loc = bas%spec(1)%atom(:3,2) - [0.9, 0.9, 0.9]
-  loc = matmul(loc, bas%lat)
+  loc = matmul(bas%lat, loc)
   rtmp2 = norm2(loc)
   if ( abs(rtmp1 - rtmp2) .gt. 1.E-6 ) then
      write(*,*) rtmp1, rtmp2

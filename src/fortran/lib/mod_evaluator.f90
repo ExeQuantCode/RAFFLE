@@ -128,7 +128,7 @@ contains
           ! If it is, skip the atom.
           if(.not.basis%spec(is)%atom_mask(ia)) cycle atom_loop
           associate( position_store => [ basis%spec(is)%atom(1:3,ia) ] )
-             bondlength = norm2( matmul(position - position_store, basis%lat) )
+             bondlength = norm2( matmul(basis%lat, position - position_store) )
              if( bondlength .gt. distribs_container%cutoff_max(1) ) &
                   cycle atom_loop
              if( bondlength .lt. tolerances(1) )then
@@ -142,7 +142,7 @@ contains
                 neighbour_basis%spec(is)%num = neighbour_basis%spec(is)%num + 1
                 neighbour_basis%spec(is)%atom( &
                      :3, neighbour_basis%spec(is)%num &
-                ) = matmul(position_store, basis%lat)
+                ) = matmul(basis%lat, position_store)
                 neighbour_basis%spec(is)%atom( &
                      4, neighbour_basis%spec(is)%num &
                 ) = 0.5_real32 * abs( 1._real32 - &
@@ -158,7 +158,7 @@ contains
                      neighbour_basis%image_spec(is)%num + 1
                 neighbour_basis%image_spec(is)%atom( &
                      :3, neighbour_basis%image_spec(is)%num &
-                ) = matmul(position_store, basis%lat)
+                ) = matmul(basis%lat, position_store)
                 neighbour_basis%image_spec(is)%atom( &
                      4, neighbour_basis%image_spec(is)%num &
                 ) = 0.5_real32 * abs( 1._real32 - &
@@ -191,7 +191,7 @@ contains
        !------------------------------------------------------------------------
        image_loop: do ia = 1, basis%image_spec(is)%num, 1
           associate( position_store => [ basis%image_spec(is)%atom(1:3,ia) ] )
-             bondlength = norm2( matmul(position - position_store, basis%lat) )
+             bondlength = norm2( matmul(basis%lat, position - position_store) )
              if( bondlength .gt. distribs_container%cutoff_max(1) ) &
                   cycle image_loop
              if( bondlength .lt. tolerances(1) )then
@@ -200,7 +200,7 @@ contains
                 neighbour_basis%spec(is)%num = neighbour_basis%spec(is)%num + 1
                 neighbour_basis%spec(is)%atom( &
                      :3, neighbour_basis%spec(is)%num &
-                ) = matmul(position_store, basis%lat)
+                ) = matmul(basis%lat, position_store)
                 neighbour_basis%spec(is)%atom( &
                      4, neighbour_basis%spec(is)%num &
                 ) = 0.5_real32 * ( 1._real32 - &
@@ -214,7 +214,7 @@ contains
                      neighbour_basis%image_spec(is)%num + 1
                 neighbour_basis%image_spec(is)%atom( &
                      :3, neighbour_basis%image_spec(is)%num &
-                ) = matmul(position_store, basis%lat)
+                ) = matmul(basis%lat, position_store)
                 neighbour_basis%image_spec(is)%atom( &
                      4, neighbour_basis%image_spec(is)%num &
                 ) =  0.5_real32 * abs( 1._real32 - &
@@ -290,7 +290,7 @@ contains
     num_4body = 0
     viability_3body = 1._real32
     viability_4body = 1._real32
-    position_1 = matmul(position, basis%lat)
+    position_1 = matmul(basis%lat, position)
     element_idx = distribs_container%element_map(species)
     has_4body = any(neighbour_basis%image_spec(:)%num .gt. 0)
     is_end = 0

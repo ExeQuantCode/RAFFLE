@@ -359,7 +359,7 @@ contains
     depth_ = 3._real32
     if(present(depth)) depth_ = depth
     call host%copy(this%host)
-    lattice_const = norm2(host%lat(axis,:))
+    lattice_const = norm2(host%lat(:,axis))
     location_as_fractional_ = .false.
     if(present(location_as_fractional)) &
          location_as_fractional_ = location_as_fractional
@@ -463,7 +463,7 @@ contains
           do i = 1, 3
              this%grid(i) = nint( &
                   ( this%bounds(2,i) - this%bounds(1,i) ) * &
-                  norm2(this%host%lat(i,:)) / this%grid_spacing &
+                  norm2(this%host%lat(:,i)) / this%grid_spacing &
              )
           end do
        end if
@@ -1295,7 +1295,7 @@ contains
        do i = 1, 3
           grid_(i) = nint( &
                ( bounds_(2,i) - bounds_(1,i) ) * &
-               norm2(basis%lat(i,:)) / grid_spacing_ &
+               norm2(basis%lat(:,i)) / grid_spacing_ &
           )
        end do
     end if
@@ -1371,9 +1371,9 @@ contains
     write(unit,'("# RAFFLE Generator Settings")')
     write(unit,'("# GENERATOR SETTINGS")')
     write(unit,'("HOST_LATTICE # not a setting, just for reference")')
-    write(unit,'("  ",3(1X,F5.2))') this%host%lat(1,:)
-    write(unit,'("  ",3(1X,F5.2))') this%host%lat(2,:)
-    write(unit,'("  ",3(1X,F5.2))') this%host%lat(3,:)
+    write(unit,'("  ",3(1X,F5.2))') this%host%lat(:,1)
+    write(unit,'("  ",3(1X,F5.2))') this%host%lat(:,2)
+    write(unit,'("  ",3(1X,F5.2))') this%host%lat(:,3)
     write(unit,'("END HOST_LATTICE")')
 
     write(unit,'("GRID =",3(1X,I0))') this%grid

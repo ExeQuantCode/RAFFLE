@@ -96,9 +96,9 @@ contains
     !---------------------------------------------------------------------------
     grid_matrix = transpose(inverse_3x3(basis%lat))
     extent = ceiling( [ &
-         sum( abs( grid_matrix(1,:) ) ), &
-         sum( abs( grid_matrix(2,:) ) ), &
-         sum( abs( grid_matrix(3,:) ) ) &
+         sum( abs( grid_matrix(:,1) ) ), &
+         sum( abs( grid_matrix(:,2) ) ), &
+         sum( abs( grid_matrix(:,3) ) ) &
     ] * min_radius * real(grid, real32) )
 
     ! precompute sphere stencil
@@ -107,7 +107,7 @@ contains
     do i = -extent(1), extent(1), 1
        do j = -extent(2), extent(2), 1
           do k = -extent(3), extent(3), 1
-             point = matmul( [ i, j, k ] / real(grid,real32), basis%lat)
+             point = matmul( basis%lat, [ i, j, k ] / real(grid,real32) )
              if ( norm2(point) .lt. min_radius ) then
                 num_points = num_points + 1
                 idx_list(:, num_points) = [ i, j, k]
@@ -257,7 +257,7 @@ contains
     do i = 1, num_points
        diff = atom_pos - points(1:3,i)
        diff = diff - anint(diff)
-       distance = norm2( matmul( diff, basis%lat ) )
+       distance = norm2( matmul( basis%lat, diff ) )
        if( distance .lt. min_radius )then
           viable(i) = .false.
        else

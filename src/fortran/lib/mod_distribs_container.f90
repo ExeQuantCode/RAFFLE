@@ -205,6 +205,11 @@ module raffle__distribs_container
      !! Calculate the distribution functions for a given system.
      procedure, pass(this) :: generate_fingerprint_python
      !! Calculate the distribution functions for a given system.
+     procedure, pass(this) :: generate_fingerprint_atom_python
+     !! Calculate the distribution functions for a single atom in a structure.
+     procedure, pass(this) :: add_fingerprint_python
+     !! Add pre-computed 2-, 3-, and 4-body fingerprint arrays plus energy
+     !! directly to the container, bypassing structure-based calculation.
   end type distribs_container_type
 
   interface distribs_container_type
@@ -1272,8 +1277,8 @@ contains
 
 
 !###############################################################################
-  function generate_fingerprint(this, structure) result(output)
-    !! Generate a descriptor for the structure.
+  function generate_fingerprint(this, structure, atom_index) result(output)
+    !! Generate a descriptor for the structure, or for a single atom.
     implicit none
 
     ! Arguments
@@ -1281,8 +1286,21 @@ contains
     !! Parent. Instance of distribution functions container.
     type(basis_type), intent(in) :: structure
     !! Structure to generate the descriptor for.
+    integer, intent(in), optional :: atom_index
+    !! Optional. 1-based flat atom index for single-atom fingerprint.
+    !! If absent, fingerprint is computed for all atoms (default behaviour).
     type(distribs_type) :: output
     !! Descriptor for the structure.
+
+    ! Local variables
+    integer :: atom_index_
+    !! Local variable for atom index, set to -1 if not present.
+
+    if(present(atom_index))then
+       atom_index_ = atom_index
+    else
+       atom_index_ = -1
+    end if
 
     call output%calculate( &
          structure, &
@@ -1290,7 +1308,8 @@ contains
          sigma = this%sigma, &
          cutoff_min = this%cutoff_min, &
          cutoff_max = this%cutoff_max, &
-         radius_distance_tol = this%radius_distance_tol &
+         radius_distance_tol = this%radius_distance_tol, &
+         atom_index = atom_index &
     )
 
   end function generate_fingerprint
@@ -1323,6 +1342,122 @@ contains
     output_4body = distrib%df_4body
 
   end subroutine generate_fingerprint_python
+!-------------------------------------------------------------------------------
+  subroutine generate_fingerprint_atom_python( &
+       this, structure, atom_index, output_2body, output_3body, output_4body &
+  )
+    !! Generate a descriptor for a single atom in the structure.
+    !!
+    !! This is the Python-callable interface. atom_index is a 1-based flat
+    !! index over all atoms in the structure (species-ordered).
+    implicit none
+
+    ! Arguments
+    class(distribs_container_type), intent(inout) :: this
+    !! Parent. Instance of distribution functions container.
+    type(basis_type), intent(in) :: structure
+    !! Structure to generate the descriptor for.
+    integer, intent(in) :: atom_index
+    !! 1-based flat atom index into the structure.
+    real(real32), dimension(:,:), intent(out) :: output_2body
+    !! 2-body descriptor for the structure.
+    real(real32), dimension(:,:), intent(out) :: output_3body
+    !! 3-body descriptor for the structure.
+    real(real32), dimension(:,:), intent(out) :: output_4body
+    !! 4-body descriptor for the structure.
+
+    ! Local variables
+    type(distribs_type) :: distrib
+    !! Descriptor for the structure.
+
+    call distrib%calculate( &
+         structure, &
+         width = this%width, &
+         sigma = this%sigma, &
+         cutoff_min = this%cutoff_min, &
+         cutoff_max = this%cutoff_max, &
+         radius_distance_tol = this%radius_distance_tol, &
+         atom_index = atom_index &
+    )
+    output_2body = distrib%df_2body
+    output_3body = distrib%df_3body
+    output_4body = distrib%df_4body
+
+  end subroutine generate_fingerprint_atom_python
+!###############################################################################
+
+
+!###############################################################################
+  subroutine add_fingerprint_python( &
+       this, element_symbols, stoichiometry, energy, &
+       df_2body, df_3body, df_4body &
+  )
+    !! Add pre-computed 2-, 3-, and 4-body fingerprint arrays directly to the
+    !! container, bypassing the structure-based calculation pipeline.
+    !!
+    !! The supplied fingerprint arrays must be consistent with the container's
+    !! current bin grid (number of bins and cutoffs). After insertion the
+    !! container's generalised distribution functions are updated automatically
+    !! via a call to ``evolve``.
+    implicit none
+
+    ! Arguments
+    class(distribs_container_type), intent(inout) :: this
+    !! Parent. Instance of distribution functions container.
+    character(len=3), dimension(:), intent(in) :: element_symbols
+    !! Element symbols present in the structure (length = nspecies).
+    integer, dimension(:), intent(in) :: stoichiometry
+    !! Number of atoms of each element (length = nspecies).
+    real(real32), intent(in) :: energy
+    !! Total energy of the structure.
+    real(real32), dimension(:,:), intent(in) :: df_2body
+    !! 2-body fingerprint — shape (nbins_2body, num_pairs).
+    real(real32), dimension(:,:), intent(in) :: df_3body
+    !! 3-body fingerprint — shape (nbins_3body, nspecies).
+    real(real32), dimension(:,:), intent(in) :: df_4body
+    !! 4-body fingerprint — shape (nbins_4body, nspecies).
+
+    ! Local variables
+    integer :: is
+    !! Loop index.
+    type(distribs_type) :: distrib
+    !! Temporary distribution object populated from the supplied arrays.
+
+    !---------------------------------------------------------------------------
+    ! populate element metadata
+    !---------------------------------------------------------------------------
+    distrib%element_symbols = element_symbols
+    distrib%stoichiometry   = stoichiometry
+    distrib%num_atoms       = sum(stoichiometry)
+    distrib%energy          = energy
+
+    !---------------------------------------------------------------------------
+    ! set weighting arrays: use stoichiometry as a proportional proxy for
+    ! bond-pair weights so that Boltzmann weighting in evolve() is sensible
+    !---------------------------------------------------------------------------
+    allocate(distrib%num_per_species(size(element_symbols)),    source = 0)
+    allocate(distrib%weight_per_species(size(element_symbols)), source = 0._real32)
+    allocate(distrib%num_pairs(size(df_2body, 2)),              source = 1)
+    allocate(distrib%weight_pair(size(df_2body, 2)),            source = 1._real32)
+    do is = 1, size(element_symbols)
+       distrib%num_per_species(is)   = stoichiometry(is)
+       distrib%weight_per_species(is) = real(stoichiometry(is), real32)
+    end do
+
+    !---------------------------------------------------------------------------
+    ! assign the fingerprint arrays
+    !---------------------------------------------------------------------------
+    distrib%df_2body = df_2body
+    distrib%df_3body = df_3body
+    distrib%df_4body = df_4body
+
+    !---------------------------------------------------------------------------
+    ! add to the container (updates element_info and bond_info) then evolve
+    !---------------------------------------------------------------------------
+    call this%add(distrib)
+    call this%evolve()
+
+  end subroutine add_fingerprint_python
 !###############################################################################
 
 

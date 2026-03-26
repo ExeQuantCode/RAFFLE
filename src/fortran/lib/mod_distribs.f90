@@ -132,7 +132,8 @@ contains
 
 !###############################################################################
   subroutine calculate(this, basis, &
-       nbins, width, sigma, cutoff_min, cutoff_max, radius_distance_tol)
+       nbins, width, sigma, cutoff_min, cutoff_max, radius_distance_tol, &
+       atom_index)
     !! Calculate the distribution functions for the container.
     !!
     !! This procedure calculates the 2-, 3-, and 4-body distribution function
@@ -152,6 +153,9 @@ contains
     !! Optional. Cutoff minimum and maximum for the distribution functions.
     real(real32), dimension(4), intent(in), optional :: radius_distance_tol
     !! Tolerance for the distance between atoms for 3- and 4-body.
+    integer, intent(in), optional :: atom_index
+    !! Optional. 1-based flat atom index for single-atom fingerprint calculation.
+    !! If absent, fingerprints are computed for all atoms (default behaviour).
 
     ! Local variables
     integer, dimension(3) :: nbins_
@@ -193,6 +197,10 @@ contains
     !! Temporary real arrays.
     integer, allocatable, dimension(:,:) :: pair_index
     !! Index of element pairs.
+    integer :: is_target, ia_target
+    !! Target species and atom-within-species indices for single-atom mode.
+    integer :: flat_idx
+    !! Flat (1-based) atom index used for species/atom index conversion.
 
 
     !---------------------------------------------------------------------------
@@ -312,10 +320,38 @@ contains
 
 
     !---------------------------------------------------------------------------
+    ! determine target atom indices for single-atom mode
+    !---------------------------------------------------------------------------
+    is_target = 0
+    ia_target = 0
+    atom_idx_present: if(present(atom_index))then
+       flat_idx = atom_index
+       if(flat_idx.gt.1) exit atom_idx_present
+       ! handle flat_idx out of bounds
+       if(flat_idx.gt.basis%natom)then
+          call print_warning("atom_index is out of bounds; ignoring atom_index and calculating fingerprints for all atoms")
+          flat_idx = 0
+       end if
+       do is = 1, basis%nspec
+          if(flat_idx .le. basis%spec(is)%num)then
+             is_target = is
+             ia_target = flat_idx
+             exit
+          end if
+          flat_idx = flat_idx - basis%spec(is)%num
+       end do
+    else
+       flat_idx = 0
+    end if atom_idx_present
+
+
+    !---------------------------------------------------------------------------
     ! calculate the distribution functions
     !---------------------------------------------------------------------------
     do is = 1, basis%nspec
+       if(flat_idx.gt.0 .and. is .ne. is_target) cycle
        do ia = 1, basis%spec(is)%num
+          if(flat_idx.gt.0 .and. ia .ne. ia_target) cycle
           allocate(distance(basis_extd%natom+basis_extd%num_images))
           neighbour_basis%spec(1)%num = 0
           neighbour_basis%image_spec(1)%num = 0

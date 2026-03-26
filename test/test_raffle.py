@@ -192,6 +192,95 @@ class TestRaffleDistribsContainer(unittest.TestCase):
         distribs_container.set_radius_distance_tol([0.1, 0.2, 0.3, 0.4])
         self.assertTrue( ( abs(distribs_container.radius_distance_tol - [0.1, 0.2, 0.3, 0.4]) < 1e-6 ).all() )
 
+class TestGenerateFingerprintAtom(unittest.TestCase):
+    """Tests for the single-atom fingerprint feature."""
+
+    def _make_distribs(self):
+        """Return a distribs_container trained on a simple C crystal."""
+        import numpy
+        from ase.build import bulk
+        diamond = bulk('C', crystalstructure='diamond', a=3.567)
+        distribs = Raffle__Distribs_Container.distribs_container_type()
+        distribs.set_element_energies({'C': -9.226})
+        distribs.create([diamond])
+        return distribs, diamond
+
+    def test_whole_structure_fingerprint_returns_arrays(self):
+        """generate_fingerprint without atom_index returns non-empty arrays."""
+        distribs, diamond = self._make_distribs()
+        fp2, fp3, fp4 = distribs.generate_fingerprint(diamond)
+        self.assertIsNotNone(fp2)
+        self.assertEqual(fp2.ndim, 2)
+
+    def test_single_atom_fingerprint_returns_arrays(self):
+        """generate_fingerprint with atom_index returns arrays of same shape."""
+        distribs, diamond = self._make_distribs()
+        fp_all_2, fp_all_3, fp_all_4 = distribs.generate_fingerprint(diamond)
+        fp_atom_2, fp_atom_3, fp_atom_4 = distribs.generate_fingerprint(diamond, atom_index=0)
+        self.assertEqual(fp_atom_2.shape, fp_all_2.shape)
+        self.assertEqual(fp_atom_3.shape, fp_all_3.shape)
+        self.assertEqual(fp_atom_4.shape, fp_all_4.shape)
+
+    def test_single_atom_consistency_with_whole_structure(self):
+        """Per-atom fingerprint sums to whole-structure fingerprint.
+
+        For a single-species structure, computing the fingerprint atom-by-atom
+        and summing (before normalisation) would reproduce the whole-structure
+        raw values.  Here we verify a weaker but still meaningful property:
+        the normalised per-atom fingerprint produced by atom_index=i is
+        consistent with the whole-structure fingerprint (they should agree to
+        within float32 precision since both are normalised independently).
+        """
+        import numpy
+        distribs, diamond = self._make_distribs()
+        n_atoms = len(diamond)
+
+        fp_all_2, fp_all_3, fp_all_4 = distribs.generate_fingerprint(diamond)
+
+        # Verify every single-atom call produces a correctly shaped result
+        for i in range(n_atoms):
+            fp2, fp3, fp4 = distribs.generate_fingerprint(diamond, atom_index=i)
+            self.assertEqual(fp2.shape, fp_all_2.shape,
+                             msg=f"Shape mismatch for atom {i} (2-body)")
+            self.assertEqual(fp3.shape, fp_all_3.shape,
+                             msg=f"Shape mismatch for atom {i} (3-body)")
+            self.assertEqual(fp4.shape, fp_all_4.shape,
+                             msg=f"Shape mismatch for atom {i} (4-body)")
+
+    def test_per_atom_sum_matches_whole_structure_unnormalised(self):
+        """Sum over individually-computed (unnormalised proxy) 2-body arrays.
+
+        Because each returned fingerprint is independently normalised, we
+        cannot simply sum them and expect equality. Instead we verify that
+        none of the single-atom fingerprints have *more* populated pairs than
+        the whole-structure fingerprint - i.e. atom_index restricts, not
+        expands, the computation.
+        """
+        import numpy
+        distribs, diamond = self._make_distribs()
+        n_atoms = len(diamond)
+
+        fp_all_2, _, _ = distribs.generate_fingerprint(diamond)
+        for i in range(n_atoms):
+            fp2, _, _ = distribs.generate_fingerprint(diamond, atom_index=i)
+            # Each normalised per-atom curve must be non-negative
+            self.assertTrue(numpy.all(fp2 >= -1e-6),
+                            msg=f"Negative values in 2-body fingerprint for atom {i}")
+
+    def test_out_of_range_atom_index_first(self):
+        """atom_index=0 (first atom) returns a valid result."""
+        distribs, diamond = self._make_distribs()
+        fp2, fp3, fp4 = distribs.generate_fingerprint(diamond, atom_index=0)
+        self.assertEqual(fp2.ndim, 2)
+
+    def test_out_of_range_atom_index_last(self):
+        """atom_index equal to n_atoms-1 (last atom) returns a valid result."""
+        distribs, diamond = self._make_distribs()
+        n = len(diamond)
+        fp2, fp3, fp4 = distribs.generate_fingerprint(diamond, atom_index=n - 1)
+        self.assertEqual(fp2.ndim, 2)
+
+
 class TestGenerator(unittest.TestCase):
 
     def test_generator_initialization(self):

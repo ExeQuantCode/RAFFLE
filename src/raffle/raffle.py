@@ -1497,19 +1497,24 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
 
         def generate_fingerprint(self,
                                  structure: Atoms | Geom_Rw.basis = None,
+                                 atom_index: int = None,
         ):
             """
-            Generate the fingerprint for a given structure.
+            Generate the fingerprint for a given structure, or for a single atom.
 
             Parameters
             ----------
-            structure : ase.Atoms
+            structure : ase.Atoms or Geom_Rw.basis
                 Atomic structure to generate the fingerprint for.
+            atom_index : int, optional
+                0-based index of a single atom. When provided, the fingerprint
+                is computed only for that atom. When omitted (default), the
+                fingerprint is computed for all atoms.
 
             Returns
             -------
-            output : list[arrays]
-                2D arrays
+            output : tuple of three 2-D float32 arrays
+                (output_2body, output_3body, output_4body)
             """
             if isinstance(structure, Atoms):
                 structure = geom_rw.basis(structure)
@@ -1525,11 +1530,77 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             output_2body = numpy.asfortranarray(numpy.zeros((nbins[0], num_pairs), dtype=numpy.float32))
             output_3body = numpy.asfortranarray(numpy.zeros((nbins[1], num_species), dtype=numpy.float32))
             output_4body = numpy.asfortranarray(numpy.zeros((nbins[2], num_species), dtype=numpy.float32))
-            _raffle.f90wrap_raffle__dc__generate_fingerprint_python__dc_type(this=self._handle, \
-                structure=structure._handle, output_2body=output_2body, \
-                output_3body=output_3body, output_4body=output_4body)
+
+            if atom_index is None:
+                _raffle.f90wrap_raffle__dc__generate_fingerprint_python__dc_type(
+                    this=self._handle,
+                    structure=structure._handle,
+                    output_2body=output_2body,
+                    output_3body=output_3body,
+                    output_4body=output_4body)
+            else:
+                # Convert 0-based Python index to 1-based Fortran index
+                _raffle.f90wrap_raffle__dc__generate_fingerprint_atom_python__dc_type(
+                    this=self._handle,
+                    structure=structure._handle,
+                    atom_index=atom_index + 1,
+                    output_2body=output_2body,
+                    output_3body=output_3body,
+                    output_4body=output_4body)
 
             return output_2body, output_3body, output_4body
+
+        def add_fingerprint(self,
+                            element_symbols: list,
+                            stoichiometry,
+                            energy: float,
+                            df_2body,
+                            df_3body,
+                            df_4body,
+        ):
+            """
+            Add pre-computed fingerprint arrays directly to the container.
+
+            This bypasses the structure-based calculation pipeline: no
+            ``basis_type`` / ``ase.Atoms`` object is needed.  After insertion
+            the container's generalised distribution functions (GDFs) are
+            updated automatically.
+
+            The arrays must be consistent with the container's current bin
+            settings (``nbins``, ``cutoff_min``, ``cutoff_max``, ``width``).
+
+            Parameters
+            ----------
+            element_symbols : list of str
+                Element symbols present in the structure, e.g. ``['C', 'H']``.
+            stoichiometry : array-like of int
+                Number of atoms of each element, same order as
+                *element_symbols*.
+            energy : float
+                Total energy of the structure (same units as the reference
+                energies already stored in the container).
+            df_2body : array-like, shape (nbins_2body, num_pairs)
+                2-body fingerprint.  ``num_pairs`` must equal
+                ``nspecies*(nspecies+1)//2``.
+            df_3body : array-like, shape (nbins_3body, nspecies)
+                3-body fingerprint.
+            df_4body : array-like, shape (nbins_4body, nspecies)
+                4-body fingerprint.
+            """
+            element_symbols_ = list(element_symbols)
+            stoichiometry_ = numpy.asarray(stoichiometry, dtype=numpy.int32)
+            df_2body_ = numpy.asfortranarray(df_2body, dtype=numpy.float32)
+            df_3body_ = numpy.asfortranarray(df_3body, dtype=numpy.float32)
+            df_4body_ = numpy.asfortranarray(df_4body, dtype=numpy.float32)
+            _raffle.f90wrap_raffle__dc__add_fingerprint_python__dc_type(
+                this=self._handle,
+                element_symbols=element_symbols_,
+                stoichiometry=stoichiometry_,
+                energy=numpy.float32(energy),
+                df_2body=df_2body_,
+                df_3body=df_3body_,
+                df_4body=df_4body_,
+            )
 
         @property
         def iteration(self):

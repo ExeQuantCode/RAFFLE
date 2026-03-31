@@ -1286,16 +1286,19 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             """
             _raffle.f90wrap_raffle__dc__initialise_gdfs__binding__dc_type(this=self._handle)
 
-        def evolve(self): #, system=None):
+        def evolve(self):
             """
             Evolve the distribution functions.
 
             It is not recommended to use this function directly, but to use the
             create or update functions instead.
             """
-            _raffle.f90wrap_raffle__dc__evolve__binding__dc_type(this=self._handle)
-            # _raffle.f90wrap_raffle__dc__evolve__binding__dc_type(this=self._handle, \
-            #     system=None if system is None else system._handle)
+            exit_code = _raffle.f90wrap_raffle__dc__evolve__binding__dc_type(
+                this=self._handle \
+            )
+
+            if exit_code != 0:
+                raise RuntimeError("Error evolving distribution functions, exit code: {}".format(exit_code))
 
         def is_converged(self, threshold : float = 1e-4):
             """
@@ -1592,7 +1595,8 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             df_2body_ = numpy.asfortranarray(df_2body, dtype=numpy.float32)
             df_3body_ = numpy.asfortranarray(df_3body, dtype=numpy.float32)
             df_4body_ = numpy.asfortranarray(df_4body, dtype=numpy.float32)
-            _raffle.f90wrap_raffle__dc__add_fingerprint_python__dc_type(
+
+            exit_code = _raffle.f90wrap_raffle__dc__add_fingerprint_python__dc_type(
                 this=self._handle,
                 element_symbols=element_symbols_,
                 stoichiometry=stoichiometry_,
@@ -1601,6 +1605,11 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
                 df_3body=df_3body_,
                 df_4body=df_4body_,
             )
+
+            if exit_code != 0:
+                raise RuntimeError("Error adding fingerprint, exit code: {}".format(exit_code))
+
+            return
 
         @property
         def iteration(self):

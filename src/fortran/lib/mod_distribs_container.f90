@@ -10,7 +10,7 @@ module raffle__distribs_container
   !! The generalised distribution functions are used to evaluate the viability
   !! of a new structure.
   use raffle__constants, only: real32, pi
-  use raffle__io_utils, only: stop_program, print_warning, suppress_warnings
+  use raffle__io_utils, only: stop_program, print_warning, suppress_warnings, test_error_handling
   use raffle__misc, only: set, icount, strip_null, sort_str
   use raffle__misc_maths, only: triangular_number, set_difference
   use raffle__geom_rw, only: basis_type, get_element_properties
@@ -441,7 +441,7 @@ contains
 !###############################################################################
   subroutine create( &
        this, basis_list, energy_above_hull_list, deallocate_systems, &
-       verbose &
+       verbose, exit_code &
   )
     !! create the distribution functions from the input file
     implicit none
@@ -457,6 +457,8 @@ contains
     !! distribution functions are created.
     integer, intent(in), optional :: verbose
     !! Verbosity level.
+    integer, intent(out), optional :: exit_code
+    !! Exit code for the subroutine. 0 if successful, 1 if error.
 
     ! Local variables
     logical :: deallocate_systems_
@@ -467,7 +469,11 @@ contains
     !! Verbosity level.
     logical :: suppress_warnings_store
     !! Boolean to store the suppress_warnings value.
+    integer :: exit_code_
+    !! Local variable for exit code to avoid issues with optional intent(out) argument.
 
+
+    exit_code_ = 0
 
     ! Set the verbosity level
     verbose_ = 0
@@ -537,7 +543,11 @@ contains
        this%system(:)%energy_above_hull = energy_above_hull_list(:)
     end if
     call this%set_bond_info()
-    call this%evolve()
+    call this%evolve(exit_code_)
+    if(exit_code_.ne.0)then
+       if(present(exit_code)) exit_code = exit_code_
+       return
+    end if
     if(deallocate_systems_) call this%deallocate_systems()
     if(this%host_system%defined) &
          call this%host_system%set_element_map(this%element_info)
@@ -556,7 +566,7 @@ contains
   subroutine update( &
        this, basis_list, energy_above_hull_list, from_host, &
        deallocate_systems, &
-       verbose &
+       verbose, exit_code &
   )
     !! update the distribution functions from the input file
     implicit none
@@ -574,6 +584,8 @@ contains
     !! distribution functions are created.
     integer, intent(in), optional :: verbose
     !! Verbosity level.
+    integer, intent(out), optional :: exit_code
+    !! Exit code for the subroutine. 0 if successful, 1 if error.
 
     ! Local variables
     integer :: i
@@ -589,7 +601,11 @@ contains
     logical :: suppress_warnings_store
     !! Boolean to store the suppress_warnings value.
     type(distribs_base_type) :: gdf_old
+    integer :: exit_code_
+    !! Local variable for exit code to avoid issues with optional intent(out) argument.
 
+
+    exit_code_ = 0
 
     ! Set the verbosity level
     verbose_ = 0
@@ -692,7 +708,11 @@ contains
     end if
 
     ! Evolve the distribution functions
-    call this%evolve()
+    call this%evolve(exit_code_)
+    if(exit_code_.ne.0)then
+       if(present(exit_code)) exit_code = exit_code_
+       return
+    end if
     if(deallocate_systems_) call this%deallocate_systems()
     if(this%host_system%defined) &
          call this%host_system%set_element_map(this%element_info)
@@ -1390,7 +1410,7 @@ contains
 !###############################################################################
   subroutine add_fingerprint_python( &
        this, element_symbols, stoichiometry, energy, &
-       df_2body, df_3body, df_4body &
+       df_2body, df_3body, df_4body, exit_code &
   )
     !! Add pre-computed 2-, 3-, and 4-body fingerprint arrays directly to the
     !! container, bypassing the structure-based calculation pipeline.
@@ -1416,17 +1436,27 @@ contains
     !! 3-body fingerprint — shape (nbins_3body, nspecies).
     real(real32), dimension(:,:), intent(in) :: df_4body
     !! 4-body fingerprint — shape (nbins_4body, nspecies).
+    integer, intent(out) :: exit_code
+    !! Exit code from evolve() after adding the fingerprint to the container.
 
     ! Local variables
     integer :: is
     !! Loop index.
     type(distribs_type) :: distrib
     !! Temporary distribution object populated from the supplied arrays.
+    logical :: test_error_handling_
+    !! Local variable to store and restore the state of test_error_handling
 
+    test_error_handling_ = test_error_handling
+    test_error_handling = .true.
     !---------------------------------------------------------------------------
     ! populate element metadata
     !---------------------------------------------------------------------------
-    distrib%element_symbols = element_symbols
+    ! strip null characters from the element symbols (if any) to avoid issues in
+    allocate(distrib%element_symbols(size(element_symbols)))
+    do is = 1, size(element_symbols)
+       distrib%element_symbols(is) = adjustl(strip_null(element_symbols(is)))
+    end do
     distrib%stoichiometry   = stoichiometry
     distrib%num_atoms       = sum(stoichiometry)
     distrib%energy          = energy
@@ -1455,7 +1485,9 @@ contains
     ! add to the container (updates element_info and bond_info) then evolve
     !---------------------------------------------------------------------------
     call this%add(distrib)
-    call this%evolve()
+    call this%evolve(exit_code)
+
+    test_error_handling = test_error_handling_
 
   end subroutine add_fingerprint_python
 !###############################################################################
@@ -1484,7 +1516,11 @@ contains
     rank(0)
        select type(type_ptr => rank_ptr)
        type is (distribs_type)
-          this%system = [ this%system, type_ptr ]
+          if(.not.allocated(this%system))then
+             this%system = [ type_ptr ]
+          else
+             this%system = [ this%system, type_ptr ]
+          end if
        class is (basis_type)
 #if defined(GFORTRAN)
           call this%add_basis(type_ptr)
@@ -2554,7 +2590,7 @@ contains
 
 
 !###############################################################################
-  subroutine set_gdfs_to_default(this, body, index)
+  subroutine set_gdfs_to_default(this, body, index, exit_code)
     !! Initialise the gdfs for index of body distribution function.
     implicit none
 
@@ -2565,13 +2601,16 @@ contains
     !! Body distribution function to initialise.
     integer, intent(in) :: index
     !! Index of the pair in the bond_info array.
+    integer, intent(out) :: exit_code
+    !! Exit code for the subroutine. 0 if successful, 1 if error.
 
     ! Local variables
     real(real32) :: eta, weight, height
     !! Parameters for the distribution functions.
     real(real32), dimension(1) :: bonds
+integer :: j
 
-
+    exit_code = 0
     if( body .eq. 2 )then
        weight = exp( -4._real32 )
        height = 1._real32 / this%nbins(1)
@@ -2585,6 +2624,8 @@ contains
        bonds = [ 2._real32 * this%bond_info(index)%radius_covalent ]
        if(abs(bonds(1)).lt.1.E-6)then
           call stop_program( "Bond radius is zero" )
+          exit_code = 1
+          return
        end if
        this%gdf%df_2body(:,index) = weight * height * get_distrib( &
             bonds , &
@@ -2603,15 +2644,15 @@ contains
 
 
 !###############################################################################
-  subroutine evolve(this, system)
+  subroutine evolve(this, exit_code)
     !! Evolve the generalised distribution functions for the container.
     implicit none
 
     ! Arguments
     class(distribs_container_type), intent(inout) :: this
     !! Parent of the procedure. Instance of distribution functions container.
-    type(distribs_type), dimension(..), intent(in), optional :: system
-    !! Optional. System to add to the container.
+    integer, intent(out) :: exit_code
+    !! Exit code for the subroutine. 0 if successful, 1 if error.
 
     ! Local variables
     integer :: i, j, is, js
@@ -2636,12 +2677,13 @@ contains
     integer, dimension(:), allocatable :: host_idx_list
 
 
+    exit_code = 0
     weight = 1._real32
 
     !---------------------------------------------------------------------------
-    ! if present, add the system to the container
+    ! set the number of bins for the distribution functions based on the cutoff 
+    ! and width
     !---------------------------------------------------------------------------
-    if(present(system)) call this%add(system)
     call this%set_num_bins()
 
 
@@ -2886,19 +2928,22 @@ contains
     !---------------------------------------------------------------------------
     do j = 1, size(this%gdf%df_2body,2)
        if(all(abs(this%gdf%df_2body(:,j)).lt.1.E-6_real32))then
-          call this%set_gdfs_to_default(2, j)
+          call this%set_gdfs_to_default(2, j, exit_code)
+          if(exit_code.ne.0) return
        else
           this%in_dataset_2body(j) = .true.
        end if
     end do
     do is = 1, size(this%element_info)
        if(all(abs(this%gdf%df_3body(:,is)).lt.1.E-6_real32))then
-          call this%set_gdfs_to_default(3, is)
+          call this%set_gdfs_to_default(3, is, exit_code)
+          if(exit_code.ne.0) return
        else
           this%in_dataset_3body(is) = .true.
        end if
        if(all(abs(this%gdf%df_4body(:,is)).lt.1.E-6_real32))then
-          call this%set_gdfs_to_default(4, is)
+          call this%set_gdfs_to_default(4, is, exit_code)
+          if(exit_code.ne.0) return
        else
           this%in_dataset_4body(is) = .true.
        end if

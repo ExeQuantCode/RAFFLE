@@ -909,27 +909,18 @@ end subroutine f90wrap_raffle__dc__initialise_gdfs__binding__dc_type
 !###############################################################################
 ! evolve the generalised distribution functions
 !###############################################################################
-subroutine f90wrap_raffle__dc__evolve__binding__dc_type(this) !, system)
+subroutine f90wrap_raffle__dc__evolve__binding__dc_type(this, exit_code)
     use raffle__distribs_container, only: distribs_container_type
     implicit none
 
-    ! type distribs_type_ptr_type
-    !     type(distribs_type), pointer :: p => NULL()
-    ! end type distribs_type_ptr_type
     type distribs_container_type_ptr_type
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
     integer, intent(in), dimension(2) :: this
-    ! type(distribs_type_ptr_type) :: system_ptr
-    ! integer, optional, intent(in), dimension(2) :: system
+    integer, optional, intent(out) :: exit_code
     this_ptr = transfer(this, this_ptr)
-    ! if (present(system)) then
-    !     system_ptr = transfer(system, system_ptr)
-    ! else
-    !     system_ptr%p => null()
-    ! end if
-    call this_ptr%p%evolve() !system=system_ptr%p)
+    call this_ptr%p%evolve(exit_code)
 end subroutine f90wrap_raffle__dc__evolve__binding__dc_type
 !###############################################################################
 
@@ -1257,7 +1248,7 @@ end subroutine f90wrap_raffle__dc__generate_fingerprint_atom_python__dc_type
 
 subroutine f90wrap_raffle__dc__add_fingerprint_python__dc_type( &
      this, element_symbols, stoichiometry, energy, &
-     df_2body, df_3body, df_4body, &
+     df_2body, df_3body, df_4body, exit_code, &
      n0, n1, n2, n3, n4, n5, n6 &
 )
     use raffle__distribs_container, only: distribs_container_type
@@ -1288,10 +1279,12 @@ subroutine f90wrap_raffle__dc__add_fingerprint_python__dc_type( &
     integer :: n6
     !f2py intent(hide), depend(df_4body) :: n6 = shape(df_4body,1)
     real(4), intent(in), dimension(n5,n6) :: df_4body
+    integer, optional, intent(out) :: exit_code
     this_ptr = transfer(this, this_ptr)
     call this_ptr%p%add_fingerprint_python( &
         element_symbols=element_symbols, stoichiometry=stoichiometry, &
-        energy=energy, df_2body=df_2body, df_3body=df_3body, df_4body=df_4body &
+        energy=energy, df_2body=df_2body, df_3body=df_3body, df_4body=df_4body, &
+        exit_code=exit_code &
     )
 end subroutine f90wrap_raffle__dc__add_fingerprint_python__dc_type
 

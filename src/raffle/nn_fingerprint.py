@@ -257,38 +257,22 @@ class NNFingerprint:
         """
         from raffle.generator import raffle_generator
 
-        # Create a temporary generator to access distribution computation
         gen = raffle_generator()
         gen.distributions.set_element_energies(
             {s: 0.0 for s in self.species_list}
         )
 
-        # Compute descriptors by adding structure to container
-        container = gen.distributions
+        df_2body, df_3body, df_4body = gen.distributions.generate_fingerprint(
+            atoms
+        )
 
-        # Use the container to compute distribution functions
-        container.create(atoms, energy=getattr(atoms.info, 'energy', 0.0)
-                         if hasattr(atoms, 'info') and 'energy' in atoms.info
-                         else 0.0)
-
-        # Extract 2-body, 3-body, 4-body arrays
-        df_2body = container.get_2body()
-        df_3body = container.get_3body()
-        df_4body = container.get_4body()
-
-        # Flatten and concatenate
-        fp_parts = []
-        if df_2body is not None:
-            fp_parts.append(df_2body.flatten())
-        if df_3body is not None:
-            fp_parts.append(df_3body.flatten())
-        if df_4body is not None:
-            fp_parts.append(df_4body.flatten())
-
-        if not fp_parts:
-            raise RuntimeError("Failed to compute descriptor fingerprint")
-
-        fingerprint = np.concatenate(fp_parts).astype(np.float32)
+        fingerprint = np.concatenate(
+            [
+                np.asarray(df_2body, dtype=np.float32).flatten(order="F"),
+                np.asarray(df_3body, dtype=np.float32).flatten(order="F"),
+                np.asarray(df_4body, dtype=np.float32).flatten(order="F"),
+            ]
+        )
 
         # Set fingerprint dim on first call
         if self._fingerprint_dim is None:
@@ -300,6 +284,11 @@ class NNFingerprint:
                 + [self._fingerprint_dim]
             )
             self._network = SimpleNN(layer_sizes, self._learning_rate)
+        elif self._fingerprint_dim != len(fingerprint):
+            raise RuntimeError(
+                "Fingerprint dimension changed. Use a consistent fingerprint "
+                "mode for a single NNFingerprint instance."
+            )
 
         return fingerprint
 

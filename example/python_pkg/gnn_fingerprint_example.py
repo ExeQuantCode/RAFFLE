@@ -20,6 +20,7 @@ Requirements:
     - numpy
 """
 import numpy as np
+from pathlib import Path
 from ase import Atoms
 from ase.build import bulk
 
@@ -64,6 +65,18 @@ def main():
     print(f"  Bond cutoff: {gnn.bond_cutoff} A")
     print(f"  Vertex features: {gnn.num_vertex_features}")
 
+    use_simple_fingerprint = False
+    compute_fp = (
+        gnn.compute_fingerprint_direct if use_simple_fingerprint
+        else gnn.compute_fingerprint
+    )
+    data_path = Path(__file__).resolve().parents[1] / 'data' / 'carbon.xyz'
+    print(
+        "  Fingerprint source: "
+        + ("simple numpy radial fingerprint" if use_simple_fingerprint
+           else "RAFFLE descriptor fingerprint")
+    )
+
     # -------------------------------------------------------------------------
     # Step 3: Convert structures to molecular graphs
     # -------------------------------------------------------------------------
@@ -84,8 +97,8 @@ def main():
     # -------------------------------------------------------------------------
     print("\n--- Step 4: Computing RAFFLE descriptor fingerprints ---")
 
-    fp1 = gnn.compute_fingerprint_direct(carbon_diamond)
-    fp2 = gnn.compute_fingerprint_direct(carbon_perturbed)
+    fp1 = compute_fp(carbon_diamond)
+    fp2 = compute_fp(carbon_perturbed)
     print(f"  Fingerprint dim: {gnn.fingerprint_dim}")
     print(f"  FP1 (diamond) max: {np.max(np.abs(fp1)):.6f}")
     print(f"  FP2 (perturbed) max: {np.max(np.abs(fp2)):.6f}")
@@ -98,14 +111,17 @@ def main():
     # -------------------------------------------------------------------------
     print("\n--- Step 5: Training GNN on structures ---")
 
-    #training_structures = [carbon_diamond, carbon_perturbed]
     from ase.io import read
-    training_structures = read("../data/carbon.xyz", index=":")
+    max_training_structures = 32
+    num_epochs = 200
+    training_structures = read(data_path, index=":")[:max_training_structures]
+    print(f"  Training structures used: {len(training_structures)}")
+    print(f"  Training epochs: {num_epochs}")
     loss_history = gnn.train(
         structures=training_structures,
-        num_epochs=10000,
+        num_epochs=num_epochs,
         verbose=1,
-        use_simple_fingerprint=False,
+        use_simple_fingerprint=use_simple_fingerprint,
     )
     print(f"  Final training loss: {loss_history[-1]:.8f}")
     print(f"  GNN trained: {gnn.is_trained}")
@@ -149,7 +165,7 @@ def main():
         num_steps=100,
         step_size=0.005,
         verbose=1,
-        use_simple_fingerprint=False,
+        use_simple_fingerprint=use_simple_fingerprint,
     )
 
     # Save the optimised structure for visualization
@@ -158,19 +174,29 @@ def main():
     write("structures.traj", structures)
 
     final_positions = optimised.get_positions()
-    fixed_displacement = np.linalg.norm(
-        final_positions[0] - original_positions[0]
-    )
-    movable_displacement = np.mean([
-        np.linalg.norm(final_positions[i] - original_positions[i])
-        for i in range(1, n_atoms)
-    ])
+    if np.any(fixed_atoms):
+        fixed_displacement = np.linalg.norm(
+            final_positions[np.where(fixed_atoms)[0][0]]
+            - original_positions[np.where(fixed_atoms)[0][0]]
+        )
+        fixed_constraint_ok = fixed_displacement < 1e-6
+    else:
+        fixed_displacement = 0.0
+        fixed_constraint_ok = True
+    movable_indices = np.where(~fixed_atoms)[0]
+    if movable_indices.size > 0:
+        movable_displacement = np.mean([
+            np.linalg.norm(final_positions[i] - original_positions[i])
+            for i in movable_indices
+        ])
+    else:
+        movable_displacement = 0.0
 
     print(f"\n  Fixed atom displacement: {fixed_displacement:.8f} A")
     print(f"  Average movable atom displacement: "
           f"{movable_displacement:.8f} A")
     print(f"  Fixed atom correctly constrained: "
-          f"{fixed_displacement < 1e-6}")
+          f"{fixed_constraint_ok}")
 
     # -------------------------------------------------------------------------
     # Summary
@@ -183,7 +209,7 @@ def main():
           f"{loss_history[0]:.6f} → {loss_history[-1]:.6f}")
     print(f"  Prediction MSE: {prediction_error:.8f}")
     print(f"  Inverse design: fixed atom unmoved = "
-          f"{fixed_displacement < 1e-6}")
+            f"{fixed_constraint_ok}")
     print("=" * 60)
 
 

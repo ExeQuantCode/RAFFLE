@@ -19,6 +19,7 @@ Requirements:
     - numpy
 """
 import numpy as np
+from pathlib import Path
 from ase import Atoms
 from ase.build import bulk
 
@@ -71,14 +72,25 @@ def main():
     print(f"  Max atoms: {nn.max_atoms}")
     print(f"  Input dim: {nn.input_dim}")
 
+    use_simple_fingerprint = False
+    compute_fp = (
+        nn.compute_fingerprint_direct if use_simple_fingerprint
+        else nn.compute_fingerprint
+    )
+    data_path = Path(__file__).resolve().parents[1] / 'data' / 'carbon.xyz'
+    print(
+        "  Fingerprint source: "
+        + ("simple numpy radial fingerprint" if use_simple_fingerprint
+           else "RAFFLE descriptor fingerprint")
+    )
+
     # -------------------------------------------------------------------------
     # Step 3: Compute descriptor fingerprints
     # -------------------------------------------------------------------------
     print("\n--- Step 3: Computing RAFFLE descriptor fingerprints ---")
 
-    # Use direct mode (numpy-based, no Fortran bindings needed for this demo)
-    fp1 = nn.compute_fingerprint_direct(carbon_diamond)
-    fp2 = nn.compute_fingerprint_direct(carbon_perturbed)
+    fp1 = compute_fp(carbon_diamond)
+    fp2 = compute_fp(carbon_perturbed)
     print(f"  Fingerprint dim: {nn.fingerprint_dim}")
     print(f"  FP1 (diamond) max: {np.max(np.abs(fp1)):.6f}")
     print(f"  FP2 (perturbed) max: {np.max(np.abs(fp2)):.6f}")
@@ -95,12 +107,12 @@ def main():
 
     training_structures = [carbon_diamond, carbon_perturbed]
     from ase.io import read
-    training_structures = read("../data/carbon.xyz", index=":")
+    training_structures = read(data_path, index=":")
     loss_history = nn.train(
         structures=training_structures,
         num_epochs=10000,
         verbose=1,
-        use_simple_fingerprint=True,
+        use_simple_fingerprint=use_simple_fingerprint,
     )
     print(f"  Final training loss: {loss_history[-1]:.8f}")
     print(f"  Network trained: {nn.is_trained}")
@@ -110,7 +122,10 @@ def main():
     # -------------------------------------------------------------------------
     print("\n--- Step 5: Forward inference (predict) ---")
 
-    predicted_fp = nn.predict(carbon_diamond, use_simple_fingerprint=True)
+    predicted_fp = nn.predict(
+        carbon_diamond,
+        use_simple_fingerprint=use_simple_fingerprint,
+    )
     true_fp = fp1
 
     prediction_error = np.mean((predicted_fp - true_fp) ** 2)
@@ -149,7 +164,7 @@ def main():
         num_steps=1000,
         step_size=0.002,
         verbose=1,
-        use_simple_fingerprint=True,
+        use_simple_fingerprint=use_simple_fingerprint,
     )
 
     # Save the optimised structure for visualization
@@ -185,7 +200,7 @@ def main():
     print(f"  Final training loss: {loss_history[-1]:.8f}")
     print(f"  Forward prediction MSE: {prediction_error:.8f}")
     print(f"  Inverse design loss: "
-          f"{np.mean((nn.compute_fingerprint_direct(optimised) - target_fp)**2):.8e}")
+            f"{np.mean((compute_fp(optimised) - target_fp)**2):.8e}")
     print(f"  Atom masking verified: {fixed_displacement < 1e-6}")
     print("\nAll operations completed successfully!")
 

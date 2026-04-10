@@ -46,7 +46,7 @@ def main():
     carbon_perturbed = carbon_diamond.copy()
     positions = carbon_perturbed.get_positions()
     rng = np.random.default_rng(42)
-    positions += rng.normal(0, 0.15, positions.shape)
+    positions += rng.normal(0, 0.2, positions.shape)
     carbon_perturbed.set_positions(positions)
     carbon_perturbed.info['energy'] = -71.0
     print(f"  Structure 2: C diamond (perturbed), {len(carbon_perturbed)} atoms")
@@ -94,11 +94,13 @@ def main():
     print("\n--- Step 4: Training neural network ---")
 
     training_structures = [carbon_diamond, carbon_perturbed]
+    from ase.io import read
+    training_structures = read("../data/carbon.xyz", index=":")
     loss_history = nn.train(
         structures=training_structures,
-        num_epochs=100,
+        num_epochs=10000,
         verbose=1,
-        use_direct=True,
+        use_simple_fingerprint=True,
     )
     print(f"  Final training loss: {loss_history[-1]:.8f}")
     print(f"  Network trained: {nn.is_trained}")
@@ -108,7 +110,7 @@ def main():
     # -------------------------------------------------------------------------
     print("\n--- Step 5: Forward inference (predict) ---")
 
-    predicted_fp = nn.predict(carbon_diamond, use_direct=True)
+    predicted_fp = nn.predict(carbon_diamond, use_simple_fingerprint=True)
     true_fp = fp1
 
     prediction_error = np.mean((predicted_fp - true_fp) ** 2)
@@ -144,10 +146,10 @@ def main():
         target_fingerprint=target_fp,
         atoms=test_structure,
         fixed_atoms=fixed_atoms,
-        num_steps=100,
-        step_size=0.005,
+        num_steps=1000,
+        step_size=0.002,
         verbose=1,
-        use_direct=True,
+        use_simple_fingerprint=True,
     )
 
     # Save the optimised structure for visualization

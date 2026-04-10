@@ -44,7 +44,7 @@ def main():
     carbon_perturbed = carbon_diamond.copy()
     positions = carbon_perturbed.get_positions()
     rng = np.random.default_rng(42)
-    positions += rng.normal(0, 0.15, positions.shape)
+    positions += rng.normal(0, 0.2, positions.shape)
     carbon_perturbed.set_positions(positions)
     carbon_perturbed.info['energy'] = -71.0
     print(f"  Structure 2: C diamond (perturbed), {len(carbon_perturbed)} atoms")
@@ -98,12 +98,14 @@ def main():
     # -------------------------------------------------------------------------
     print("\n--- Step 5: Training GNN on structures ---")
 
-    training_structures = [carbon_diamond, carbon_perturbed]
+    #training_structures = [carbon_diamond, carbon_perturbed]
+    from ase.io import read
+    training_structures = read("../data/carbon.xyz", index=":")
     loss_history = gnn.train(
         structures=training_structures,
-        num_epochs=100,
+        num_epochs=10000,
         verbose=1,
-        use_direct=True,
+        use_simple_fingerprint=False,
     )
     print(f"  Final training loss: {loss_history[-1]:.8f}")
     print(f"  GNN trained: {gnn.is_trained}")
@@ -147,7 +149,7 @@ def main():
         num_steps=100,
         step_size=0.005,
         verbose=1,
-        use_direct=True,
+        use_simple_fingerprint=False,
     )
 
     # Save the optimised structure for visualization

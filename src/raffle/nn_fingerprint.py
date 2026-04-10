@@ -370,7 +370,7 @@ class NNFingerprint:
         num_epochs: int = 100,
         batch_size: int = 1,
         verbose: int = 0,
-        use_direct: bool = False,
+        use_simple_fingerprint: bool = False,
     ) -> List[float]:
         """Train the neural network on a set of atomic structures.
 
@@ -384,7 +384,7 @@ class NNFingerprint:
             Batch size (currently trains on full batch).
         verbose : int
             Verbosity level.
-        use_direct : bool
+        use_simple_fingerprint : bool
             If True, use simplified direct fingerprint computation.
 
         Returns
@@ -393,7 +393,7 @@ class NNFingerprint:
             Training loss history.
         """
         compute_fp = (
-            self.compute_fingerprint_direct if use_direct
+            self.compute_fingerprint_direct if use_simple_fingerprint
             else self.compute_fingerprint
         )
 
@@ -429,14 +429,14 @@ class NNFingerprint:
         self._is_trained = True
         return loss_history
 
-    def predict(self, atoms, use_direct: bool = False) -> np.ndarray:
+    def predict(self, atoms, use_simple_fingerprint: bool = False) -> np.ndarray:
         """Forward inference: predict fingerprint from atomic structure.
 
         Parameters
         ----------
         atoms : ase.Atoms
             Atomic structure.
-        use_direct : bool
+        use_simple_fingerprint : bool
             If True, use simplified fingerprint (for initialisation check).
 
         Returns
@@ -459,7 +459,7 @@ class NNFingerprint:
         num_steps: int = 200,
         step_size: float = 0.01,
         verbose: int = 0,
-        use_direct: bool = False,
+        use_simple_fingerprint: bool = False,
     ):
         """Inverse design: optimise atomic positions to match target descriptor.
 
@@ -477,7 +477,7 @@ class NNFingerprint:
             Step size for coordinate perturbation.
         verbose : int
             Verbosity level.
-        use_direct : bool
+        use_simple_fingerprint : bool
             If True, use simplified fingerprint computation.
 
         Returns
@@ -486,7 +486,7 @@ class NNFingerprint:
             Optimised structure.
         """
         compute_fp = (
-            self.compute_fingerprint_direct if use_direct
+            self.compute_fingerprint_direct if use_simple_fingerprint
             else self.compute_fingerprint
         )
 

@@ -535,7 +535,7 @@ class GNNFingerprint:
         structures: list,
         num_epochs: int = 100,
         verbose: int = 0,
-        use_direct: bool = False,
+        use_simple_fingerprint: bool = False,
     ) -> List[float]:
         """Train the GNN on a set of atomic structures.
 
@@ -547,7 +547,7 @@ class GNNFingerprint:
             Number of training epochs.
         verbose : int
             Verbosity level.
-        use_direct : bool
+        use_simple_fingerprint : bool
             If True, use simplified direct fingerprint computation.
 
         Returns
@@ -556,7 +556,7 @@ class GNNFingerprint:
             Training loss history.
         """
         compute_fp = (
-            self.compute_fingerprint_direct if use_direct
+            self.compute_fingerprint_direct if use_simple_fingerprint
             else self.compute_fingerprint
         )
 
@@ -612,7 +612,7 @@ class GNNFingerprint:
         num_steps: int = 200,
         step_size: float = 0.01,
         verbose: int = 0,
-        use_direct: bool = False,
+        use_simple_fingerprint: bool = False,
     ):
         """Inverse design: optimise atomic positions to match target descriptor.
 
@@ -630,7 +630,7 @@ class GNNFingerprint:
             Step size for coordinate perturbation.
         verbose : int
             Verbosity level.
-        use_direct : bool
+        use_simple_fingerprint : bool
             If True, use simplified fingerprint computation.
 
         Returns
@@ -639,7 +639,7 @@ class GNNFingerprint:
             Optimised structure.
         """
         compute_fp = (
-            self.compute_fingerprint_direct if use_direct
+            self.compute_fingerprint_direct if use_simple_fingerprint
             else self.compute_fingerprint
         )
 

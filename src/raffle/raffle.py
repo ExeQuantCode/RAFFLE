@@ -515,8 +515,6 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
             verbose : bool
                 Boolean whether to print warnings.
             """
-            from ase.calculators.singlepoint import SinglePointCalculator
-
             # Get the species symbols
             species_symbols = atoms.get_chemical_symbols()
             species_symbols_unique = sorted(set(species_symbols))
@@ -527,12 +525,15 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
             # Set the number of atoms
             self.natom = len(atoms)
 
-            # check if calculator is present
-            if atoms.calc is None:
+            try:
+                self.energy = atoms.get_potential_energy()
+            except Exception:
+                self.energy = float(atoms.info.get('energy', 0.0))
                 if verbose:
-                    print("WARNING: No calculator present, setting energy to 0.0")
-                atoms.calc = SinglePointCalculator(atoms, energy=0.0)
-            self.energy = atoms.get_potential_energy()
+                    print(
+                        "WARNING: Could not read calculator energy, using "
+                        f"atoms.info['energy']={self.energy}"
+                    )
 
             # # Set the lattice vectors
             self.lat = numpy.reshape(atoms.get_cell().flatten(), [3,3], order='A')

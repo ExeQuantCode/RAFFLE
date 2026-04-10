@@ -14,6 +14,7 @@ except PackageNotFoundError:
 from .raffle import generator as _generator_class
 from .raffle import geom_rw as _geom_rw_class
 from .nn_fingerprint import NNFingerprint
+from .gnn_fingerprint import GNNFingerprint
 # from .raffle import generator
 
 

@@ -59,7 +59,7 @@ def main():
         species_list=['C'],
         bond_cutoff=6.0,
         gnn_hidden_sizes=[32, 32],
-        learning_rate=0.001,
+        learning_rate=0.01,
     )
     print(f"  Species: {gnn.species_list}")
     print(f"  Bond cutoff: {gnn.bond_cutoff} A")
@@ -113,8 +113,10 @@ def main():
 
     from ase.io import read
     max_training_structures = 32
-    num_epochs = 200
-    training_structures = read(data_path, index=":")[:max_training_structures]
+    num_epochs = 20
+    training_structures = read(data_path, index=":")#[:max_training_structures]
+    # append diamond
+    training_structures.append(carbon_diamond)
     print(f"  Training structures used: {len(training_structures)}")
     print(f"  Training epochs: {num_epochs}")
     loss_history = gnn.train(
@@ -162,8 +164,8 @@ def main():
         target_fingerprint=target_fp,
         atoms=test_structure,
         fixed_atoms=fixed_atoms,
-        num_steps=100,
-        step_size=0.005,
+        num_steps=500,
+        step_size=50,
         verbose=1,
         use_simple_fingerprint=use_simple_fingerprint,
     )
@@ -211,6 +213,32 @@ def main():
     print(f"  Inverse design: fixed atom unmoved = "
             f"{fixed_constraint_ok}")
     print("=" * 60)
+
+
+    # generate predicted_fp
+    target_nfp = gnn.predict(carbon_diamond)
+    perturbed_rfp = compute_fp(carbon_perturbed)
+    perturbed_nfp = gnn.predict(carbon_perturbed)
+    optimised_rfp = compute_fp(optimised)
+    optimised_nfp = gnn.predict(optimised)
+
+
+
+    # plot the two fingerprints target_fp and predicted_fp
+    import matplotlib.pyplot as plt
+    plt.figure(figsize=(8, 4))
+    plt.plot(target_fp, label='Target RFP', marker='', color='blue')
+    #plt.plot(target_nfp, label='Target GFP', marker='', color='blue', linestyle='dashed')
+    plt.plot(perturbed_rfp, label='Perturbed RFP', marker='', color='red')
+    plt.plot(perturbed_nfp, label='Perturbed GFP', marker='', color='red', linestyle='dashed')
+    plt.plot(optimised_rfp, label='Optimised RFP', marker='', color='green')
+    plt.plot(optimised_nfp, label='Optimised GFP', marker='', color='green', linestyle='dashed')
+    plt.title('Target vs Predicted Fingerprint')
+    plt.xlabel('Fingerprint Dimension')
+    plt.ylabel('Fingerprint Value')
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
 
 
 if __name__ == "__main__":

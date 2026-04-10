@@ -449,8 +449,8 @@ class GNNFingerprint:
         fingerprint = np.concatenate(
             [
                 np.asarray(df_2body, dtype=np.float32).flatten(order="F"),
-                np.asarray(df_3body, dtype=np.float32).flatten(order="F"),
-                np.asarray(df_4body, dtype=np.float32).flatten(order="F"),
+                # np.asarray(df_3body, dtype=np.float32).flatten(order="F"),
+                # np.asarray(df_4body, dtype=np.float32).flatten(order="F"),
             ]
         )
 

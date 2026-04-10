@@ -282,7 +282,7 @@ contains
     ! 3. Output layer (linear activation for regression)
     call this%network%add(full_layer_type( &
          num_outputs = this%fingerprint_dim, &
-         activation = 'linear', &
+         activation = 'softmax', &
          kernel_initialiser = 'glorot_normal' &
     ))
 

@@ -7,12 +7,15 @@ description = "A Fortran library and executable for structure prediction at mate
 [preprocess]
 [preprocess.cpp]
 suffixes = ["F90", "f90"]
+macros = ["ENABLE_ATHENA"]
 
 [library]
 source-dir="src/fortran"
 
 [dependencies]
 openmp = "*"
+athena = { git = "https://github.com/nedtaylor/athena", tag = "v2.1.0" }
+
 
 [fortran]
 implicit-typing = false

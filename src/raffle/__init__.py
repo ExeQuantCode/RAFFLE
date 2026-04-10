@@ -13,6 +13,7 @@ except PackageNotFoundError:
 
 from .raffle import generator as _generator_class
 from .raffle import geom_rw as _geom_rw_class
+from .nn_fingerprint import NNFingerprint
 # from .raffle import generator
 
 
@@ -44,7 +45,7 @@ del sys
 del types
 del raffle
 
-__all__ = ['__version__', 'generator', 'geom']
+__all__ = ['__version__', 'generator', 'geom', 'NNFingerprint']
 
 def __getattr__(name):
     if name == "generator":

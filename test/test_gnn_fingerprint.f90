@@ -6,12 +6,13 @@ program test_gnn_fingerprint
   use athena, only: graph_type
   implicit none
 
-  type(gnn_fingerprint_type) :: gnn
+  type(gnn_fingerprint_type) :: gnn, gnn_mlip
   type(basis_type) :: basis1, basis2
   type(basis_type), dimension(2) :: training_set
   type(graph_type) :: graph1
   real(real32), dimension(:), allocatable :: fingerprint1, fingerprint2
   real(real32), dimension(:), allocatable :: predicted_fp
+  real(real32), dimension(:), allocatable :: predicted_fp_mlip
   real(real32), dimension(:), allocatable :: target_fp
   logical, dimension(:), allocatable :: fixed_mask
   real(real32) :: loss
@@ -91,8 +92,26 @@ program test_gnn_fingerprint
   write(*,*) "Test 4: Train GNN on structures"
   training_set(1) = basis1
   training_set(2) = basis2
-  call gnn%train(training_set, num_epochs = 5, verbose = 0)
+  call gnn%train(training_set, num_epochs = 5, batch_size = 1, verbose = 0)
   call assert(gnn%is_trained, 'GNN should be marked as trained', success)
+
+  !-----------------------------------------------------------------------------
+  ! Test 4b: Training with MLIP-style message passing
+  !-----------------------------------------------------------------------------
+  write(*,*) "Test 4b: Train GNN with MLIP-style message passing"
+  call gnn_mlip%initialise( &
+       species_list = [character(len=3) :: 'C  '], &
+       num_time_steps = 2, &
+       gnn_output_dim = 16, &
+       max_degree = 8, &
+       hidden_layer_sizes = [32], &
+       learning_rate = 0.0005_real32, &
+       use_mlip_layer = .true., &
+       n_rbf = 12, &
+       kernel_hidden = 32 &
+  )
+  call gnn_mlip%train(training_set, num_epochs = 3, batch_size = 1, verbose = 0)
+  call assert(gnn_mlip%is_trained, 'MLIP GNN should be marked as trained', success)
 
   !-----------------------------------------------------------------------------
   ! Test 5: Forward inference (predict)
@@ -102,7 +121,17 @@ program test_gnn_fingerprint
   call gnn%predict(basis1, predicted_fp)
   call assert(size(predicted_fp) == gnn%fingerprint_dim, &
        'Predicted fingerprint should have correct dimension', success)
+  call assert(all(predicted_fp == predicted_fp), &
+       'Predicted fingerprint should not contain NaNs', success)
   write(*,*) "  Predicted fingerprint max value: ", maxval(abs(predicted_fp))
+
+  write(*,*) "Test 5b: Forward inference via MLIP GNN"
+  allocate(predicted_fp_mlip(gnn_mlip%fingerprint_dim))
+  call gnn_mlip%predict(basis1, predicted_fp_mlip)
+  call assert(size(predicted_fp_mlip) == gnn_mlip%fingerprint_dim, &
+       'MLIP predicted fingerprint should have correct dimension', success)
+  call assert(all(predicted_fp_mlip == predicted_fp_mlip), &
+       'MLIP predicted fingerprint should not contain NaNs', success)
 
   !-----------------------------------------------------------------------------
   ! Test 6: Inverse design with atom masking
@@ -150,7 +179,7 @@ program test_gnn_fingerprint
   !-----------------------------------------------------------------------------
   ! Summary
   !-----------------------------------------------------------------------------
-  deallocate(fingerprint1, fingerprint2, predicted_fp, target_fp, fixed_mask)
+  deallocate(fingerprint1, fingerprint2, predicted_fp, predicted_fp_mlip, target_fp, fixed_mask)
 
   if (success) then
      write(*,*) "All gnn_fingerprint tests PASSED"

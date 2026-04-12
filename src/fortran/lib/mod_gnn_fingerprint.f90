@@ -17,6 +17,7 @@ module raffle__gnn_fingerprint
   use raffle__geom_rw, only: basis_type
   use raffle__distribs, only: distribs_base_type, distribs_type
   use raffle__distribs_container, only: distribs_container_type
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   use athena, only: &
        network_type, &
        full_layer_type, &
@@ -26,6 +27,7 @@ module raffle__gnn_fingerprint
        graph_type, &
        edge_type
   use diffstruc, only: array_type
+  use raffle__msgpass_layer, only: raffle_msgpass_layer_type
   implicit none
 
 
@@ -57,6 +59,8 @@ module raffle__gnn_fingerprint
      !! Whether the network has been initialised.
      logical :: is_trained = .false.
      !! Whether the network has been trained.
+     logical :: use_mlip_layer = .false.
+     !! Whether to use MLIP-style message passing instead of Duvenaud.
 
      integer :: num_species = 0
      !! Number of distinct species in the training set.
@@ -99,6 +103,11 @@ module raffle__gnn_fingerprint
      real(real32), dimension(4) :: radius_distance_tol = &
           [1.5_real32, 2.5_real32, 3._real32, 6._real32]
      !! Radius distance tolerance factors.
+
+     real(real32), dimension(:), allocatable :: target_mean
+     !! Per-dimension fingerprint mean used to normalise training targets.
+     real(real32), dimension(:), allocatable :: target_scale
+     !! Per-dimension fingerprint scale used to normalise training targets.
 
      type(network_type) :: network
      !! ATHENA neural network (Duvenaud MPNN + dense head).
@@ -151,11 +160,12 @@ contains
 !###############################################################################
   subroutine initialise(this, species_list, &
        num_time_steps, gnn_output_dim, max_degree, &
-       hidden_layer_sizes, learning_rate, bond_cutoff)
+       hidden_layer_sizes, learning_rate, bond_cutoff, &
+       use_mlip_layer, n_rbf, kernel_hidden)
     !! Initialise the GNN for fingerprint prediction.
     !!
     !! Architecture:
-    !!   Duvenaud MPNN (message-passing on atom graph)
+    !!   Duvenaud MPNN or MLIP MPNN (message-passing on atom graph)
     !!     → graph-level vector (gnn_output_dim)
     !!     → Dense hidden layers
     !!     → Dense output (fingerprint_dim, linear)
@@ -178,6 +188,12 @@ contains
     !! Learning rate for Adam optimizer. Default: 0.001.
     real(real32), intent(in), optional :: bond_cutoff
     !! Cutoff distance for bonds. Default: 6.0 Angstrom.
+    logical, intent(in), optional :: use_mlip_layer
+    !! Use MLIP-style message passing. Default: .false.
+    integer, intent(in), optional :: n_rbf
+    !! Number of RBF basis functions (MLIP only). Default: 20.
+    integer, intent(in), optional :: kernel_hidden
+    !! Kernel MLP hidden width (MLIP only). Default: 64.
 
     ! Local variables
     integer :: i, num_hidden
@@ -245,21 +261,47 @@ contains
     lr = 0.001_real32
     if (present(learning_rate)) lr = learning_rate
 
-    !--------------------------------------------------------------------------
-    ! Build network: Duvenaud MPNN → Dense head
-    !--------------------------------------------------------------------------
+    ! MLIP layer flag
+    this%use_mlip_layer = .false.
+    if (present(use_mlip_layer)) this%use_mlip_layer = use_mlip_layer
 
-    ! 1. Duvenaud message-passing layer
-    call this%network%add(duvenaud_msgpass_layer_type( &
-         num_time_steps = this%num_time_steps, &
-         num_vertex_features = [this%num_vertex_features], &
-         num_edge_features = [this%num_edge_features], &
-         num_outputs = this%gnn_output_dim, &
-         kernel_initialiser = 'glorot_normal', &
-         readout_activation = 'softmax', &
-         min_vertex_degree = 0, &
-         max_vertex_degree = this%max_degree &
-    ))
+    !--------------------------------------------------------------------------
+    ! Build network: Message-passing layer → Dense head
+    !--------------------------------------------------------------------------
+    if (this%use_mlip_layer) then
+       ! MLIP-style message-passing layer with RBF continuous filters
+       block
+         integer :: n_rbf_, kernel_hidden_
+         n_rbf_ = 20
+         kernel_hidden_ = 64
+         if (present(n_rbf)) n_rbf_ = n_rbf
+         if (present(kernel_hidden)) kernel_hidden_ = kernel_hidden
+         call this%network%add(raffle_msgpass_layer_type( &
+              num_time_steps = this%num_time_steps, &
+              num_vertex_features = [this%num_vertex_features], &
+              num_edge_features = [this%num_edge_features], &
+              num_outputs = this%gnn_output_dim, &
+              n_rbf = n_rbf_, &
+              rbf_cutoff = this%bond_cutoff, &
+              kernel_hidden = kernel_hidden_, &
+              message_activation = 'swish', &
+              readout_activation = 'none', &
+              kernel_initialiser = 'glorot_normal' &
+         ))
+       end block
+    else
+       ! Duvenaud message-passing layer
+       call this%network%add(duvenaud_msgpass_layer_type( &
+            num_time_steps = this%num_time_steps, &
+            num_vertex_features = [this%num_vertex_features], &
+            num_edge_features = [this%num_edge_features], &
+            num_outputs = this%gnn_output_dim, &
+            kernel_initialiser = 'glorot_normal', &
+            readout_activation = 'none', &
+            min_vertex_degree = 0, &
+            max_vertex_degree = this%max_degree &
+       ))
+    end if
 
     ! 2. Dense hidden layers
     do i = 1, num_hidden
@@ -282,12 +324,16 @@ contains
     ! 3. Output layer (linear activation for regression)
     call this%network%add(full_layer_type( &
          num_outputs = this%fingerprint_dim, &
-         activation = 'softmax', &
+         activation = 'none', &
          kernel_initialiser = 'glorot_normal' &
     ))
 
     ! 4. Compile network
-    allocate(clip, source=clip_type(clip_norm = 1.0_real32))
+    allocate(clip, source=clip_type( &
+         clip_min = -0.1_real32, &
+         clip_max = 0.1_real32, &
+         clip_norm = 0.5_real32 &
+    ))
     call this%network%compile( &
          optimiser = adam_optimiser_type( &
               learning_rate = lr, &
@@ -326,11 +372,13 @@ contains
     ! Local variables
     integer :: is, ia, js, ja, atom_i, atom_j, species_idx
     integer :: num_atoms
+    real(real32) :: coord_scale
     real(real32) :: dx, dy, dz, dist
     real(real32), dimension(3) :: pos_i, pos_j, shift
     real(real32), dimension(3) :: cart_i, cart_j
 
     num_atoms = basis%natom
+    coord_scale = max(this%bond_cutoff, 1.E-6_real32)
 
     ! Set up vertices (dense mode: allocates vertex(:) array)
     call graph%set_num_vertices(num_atoms, &
@@ -376,9 +424,9 @@ contains
           end if
 
           ! Dense mode: write to vertex(atom_i)%feature(:)
-          graph%vertex(atom_i)%feature(1) = cart_i(1)
-          graph%vertex(atom_i)%feature(2) = cart_i(2)
-          graph%vertex(atom_i)%feature(3) = cart_i(3)
+          graph%vertex(atom_i)%feature(1) = cart_i(1) / coord_scale
+          graph%vertex(atom_i)%feature(2) = cart_i(2) / coord_scale
+          graph%vertex(atom_i)%feature(3) = cart_i(3) / coord_scale
 
           ! One-hot species encoding
           graph%vertex(atom_i)%feature(4:this%num_vertex_features) = 0._real32
@@ -567,7 +615,7 @@ contains
 
 
 !###############################################################################
-  subroutine train(this, structures, num_epochs, verbose)
+  subroutine train(this, structures, num_epochs, batch_size, verbose)
     !! Train the GNN on a set of structures and their descriptor fingerprints.
     !!
     !! For each structure:
@@ -583,15 +631,18 @@ contains
     !! Training structures.
     integer, intent(in), optional :: num_epochs
     !! Number of training epochs. Default: 100.
+    integer, intent(in), optional :: batch_size
+    !! Batch size for optimisation. Default: min(16, num_strucs).
     integer, intent(in), optional :: verbose
     !! Verbosity level. Default: 0.
 
     ! Local variables
-    integer :: n, num_strucs, epochs, verb
+    integer :: n, num_strucs, epochs, batch_size_, verb
     type(graph_type), dimension(:,:), allocatable :: graphs_in
     type(array_type), dimension(1,1) :: output_array
     real(real32), dimension(:,:), allocatable :: target_data
     real(real32), dimension(:), allocatable :: fp_vec
+    real(real32), dimension(:,:), allocatable :: centred_target_data
 
     if (.not. this%is_initialised) then
        call stop_program("gnn_fingerprint: network not initialised")
@@ -600,8 +651,10 @@ contains
 
     num_strucs = size(structures)
     epochs = 100
+    batch_size_ = max(1, min(num_strucs, 16))
     verb = 0
     if (present(num_epochs)) epochs = num_epochs
+    if (present(batch_size)) batch_size_ = max(1, min(num_strucs, batch_size))
     if (present(verbose)) verb = verbose
 
     ! Build graph inputs: dimension(1, num_strucs)
@@ -612,8 +665,36 @@ contains
     do n = 1, num_strucs
        call this%basis_to_graph(structures(n), graphs_in(1, n))
        call this%compute_fingerprint(structures(n), fp_vec)
+       if (.not. all(ieee_is_finite(fp_vec))) then
+          call stop_program("gnn_fingerprint: non-finite target fingerprint")
+          return
+       end if
        target_data(:, n) = fp_vec
     end do
+
+    if (allocated(this%target_mean)) deallocate(this%target_mean)
+    if (allocated(this%target_scale)) deallocate(this%target_scale)
+    allocate(this%target_mean(this%fingerprint_dim))
+    allocate(this%target_scale(this%fingerprint_dim))
+    this%target_mean = sum(target_data, dim = 2) / real(num_strucs, real32)
+
+    allocate(centred_target_data(this%fingerprint_dim, num_strucs))
+    centred_target_data = &
+         target_data - spread(this%target_mean, dim = 2, ncopies = num_strucs)
+    this%target_scale = sqrt( &
+         sum(centred_target_data**2, dim = 2) / real(max(num_strucs, 1), real32) &
+    )
+    where (this%target_scale < 1.E-6_real32)
+       this%target_scale = 1._real32
+    end where
+    target_data = &
+         centred_target_data / spread(this%target_scale, dim = 2, ncopies = num_strucs)
+    deallocate(centred_target_data)
+
+    if (.not. all(ieee_is_finite(target_data))) then
+       call stop_program("gnn_fingerprint: non-finite normalised training targets")
+       return
+    end if
 
     ! Prepare output as array_type
     call output_array(1,1)%allocate(array_shape = &
@@ -625,7 +706,7 @@ contains
          graphs_in, &
          output_array, &
          num_epochs = epochs, &
-         batch_size = num_strucs, &
+         batch_size = batch_size_, &
          shuffle_batches = .true., &
          verbose = verb &
     )
@@ -675,6 +756,15 @@ contains
     leaf_id = this%network%leaf_vertices(1)
     fingerprint(1:this%fingerprint_dim) = &
          this%network%model(leaf_id)%layer%output(1,1)%val(:, 1)
+
+    if (allocated(this%target_scale) .and. allocated(this%target_mean)) then
+       fingerprint = fingerprint * this%target_scale + this%target_mean
+    end if
+
+    if (.not. all(ieee_is_finite(fingerprint))) then
+       call stop_program("gnn_fingerprint: non-finite prediction")
+       return
+    end if
 
   end subroutine predict
 !###############################################################################

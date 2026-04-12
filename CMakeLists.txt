@@ -96,6 +96,11 @@ set(SPECIAL_LIB_FILES
 	mod_generator.f90
 )
 
+set(ATHENA_OPTIONAL_LIB_FILES
+    mod_raffle_msgpass_layer.f90
+    mod_gnn_fingerprint.f90
+)
+
 
 foreach(lib ${LIB_FILES})
     list(APPEND PREPENDED_LIB_FILES ${LIB_DIR}/${lib})
@@ -103,6 +108,29 @@ endforeach()
 foreach(lib ${SPECIAL_LIB_FILES})
     list(APPEND PREPENDED_LIB_FILES ${LIB_DIR}/${lib})
 endforeach()
+
+set(ATHENA_DEP_ROOT ${CMAKE_CURRENT_LIST_DIR}/build/dependencies)
+set(ATHENA_SUPPORT_ENABLED OFF)
+if (EXISTS ${ATHENA_DEP_ROOT}/athena/src/athena.f90)
+    file(GLOB_RECURSE ATHENA_DEP_SOURCES CONFIGURE_DEPENDS
+        ${ATHENA_DEP_ROOT}/coreutils/src/*.f90
+        ${ATHENA_DEP_ROOT}/coreutils/src/*.F90
+        ${ATHENA_DEP_ROOT}/diffstruc/src/*.f90
+        ${ATHENA_DEP_ROOT}/diffstruc/src/*.F90
+        ${ATHENA_DEP_ROOT}/graphstruc/src/*.f90
+        ${ATHENA_DEP_ROOT}/graphstruc/src/*.F90
+        ${ATHENA_DEP_ROOT}/athena/src/*.f90
+        ${ATHENA_DEP_ROOT}/athena/src/*.F90)
+    list(SORT ATHENA_DEP_SOURCES)
+    list(APPEND PREPENDED_LIB_FILES ${ATHENA_DEP_SOURCES})
+    foreach(lib ${ATHENA_OPTIONAL_LIB_FILES})
+        list(APPEND PREPENDED_LIB_FILES ${LIB_DIR}/${lib})
+        list(APPEND F90WRAP_FORTRAN_SRC_FILES ${CMAKE_CURRENT_LIST_DIR}/${LIB_DIR}/${lib})
+    endforeach()
+    set(ATHENA_SUPPORT_ENABLED ON)
+else()
+    message(WARNING "ATHENA dependency sources were not found under build/dependencies; GNN Python bindings will be skipped")
+endif()
 message(STATUS "Modified LIB_FILES: ${PREPENDED_LIB_FILES}")
 
 
@@ -341,6 +369,10 @@ if (BUILD_PYTHON)
         ${CMAKE_CURRENT_LIST_DIR}/src/wrapper/f90wrap_mod_geom_rw.f90
         ${CMAKE_CURRENT_LIST_DIR}/src/wrapper/f90wrap_raffle.f90
     )
+    if (ATHENA_SUPPORT_ENABLED)
+        list(APPEND F90WRAP_FILE
+            ${CMAKE_CURRENT_LIST_DIR}/src/wrapper/f90wrap_mod_gnn_fingerprint.f90)
+    endif()
     if (REMAKE_F90WRAP)
         set(KIND_MAP ${CMAKE_SOURCE_DIR}/kind_map)
         set(F90WRAP_REMAKE_FILE ${CMAKE_BUILD_DIR}/f90wrap_${PROJECT_NAME}.f90)
@@ -351,7 +383,7 @@ if (BUILD_PYTHON)
             -m ${PROJECT_NAME}
             -k ${KIND_MAP}
             ${F90WRAP_FORTRAN_SRC_FILES}
-            --only raffle_generator_type stoichiometry_type basis_type distribs_container_type:
+            --only raffle_generator_type stoichiometry_type basis_type distribs_container_type gnn_fingerprint_type:
             DEPENDS ${F90WRAP_FORTRAN_SRC_FILES}
             WORKING_DIRECTORY ${CMAKE_BUILD_DIR}
             COMMENT "Generating f90wrap signature file"

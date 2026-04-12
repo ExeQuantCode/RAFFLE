@@ -46,7 +46,7 @@ del sys
 del types
 del raffle
 
-__all__ = ['__version__', 'generator', 'geom', 'NNFingerprint']
+__all__ = ['__version__', 'generator', 'geom', 'NNFingerprint', 'GNNFingerprint']
 
 def __getattr__(name):
     if name == "generator":

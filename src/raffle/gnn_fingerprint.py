@@ -15,6 +15,9 @@ the topology of atomic structures.
 import numpy as np
 from typing import Optional, List, Tuple
 
+from . import _raffle
+from .raffle import geom_rw
+
 
 class SimpleGraphConv:
     """A single graph convolution layer using numpy.
@@ -449,8 +452,8 @@ class GNNFingerprint:
         fingerprint = np.concatenate(
             [
                 np.asarray(df_2body, dtype=np.float32).flatten(order="F"),
-                # np.asarray(df_3body, dtype=np.float32).flatten(order="F"),
-                # np.asarray(df_4body, dtype=np.float32).flatten(order="F"),
+                np.asarray(df_3body, dtype=np.float32).flatten(order="F")/5.0,
+                np.asarray(df_4body, dtype=np.float32).flatten(order="F")/5.0,
             ]
         )
 
@@ -690,3 +693,223 @@ class GNNFingerprint:
             print(f"  Inverse design final loss = {best_loss:.6e}")
 
         return atoms
+
+
+class GNNFingerprint:
+    """Fortran-backed GNN fingerprint interface.
+
+    This adapter exposes the ATHENA-based Fortran implementation in
+    ``raffle__gnn_fingerprint`` through the Python package API used by the
+    examples. It keeps the public constructor and core methods aligned with the
+    previous Python implementation, but all training, prediction, and inverse
+    design work is delegated to the compiled Fortran model.
+    """
+
+    def __init__(
+        self,
+        species_list: List[str],
+        bond_cutoff: float = 6.0,
+        gnn_hidden_sizes: Optional[List[int]] = None,
+        learning_rate: float = 0.001,
+        num_time_steps: int = 3,
+        gnn_output_dim: int = 32,
+        max_degree: int = 12,
+        use_mlip_layer: bool = False,
+        n_rbf: int = 20,
+        kernel_hidden: int = 64,
+    ):
+        if gnn_hidden_sizes is None:
+            gnn_hidden_sizes = [64]
+
+        self.species_list = [str(species).strip()[:3].ljust(3) for species in species_list]
+        self.num_species = len(self.species_list)
+        self.bond_cutoff = float(bond_cutoff)
+        self._gnn_hidden_sizes = [int(size) for size in gnn_hidden_sizes]
+        self._learning_rate = float(learning_rate)
+        self._num_time_steps = int(num_time_steps)
+        self._gnn_output_dim = int(gnn_output_dim)
+        self._max_degree = int(max_degree)
+        self._use_mlip_layer = bool(use_mlip_layer)
+        self._n_rbf = int(n_rbf)
+        self._kernel_hidden = int(kernel_hidden)
+        self._last_train_summary = None
+
+        self._handle = _raffle.f90wrap_gnn_fingerprint_type_initialise()
+        hidden_sizes = np.asarray(self._gnn_hidden_sizes, dtype=np.int32)
+        species_array = np.asarray(self.species_list, dtype="U3")
+        _raffle.f90wrap_gnn_fingerprint_type__initialise(
+            this=self._handle,
+            species_list=species_array,
+            n_species=len(self.species_list),
+            num_time_steps=self._num_time_steps,
+            gnn_output_dim=self._gnn_output_dim,
+            max_degree=self._max_degree,
+            hidden_sizes=hidden_sizes,
+            n_hidden=hidden_sizes.size,
+            learning_rate=self._learning_rate,
+            bond_cutoff=self.bond_cutoff,
+            use_mlip_layer=self._use_mlip_layer,
+            n_rbf=self._n_rbf,
+            kernel_hidden=self._kernel_hidden,
+        )
+
+    def __del__(self):
+        handle = getattr(self, "_handle", None)
+        if handle is None:
+            return
+        try:
+            _raffle.f90wrap_gnn_fingerprint_type_finalise(handle)
+        except Exception:
+            pass
+        self._handle = None
+
+    @property
+    def fingerprint_dim(self) -> int:
+        return int(_raffle.f90wrap_gnn_fingerprint_type__get__fingerprint_dim(self._handle))
+
+    @property
+    def is_trained(self) -> bool:
+        return bool(_raffle.f90wrap_gnn_fingerprint_type__get__is_trained(self._handle))
+
+    @property
+    def use_mlip_layer(self) -> bool:
+        return bool(_raffle.f90wrap_gnn_fingerprint_type__get__use_mlip_layer(self._handle))
+
+    def _atoms_to_basis(self, atoms):
+        basis = geom_rw.basis()
+        basis.fromase(atoms)
+        return basis
+
+    def _structures_to_basis_handles(self, structures):
+        basis_objects = [self._atoms_to_basis(atoms) for atoms in structures]
+        basis_handles = np.asarray([basis._handle for basis in basis_objects], dtype=np.int32).T
+        return basis_objects, basis_handles
+
+    def _ensure_finite(self, label: str, values: np.ndarray) -> np.ndarray:
+        array = np.asarray(values, dtype=np.float32)
+        if not np.all(np.isfinite(array)):
+            raise RuntimeError(f"Non-finite values detected in {label}.")
+        return array
+
+    def _dataset_mse(self, structures) -> float:
+        losses = []
+        for atoms in structures:
+            target = self.compute_fingerprint(atoms)
+            predicted = self.predict(atoms)
+            losses.append(float(np.mean((predicted - target) ** 2)))
+        return float(np.mean(losses)) if losses else 0.0
+
+    def compute_fingerprint(self, atoms) -> np.ndarray:
+        basis = self._atoms_to_basis(atoms)
+        fingerprint = _raffle.f90wrap_gnn_fingerprint_type__compute_fingerprint(
+            this=self._handle,
+            basis=basis._handle,
+            fp_dim=self.fingerprint_dim,
+        )
+        return self._ensure_finite("fingerprint", fingerprint)
+
+    def compute_fingerprint_direct(self, atoms) -> np.ndarray:
+        from ase.geometry import get_distances
+
+        r_min, r_max = 0.5, 6.0
+        n_bins = 220
+        sigma = 0.1
+
+        bin_edges = np.linspace(r_min, r_max, n_bins + 1)
+        bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
+        positions = atoms.get_positions()
+        cell = atoms.get_cell() if any(atoms.pbc) else None
+        _, distances = get_distances(positions, cell=cell, pbc=atoms.pbc)
+
+        n_atoms = len(atoms)
+        rdf = np.zeros(n_bins, dtype=np.float32)
+        eta = 1.0 / (2.0 * sigma ** 2)
+
+        for i in range(n_atoms):
+            for j in range(n_atoms):
+                if i == j:
+                    continue
+                d = distances[i, j]
+                if r_min <= d <= r_max:
+                    rdf += np.exp(-eta * (d - bin_centers) ** 2)
+
+        if n_atoms > 1:
+            rdf *= np.sqrt(eta / np.pi) / n_atoms
+
+        return rdf
+
+    def train(
+        self,
+        structures: list,
+        num_epochs: int = 100,
+        batch_size: int = 1,
+        verbose: int = 0,
+        use_simple_fingerprint: bool = False,
+    ) -> List[float]:
+        if use_simple_fingerprint:
+            raise NotImplementedError(
+                "The Fortran-backed GNN trains against the RAFFLE descriptor fingerprint only."
+            )
+
+        if not structures:
+            raise ValueError("At least one structure is required for training.")
+
+        initial_loss = self._dataset_mse(structures)
+        basis_objects, basis_handles = self._structures_to_basis_handles(structures)
+        effective_batch_size = max(1, min(int(batch_size), len(basis_objects)))
+        _raffle.f90wrap_gnn_fingerprint_type__train(
+            this=self._handle,
+            basis_handles=basis_handles,
+            num_epochs=int(num_epochs),
+            batch_size=effective_batch_size,
+            verbose=int(verbose),
+            n_structures=len(basis_objects),
+        )
+        final_loss = self._dataset_mse(structures)
+        if not np.isfinite(final_loss):
+            raise RuntimeError("Training produced a non-finite loss.")
+        self._last_train_summary = [initial_loss, final_loss]
+        return [initial_loss, final_loss]
+
+    def predict(self, atoms, use_simple_fingerprint: bool = False) -> np.ndarray:
+        del use_simple_fingerprint
+        basis = self._atoms_to_basis(atoms)
+        prediction = _raffle.f90wrap_gnn_fingerprint_type__predict(
+            this=self._handle,
+            basis=basis._handle,
+            fp_dim=self.fingerprint_dim,
+        )
+        return self._ensure_finite("prediction", prediction)
+
+    def inverse_design(
+        self,
+        target_fingerprint: np.ndarray,
+        atoms,
+        fixed_atoms: np.ndarray,
+        num_steps: int = 200,
+        step_size: float = 0.01,
+        verbose: int = 0,
+        use_simple_fingerprint: bool = False,
+    ):
+        if use_simple_fingerprint:
+            raise NotImplementedError(
+                "The Fortran-backed GNN inverse design path uses the RAFFLE descriptor fingerprint only."
+            )
+
+        basis = self._atoms_to_basis(atoms)
+        target = self._ensure_finite("inverse-design target fingerprint", target_fingerprint)
+        fixed = np.asarray(fixed_atoms, dtype=bool)
+        _raffle.f90wrap_gnn_fingerprint_type__inverse_design(
+            this=self._handle,
+            target_fp=target,
+            basis=basis._handle,
+            fixed_atoms=fixed,
+            num_steps=int(num_steps),
+            step_size=float(step_size),
+            verbose=int(verbose),
+            fp_dim=target.size,
+            n_atoms=fixed.size,
+        )
+        optimised = basis.toase()
+        optimised.info.update(getattr(atoms, "info", {}))
+        return optimised

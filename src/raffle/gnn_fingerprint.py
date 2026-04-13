@@ -719,6 +719,7 @@ class GNNFingerprint:
         n_rbf: int = 20,
         kernel_hidden: int = 64,
         layer_type: int = -1,
+        seed: int = 42,
     ):
         if gnn_hidden_sizes is None:
             gnn_hidden_sizes = [64]
@@ -736,6 +737,7 @@ class GNNFingerprint:
         self._n_rbf = int(n_rbf)
         self._kernel_hidden = int(kernel_hidden)
         self._last_train_summary = None
+        self._seed = seed
 
         # Resolve layer_type: -1 means infer from use_mlip_layer
         if layer_type >= 0:
@@ -764,6 +766,7 @@ class GNNFingerprint:
             n_rbf=self._n_rbf,
             kernel_hidden=self._kernel_hidden,
             layer_type_in=self._layer_type,
+            seed=self._seed,
         )
 
     def __del__(self):

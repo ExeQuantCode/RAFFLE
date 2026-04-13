@@ -26,7 +26,8 @@ module raffle__gnn_fingerprint
        duvenaud_msgpass_layer_type, &
        graph_type, &
        edge_type, &
-       exp_lr_decay_type
+       exp_lr_decay_type, &
+       random_setup
   use diffstruc, only: array_type
   use raffle__msgpass_layer, only: raffle_msgpass_layer_type
   use raffle__schnet_msgpass_layer, only: schnet_msgpass_layer_type
@@ -235,7 +236,7 @@ contains
   subroutine initialise(this, species_list, &
        num_time_steps, gnn_output_dim, max_degree, &
        hidden_layer_sizes, learning_rate, lr_decay_rate, bond_cutoff, &
-       use_mlip_layer, n_rbf, kernel_hidden, layer_type_in)
+       use_mlip_layer, n_rbf, kernel_hidden, layer_type_in, seed)
     !! Initialise the GNN for fingerprint prediction.
     !!
     !! Architecture:
@@ -272,13 +273,20 @@ contains
     !! Kernel MLP hidden width (MLIP only). Default: 64.
     integer, intent(in), optional :: layer_type_in
     !! Layer type: 0=duvenaud, 1=raffle_mlip, 2=schnet, 3=dimenet, 4=hybrid.
+    integer, intent(in), optional :: seed
 
     ! Local variables
     integer :: i, num_hidden
+    integer :: seed_
     integer, dimension(:), allocatable :: h_sizes
     real(real32) :: lr, lr_decay_rate_
     class(clip_type), allocatable :: clip
     type(exp_lr_decay_type) :: lr_decay
+
+
+    seed_ = 42
+    if(present(seed)) seed_ = seed
+    call random_setup(seed_, restart=.false.)
 
     ! Set species
     this%num_species = size(species_list)

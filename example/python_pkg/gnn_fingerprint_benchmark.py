@@ -77,6 +77,7 @@ def run_benchmark(
     layer_type: int = -1,
     learning_rate: float = 0.01,
     lr_decay_rate: float = 1e-2,
+    seed: int = 42,
 ):
     """Run full pipeline for one Fortran-backed architecture and return metrics."""
     from raffle import GNNFingerprint
@@ -98,6 +99,7 @@ def run_benchmark(
         lr_decay_rate=lr_decay_rate,
         use_mlip_layer=use_mlip,
         layer_type=layer_type,
+        seed = seed,
     )
 
     # Use the GNN's own compute_fingerprint method for evaluation
@@ -246,6 +248,10 @@ def run_benchmark(
 def main():
     from raffle import GNNFingerprint
 
+    seed = 42
+    # initialise random seed
+    np.random.seed(seed)
+
     print("=" * 60)
     print("RAFFLE GNN Benchmark: Fortran Duvenaud Layer")
     print("=" * 60)
@@ -316,6 +322,7 @@ def main():
                 use_mlip=False,
                 label=f"Fortran {layer_name}",
                 layer_type=layer_id,
+                seed=seed,
                 **common_kw,
             )
         )

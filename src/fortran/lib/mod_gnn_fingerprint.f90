@@ -21,13 +21,17 @@ module raffle__gnn_fingerprint
   use athena, only: &
        network_type, &
        full_layer_type, &
-       adam_optimiser_type, &
+       adam_optimiser_type, sgd_optimiser_type, &
        clip_type, &
        duvenaud_msgpass_layer_type, &
        graph_type, &
-       edge_type
+       edge_type, &
+       exp_lr_decay_type
   use diffstruc, only: array_type
   use raffle__msgpass_layer, only: raffle_msgpass_layer_type
+  use raffle__schnet_msgpass_layer, only: schnet_msgpass_layer_type
+  use raffle__dimenet_msgpass_layer, only: dimenet_msgpass_layer_type
+  use raffle__hybrid_msgpass_layer, only: hybrid_msgpass_layer_type
   implicit none
 
 
@@ -61,6 +65,8 @@ module raffle__gnn_fingerprint
      !! Whether the network has been trained.
      logical :: use_mlip_layer = .false.
      !! Whether to use MLIP-style message passing instead of Duvenaud.
+     integer :: layer_type = 0
+     !! Layer type: 0=duvenaud, 1=raffle_mlip, 2=schnet, 3=dimenet, 4=hybrid
 
      integer :: num_species = 0
      !! Number of distinct species in the training set.
@@ -108,6 +114,12 @@ module raffle__gnn_fingerprint
      !! Per-dimension fingerprint mean used to normalise training targets.
      real(real32), dimension(:), allocatable :: target_scale
      !! Per-dimension fingerprint scale used to normalise training targets.
+     real(real32), dimension(3) :: component_weight = &
+          [4.0_real32, 1.0_real32, 1.0_real32]
+     !! Relative weight for 2-body, 3-body, 4-body components in loss.
+     !! Default heavily biases towards 2-body.
+     real(real32), dimension(:), allocatable :: target_comp_weights
+     !! Per-dimension component weights applied during training.
 
      type(network_type) :: network
      !! ATHENA neural network (Duvenaud MPNN + dense head).
@@ -136,6 +148,68 @@ contains
 
 
 !###############################################################################
+  subroutine get_element_props(name, atomic_number, covalent_radius)
+    !! Look up atomic number and covalent radius for an element.
+    !! Returns scaled values suitable for use as vertex features.
+    implicit none
+    character(len=3), intent(in) :: name
+    real(real32), intent(out) :: atomic_number
+    real(real32), intent(out) :: covalent_radius
+
+    character(len=3) :: trimmed
+    trimmed = adjustl(name)
+
+    select case (trim(trimmed))
+    case ('H');   atomic_number = 1;  covalent_radius = 0.31
+    case ('He');  atomic_number = 2;  covalent_radius = 0.28
+    case ('Li');  atomic_number = 3;  covalent_radius = 1.28
+    case ('Be');  atomic_number = 4;  covalent_radius = 0.96
+    case ('B');   atomic_number = 5;  covalent_radius = 0.84
+    case ('C');   atomic_number = 6;  covalent_radius = 0.76
+    case ('N');   atomic_number = 7;  covalent_radius = 0.71
+    case ('O');   atomic_number = 8;  covalent_radius = 0.66
+    case ('F');   atomic_number = 9;  covalent_radius = 0.57
+    case ('Ne');  atomic_number = 10; covalent_radius = 0.58
+    case ('Na');  atomic_number = 11; covalent_radius = 1.66
+    case ('Mg');  atomic_number = 12; covalent_radius = 1.41
+    case ('Al');  atomic_number = 13; covalent_radius = 1.21
+    case ('Si');  atomic_number = 14; covalent_radius = 1.11
+    case ('P');   atomic_number = 15; covalent_radius = 1.07
+    case ('S');   atomic_number = 16; covalent_radius = 1.05
+    case ('Cl');  atomic_number = 17; covalent_radius = 1.02
+    case ('Ar');  atomic_number = 18; covalent_radius = 1.06
+    case ('K');   atomic_number = 19; covalent_radius = 2.03
+    case ('Ca');  atomic_number = 20; covalent_radius = 1.76
+    case ('Sc');  atomic_number = 21; covalent_radius = 1.70
+    case ('Ti');  atomic_number = 22; covalent_radius = 1.60
+    case ('V');   atomic_number = 23; covalent_radius = 1.53
+    case ('Cr');  atomic_number = 24; covalent_radius = 1.39
+    case ('Mn');  atomic_number = 25; covalent_radius = 1.39
+    case ('Fe');  atomic_number = 26; covalent_radius = 1.32
+    case ('Co');  atomic_number = 27; covalent_radius = 1.26
+    case ('Ni');  atomic_number = 28; covalent_radius = 1.24
+    case ('Cu');  atomic_number = 29; covalent_radius = 1.32
+    case ('Zn');  atomic_number = 30; covalent_radius = 1.22
+    case ('Ga');  atomic_number = 31; covalent_radius = 1.22
+    case ('Ge');  atomic_number = 32; covalent_radius = 1.20
+    case ('As');  atomic_number = 33; covalent_radius = 1.19
+    case ('Se');  atomic_number = 34; covalent_radius = 1.20
+    case ('Br');  atomic_number = 35; covalent_radius = 1.20
+    case ('Mo');  atomic_number = 42; covalent_radius = 1.54
+    case ('Ba');  atomic_number = 56; covalent_radius = 2.15
+    case ('W');   atomic_number = 74; covalent_radius = 1.62
+    case default
+       atomic_number = 0
+       covalent_radius = 1.0
+    end select
+
+    ! Scale: Z/100 puts it in [0, ~1] range; radius already in Angstroms
+    atomic_number = atomic_number / 100._real32
+  end subroutine get_element_props
+!###############################################################################
+
+
+!###############################################################################
   subroutine set_distribution_params(this, container)
     !! Set distribution parameters from an existing distribs_container_type.
     implicit none
@@ -160,8 +234,8 @@ contains
 !###############################################################################
   subroutine initialise(this, species_list, &
        num_time_steps, gnn_output_dim, max_degree, &
-       hidden_layer_sizes, learning_rate, bond_cutoff, &
-       use_mlip_layer, n_rbf, kernel_hidden)
+       hidden_layer_sizes, learning_rate, lr_decay_rate, bond_cutoff, &
+       use_mlip_layer, n_rbf, kernel_hidden, layer_type_in)
     !! Initialise the GNN for fingerprint prediction.
     !!
     !! Architecture:
@@ -186,6 +260,8 @@ contains
     !! Dense head hidden layer sizes. Default: [64].
     real(real32), intent(in), optional :: learning_rate
     !! Learning rate for Adam optimizer. Default: 0.001.
+    real(real32), intent(in), optional :: lr_decay_rate
+    !! Learning rate decay rate. Default: 1.E-2.
     real(real32), intent(in), optional :: bond_cutoff
     !! Cutoff distance for bonds. Default: 6.0 Angstrom.
     logical, intent(in), optional :: use_mlip_layer
@@ -194,12 +270,15 @@ contains
     !! Number of RBF basis functions (MLIP only). Default: 20.
     integer, intent(in), optional :: kernel_hidden
     !! Kernel MLP hidden width (MLIP only). Default: 64.
+    integer, intent(in), optional :: layer_type_in
+    !! Layer type: 0=duvenaud, 1=raffle_mlip, 2=schnet, 3=dimenet, 4=hybrid.
 
     ! Local variables
     integer :: i, num_hidden
     integer, dimension(:), allocatable :: h_sizes
-    real(real32) :: lr
+    real(real32) :: lr, lr_decay_rate_
     class(clip_type), allocatable :: clip
+    type(exp_lr_decay_type) :: lr_decay
 
     ! Set species
     this%num_species = size(species_list)
@@ -207,8 +286,8 @@ contains
     allocate(this%species_list(this%num_species))
     this%species_list = species_list
 
-    ! Vertex features: 3 coordinates + one-hot species
-    this%num_vertex_features = 3 + this%num_species
+    ! Vertex features: 3 coordinates + one-hot species + atomic_number + covalent_radius
+    this%num_vertex_features = 3 + this%num_species + 2
     this%num_edge_features = 1  ! bond distance
 
     ! Optional parameters
@@ -259,23 +338,32 @@ contains
 
     ! Learning rate
     lr = 0.001_real32
-    if (present(learning_rate)) lr = learning_rate
+    lr_decay_rate_ = 1.E-2_real32
+    if(present(learning_rate)) lr = learning_rate
+    if(present(lr_decay_rate)) lr_decay_rate_ = lr_decay_rate
 
     ! MLIP layer flag
     this%use_mlip_layer = .false.
     if (present(use_mlip_layer)) this%use_mlip_layer = use_mlip_layer
 
+    ! Layer type selection
+    this%layer_type = 0  ! default: Duvenaud
+    if (this%use_mlip_layer) this%layer_type = 1
+    if (present(layer_type_in)) this%layer_type = layer_type_in
+
     !--------------------------------------------------------------------------
     ! Build network: Message-passing layer → Dense head
     !--------------------------------------------------------------------------
-    if (this%use_mlip_layer) then
-       ! MLIP-style message-passing layer with RBF continuous filters
-       block
-         integer :: n_rbf_, kernel_hidden_
-         n_rbf_ = 20
-         kernel_hidden_ = 64
-         if (present(n_rbf)) n_rbf_ = n_rbf
-         if (present(kernel_hidden)) kernel_hidden_ = kernel_hidden
+    block
+      integer :: n_rbf_, kernel_hidden_
+      n_rbf_ = 20
+      kernel_hidden_ = 64
+      if (present(n_rbf)) n_rbf_ = n_rbf
+      if (present(kernel_hidden)) kernel_hidden_ = kernel_hidden
+
+      select case (this%layer_type)
+      case (1)
+         ! MLIP-style (raffle) message-passing layer
          call this%network%add(raffle_msgpass_layer_type( &
               num_time_steps = this%num_time_steps, &
               num_vertex_features = [this%num_vertex_features], &
@@ -288,20 +376,62 @@ contains
               readout_activation = 'none', &
               kernel_initialiser = 'glorot_normal' &
          ))
-       end block
-    else
-       ! Duvenaud message-passing layer
-       call this%network%add(duvenaud_msgpass_layer_type( &
-            num_time_steps = this%num_time_steps, &
-            num_vertex_features = [this%num_vertex_features], &
-            num_edge_features = [this%num_edge_features], &
-            num_outputs = this%gnn_output_dim, &
-            kernel_initialiser = 'glorot_normal', &
-            readout_activation = 'none', &
-            min_vertex_degree = 0, &
-            max_vertex_degree = this%max_degree &
-       ))
-    end if
+      case (2)
+         ! SchNet-style continuous filter
+         call this%network%add(schnet_msgpass_layer_type( &
+              num_time_steps = this%num_time_steps, &
+              num_vertex_features = [this%num_vertex_features], &
+              num_edge_features = [this%num_edge_features], &
+              num_outputs = this%gnn_output_dim, &
+              n_rbf = n_rbf_, &
+              rbf_cutoff = this%bond_cutoff, &
+              kernel_hidden = kernel_hidden_, &
+              message_activation = 'swish', &
+              readout_activation = 'none', &
+              kernel_initialiser = 'glorot_normal' &
+         ))
+      case (3)
+         ! DimeNet-inspired angular layer
+         call this%network%add(dimenet_msgpass_layer_type( &
+              num_time_steps = this%num_time_steps, &
+              num_vertex_features = [this%num_vertex_features], &
+              num_edge_features = [this%num_edge_features], &
+              num_outputs = this%gnn_output_dim, &
+              n_rbf = n_rbf_, &
+              rbf_cutoff = this%bond_cutoff, &
+              kernel_hidden = kernel_hidden_, &
+              message_activation = 'swish', &
+              readout_activation = 'none', &
+              kernel_initialiser = 'glorot_normal' &
+         ))
+      case (4)
+         ! Hybrid MLIP-inspired with gating
+         call this%network%add(hybrid_msgpass_layer_type( &
+              num_time_steps = this%num_time_steps, &
+              num_vertex_features = [this%num_vertex_features], &
+              num_edge_features = [this%num_edge_features], &
+              num_outputs = this%gnn_output_dim, &
+              n_rbf = n_rbf_, &
+              rbf_cutoff = this%bond_cutoff, &
+              kernel_hidden = kernel_hidden_, &
+              message_activation = 'swish', &
+              readout_activation = 'none', &
+              kernel_initialiser = 'glorot_normal' &
+         ))
+      case default
+         ! Duvenaud message-passing layer
+         call this%network%add(duvenaud_msgpass_layer_type( &
+              num_time_steps = this%num_time_steps, &
+              num_vertex_features = [this%num_vertex_features], &
+              num_edge_features = [this%num_edge_features], &
+              num_outputs = this%gnn_output_dim, &
+              kernel_initialiser = 'glorot_normal', &
+              readout_activation = 'none', &
+              min_vertex_degree = 0, &
+              max_vertex_degree = this%max_degree &
+         ))
+      end select
+    end block
 
     ! 2. Dense hidden layers
     do i = 1, num_hidden
@@ -330,14 +460,17 @@ contains
 
     ! 4. Compile network
     allocate(clip, source=clip_type( &
-         clip_min = -0.1_real32, &
-         clip_max = 0.1_real32, &
-         clip_norm = 0.5_real32 &
+         clip_min = -1.E-1_real32, &
+         clip_max = 1.E-1_real32, &
+         clip_norm = 1.E-1_real32 &
     ))
+    lr_decay = exp_lr_decay_type(lr_decay_rate_)
+    lr_decay%iterate_per_epoch = .true.
     call this%network%compile( &
-         optimiser = adam_optimiser_type( &
+         optimiser = sgd_optimiser_type( &
               learning_rate = lr, &
-              clip_dict = clip &
+              clip_dict = clip, &
+              lr_decay = lr_decay &
          ), &
          loss_method = 'mse', &
          metrics = ['loss'], &
@@ -345,6 +478,20 @@ contains
     )
 
     this%is_initialised = .true.
+
+    ! Initialise default normalisation so predict() works before training
+    if (.not. allocated(this%target_mean)) then
+       allocate(this%target_mean(this%fingerprint_dim))
+       this%target_mean = 0._real32
+    end if
+    if (.not. allocated(this%target_scale)) then
+       allocate(this%target_scale(this%fingerprint_dim))
+       this%target_scale = 1._real32
+    end if
+    if (.not. allocated(this%target_comp_weights)) then
+       allocate(this%target_comp_weights(this%fingerprint_dim))
+       this%target_comp_weights = 1._real32
+    end if
 
     if (allocated(h_sizes)) deallocate(h_sizes)
 
@@ -356,7 +503,7 @@ contains
   subroutine basis_to_graph(this, basis, graph)
     !! Convert a basis_type atomic structure to a graph_type.
     !!
-    !! Atoms become vertices with features [x, y, z, one_hot_species].
+    !! Atoms become vertices with features [x, y, z, one_hot_species, Z/100, cov_radius].
     !! Bonds (pairs within cutoff) become edges with feature [distance].
     !! Self-loops are added and the graph is converted to sparse (CSR).
     implicit none
@@ -376,6 +523,7 @@ contains
     real(real32) :: dx, dy, dz, dist
     real(real32), dimension(3) :: pos_i, pos_j, shift
     real(real32), dimension(3) :: cart_i, cart_j
+    real(real32) :: elem_z, elem_cov_r
 
     num_atoms = basis%natom
     coord_scale = max(this%bond_cutoff, 1.E-6_real32)
@@ -390,7 +538,7 @@ contains
        graph%vertex(atom_i)%feature = 0._real32
     end do
 
-    ! Fill vertex features: [x, y, z, one_hot_species]
+    ! Fill vertex features: [x, y, z, one_hot_species, Z/100, cov_radius]
     ! In dense mode, vertex features are stored in vertex(i)%feature(:)
     atom_i = 0
     do is = 1, basis%nspec
@@ -402,6 +550,9 @@ contains
              exit
           end if
        end do
+
+       ! Look up element properties for this species
+       call get_element_props(basis%spec(is)%name, elem_z, elem_cov_r)
 
        do ia = 1, basis%spec(is)%num
           atom_i = atom_i + 1
@@ -429,10 +580,14 @@ contains
           graph%vertex(atom_i)%feature(3) = cart_i(3) / coord_scale
 
           ! One-hot species encoding
-          graph%vertex(atom_i)%feature(4:this%num_vertex_features) = 0._real32
+          graph%vertex(atom_i)%feature(4:3+this%num_species) = 0._real32
           if (species_idx > 0) then
              graph%vertex(atom_i)%feature(3 + species_idx) = 1._real32
           end if
+
+          ! Atomic number (scaled) and covalent radius
+          graph%vertex(atom_i)%feature(3 + this%num_species + 1) = elem_z
+          graph%vertex(atom_i)%feature(3 + this%num_species + 2) = elem_cov_r
        end do
     end do
 
@@ -643,6 +798,8 @@ contains
     real(real32), dimension(:,:), allocatable :: target_data
     real(real32), dimension(:), allocatable :: fp_vec
     real(real32), dimension(:,:), allocatable :: centred_target_data
+    real(real32), dimension(:), allocatable :: comp_weights
+    integer :: offset, dim2, dim3, dim4, i
 
     if (.not. this%is_initialised) then
        call stop_program("gnn_fingerprint: network not initialised")
@@ -651,7 +808,7 @@ contains
 
     num_strucs = size(structures)
     epochs = 100
-    batch_size_ = max(1, min(num_strucs, 16))
+    batch_size_ = min(num_strucs, 32)
     verb = 0
     if (present(num_epochs)) epochs = num_epochs
     if (present(batch_size)) batch_size_ = max(1, min(num_strucs, batch_size))
@@ -691,6 +848,35 @@ contains
          centred_target_data / spread(this%target_scale, dim = 2, ncopies = num_strucs)
     deallocate(centred_target_data)
 
+    ! Apply per-component weighting (2-body, 3-body, 4-body)
+    dim2 = this%nbins(1) * this%num_pairs
+    dim3 = this%nbins(2) * this%num_species
+    dim4 = this%nbins(3) * this%num_species
+    allocate(comp_weights(this%fingerprint_dim))
+    comp_weights = 1._real32
+    offset = 0
+    ! 2-body block
+    do i = 1, dim2
+       offset = offset + 1
+       comp_weights(offset) = sqrt(this%component_weight(1))
+    end do
+    ! 3-body block
+    do i = 1, dim3
+       offset = offset + 1
+       comp_weights(offset) = sqrt(this%component_weight(2))
+    end do
+    ! 4-body block
+    do i = 1, dim4
+       offset = offset + 1
+       comp_weights(offset) = sqrt(this%component_weight(3))
+    end do
+    ! Apply weights to targets (network learns weighted targets)
+    target_data = target_data * spread(comp_weights, dim=2, ncopies=num_strucs)
+    ! Store weights for de-weighting at prediction time
+    if (allocated(this%target_comp_weights)) deallocate(this%target_comp_weights)
+    allocate(this%target_comp_weights, source=comp_weights)
+    deallocate(comp_weights)
+
     if (.not. all(ieee_is_finite(target_data))) then
        call stop_program("gnn_fingerprint: non-finite normalised training targets")
        return
@@ -701,7 +887,7 @@ contains
          [this%fingerprint_dim, num_strucs])
     output_array(1,1)%val = target_data
 
-    ! Train network
+    ! Train: single call to ATHENA with all epochs.
     call this%network%train( &
          graphs_in, &
          output_array, &
@@ -758,6 +944,14 @@ contains
          this%network%model(leaf_id)%layer%output(1,1)%val(:, 1)
 
     if (allocated(this%target_scale) .and. allocated(this%target_mean)) then
+       ! Undo component weighting, then undo normalisation
+       if (allocated(this%target_comp_weights)) then
+          where (this%target_comp_weights > 1.E-12_real32)
+             fingerprint(1:this%fingerprint_dim) = &
+                  fingerprint(1:this%fingerprint_dim) / &
+                  this%target_comp_weights
+          end where
+       end if
        fingerprint = fingerprint * this%target_scale + this%target_mean
     end if
 
@@ -772,13 +966,14 @@ contains
 
 !###############################################################################
   subroutine inverse_design(this, target_fingerprint, basis, &
-       fixed_atoms, num_steps, step_size, verbose)
+       fixed_atoms, num_steps, step_size, verbose, use_predict)
     !! Inverse design: optimise atomic positions to match a target
-    !! RAFFLE descriptor fingerprint.
+    !! fingerprint.
     !!
-    !! Uses finite-difference gradients on atomic coordinates, respecting
-    !! the atom mask. Gradients are computed for all movable atoms
-    !! simultaneously, then applied as a batch update.
+    !! Uses central-difference gradients with momentum.
+    !! When use_predict is true, the GNN predict() is used instead of
+    !! the analytical RAFFLE descriptor. This lets the trained GNN
+    !! contribute to the inverse design landscape.
     implicit none
 
     ! Arguments
@@ -791,91 +986,180 @@ contains
     logical, dimension(:), intent(in) :: fixed_atoms
     !! Boolean mask: .true. = fixed, .false. = optimisable.
     integer, intent(in), optional :: num_steps
-    !! Number of optimisation steps. Default: 200.
+    !! Number of optimisation steps. Default: 500.
     real(real32), intent(in), optional :: step_size
-    !! Step size for gradient descent. Default: 0.01.
+    !! Initial step size for gradient descent. Default: 1.0.
     integer, intent(in), optional :: verbose
     !! Verbosity level. Default: 0.
+    logical, intent(in), optional :: use_predict
+    !! If .true., use GNN predict() instead of compute_fingerprint().
 
     ! Local variables
     integer :: nsteps, verb
-    real(real32) :: lr
-    integer :: step, is, ia, coord, global_idx
-    real(real32) :: loss_current, loss_perturbed, grad
+    real(real32) :: lr, lr_current
+    integer :: step, is, ia, coord, global_idx, num_movable
+    real(real32) :: loss_current, grad_norm
     real(real32) :: delta
-    real(real32), dimension(:), allocatable :: current_fp, perturbed_fp
+    real(real32), dimension(:), allocatable :: current_fp
+    real(real32), dimension(:), allocatable :: fp_fwd, fp_bwd, residual
     type(basis_type) :: basis_perturbed
     real(real32) :: best_loss
     type(basis_type) :: best_basis
+    ! Momentum storage: (3, num_movable_atoms)
+    real(real32), dimension(:,:), allocatable :: velocity
+    real(real32), dimension(:,:), allocatable :: grad_store
+    integer, dimension(:,:), allocatable :: movable_map
+    integer :: mi
+    real(real32), parameter :: momentum = 0.7_real32
+    real(real32), parameter :: lr_decay = 1.0_real32
+    logical :: do_predict
 
-    nsteps = 200
-    lr = 0.01_real32
+    nsteps = 500
+    lr = 1.0_real32
     verb = 0
+    do_predict = .false.
     if (present(num_steps)) nsteps = num_steps
     if (present(step_size)) lr = step_size
     if (present(verbose)) verb = verbose
+    if (present(use_predict)) do_predict = use_predict
 
-    delta = 1.E-4_real32
+    delta = 5.E-4_real32
+    lr_current = lr
+
+    ! Count movable atoms and build index map
+    num_movable = 0
+    global_idx = 0
+    do is = 1, basis%nspec
+       do ia = 1, basis%spec(is)%num
+          global_idx = global_idx + 1
+          if (global_idx <= size(fixed_atoms)) then
+             if (.not. fixed_atoms(global_idx)) num_movable = num_movable + 1
+          else
+             num_movable = num_movable + 1
+          end if
+       end do
+    end do
+
+    allocate(movable_map(2, num_movable))  ! (is, ia) pairs
+    allocate(velocity(3, num_movable), source=0._real32)
+    allocate(grad_store(3, num_movable))
+
+    mi = 0
+    global_idx = 0
+    do is = 1, basis%nspec
+       do ia = 1, basis%spec(is)%num
+          global_idx = global_idx + 1
+          if (global_idx <= size(fixed_atoms)) then
+             if (fixed_atoms(global_idx)) cycle
+          end if
+          mi = mi + 1
+          movable_map(1, mi) = is
+          movable_map(2, mi) = ia
+       end do
+    end do
 
     allocate(current_fp(this%fingerprint_dim))
-    allocate(perturbed_fp(this%fingerprint_dim))
+    allocate(fp_fwd(this%fingerprint_dim))
+    allocate(fp_bwd(this%fingerprint_dim))
+    allocate(residual(this%fingerprint_dim))
 
     ! Compute initial loss
-    call this%compute_fingerprint(basis, current_fp)
+    if (do_predict) then
+       call this%predict(basis, current_fp)
+    else
+       call this%compute_fingerprint(basis, current_fp)
+    end if
     loss_current = sum((current_fp - target_fingerprint)**2) / &
          real(this%fingerprint_dim, real32)
     best_loss = loss_current
     best_basis = basis
 
-    if (verb > 0) write(*,'(A,I6,A,E12.5)') &
-         ' Inverse design step ', 0, ' loss = ', loss_current
+    if (verb > 0) write(*,'(A,I6,A,E12.5,A,E10.3)') &
+         ' Inverse design step ', 0, ' loss = ', loss_current, &
+         ' lr = ', lr_current
 
     !--------------------------------------------------------------------------
-    ! Gradient descent loop
+    ! Gradient descent loop with momentum
     !--------------------------------------------------------------------------
     do step = 1, nsteps
-       global_idx = 0
+       grad_store = 0._real32
 
-       do is = 1, basis%nspec
-          do ia = 1, basis%spec(is)%num
-             global_idx = global_idx + 1
+       ! Compute residual for chain rule gradient
+       residual = current_fp - target_fingerprint
 
-             ! Skip fixed atoms
-             if (global_idx <= size(fixed_atoms)) then
-                if (fixed_atoms(global_idx)) cycle
+       ! Central-difference Jacobian + chain rule for each movable atom/coord
+       do mi = 1, num_movable
+          is = movable_map(1, mi)
+          ia = movable_map(2, mi)
+
+          do coord = 1, 3
+             ! Forward perturbation
+             basis_perturbed = basis
+             basis_perturbed%spec(is)%atom(ia, coord) = &
+                  basis_perturbed%spec(is)%atom(ia, coord) + delta
+             if (do_predict) then
+                call this%predict(basis_perturbed, fp_fwd)
+             else
+                call this%compute_fingerprint(basis_perturbed, fp_fwd)
              end if
 
-             ! Compute gradient for each coordinate
-             do coord = 1, 3
-                basis_perturbed = basis
-                basis_perturbed%spec(is)%atom(ia, coord) = &
-                     basis_perturbed%spec(is)%atom(ia, coord) + delta
+             ! Backward perturbation
+             basis_perturbed = basis
+             basis_perturbed%spec(is)%atom(ia, coord) = &
+                  basis_perturbed%spec(is)%atom(ia, coord) - delta
+             if (do_predict) then
+                call this%predict(basis_perturbed, fp_bwd)
+             else
+                call this%compute_fingerprint(basis_perturbed, fp_bwd)
+             end if
 
-                call this%compute_fingerprint(basis_perturbed, perturbed_fp)
-                loss_perturbed = sum( &
-                     (perturbed_fp - target_fingerprint)**2 &
-                ) / real(this%fingerprint_dim, real32)
-
-                grad = (loss_perturbed - loss_current) / delta
-                basis%spec(is)%atom(ia, coord) = &
-                     basis%spec(is)%atom(ia, coord) - lr * grad
-             end do
+             ! Chain rule: d(MSE)/dx = 2/dim * dot(residual, d(fp)/dx)
+             grad_store(coord, mi) = &
+                  2._real32 * dot_product(residual, fp_fwd - fp_bwd) / &
+                  (2._real32 * delta * real(this%fingerprint_dim, real32))
           end do
        end do
 
-       ! Recompute loss after full update
-       call this%compute_fingerprint(basis, current_fp)
+       ! Gradient norm clipping (prevent overshooting)
+       grad_norm = sqrt(sum(grad_store**2))
+       if (grad_norm > 0.1_real32) then
+          grad_store = grad_store * (0.1_real32 / grad_norm)
+       end if
+
+       ! Update velocity with momentum and apply
+       velocity = momentum * velocity - lr_current * grad_store
+
+       do mi = 1, num_movable
+          is = movable_map(1, mi)
+          ia = movable_map(2, mi)
+          do coord = 1, 3
+             basis%spec(is)%atom(ia, coord) = &
+                  basis%spec(is)%atom(ia, coord) + velocity(coord, mi)
+          end do
+       end do
+
+       ! Recompute loss after update
+       if (do_predict) then
+          call this%predict(basis, current_fp)
+       else
+          call this%compute_fingerprint(basis, current_fp)
+       end if
        loss_current = sum((current_fp - target_fingerprint)**2) / &
             real(this%fingerprint_dim, real32)
 
+       ! Track best
        if (loss_current < best_loss) then
           best_loss = loss_current
           best_basis = basis
        end if
 
+       ! Learning rate decay
+       lr_current = lr_current * lr_decay
+
        if (verb > 0 .and. mod(step, 10) == 0) then
-          write(*,'(A,I6,A,E12.5)') &
-               ' Inverse design step ', step, ' loss = ', loss_current
+          write(*,'(A,I6,A,E12.5,A,E10.3)') &
+               ' Inverse design step ', step, ' loss = ', loss_current, &
+               ' lr = ', lr_current
        end if
 
        if (loss_current < 1.E-8_real32) then
@@ -886,7 +1170,8 @@ contains
     end do
 
     basis = best_basis
-    deallocate(current_fp, perturbed_fp)
+    deallocate(current_fp, fp_fwd, fp_bwd, residual, &
+         velocity, grad_store, movable_map)
 
     if (verb > 0) write(*,'(A,E12.5)') &
          ' Inverse design final loss = ', best_loss

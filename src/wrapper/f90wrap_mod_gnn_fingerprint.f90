@@ -146,14 +146,28 @@ subroutine f90wrap_gnn_fingerprint_type__get__use_mlip_layer( &
 	f90wrap_use_mlip_layer = this_ptr%p%use_mlip_layer
 end subroutine f90wrap_gnn_fingerprint_type__get__use_mlip_layer
 
+subroutine f90wrap_gnn_fingerprint_type__get__layer_type( &
+	 this, f90wrap_layer_type)
+	use raffle__gnn_fingerprint, only: gnn_fingerprint_type
+	implicit none
+	type gnn_fingerprint_type_ptr_type
+		type(gnn_fingerprint_type), pointer :: p => NULL()
+	end type gnn_fingerprint_type_ptr_type
+	integer, intent(in) :: this(2)
+	type(gnn_fingerprint_type_ptr_type) :: this_ptr
+	integer, intent(out) :: f90wrap_layer_type
+	this_ptr = transfer(this, this_ptr)
+	f90wrap_layer_type = this_ptr%p%layer_type
+end subroutine f90wrap_gnn_fingerprint_type__get__layer_type
+
 
 !###############################################################################
 ! Initialise the network
 !###############################################################################
 subroutine f90wrap_gnn_fingerprint_type__initialise( &
 	 this, species_list, n_species, num_time_steps, gnn_output_dim, &
-	 max_degree, hidden_sizes, n_hidden, learning_rate, bond_cutoff, &
-	 use_mlip_layer, n_rbf, kernel_hidden)
+	 max_degree, hidden_sizes, n_hidden, learning_rate, lr_decay_rate, bond_cutoff, &
+	 use_mlip_layer, n_rbf, kernel_hidden, layer_type_in)
 	use raffle__constants, only: real32
 	use raffle__gnn_fingerprint, only: gnn_fingerprint_type
 	implicit none
@@ -170,10 +184,12 @@ subroutine f90wrap_gnn_fingerprint_type__initialise( &
 	integer, intent(in) :: n_hidden
 	integer, dimension(n_hidden), intent(in) :: hidden_sizes
 	real(real32), intent(in) :: learning_rate
+	real(real32), intent(in) :: lr_decay_rate
 	real(real32), intent(in) :: bond_cutoff
 	logical, intent(in) :: use_mlip_layer
 	integer, intent(in) :: n_rbf
 	integer, intent(in) :: kernel_hidden
+	integer, intent(in) :: layer_type_in
 
 	this_ptr = transfer(this, this_ptr)
 	call this_ptr%p%initialise( &
@@ -183,10 +199,12 @@ subroutine f90wrap_gnn_fingerprint_type__initialise( &
 		 max_degree = max_degree, &
 		 hidden_layer_sizes = hidden_sizes, &
 		 learning_rate = learning_rate, &
+		 lr_decay_rate = lr_decay_rate, &
 		 bond_cutoff = bond_cutoff, &
 		 use_mlip_layer = use_mlip_layer, &
 		 n_rbf = n_rbf, &
-		 kernel_hidden = kernel_hidden)
+		 kernel_hidden = kernel_hidden, &
+		 layer_type_in = layer_type_in)
 end subroutine f90wrap_gnn_fingerprint_type__initialise
 
 
@@ -288,7 +306,7 @@ end subroutine f90wrap_gnn_fingerprint_type__train
 !###############################################################################
 subroutine f90wrap_gnn_fingerprint_type__inverse_design( &
 	 this, target_fp, fp_dim, basis, fixed_atoms, n_atoms, &
-	 num_steps, step_size, verbose)
+	 num_steps, step_size, verbose, use_predict)
 	use raffle__constants, only: real32
 	use raffle__gnn_fingerprint, only: gnn_fingerprint_type
 	use raffle__geom_rw, only: basis_type
@@ -308,6 +326,7 @@ subroutine f90wrap_gnn_fingerprint_type__inverse_design( &
 	integer, intent(in) :: num_steps
 	real(real32), intent(in) :: step_size
 	integer, intent(in) :: verbose
+	logical, intent(in) :: use_predict
 	type(gnn_fingerprint_type_ptr_type) :: this_ptr
 	type(basis_type_ptr_type) :: basis_ptr
 
@@ -319,5 +338,6 @@ subroutine f90wrap_gnn_fingerprint_type__inverse_design( &
 		 fixed_atoms = fixed_atoms, &
 		 num_steps = num_steps, &
 		 step_size = step_size, &
-		 verbose = verbose)
+		 verbose = verbose, &
+		 use_predict = use_predict)
 end subroutine f90wrap_gnn_fingerprint_type__inverse_design

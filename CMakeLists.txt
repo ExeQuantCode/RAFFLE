@@ -98,6 +98,9 @@ set(SPECIAL_LIB_FILES
 
 set(ATHENA_OPTIONAL_LIB_FILES
     mod_raffle_msgpass_layer.f90
+    mod_schnet_msgpass_layer.f90
+    mod_dimenet_msgpass_layer.f90
+    mod_hybrid_msgpass_layer.f90
     mod_gnn_fingerprint.f90
 )
 

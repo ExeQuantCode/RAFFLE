@@ -604,8 +604,8 @@ class GNNFingerprint:
         target_fingerprint: np.ndarray,
         atoms,
         fixed_atoms: np.ndarray,
-        num_steps: int = 200,
-        step_size: float = 0.01,
+        num_steps: int = 500,
+        step_size: float = 1.0,
         verbose: int = 0,
         use_simple_fingerprint: bool = False,
     ):
@@ -711,12 +711,14 @@ class GNNFingerprint:
         bond_cutoff: float = 6.0,
         gnn_hidden_sizes: Optional[List[int]] = None,
         learning_rate: float = 0.001,
+        lr_decay_rate: float = 1.E-2,
         num_time_steps: int = 3,
         gnn_output_dim: int = 32,
         max_degree: int = 12,
         use_mlip_layer: bool = False,
         n_rbf: int = 20,
         kernel_hidden: int = 64,
+        layer_type: int = -1,
     ):
         if gnn_hidden_sizes is None:
             gnn_hidden_sizes = [64]
@@ -726,6 +728,7 @@ class GNNFingerprint:
         self.bond_cutoff = float(bond_cutoff)
         self._gnn_hidden_sizes = [int(size) for size in gnn_hidden_sizes]
         self._learning_rate = float(learning_rate)
+        self._lr_decay_rate = float(lr_decay_rate)
         self._num_time_steps = int(num_time_steps)
         self._gnn_output_dim = int(gnn_output_dim)
         self._max_degree = int(max_degree)
@@ -733,6 +736,14 @@ class GNNFingerprint:
         self._n_rbf = int(n_rbf)
         self._kernel_hidden = int(kernel_hidden)
         self._last_train_summary = None
+
+        # Resolve layer_type: -1 means infer from use_mlip_layer
+        if layer_type >= 0:
+            self._layer_type = int(layer_type)
+        elif use_mlip_layer:
+            self._layer_type = 1
+        else:
+            self._layer_type = 0
 
         self._handle = _raffle.f90wrap_gnn_fingerprint_type_initialise()
         hidden_sizes = np.asarray(self._gnn_hidden_sizes, dtype=np.int32)
@@ -747,10 +758,12 @@ class GNNFingerprint:
             hidden_sizes=hidden_sizes,
             n_hidden=hidden_sizes.size,
             learning_rate=self._learning_rate,
+            lr_decay_rate=self._lr_decay_rate,
             bond_cutoff=self.bond_cutoff,
             use_mlip_layer=self._use_mlip_layer,
             n_rbf=self._n_rbf,
             kernel_hidden=self._kernel_hidden,
+            layer_type_in=self._layer_type,
         )
 
     def __del__(self):
@@ -774,6 +787,22 @@ class GNNFingerprint:
     @property
     def use_mlip_layer(self) -> bool:
         return bool(_raffle.f90wrap_gnn_fingerprint_type__get__use_mlip_layer(self._handle))
+
+    @property
+    def layer_type(self) -> int:
+        return int(_raffle.f90wrap_gnn_fingerprint_type__get__layer_type(self._handle))
+
+    LAYER_NAMES = {
+        0: "duvenaud",
+        1: "raffle_mlip",
+        2: "schnet",
+        3: "dimenet",
+        4: "hybrid",
+    }
+
+    @property
+    def layer_name(self) -> str:
+        return self.LAYER_NAMES.get(self.layer_type, f"unknown({self.layer_type})")
 
     def _atoms_to_basis(self, atoms):
         basis = geom_rw.basis()
@@ -842,7 +871,7 @@ class GNNFingerprint:
         self,
         structures: list,
         num_epochs: int = 100,
-        batch_size: int = 1,
+        batch_size: int = None,
         verbose: int = 0,
         use_simple_fingerprint: bool = False,
     ) -> List[float]:
@@ -856,7 +885,7 @@ class GNNFingerprint:
 
         initial_loss = self._dataset_mse(structures)
         basis_objects, basis_handles = self._structures_to_basis_handles(structures)
-        effective_batch_size = max(1, min(int(batch_size), len(basis_objects)))
+        effective_batch_size = min(len(basis_objects), 32) if batch_size is None else max(1, min(int(batch_size), len(basis_objects)))
         _raffle.f90wrap_gnn_fingerprint_type__train(
             this=self._handle,
             basis_handles=basis_handles,
@@ -886,10 +915,11 @@ class GNNFingerprint:
         target_fingerprint: np.ndarray,
         atoms,
         fixed_atoms: np.ndarray,
-        num_steps: int = 200,
-        step_size: float = 0.01,
+        num_steps: int = 500,
+        step_size: float = 1.0,
         verbose: int = 0,
         use_simple_fingerprint: bool = False,
+        use_predict: bool = False,
     ):
         if use_simple_fingerprint:
             raise NotImplementedError(
@@ -907,6 +937,7 @@ class GNNFingerprint:
             num_steps=int(num_steps),
             step_size=float(step_size),
             verbose=int(verbose),
+            use_predict=bool(use_predict),
             fp_dim=target.size,
             n_atoms=fixed.size,
         )

@@ -45,7 +45,7 @@ def main():
     carbon_perturbed = carbon_diamond.copy()
     positions = carbon_perturbed.get_positions()
     rng = np.random.default_rng(42)
-    positions += rng.normal(0, 0.2, positions.shape)
+    positions += rng.normal(0, 0.15, positions.shape)
     carbon_perturbed.set_positions(positions)
     carbon_perturbed.info['energy'] = -71.0
     print(f"  Structure 2: C diamond (perturbed), {len(carbon_perturbed)} atoms")

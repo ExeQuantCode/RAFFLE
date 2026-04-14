@@ -118,6 +118,8 @@ def run_benchmark(
     test_structure_untrained = carbon_perturbed.copy()
     n_atoms = len(test_structure_untrained)
     fixed_atoms = np.zeros(n_atoms, dtype=bool)
+    # fix the first atom to prevent drifting of the whole structure during untrained optimization
+    fixed_atoms[0] = True
 
     untrained_optimised = gnn.inverse_design(
         target_fingerprint=untrained_pred_target,
@@ -134,6 +136,7 @@ def run_benchmark(
     print(f"  Untrained RMSD vs diamond: {untrained_rmsd:.4f} Å")
     print(f"  Untrained max error: {untrained_max_err:.4f} Å")
 
+    # view(untrained_optimised)
     # ---- Training ----
     print(
         f"\n  Training on {len(training_structures)} structures "
@@ -179,6 +182,8 @@ def run_benchmark(
     test_structure = carbon_perturbed.copy()
     n_atoms = len(test_structure)
     fixed_atoms = np.zeros(n_atoms, dtype=bool)
+    # fix the first atom to prevent drifting of the whole structure during trained optimization
+    fixed_atoms[0] = True
 
     t0 = time.perf_counter()
     optimised = gnn.inverse_design(
@@ -213,6 +218,16 @@ def run_benchmark(
     print(f"    Untrained RMSD:  {untrained_rmsd:.4f} Å")
     print(f"    Trained RMSD:    {trained_rmsd:.4f} Å")
     print(f"    Trained max err: {trained_max_err:.4f} Å")
+    # print the distance between atom 0 in the optimised structure and atom 0 in the perturbed structure to verify the fixed atom constraint
+    # take into account periodic boundary conditions for the fixed atom displacement
+    # since the fixed atom is the first atom, we can use the cell vectors to compute the minimum image distance
+    # we can use the find_mic function from ASE to compute the minimum image distance
+    _, mic_dist = find_mic(
+        optimised.get_positions()[0] - carbon_perturbed.get_positions()[0],
+        optimised.cell,
+    )
+    fixed_atom_displacement = np.linalg.norm(mic_dist)
+    print(f"    Fixed atom displacement: {fixed_atom_displacement:.6f} Å")
     diamond_reproduced = trained_max_err < 0.05
     trained_better = trained_rmsd < untrained_rmsd
     print(f"    Diamond reproduced (<0.05 Å): {'YES' if diamond_reproduced else 'NO'}")

@@ -104,6 +104,10 @@ set(ATHENA_OPTIONAL_LIB_FILES
     mod_gnn_fingerprint.f90
 )
 
+find_package(Git REQUIRED)
+set(GIT_EXECUTABLE "${GIT_EXECUTABLE}" CACHE FILEPATH "Path to git executable" FORCE)
+include(cmake/CPM.cmake)
+
 
 foreach(lib ${LIB_FILES})
     list(APPEND PREPENDED_LIB_FILES ${LIB_DIR}/${lib})
@@ -112,18 +116,46 @@ foreach(lib ${SPECIAL_LIB_FILES})
     list(APPEND PREPENDED_LIB_FILES ${LIB_DIR}/${lib})
 endforeach()
 
-set(ATHENA_DEP_ROOT ${CMAKE_CURRENT_LIST_DIR}/build/dependencies)
 set(ATHENA_SUPPORT_ENABLED OFF)
-if (EXISTS ${ATHENA_DEP_ROOT}/athena/src/athena.f90)
+CPMAddPackage(
+    NAME athena
+    GITHUB_REPOSITORY nedtaylor/athena
+    GIT_TAG inverse-design-graphs
+    DOWNLOAD_ONLY YES
+)
+CPMAddPackage(
+    NAME coreutils
+    VERSION 0.1.0
+    GITHUB_REPOSITORY nedtaylor/coreutils
+    DOWNLOAD_ONLY YES
+)
+CPMAddPackage(
+    NAME diffstruc
+    VERSION 1.2.0
+    GITHUB_REPOSITORY nedtaylor/diffstruc
+    DOWNLOAD_ONLY YES
+)
+CPMAddPackage(
+    NAME graphstruc
+    VERSION 0.2.1
+    GITHUB_REPOSITORY nedtaylor/graphstruc
+    DOWNLOAD_ONLY YES
+)
+if (
+    EXISTS ${athena_SOURCE_DIR}/src/athena.f90 AND
+    EXISTS ${coreutils_SOURCE_DIR}/src AND
+    EXISTS ${diffstruc_SOURCE_DIR}/src AND
+    EXISTS ${graphstruc_SOURCE_DIR}/src
+)
     file(GLOB_RECURSE ATHENA_DEP_SOURCES CONFIGURE_DEPENDS
-        ${ATHENA_DEP_ROOT}/coreutils/src/*.f90
-        ${ATHENA_DEP_ROOT}/coreutils/src/*.F90
-        ${ATHENA_DEP_ROOT}/diffstruc/src/*.f90
-        ${ATHENA_DEP_ROOT}/diffstruc/src/*.F90
-        ${ATHENA_DEP_ROOT}/graphstruc/src/*.f90
-        ${ATHENA_DEP_ROOT}/graphstruc/src/*.F90
-        ${ATHENA_DEP_ROOT}/athena/src/*.f90
-        ${ATHENA_DEP_ROOT}/athena/src/*.F90)
+        ${coreutils_SOURCE_DIR}/src/*.f90
+        ${coreutils_SOURCE_DIR}/src/*.F90
+        ${diffstruc_SOURCE_DIR}/src/*.f90
+        ${diffstruc_SOURCE_DIR}/src/*.F90
+        ${graphstruc_SOURCE_DIR}/src/*.f90
+        ${graphstruc_SOURCE_DIR}/src/*.F90
+        ${athena_SOURCE_DIR}/src/*.f90
+        ${athena_SOURCE_DIR}/src/*.F90)
     list(SORT ATHENA_DEP_SOURCES)
     list(APPEND PREPENDED_LIB_FILES ${ATHENA_DEP_SOURCES})
     foreach(lib ${ATHENA_OPTIONAL_LIB_FILES})
@@ -132,7 +164,7 @@ if (EXISTS ${ATHENA_DEP_ROOT}/athena/src/athena.f90)
     endforeach()
     set(ATHENA_SUPPORT_ENABLED ON)
 else()
-    message(WARNING "ATHENA dependency sources were not found under build/dependencies; GNN Python bindings will be skipped")
+    message(WARNING "ATHENA dependency sources could not be fetched from GitHub; GNN Python bindings will be skipped")
 endif()
 message(STATUS "Modified LIB_FILES: ${PREPENDED_LIB_FILES}")
 

@@ -14,10 +14,11 @@ module raffle__gnn_fingerprint
   !!   5. Allows partial atomic optimisation via boolean atom masks
   use raffle__constants, only: real32, pi
   use raffle__io_utils, only: stop_program, print_warning
-  use raffle__geom_rw, only: basis_type
+  use raffle__geom_rw, only: basis_type, geom_write
   use raffle__distribs, only: distribs_base_type, distribs_type
   use raffle__distribs_container, only: distribs_container_type
   use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+  use raffle__misc, only: strip_null
   use athena, only: &
        network_type, &
        full_layer_type, &
@@ -475,7 +476,7 @@ contains
     lr_decay = exp_lr_decay_type(lr_decay_rate_)
     lr_decay%iterate_per_epoch = .true.
     call this%network%compile( &
-         optimiser = sgd_optimiser_type( &
+         optimiser = adam_optimiser_type( &
               learning_rate = lr, &
               clip_dict = clip, &
               lr_decay = lr_decay &
@@ -1004,8 +1005,8 @@ contains
 
     ! Local variables
     integer :: nsteps, verb
-    real(real32) :: lr, lr_current
-    integer :: step, is, ia, coord, global_idx, num_movable
+    real(real32) :: lr
+    integer :: step, is, ia, atom_i, coord, global_idx, num_movable
     real(real32) :: loss_current, grad_norm
     real(real32) :: delta
     real(real32), dimension(:), allocatable :: current_fp
@@ -1022,6 +1023,14 @@ contains
     real(real32), parameter :: lr_decay = 1.0_real32
     logical :: do_predict
 
+    integer :: l
+    integer :: root_id, num_elements, ifeature
+    type(array_type) :: y(1,1)
+    type(array_type), pointer :: loss
+    type(sgd_optimiser_type) :: opt
+    real(real32), dimension(:), allocatable :: x_flat, x_grad
+    type(graph_type) :: graphs_in(1,1)
+
     nsteps = 500
     lr = 1.0_real32
     verb = 0
@@ -1031,158 +1040,99 @@ contains
     if (present(verbose)) verb = verbose
     if (present(use_predict)) do_predict = use_predict
 
-    delta = 5.E-4_real32
-    lr_current = lr
+    num_elements = basis%natom * this%num_vertex_features
 
-    ! Count movable atoms and build index map
-    num_movable = 0
-    global_idx = 0
-    do is = 1, basis%nspec
-       do ia = 1, basis%spec(is)%num
-          global_idx = global_idx + 1
-          if (global_idx <= size(fixed_atoms)) then
-             if (.not. fixed_atoms(global_idx)) num_movable = num_movable + 1
-          else
-             num_movable = num_movable + 1
-          end if
-       end do
-    end do
+    opt = adam_optimiser_type( &
+         learning_rate=lr, &
+         lr_decay = exp_lr_decay_type(lr_decay), &
+         clip_dict=clip_type( &
+              clip_min = -1.E-1_real32, &
+              clip_max = 1.E-1_real32, &
+              clip_norm = 1.E-1_real32 &
+         ) )
+    call opt%init(num_params=num_elements)
 
-    allocate(movable_map(2, num_movable))  ! (is, ia) pairs
-    allocate(velocity(3, num_movable), source=0._real32)
-    allocate(grad_store(3, num_movable))
+    ! convert target fingerprint to array_type
+    call y(1,1)%allocate(array_shape = [size(target_fingerprint), 1])
+    y(1,1)%val(:,1) = target_fingerprint
 
-    mi = 0
-    global_idx = 0
-    do is = 1, basis%nspec
-       do ia = 1, basis%spec(is)%num
-          global_idx = global_idx + 1
-          if (global_idx <= size(fixed_atoms)) then
-             if (fixed_atoms(global_idx)) cycle
-          end if
-          mi = mi + 1
-          movable_map(1, mi) = is
-          movable_map(2, mi) = ia
-       end do
-    end do
 
-    allocate(current_fp(this%fingerprint_dim))
-    allocate(fp_fwd(this%fingerprint_dim))
-    allocate(fp_bwd(this%fingerprint_dim))
-    allocate(residual(this%fingerprint_dim))
+    ! get the input layer id
+    root_id = this%network%auto_graph%vertex(this%network%root_vertices(1))%id
 
-    ! Compute initial loss
-    if (do_predict) then
-       call this%predict(basis, current_fp)
-    else
-       call this%compute_fingerprint(basis, current_fp)
+    call this%network%set_batch_size(1)
+    call this%network%set_inference_mode()
+
+    ! convert basis to cartesian coordinates
+    if(.not. basis%lcart) then
+       call basis%convert()
     end if
-    loss_current = sum((current_fp - target_fingerprint)**2) / &
-         real(this%fingerprint_dim, real32)
-    best_loss = loss_current
-    best_basis = basis
+    do is = 1, basis%nspec
 
-    if (verb > 0) write(*,'(A,I6,A,E12.5,A,E10.3)') &
-         ' Inverse design step ', 0, ' loss = ', loss_current, &
-         ' lr = ', lr_current
+       ! strip null from the species names
+       basis%spec(is)%name = strip_null(basis%spec(is)%name)
+    end do
 
     !--------------------------------------------------------------------------
     ! Gradient descent loop with momentum
     !--------------------------------------------------------------------------
     do step = 1, nsteps
-       grad_store = 0._real32
 
-       ! Compute residual for chain rule gradient
-       residual = current_fp - target_fingerprint
+       ! recalculate the edge features at every step
+       call this%basis_to_graph(basis, graphs_in(1,1))
 
-       ! Central-difference Jacobian + chain rule for each movable atom/coord
-       do mi = 1, num_movable
-          is = movable_map(1, mi)
-          ia = movable_map(2, mi)
+       call this%network%forward(graphs_in, input_requires_grad = .true.)
 
-          do coord = 1, 3
-             ! Forward perturbation
-             basis_perturbed = basis
-             basis_perturbed%spec(is)%atom(ia, coord) = &
-                  basis_perturbed%spec(is)%atom(ia, coord) + delta
-             if (do_predict) then
-                call this%predict(basis_perturbed, fp_fwd)
-             else
-                call this%compute_fingerprint(basis_perturbed, fp_fwd)
-             end if
+       this%network%expected_array = y
+       loss => this%network%loss_eval(1,1)
+       call loss%grad_reverse()
 
-             ! Backward perturbation
-             basis_perturbed = basis
-             basis_perturbed%spec(is)%atom(ia, coord) = &
-                  basis_perturbed%spec(is)%atom(ia, coord) - delta
-             if (do_predict) then
-                call this%predict(basis_perturbed, fp_bwd)
-             else
-                call this%compute_fingerprint(basis_perturbed, fp_bwd)
-             end if
-
-             ! Chain rule: d(MSE)/dx = 2/dim * dot(residual, d(fp)/dx)
-             grad_store(coord, mi) = &
-                  2._real32 * dot_product(residual, fp_fwd - fp_bwd) / &
-                  (2._real32 * delta * real(this%fingerprint_dim, real32))
-          end do
-       end do
-
-       ! Gradient norm clipping (prevent overshooting)
-       grad_norm = sqrt(sum(grad_store**2))
-       if (grad_norm > 0.1_real32) then
-          grad_store = grad_store * (0.1_real32 / grad_norm)
-       end if
-
-       ! Update velocity with momentum and apply
-       velocity = momentum * velocity - lr_current * grad_store
-
-       do mi = 1, num_movable
-          is = movable_map(1, mi)
-          ia = movable_map(2, mi)
-          do coord = 1, 3
-             basis%spec(is)%atom(ia, coord) = &
-                  basis%spec(is)%atom(ia, coord) + velocity(coord, mi)
-          end do
-       end do
-
-       ! Recompute loss after update
-       if (do_predict) then
-          call this%predict(basis, current_fp)
+       if(associated(this%network%model(root_id)%layer%output(1,1)%grad))then
+          x_grad = reshape( &
+               this%network%model(root_id)%layer%output(1,1)%grad%val, &
+               [ num_elements ] &
+          )
        else
-          call this%compute_fingerprint(basis, current_fp)
-       end if
-       loss_current = sum((current_fp - target_fingerprint)**2) / &
-            real(this%fingerprint_dim, real32)
-
-       ! Track best
-       if (loss_current < best_loss) then
-          best_loss = loss_current
-          best_basis = basis
+          if(.not.allocated(x_grad)) allocate(x_grad(num_elements))
+          x_grad = 0._real32
        end if
 
-       ! Learning rate decay
-       lr_current = lr_current * lr_decay
+       ! clip gradients
+       call opt%clip_dict%apply(num_elements, x_grad)
 
-       if (verb > 0 .and. mod(step, 10) == 0) then
-          write(*,'(A,I6,A,E12.5,A,E10.3)') &
-               ' Inverse design step ', step, ' loss = ', loss_current, &
-               ' lr = ', lr_current
-       end if
+       write(*,'(A,I5,A,ES12.4)') "  step=",step, " loss=",sum(loss%val)
 
-       if (loss_current < 1.E-8_real32) then
-          if (verb > 0) write(*,'(A,I6)') &
-               ' Inverse design converged at step ', step
-          exit
-       end if
+       ! gradient descent update on x
+       x_flat = reshape( graphs_in(1,1)%vertex_features, [ num_elements ] )
+
+       call opt%minimise(param=x_flat, gradient=x_grad)
+
+       atom_i = 0
+       do is = 1, basis%nspec
+          do ia = 1, basis%spec(is)%num
+             atom_i = atom_i + 1
+             ifeature = (atom_i-1)*this%num_vertex_features
+             if(.not. fixed_atoms(atom_i))then
+                basis%spec(is)%atom(ia,1:3) = &
+                     x_flat( ifeature + 1: ifeature + 3 ) * this%bond_cutoff
+             end if
+          end do
+       end do
+
+       ! clean up computation graph
+       call loss%nullify_graph()
+       deallocate(loss)
+       nullify(loss)
+
+       ! reset network gradients (do NOT call network%update)
+       call this%network%reset_gradients()
+
     end do
 
-    basis = best_basis
-    deallocate(current_fp, fp_fwd, fp_bwd, residual, &
-         velocity, grad_store, movable_map)
-
-    if (verb > 0) write(*,'(A,E12.5)') &
-         ' Inverse design final loss = ', best_loss
+    basis%lcart = .true.
+    open(unit=100, file="POSCAR_optimized_structure", status="replace")
+    call geom_write(100, basis)
+    close(100)
 
   end subroutine inverse_design
 !###############################################################################

@@ -454,6 +454,7 @@ contains
 
 
     string="Direct"
+    if(basis%lcart) string="Cartesian"
     if(present(cartesian))then
        if(cartesian) string="Cartesian"
     end if

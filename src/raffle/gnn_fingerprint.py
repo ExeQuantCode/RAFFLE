@@ -311,389 +311,6 @@ class SimpleGNN:
         return total_loss / len(graphs)
 
 
-class GNNFingerprint:
-    """Graph neural network for learning and predicting RAFFLE descriptor
-    fingerprints from atomic structures represented as molecular graphs.
-
-    This class wraps a simple graph neural network that maps atomic structure
-    graphs (atoms = vertices, bonds = edges) to RAFFLE distribution function
-    descriptors via message passing.
-
-    Parameters
-    ----------
-    species_list : list of str
-        List of chemical species (e.g. ['C', 'Si']).
-    bond_cutoff : float, optional
-        Bond cutoff distance in Angstroms. Default: 6.0.
-    gnn_hidden_sizes : list of int, optional
-        GNN hidden layer sizes. Default: [32, 32].
-    learning_rate : float, optional
-        Learning rate for Adam optimiser. Default: 0.001.
-    """
-
-    def __init__(
-        self,
-        species_list: List[str],
-        bond_cutoff: float = 6.0,
-        gnn_hidden_sizes: Optional[List[int]] = None,
-        learning_rate: float = 0.001,
-    ):
-        self.species_list = [s.strip() for s in species_list]
-        self.num_species = len(self.species_list)
-        self.bond_cutoff = bond_cutoff
-
-        if gnn_hidden_sizes is None:
-            gnn_hidden_sizes = [32, 32]
-
-        # Features per vertex: 3 coords + one-hot species
-        self.num_vertex_features = 3 + self.num_species
-
-        self._gnn_hidden_sizes = gnn_hidden_sizes
-        self._learning_rate = learning_rate
-        self._fingerprint_dim = None
-        self._network = None
-        self._is_trained = False
-
-    @property
-    def fingerprint_dim(self) -> Optional[int]:
-        """Dimension of the fingerprint vector."""
-        return self._fingerprint_dim
-
-    @property
-    def is_trained(self) -> bool:
-        """Whether the network has been trained."""
-        return self._is_trained
-
-    def atoms_to_graph(
-        self, atoms
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        """Convert an ASE Atoms object to a molecular graph.
-
-        Parameters
-        ----------
-        atoms : ase.Atoms
-            Atomic structure.
-
-        Returns
-        -------
-        vertex_features : np.ndarray, shape (num_atoms, num_vertex_features)
-            Node features [x, y, z, one_hot_species].
-        adjacency : np.ndarray, shape (num_atoms, num_atoms)
-            Adjacency matrix with self-loops (1 for connected, 0 otherwise).
-        """
-        n_atoms = len(atoms)
-        vertex_features = np.zeros(
-            (n_atoms, self.num_vertex_features), dtype=np.float32
-        )
-
-        # Get positions
-        if any(atoms.pbc):
-            positions = atoms.get_scaled_positions()
-        else:
-            positions = atoms.get_positions()
-
-        symbols = atoms.get_chemical_symbols()
-
-        for i, (sym, pos) in enumerate(zip(symbols, positions)):
-            vertex_features[i, :3] = pos[:3]
-            sym_stripped = sym.strip()
-            if sym_stripped in self.species_list:
-                sp_idx = self.species_list.index(sym_stripped)
-                vertex_features[i, 3 + sp_idx] = 1.0
-
-        # Build adjacency matrix
-        cart_pos = atoms.get_positions()
-        adjacency = np.eye(n_atoms, dtype=np.float32)  # self-loops
-
-        for i in range(n_atoms):
-            for j in range(i + 1, n_atoms):
-                # Minimum image convention for periodic systems
-                diff = cart_pos[j] - cart_pos[i]
-                if any(atoms.pbc):
-                    cell = atoms.get_cell()
-                    scaled = np.linalg.solve(cell.T, diff)
-                    scaled -= np.round(scaled)
-                    diff = cell.T @ scaled
-
-                dist = np.linalg.norm(diff)
-                if 0 < dist <= self.bond_cutoff:
-                    adjacency[i, j] = 1.0
-                    adjacency[j, i] = 1.0
-
-        return vertex_features, adjacency
-
-    def compute_fingerprint(self, atoms) -> np.ndarray:
-        """Compute the RAFFLE descriptor fingerprint for a structure.
-
-        Uses the RAFFLE Fortran library to compute 2-body, 3-body, and
-        4-body distribution functions and flattens them into a vector.
-
-        Parameters
-        ----------
-        atoms : ase.Atoms
-            Atomic structure.
-
-        Returns
-        -------
-        np.ndarray
-            Flattened fingerprint vector.
-        """
-        from raffle.generator import raffle_generator
-
-        gen = raffle_generator()
-        gen.distributions.set_element_energies(
-            {s: 0.0 for s in self.species_list}
-        )
-
-        df_2body, df_3body, df_4body = gen.distributions.generate_fingerprint(
-            atoms
-        )
-
-        fingerprint = np.concatenate(
-            [
-                np.asarray(df_2body, dtype=np.float32).flatten(order="F"),
-                np.asarray(df_3body, dtype=np.float32).flatten(order="F")/5.0,
-                np.asarray(df_4body, dtype=np.float32).flatten(order="F")/5.0,
-            ]
-        )
-
-        if self._fingerprint_dim is None:
-            self._fingerprint_dim = len(fingerprint)
-            self._network = SimpleGNN(
-                num_vertex_features=self.num_vertex_features,
-                gnn_hidden_sizes=self._gnn_hidden_sizes,
-                output_dim=self._fingerprint_dim,
-                learning_rate=self._learning_rate,
-            )
-        elif self._fingerprint_dim != len(fingerprint):
-            raise RuntimeError(
-                "Fingerprint dimension changed. Use a consistent fingerprint "
-                "mode for a single GNNFingerprint instance."
-            )
-
-        return fingerprint
-
-    def compute_fingerprint_direct(self, atoms) -> np.ndarray:
-        """Compute a simplified radial distribution fingerprint using numpy.
-
-        Parameters
-        ----------
-        atoms : ase.Atoms
-            Atomic structure.
-
-        Returns
-        -------
-        np.ndarray
-            Simplified radial distribution fingerprint.
-        """
-        from ase.geometry import get_distances
-
-        r_min, r_max = 0.5, 6.0
-        n_bins = 220
-        sigma = 0.1
-
-        bin_edges = np.linspace(r_min, r_max, n_bins + 1)
-        bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
-
-        positions = atoms.get_positions()
-        cell = atoms.get_cell() if any(atoms.pbc) else None
-        _, distances = get_distances(positions, cell=cell, pbc=atoms.pbc)
-
-        n_atoms = len(atoms)
-        rdf = np.zeros(n_bins, dtype=np.float32)
-        eta = 1.0 / (2.0 * sigma ** 2)
-
-        for i in range(n_atoms):
-            for j in range(n_atoms):
-                if i == j:
-                    continue
-                d = distances[i, j]
-                if r_min <= d <= r_max:
-                    rdf += np.exp(-eta * (d - bin_centers) ** 2)
-
-        if n_atoms > 1:
-            rdf *= np.sqrt(eta / np.pi) / n_atoms
-
-        if self._fingerprint_dim is None:
-            self._fingerprint_dim = len(rdf)
-            self._network = SimpleGNN(
-                num_vertex_features=self.num_vertex_features,
-                gnn_hidden_sizes=self._gnn_hidden_sizes,
-                output_dim=self._fingerprint_dim,
-                learning_rate=self._learning_rate,
-            )
-
-        return rdf
-
-    def train(
-        self,
-        structures: list,
-        num_epochs: int = 100,
-        verbose: int = 0,
-        use_simple_fingerprint: bool = False,
-    ) -> List[float]:
-        """Train the GNN on a set of atomic structures.
-
-        Parameters
-        ----------
-        structures : list of ase.Atoms
-            Training structures.
-        num_epochs : int
-            Number of training epochs.
-        verbose : int
-            Verbosity level.
-        use_simple_fingerprint : bool
-            If True, use simplified direct fingerprint computation.
-
-        Returns
-        -------
-        list of float
-            Training loss history.
-        """
-        compute_fp = (
-            self.compute_fingerprint_direct if use_simple_fingerprint
-            else self.compute_fingerprint
-        )
-
-        graphs = []
-        targets = []
-        for atoms in structures:
-            vf, adj = self.atoms_to_graph(atoms)
-            fp = compute_fp(atoms)
-            graphs.append((vf, adj))
-            targets.append(fp)
-
-        if self._network is None:
-            raise RuntimeError(
-                "Network not initialised. "
-                "Call compute_fingerprint first."
-            )
-
-        loss_history = []
-        for epoch in range(num_epochs):
-            epoch_loss = self._network.train_batch(graphs, targets)
-            loss_history.append(epoch_loss)
-
-            if verbose > 0 and (epoch + 1) % max(1, num_epochs // 10) == 0:
-                print(f"  epoch={epoch+1}, loss={epoch_loss:.6f}")
-
-        self._is_trained = True
-        return loss_history
-
-    def predict(self, atoms) -> np.ndarray:
-        """Forward inference: predict fingerprint from atomic structure.
-
-        Parameters
-        ----------
-        atoms : ase.Atoms
-            Atomic structure.
-
-        Returns
-        -------
-        np.ndarray
-            Predicted fingerprint vector.
-        """
-        if self._network is None:
-            raise RuntimeError("Network not initialised. Train first.")
-
-        vf, adj = self.atoms_to_graph(atoms)
-        return self._network.forward(vf, adj)
-
-    def inverse_design(
-        self,
-        target_fingerprint: np.ndarray,
-        atoms,
-        fixed_atoms: np.ndarray,
-        num_steps: int = 500,
-        step_size: float = 1.0,
-        verbose: int = 0,
-        use_simple_fingerprint: bool = False,
-    ):
-        """Inverse design: optimise atomic positions to match target descriptor.
-
-        Parameters
-        ----------
-        target_fingerprint : np.ndarray
-            Target descriptor fingerprint.
-        atoms : ase.Atoms
-            Initial atomic structure (modified in place).
-        fixed_atoms : np.ndarray of bool
-            Mask array. True = atom is fixed, False = atom is optimisable.
-        num_steps : int
-            Number of optimisation steps.
-        step_size : float
-            Step size for coordinate perturbation.
-        verbose : int
-            Verbosity level.
-        use_simple_fingerprint : bool
-            If True, use simplified fingerprint computation.
-
-        Returns
-        -------
-        ase.Atoms
-            Optimised structure.
-        """
-        compute_fp = (
-            self.compute_fingerprint_direct if use_simple_fingerprint
-            else self.compute_fingerprint
-        )
-
-        delta = 1e-4
-        best_loss = float("inf")
-        best_positions = atoms.get_positions().copy()
-
-        current_fp = compute_fp(atoms)
-        loss = float(np.mean((current_fp - target_fingerprint) ** 2))
-        best_loss = loss
-        best_positions = atoms.get_positions().copy()
-
-        if verbose > 0:
-            print(f"  Inverse design step 0, loss = {loss:.6e}")
-
-        for step in range(1, num_steps + 1):
-            positions = atoms.get_positions().copy()
-            grad_positions = np.zeros_like(positions)
-
-            for i in range(len(atoms)):
-                if i < len(fixed_atoms) and fixed_atoms[i]:
-                    continue
-
-                for coord in range(3):
-                    perturbed_pos = positions.copy()
-                    perturbed_pos[i, coord] += delta
-                    atoms.set_positions(perturbed_pos)
-
-                    perturbed_fp = compute_fp(atoms)
-                    loss_perturbed = float(
-                        np.mean((perturbed_fp - target_fingerprint) ** 2)
-                    )
-                    grad_positions[i, coord] = (loss_perturbed - loss) / delta
-
-            new_positions = positions - step_size * grad_positions
-            atoms.set_positions(new_positions)
-
-            current_fp = compute_fp(atoms)
-            loss = float(np.mean((current_fp - target_fingerprint) ** 2))
-
-            if loss < best_loss:
-                best_loss = loss
-                best_positions = atoms.get_positions().copy()
-
-            if verbose > 0 and step % 10 == 0:
-                print(f"  Inverse design step {step}, loss = {loss:.6e}")
-
-            if loss < 1e-8:
-                if verbose > 0:
-                    print(f"  Converged at step {step}")
-                break
-
-        atoms.set_positions(best_positions)
-
-        if verbose > 0:
-            print(f"  Inverse design final loss = {best_loss:.6e}")
-
-        return atoms
-
 
 class GNNFingerprint:
     """Fortran-backed GNN fingerprint interface.
@@ -784,6 +401,38 @@ class GNNFingerprint:
         return int(_raffle.f90wrap_gnn_fingerprint_type__get__fingerprint_dim(self._handle))
 
     @property
+    def fingerprint_dim_2body(self) -> int:
+        return int(
+            _raffle.f90wrap_gnn_fingerprint_type__get__fingerprint_dim_2body(
+                self._handle
+            )
+        )
+
+    @property
+    def fingerprint_dim_3body(self) -> int:
+        return int(
+            _raffle.f90wrap_gnn_fingerprint_type__get__fingerprint_dim_3body(
+                self._handle
+            )
+        )
+
+    @property
+    def fingerprint_dim_4body(self) -> int:
+        return int(
+            _raffle.f90wrap_gnn_fingerprint_type__get__fingerprint_dim_4body(
+                self._handle
+            )
+        )
+
+    @property
+    def component_dims(self) -> Tuple[int, int, int]:
+        return (
+            self.fingerprint_dim_2body,
+            self.fingerprint_dim_3body,
+            self.fingerprint_dim_4body,
+        )
+
+    @property
     def is_trained(self) -> bool:
         return bool(_raffle.f90wrap_gnn_fingerprint_type__get__is_trained(self._handle))
 
@@ -839,6 +488,36 @@ class GNNFingerprint:
             fp_dim=self.fingerprint_dim,
         )
         return self._ensure_finite("fingerprint", fingerprint)
+
+    def compute_fingerprint_components(self, atoms) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        basis = self._atoms_to_basis(atoms)
+        fp2, fp3, fp4 = _raffle.f90wrap_gnn_fingerprint_type__compute_fingerprint_components(
+            this=self._handle,
+            basis=basis._handle,
+            fp_dim_2body=self.fingerprint_dim_2body,
+            fp_dim_3body=self.fingerprint_dim_3body,
+            fp_dim_4body=self.fingerprint_dim_4body,
+        )
+        return (
+            self._ensure_finite("2-body fingerprint", fp2),
+            self._ensure_finite("3-body fingerprint", fp3),
+            self._ensure_finite("4-body fingerprint", fp4),
+        )
+
+    def compute_gradients(self, atoms) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        basis = self._atoms_to_basis(atoms)
+        grad2, grad3, grad4 = _raffle.f90wrap_gnn_fingerprint_type__compute_gradients(
+            this=self._handle,
+            basis=basis._handle,
+            fp_dim_2body=self.fingerprint_dim_2body,
+            fp_dim_3body=self.fingerprint_dim_3body,
+            fp_dim_4body=self.fingerprint_dim_4body,
+            n_atoms=len(atoms),
+        )
+        grad2 = self._ensure_finite("2-body gradients", grad2).transpose(1, 2, 0)
+        grad3 = self._ensure_finite("3-body gradients", grad3).transpose(1, 2, 0)
+        grad4 = self._ensure_finite("4-body gradients", grad4).transpose(1, 2, 0)
+        return grad2, grad3, grad4
 
     def compute_fingerprint_direct(self, atoms) -> np.ndarray:
         from ase.geometry import get_distances
@@ -922,7 +601,7 @@ class GNNFingerprint:
         step_size: float = 1.0,
         verbose: int = 0,
         use_simple_fingerprint: bool = False,
-        use_predict: bool = False,
+        use_predict: bool = True,
     ):
         if use_simple_fingerprint:
             raise NotImplementedError(

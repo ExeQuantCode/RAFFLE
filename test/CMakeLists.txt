@@ -17,6 +17,7 @@ foreach(execid
     generator
     io_utils
     tools_infile
+    gnn_fingerprint
   )
   add_executable(test_${execid} test_${execid}.f90)
   # Specify the include directories

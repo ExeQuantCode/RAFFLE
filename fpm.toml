@@ -12,6 +12,12 @@ macros = ["ENABLE_ATHENA"]
 [library]
 source-dir="src/fortran"
 
+[build]
+auto-executables = true
+auto-tests = true
+auto-examples = false
+module-naming = false
+
 [dependencies]
 openmp = "*"
 athena = { git = "https://github.com/nedtaylor/athena", branch = "inverse-design-graphs" }

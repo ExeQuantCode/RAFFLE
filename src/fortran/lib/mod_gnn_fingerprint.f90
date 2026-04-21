@@ -1027,7 +1027,7 @@ contains
     integer :: root_id, num_elements, ifeature
     type(array_type) :: y(1,1)
     type(array_type), pointer :: loss
-    type(sgd_optimiser_type) :: opt
+    type(adam_optimiser_type) :: opt
     real(real32), dimension(:), allocatable :: x_flat, x_grad
     type(graph_type) :: graphs_in(1,1)
 

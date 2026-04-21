@@ -102,6 +102,7 @@ set(ATHENA_OPTIONAL_LIB_FILES
     mod_dimenet_msgpass_layer.f90
     mod_hybrid_msgpass_layer.f90
     mod_gnn_fingerprint.f90
+    mod_gnn_fingerprint_multihead.f90
 )
 
 find_package(Git REQUIRED)
@@ -365,6 +366,7 @@ if (BUILD_PYTHON)
     if(NOT DEFINED PYTHON_EXECUTABLE)
         set(PYTHON_EXECUTABLE ${Python_EXECUTABLE})
     endif()
+    get_filename_component(PYTHON_BINDIR "${PYTHON_EXECUTABLE}" DIRECTORY)
 
     # Grab the variables from a local Python installation F2PY headers
     execute_process(
@@ -406,7 +408,7 @@ if (BUILD_PYTHON)
     )
     if (ATHENA_SUPPORT_ENABLED)
         list(APPEND F90WRAP_FILE
-            ${CMAKE_CURRENT_LIST_DIR}/src/wrapper/f90wrap_mod_gnn_fingerprint.f90)
+            ${CMAKE_CURRENT_LIST_DIR}/src/wrapper/f90wrap_mod_gnn_fingerprint_multihead.f90)
     endif()
     if (REMAKE_F90WRAP)
         set(KIND_MAP ${CMAKE_SOURCE_DIR}/kind_map)
@@ -443,7 +445,7 @@ if (BUILD_PYTHON)
     # Create a Python module using f2py
     add_custom_command(
         OUTPUT ${F2PY_OUTPUT_FILE}
-        COMMAND CC="${CMAKE_C_COMPILER}" LDFLAGS="-L${CMAKE_BUILD_DIR}" LIBS="-lraffle" ${F2PY_EXECUTABLE}
+        COMMAND ${CMAKE_COMMAND} -E env "PATH=${PYTHON_BINDIR}:$ENV{PATH}" "CC=${CMAKE_C_COMPILER}" "LDFLAGS=-L${CMAKE_BUILD_DIR}" "LIBS=-lraffle" ${F2PY_EXECUTABLE}
         -c
         -m _${PROJECT_NAME}
         -I${MODULE_DIR}

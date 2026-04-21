@@ -18,6 +18,7 @@ foreach(execid
     io_utils
     tools_infile
     gnn_fingerprint
+    gnn_fingerprint_multihead
   )
   add_executable(test_${execid} test_${execid}.f90)
   # Specify the include directories

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import math
 import random
-from typing import Iterable, Optional, Sequence, Tuple
+from typing import Callable, Iterable, Optional, Sequence, Tuple
 
 import numpy as np
 import torch
@@ -1338,6 +1338,7 @@ class TorchGNNFingerprint(nn.Module):
         inverse_lr_decay_rate: Optional[float] = None,
         num_restarts: int = 1,
         restart_noise_scale: float = 0.0,
+        step_observer: Optional[Callable[[dict[str, object]], None]] = None,
     ):
         self.eval()
         prepared = self.prepare_structure(atoms, include_targets=False)
@@ -1395,6 +1396,20 @@ class TorchGNNFingerprint(nn.Module):
                 restart_positions = restart_positions + restart_noise_scale * restart_noise
                 restart_positions[fixed_mask] = positions_initial[fixed_mask]
 
+            if step_observer is not None:
+                initial_atoms = atoms.copy()
+                initial_atoms.set_positions(restart_positions.detach().cpu().numpy())
+                step_observer(
+                    {
+                        "restart_index": int(restart_index),
+                        "num_restarts": int(num_restarts),
+                        "step": 0,
+                        "num_steps": int(num_steps),
+                        "is_initial_state": True,
+                        "atoms": initial_atoms,
+                    }
+                )
+
             positions_parameter = nn.Parameter(restart_positions)
             optimiser = torch.optim.Adam([positions_parameter], lr=float(step_size))
             scheduler = None
@@ -1434,6 +1449,28 @@ class TorchGNNFingerprint(nn.Module):
                     scheduler.step()
                 with torch.no_grad():
                     positions_parameter.data[fixed_mask] = positions_initial[fixed_mask]
+                if step_observer is not None:
+                    observed_atoms = atoms.copy()
+                    observed_atoms.set_positions(
+                        torch.where(
+                            fixed_mask.unsqueeze(-1),
+                            positions_initial,
+                            positions_parameter,
+                        )
+                        .detach()
+                        .cpu()
+                        .numpy()
+                    )
+                    step_observer(
+                        {
+                            "restart_index": int(restart_index),
+                            "num_restarts": int(num_restarts),
+                            "step": int(step + 1),
+                            "num_steps": int(num_steps),
+                            "is_initial_state": False,
+                            "atoms": observed_atoms,
+                        }
+                    )
                 current_loss = float(total_loss.item())
                 if current_loss < best_loss:
                     best_loss = current_loss
@@ -1444,6 +1481,31 @@ class TorchGNNFingerprint(nn.Module):
                         f"step={step + 1:4d} total_loss={current_loss:.6e} "
                         f"fingerprint_loss={float(fingerprint_loss.item()):.6e}"
                     )
+
+            with torch.no_grad():
+                final_positions = torch.where(
+                    fixed_mask.unsqueeze(-1),
+                    positions_initial,
+                    positions_parameter,
+                )
+                final_total_loss, _ = self._positions_to_loss(
+                    prepared,
+                    final_positions,
+                    target_2body,
+                    target_3body,
+                    target_4body,
+                    reference_positions,
+                    target_vertex_fingerprints=target_vertex_fingerprints,
+                    target_positions=target_positions,
+                    fixed_mask=fixed_mask,
+                    fingerprint_loss_weight=fingerprint_loss_weight,
+                    target_vertex_weight=target_vertex_weight,
+                    target_position_weight=target_position_weight,
+                )
+                final_loss = float(final_total_loss.item())
+            if final_loss < best_loss:
+                best_loss = final_loss
+                best_positions = final_positions.detach().clone()
 
         optimised = atoms.copy()
         optimised.set_positions(best_positions.detach().cpu().numpy())

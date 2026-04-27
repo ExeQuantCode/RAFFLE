@@ -8,6 +8,7 @@ from pathlib import Path
 import sys
 
 import numpy as np
+from ase.io import write
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -25,6 +26,70 @@ from torch_gnn_workflow_common import (
     write_json,
     write_structure,
 )
+
+
+def build_optimisation_step_observer(
+    trajectory_frames: list,
+    optimisation_history: list[dict[str, int | bool]],
+):
+    def observer(step_record: dict[str, object]) -> None:
+        atoms_snapshot = step_record["atoms"].copy()
+        atoms_snapshot.info["inverse_restart_index"] = int(step_record["restart_index"]) + 1
+        atoms_snapshot.info["inverse_num_restarts"] = int(step_record["num_restarts"])
+        atoms_snapshot.info["inverse_step"] = int(step_record["step"])
+        atoms_snapshot.info["inverse_num_steps"] = int(step_record["num_steps"])
+        atoms_snapshot.info["inverse_is_initial_state"] = bool(step_record["is_initial_state"])
+        trajectory_frames.append(atoms_snapshot)
+        optimisation_history.append(
+            {
+                "restart_index": int(step_record["restart_index"]) + 1,
+                "num_restarts": int(step_record["num_restarts"]),
+                "step": int(step_record["step"]),
+                "num_steps": int(step_record["num_steps"]),
+                "is_initial_state": bool(step_record["is_initial_state"]),
+            }
+        )
+
+    return observer
+
+
+def save_2body_fingerprint_comparison_plot(
+    target_fingerprint_2body: np.ndarray,
+    predicted_fingerprint_2body: np.ndarray,
+    output_path: Path,
+) -> None:
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    indices = np.arange(target_fingerprint_2body.size)
+    difference = predicted_fingerprint_2body - target_fingerprint_2body
+
+    figure = plt.figure(figsize=(12, 6))
+    ax1 = figure.add_subplot(2, 1, 1)
+    ax1.plot(indices, target_fingerprint_2body, label="target 2-body fingerprint", linewidth=2.0)
+    ax1.plot(
+        indices,
+        predicted_fingerprint_2body,
+        label="optimised structure inferred 2-body fingerprint",
+        linewidth=1.5,
+    )
+    ax1.set_ylabel("Fingerprint value")
+    ax1.set_title("2-body fingerprint comparison")
+    ax1.grid(alpha=0.3)
+    ax1.legend(loc="best")
+
+    ax2 = figure.add_subplot(2, 1, 2)
+    ax2.plot(indices, difference, color="tab:red", linewidth=1.5)
+    ax2.axhline(0.0, color="black", linewidth=1.0, linestyle="--")
+    ax2.set_xlabel("2-body fingerprint index")
+    ax2.set_ylabel("Predicted - target")
+    ax2.grid(alpha=0.3)
+
+    figure.tight_layout()
+    figure.savefig(output_path, dpi=150)
+    plt.close(figure)
 
 
 def parse_args() -> argparse.Namespace:
@@ -45,6 +110,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--inverse-lr-decay-rate", type=float, default=0.0)
     parser.add_argument("--inverse-restarts", type=int, default=1)
     parser.add_argument("--inverse-restart-noise-scale", type=float, default=0.0)
+    parser.add_argument("--save-optimisation-traj", action="store_true")
+    parser.add_argument("--plot-2body-fingerprint-comparison", action="store_true")
     parser.add_argument(
         "--output-dir",
         type=Path,
@@ -76,6 +143,12 @@ def main() -> None:
             f"{target_fingerprint.size} != {model.fingerprint_dim}"
         )
 
+    trajectory_frames: list = []
+    optimisation_history: list[dict[str, int | bool]] = []
+    step_observer = None
+    if args.save_optimisation_traj:
+        step_observer = build_optimisation_step_observer(trajectory_frames, optimisation_history)
+
     inverse_design_options = build_inverse_design_options(
         target_atoms=target_atoms,
         fingerprint_loss_weight=args.fingerprint_loss_weight,
@@ -92,6 +165,7 @@ def main() -> None:
         num_steps=args.inverse_steps,
         step_size=args.inverse_step_size,
         verbose=1,
+        step_observer=step_observer,
         **inverse_design_options,
     )
 
@@ -102,11 +176,19 @@ def main() -> None:
         target_fingerprint=target_fingerprint,
         target_atoms=target_atoms,
     )
+    predicted_fingerprint_2body, _, _ = model.predict_components(optimised)
+    target_fingerprint_2body = target_fingerprint[: model.fingerprint_dim_2body]
     metrics.update(
         {
             "model_checkpoint": str(args.model_checkpoint.resolve()),
             "target_fingerprint_file": str(args.target_fingerprint.resolve()),
             "input_structure_file": str(args.input_structure.resolve()),
+            "final_fingerprint_mse_2body": float(
+                np.mean((predicted_fingerprint_2body - target_fingerprint_2body) ** 2)
+            ),
+            "final_fingerprint_l2_2body": float(
+                np.linalg.norm(predicted_fingerprint_2body - target_fingerprint_2body)
+            ),
             "inverse_design_config": {
                 "input_structure_index": int(args.input_structure_index),
                 "target_structure": (
@@ -136,6 +218,24 @@ def main() -> None:
         "metrics": str(metrics_path),
         "log": str(log_path),
     }
+
+    if args.save_optimisation_traj:
+        traj_path = output_dir / "torch_gnn_inverse_design_path.traj"
+        write(traj_path, trajectory_frames)
+        metrics["optimisation_history"] = optimisation_history
+        metrics["output_files"]["optimisation_traj"] = str(traj_path)
+
+    if args.plot_2body_fingerprint_comparison:
+        plot_path = output_dir / "torch_gnn_inverse_design_2body_fingerprint.png"
+        save_2body_fingerprint_comparison_plot(
+            target_fingerprint_2body=target_fingerprint_2body,
+            predicted_fingerprint_2body=predicted_fingerprint_2body,
+            output_path=plot_path,
+        )
+        metrics["target_fingerprint_2body"] = target_fingerprint_2body.tolist()
+        metrics["predicted_fingerprint_2body"] = predicted_fingerprint_2body.tolist()
+        metrics["output_files"]["two_body_fingerprint_plot"] = str(plot_path)
+
     write_json(metrics_path, metrics)
     write_inverse_design_log(log_path, metrics)
 
@@ -144,6 +244,10 @@ def main() -> None:
         print()
     print(f"Saved optimised structure: {structure_path}")
     print(f"Saved metrics log: {log_path}")
+    if args.save_optimisation_traj:
+        print(f"Saved optimisation trajectory: {metrics['output_files']['optimisation_traj']}")
+    if args.plot_2body_fingerprint_comparison:
+        print(f"Saved 2-body fingerprint comparison plot: {metrics['output_files']['two_body_fingerprint_plot']}")
     print(json.dumps(metrics, indent=2))
 
 

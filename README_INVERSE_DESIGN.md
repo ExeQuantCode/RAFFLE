@@ -104,6 +104,8 @@ python example/python_pkg/torch_gnn_inverse_design.py \
 	--inverse-step-size 0.1 \
 	--fingerprint-loss-weight 0.275 \
 	--target-vertex-weight 0.55 \
+	--save-optimisation-traj \
+	--plot-2body-fingerprint-comparison \
 	--fixed-leading-atoms 0 \
 	--output-dir build/torch_gnn_carbon_inverse
 ```
@@ -113,6 +115,11 @@ The inverse-design script writes these outputs into `--output-dir`:
 - `torch_gnn_inverse_design_final.xyz`: the optimised structure as ExtXYZ.
 - `torch_gnn_inverse_design_metrics.json`: machine-readable success metrics and run settings.
 - `torch_gnn_inverse_design_metrics.log`: a short human-readable metric summary.
+
+Optional outputs controlled by flags:
+
+- `--save-optimisation-traj`: writes `torch_gnn_inverse_design_path.traj`, containing the initial structure for each restart and the structure after every inverse-design optimisation step.
+- `--plot-2body-fingerprint-comparison`: writes `torch_gnn_inverse_design_2body_fingerprint.png`, comparing the target 2-body fingerprint against the model-inferred 2-body fingerprint for the final optimised structure.
 
 If `--target-structure` is provided, the script also records symmetry-aware RMSD and per-atom displacement metrics. Non-zero `--target-vertex-weight` or `--target-position-weight` requires `--target-structure`, because those losses depend on the target structure itself rather than only the fingerprint.
 

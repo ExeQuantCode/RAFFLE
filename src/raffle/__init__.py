@@ -15,6 +15,16 @@ from .raffle import generator as _generator_class
 from .raffle import geom_rw as _geom_rw_class
 from .nn_fingerprint import NNFingerprint
 from .gnn_fingerprint import GNNFingerprint
+from .structure_metrics import (
+    minimum_image_displacements,
+    symmetry_aware_displacements,
+    symmetry_aware_rmsd,
+    wrap_atoms_to_unit_cell,
+)
+try:
+    from .torch_gnn_fingerprint import TorchGNNFingerprint
+except Exception:
+    TorchGNNFingerprint = None
 # from .raffle import generator
 
 
@@ -46,7 +56,18 @@ del sys
 del types
 del raffle
 
-__all__ = ['__version__', 'generator', 'geom', 'NNFingerprint', 'GNNFingerprint']
+__all__ = [
+    '__version__',
+    'generator',
+    'geom',
+    'NNFingerprint',
+    'GNNFingerprint',
+    'TorchGNNFingerprint',
+    'minimum_image_displacements',
+    'symmetry_aware_displacements',
+    'symmetry_aware_rmsd',
+    'wrap_atoms_to_unit_cell',
+]
 
 def __getattr__(name):
     if name == "generator":

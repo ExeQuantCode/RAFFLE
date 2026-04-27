@@ -61,3 +61,7 @@ context.json
 options.json
 procedure.py
 wandb/
+example/python_pkg/torch_gnn/
+*.pt
+*.npy
+*.json

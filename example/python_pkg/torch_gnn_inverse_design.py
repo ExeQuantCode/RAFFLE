@@ -248,7 +248,7 @@ def main() -> None:
         print(f"Saved optimisation trajectory: {metrics['output_files']['optimisation_traj']}")
     if args.plot_2body_fingerprint_comparison:
         print(f"Saved 2-body fingerprint comparison plot: {metrics['output_files']['two_body_fingerprint_plot']}")
-    print(json.dumps(metrics, indent=2))
+    # print(json.dumps(metrics, indent=2))
 
 
 if __name__ == "__main__":

@@ -68,6 +68,8 @@ ARCHITECTURE_ALIASES = {
     "torch_gnn_attention_conservative": "attention_conservative",
 }
 
+FINGERPRINT_NEGATIVE_TAIL_BETA = 500.0
+
 
 @dataclass(frozen=True)
 class MultigraphTopology:
@@ -491,6 +493,40 @@ class TorchGNNFingerprint(nn.Module):
     @property
     def is_fitted(self) -> bool:
         return self._is_fitted
+
+    def _project_fingerprint_tensor(self, fingerprint: torch.Tensor) -> torch.Tensor:
+        # Preserve calibrated positive outputs exactly while smoothly folding any
+        # negative tail back into the physical non-negative fingerprint domain.
+        return torch.where(
+            fingerprint >= 0.0,
+            fingerprint,
+            torch_functional.softplus(
+                fingerprint,
+                beta=FINGERPRINT_NEGATIVE_TAIL_BETA,
+                threshold=20.0,
+            ),
+        )
+
+    def _project_fingerprint_targets(self, fingerprint: torch.Tensor) -> torch.Tensor:
+        return fingerprint.clamp_min(0.0)
+
+    def _project_vertex_fingerprints(
+        self,
+        vertices: Tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+    ) -> Tuple[
+        Tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+        Tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+    ]:
+        projected_vertices = tuple(
+            self._project_fingerprint_tensor(vertex) for vertex in vertices
+        )
+        projected_fingerprints = tuple(
+            vertex.mean(dim=0) for vertex in projected_vertices
+        )
+        return (
+            (projected_vertices[0], projected_vertices[1], projected_vertices[2]),
+            (projected_fingerprints[0], projected_fingerprints[1], projected_fingerprints[2]),
+        )
 
     def _element_properties(self, symbol: str) -> Tuple[float, float]:
         return ELEMENT_PROPERTIES.get(symbol, (0.0, 1.0))
@@ -998,6 +1034,12 @@ class TorchGNNFingerprint(nn.Module):
                 (vertex_2body, vertex_3body, vertex_4body),
                 (fingerprint_2body, fingerprint_3body, fingerprint_4body),
             )
+        (
+            (vertex_2body, vertex_3body, vertex_4body),
+            (fingerprint_2body, fingerprint_3body, fingerprint_4body),
+        ) = self._project_vertex_fingerprints(
+            (vertex_2body, vertex_3body, vertex_4body)
+        )
         if return_vertices:
             return (
                 (vertex_2body, vertex_3body, vertex_4body),
@@ -1052,6 +1094,9 @@ class TorchGNNFingerprint(nn.Module):
         target_3body: torch.Tensor,
         target_4body: torch.Tensor,
     ) -> torch.Tensor:
+        target_2body = self._project_fingerprint_targets(target_2body)
+        target_3body = self._project_fingerprint_targets(target_3body)
+        target_4body = self._project_fingerprint_targets(target_4body)
         loss_2body = torch.mean((predicted_2body - target_2body) ** 2)
         loss_3body = torch.mean((predicted_3body - target_3body) ** 2)
         loss_4body = torch.mean((predicted_4body - target_4body) ** 2)
@@ -1345,7 +1390,9 @@ class TorchGNNFingerprint(nn.Module):
         positions_initial = _float_tensor(prepared.positions, self._device)
         fixed_mask = torch.as_tensor(np.asarray(fixed_atoms, dtype=bool), dtype=torch.bool, device=self._device)
         movable_mask = ~fixed_mask
-        target = _float_tensor(target_fingerprint, self._device)
+        target = self._project_fingerprint_targets(
+            _float_tensor(target_fingerprint, self._device)
+        )
         target_2body = target[:self.fingerprint_dim_2body]
         offset = self.fingerprint_dim_2body
         target_3body = target[offset:offset + self.fingerprint_dim_3body]

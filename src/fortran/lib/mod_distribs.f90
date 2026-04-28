@@ -326,20 +326,20 @@ contains
     ia_target = 0
     atom_idx_present: if(present(atom_index))then
        flat_idx = atom_index
-       if(flat_idx.gt.1) exit atom_idx_present
+       if(flat_idx.le.0) exit atom_idx_present
        ! handle flat_idx out of bounds
        if(flat_idx.gt.basis%natom)then
           call print_warning("atom_index is out of bounds; ignoring atom_index and calculating fingerprints for all atoms")
           flat_idx = 0
        end if
-       do is = 1, basis%nspec
+       flat_idx_spec_loop: do is = 1, basis%nspec
           if(flat_idx .le. basis%spec(is)%num)then
              is_target = is
              ia_target = flat_idx
-             exit
+             exit flat_idx_spec_loop
           end if
           flat_idx = flat_idx - basis%spec(is)%num
-       end do
+       end do flat_idx_spec_loop
     else
        flat_idx = 0
     end if atom_idx_present

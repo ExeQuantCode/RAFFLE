@@ -58,16 +58,16 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
         "learning_rate": {"values": [1.0e-3, 5.0e-4, 2.5e-4]},
         "model_lr_decay_rate": {"values": [1.0e-2, 5.0e-3, 1.0e-3]},
         "smooth_cutoff_width": {"values": [0.1, 0.15, 0.2, 0.3]},
-        "component_weight_2body": {"values": [2.0, 4.0, 6.0, 8.0]},
-        "component_weight_3body": {"values": [1.0, 2.0]},
-        "component_weight_4body": {"values": [1.0, 2.0]},
-        "batch_size": {"values": [4, 8, 12]},
-        "fingerprint_loss_weight": {"values": [0.25, 0.5, 0.75, 1.0]},
-        "target_vertex_weight": {"values": [0.0, 0.25, 0.5, 0.75]},
-        "inverse_steps": {"values": [200, 300, 400]},
-        "inverse_step_size": {"values": [1.0e-3, 2.5e-3, 5.0e-3]},
-        "augmented_count": {"values": [8, 16, 24]},
-        "inverse_restarts": {"values": [1, 2, 4]},
+        "component_weight_2body": {"values": [1.0, 2.0, 4.0, 6.0]},
+        "component_weight_3body": {"values": [0.0, 1.0, 2.0, 3.0]},
+        "component_weight_4body": {"values": [0.0, 1.0, 2.0, 3.0]},
+        "batch_size": {"values": [4, 8, 16]},
+        "fingerprint_loss_weight": {"values": [1.0]},
+        "target_vertex_weight": {"values": [0.0]},
+        "inverse_steps": {"values": [100, 200, 300]},
+        "inverse_step_size": {"values": [1.0e-3, 5.0e-3, 1.0e-2, 1.e-1]},
+        "augmented_count": {"values": [0, 8, 16, 24]},
+        "inverse_restarts": {"values": [0]},
         "inverse_restart_noise_scale": {"values": [0.0, 0.005, 0.01]},
         "seed": {"values": [11, 42, 101]},
     }
@@ -117,6 +117,49 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
         "metric": {"name": "inverse/final_rmsd", "goal": "minimize"},
         "parameters": parameters,
     }
+
+
+def resolve_existing_sweep(sweep_id: str) -> dict[str, str]:
+    api = wandb.Api(overrides={"project": WANDB_PROJECT})
+    try:
+        sweep = api.sweep(str(sweep_id))
+    except Exception as exc:
+        raise ValueError(
+            f"Sweep id '{sweep_id}' could not be resolved in W&B project "
+            f"'{WANDB_PROJECT}': {exc}"
+        ) from exc
+    if str(sweep.project) != WANDB_PROJECT:
+        raise ValueError(
+            f"Sweep id '{sweep_id}' belongs to project '{sweep.project}', "
+            f"not '{WANDB_PROJECT}'."
+        )
+    return {
+        "entity": str(sweep.entity),
+        "project": str(sweep.project),
+        "sweep_id": str(sweep.id),
+        "url": str(sweep.url),
+    }
+
+
+def launch_sweep_agent(
+    *,
+    sweep_id: str,
+    config: dict,
+    sweep_count: int,
+    project: str,
+    entity: str | None = None,
+) -> None:
+    def agent() -> None:
+        execute_run(config=dict(config), sweep_run=True)
+
+    agent_kwargs = {
+        "function": agent,
+        "project": project,
+        "count": int(sweep_count),
+    }
+    if entity:
+        agent_kwargs["entity"] = entity
+    wandb.agent(sweep_id, **agent_kwargs)
 
 
 def resolve_epoch_values(config: dict) -> list[int]:
@@ -294,7 +337,7 @@ def execute_run(config: dict, sweep_run: bool = False) -> dict:
         return metrics
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--architecture", type=str, default=DEFAULT_ARCHITECTURE)
     parser.add_argument("--variant-tags", type=str, default="baseline")
@@ -363,10 +406,16 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--print-sweep-config", action="store_true")
-    parser.add_argument("--launch-sweep", action="store_true")
+    sweep_group = parser.add_mutually_exclusive_group()
+    sweep_group.add_argument("--launch-sweep", action="store_true")
+    sweep_group.add_argument(
+        "--sweep-id",
+        type=str,
+        help="Attach to an existing W&B sweep in this project instead of creating a new one.",
+    )
     parser.add_argument("--sweep-count", type=int, default=8)
     parser.add_argument("--sweep-profile", type=str, default="broad")
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def main() -> None:
@@ -377,16 +426,33 @@ def main() -> None:
 
     config = vars(args).copy()
     config["output_dir"] = str(args.output_dir)
+    config.pop("sweep_id", None)
+
+    if args.sweep_id:
+        try:
+            existing_sweep = resolve_existing_sweep(args.sweep_id)
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
+        print(json.dumps({"action": "continue", **existing_sweep}, indent=2))
+        launch_sweep_agent(
+            sweep_id=existing_sweep["sweep_id"],
+            config=config,
+            sweep_count=int(args.sweep_count),
+            project=existing_sweep["project"],
+            entity=existing_sweep["entity"],
+        )
+        return
 
     if args.launch_sweep:
         sweep_config = build_sweep_config(args)
         sweep_id = wandb.sweep(sweep=sweep_config, project=WANDB_PROJECT)
         print(json.dumps({"project": WANDB_PROJECT, "sweep_id": sweep_id}, indent=2))
-
-        def agent() -> None:
-            execute_run(config=dict(config), sweep_run=True)
-
-        wandb.agent(sweep_id, function=agent, project=WANDB_PROJECT, count=int(args.sweep_count))
+        launch_sweep_agent(
+            sweep_id=str(sweep_id),
+            config=config,
+            sweep_count=int(args.sweep_count),
+            project=WANDB_PROJECT,
+        )
         return
 
     execute_run(config=config, sweep_run=False)

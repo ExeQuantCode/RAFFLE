@@ -749,7 +749,7 @@ def run_example(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--carbon-count", type=int, default=0)
+    parser.add_argument("--carbon-count", type=int, default=-1)
     parser.add_argument("--augmented-count", type=int, default=16)
     parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument("--batch-size", type=int, default=8)

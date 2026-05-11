@@ -66,6 +66,37 @@ ARCHITECTURE_ALIASES = {
     "torch_gnn_attention_coupled": "attention_coupled",
     "attention_conservative": "attention_conservative",
     "torch_gnn_attention_conservative": "attention_conservative",
+    "transformer": "graph_transformer",
+    "graph_transformer": "graph_transformer",
+    "torch_gnn_transformer": "graph_transformer",
+    "torch_gnn_graph_transformer": "graph_transformer",
+    "transformer_coupled": "graph_transformer_coupled",
+    "graph_transformer_coupled": "graph_transformer_coupled",
+    "torch_gnn_transformer_coupled": "graph_transformer_coupled",
+    "torch_gnn_graph_transformer_coupled": "graph_transformer_coupled",
+    "graph_operator": "graph_operator",
+    "graph_neural_operator": "graph_operator",
+    "torch_gnn_graph_operator": "graph_operator",
+    "torch_gnn_graph_neural_operator": "graph_operator",
+    "graph_operator_coupled": "graph_operator_coupled",
+    "graph_neural_operator_coupled": "graph_operator_coupled",
+    "torch_gnn_graph_operator_coupled": "graph_operator_coupled",
+    "torch_gnn_graph_neural_operator_coupled": "graph_operator_coupled",
+    "kan": "multkan",
+    "multkan": "multkan",
+    "torch_gnn_kan": "multkan",
+    "torch_gnn_multkan": "multkan",
+    "kan_coupled": "multkan_coupled",
+    "multkan_coupled": "multkan_coupled",
+    "torch_gnn_kan_coupled": "multkan_coupled",
+    "torch_gnn_multkan_coupled": "multkan_coupled",
+}
+
+COUPLED_ARCHITECTURES = {
+    "attention_coupled": "attention",
+    "graph_transformer_coupled": "graph_transformer",
+    "graph_operator_coupled": "graph_operator",
+    "multkan_coupled": "multkan",
 }
 
 FINGERPRINT_NEGATIVE_TAIL_BETA = 500.0
@@ -256,6 +287,232 @@ class AttentionMessageLayer(nn.Module):
         return hidden + self.update(torch.cat([hidden, aggregated], dim=-1))
 
 
+def _edge_softmax(
+    scores: torch.Tensor,
+    dst: torch.Tensor,
+    num_nodes: int,
+    edge_weight: torch.Tensor,
+) -> torch.Tensor:
+    if scores.ndim == 1:
+        scores = scores.unsqueeze(-1)
+        squeeze_last = True
+    else:
+        squeeze_last = False
+
+    expanded_dst = dst.unsqueeze(-1).expand(-1, scores.shape[-1])
+    max_scores = torch.full(
+        (int(num_nodes), scores.shape[-1]),
+        torch.finfo(scores.dtype).min,
+        dtype=scores.dtype,
+        device=scores.device,
+    )
+    max_scores.scatter_reduce_(0, expanded_dst, scores, reduce="amax", include_self=True)
+
+    scaled_scores = (
+        torch.exp(scores - max_scores[dst])
+        * edge_weight.clamp_min(1.0e-6).unsqueeze(-1)
+    )
+    score_sums = torch.zeros_like(max_scores)
+    score_sums.index_add_(0, dst, scaled_scores)
+    attention = scaled_scores / score_sums[dst].clamp_min(1.0e-6)
+    if squeeze_last:
+        return attention.squeeze(-1)
+    return attention
+
+
+class RadialKANLinear(nn.Module):
+    def __init__(
+        self,
+        input_dim: int,
+        output_dim: int,
+        basis_size: int = 8,
+        zero_init: bool = False,
+    ):
+        super().__init__()
+        self.input_dim = int(input_dim)
+        self.output_dim = int(output_dim)
+        self.base = nn.Linear(self.input_dim, self.output_dim)
+        self.coefficients = nn.Parameter(
+            torch.zeros(self.input_dim, int(basis_size), self.output_dim, dtype=torch.float32)
+        )
+        self.register_buffer(
+            "centers",
+            torch.linspace(-1.5, 1.5, int(basis_size), dtype=torch.float32),
+        )
+        self.register_buffer(
+            "widths",
+            torch.full(
+                (self.input_dim, int(basis_size)),
+                2.5 / max(int(basis_size) - 1, 1),
+                dtype=torch.float32,
+            ),
+        )
+        if zero_init:
+            _zero_init_linear(self.base)
+
+    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        flattened = inputs.reshape(-1, self.input_dim)
+        bounded = 1.5 * torch.tanh(flattened).unsqueeze(-1)
+        basis = torch.exp(
+            -(
+                (bounded - self.centers.view(1, 1, -1))
+                / self.widths.unsqueeze(0).clamp_min(1.0e-3)
+            ) ** 2
+        )
+        spline = torch.einsum("bik,iko->bo", basis, self.coefficients)
+        outputs = self.base(flattened) + spline
+        return outputs.view(*inputs.shape[:-1], self.output_dim)
+
+
+class GraphTransformerMessageLayer(nn.Module):
+    def __init__(self, hidden_dim: int, edge_dim: int, global_dim: int):
+        super().__init__()
+        if hidden_dim % 4 == 0:
+            self.num_heads = 4
+        elif hidden_dim % 2 == 0:
+            self.num_heads = 2
+        else:
+            self.num_heads = 1
+        self.head_dim = hidden_dim // self.num_heads
+        input_dim = hidden_dim + edge_dim + global_dim
+        self.key = nn.Linear(input_dim, hidden_dim)
+        self.value = nn.Linear(input_dim, hidden_dim)
+        self.query = nn.Linear(hidden_dim + global_dim, hidden_dim)
+        self.output = nn.Linear(hidden_dim, hidden_dim)
+        self.feed_forward = nn.Sequential(
+            nn.Linear(hidden_dim, 2 * hidden_dim),
+            nn.SiLU(),
+            nn.Linear(2 * hidden_dim, hidden_dim),
+        )
+        self.norm1 = nn.LayerNorm(hidden_dim)
+        self.norm2 = nn.LayerNorm(hidden_dim)
+        _zero_init_linear(self.output)
+        _zero_init_linear(self.feed_forward[-1])
+
+    def forward(
+        self,
+        hidden: torch.Tensor,
+        edge_index: torch.Tensor,
+        edge_attr: torch.Tensor,
+        edge_weight: torch.Tensor,
+        global_features: torch.Tensor,
+    ) -> torch.Tensor:
+        if edge_index.numel() == 0:
+            return hidden
+
+        src = edge_index[0]
+        dst = edge_index[1]
+        edge_global = global_features.expand(src.shape[0], -1)
+        src_input = torch.cat([hidden[src], edge_attr, edge_global], dim=-1)
+        dst_input = torch.cat([hidden[dst], edge_global], dim=-1)
+
+        keys = self.key(src_input).view(-1, self.num_heads, self.head_dim)
+        values = self.value(src_input).view(-1, self.num_heads, self.head_dim)
+        queries = self.query(dst_input).view(-1, self.num_heads, self.head_dim)
+        scores = torch.sum(queries * keys, dim=-1) / math.sqrt(self.head_dim)
+        attention = _edge_softmax(scores, dst, hidden.shape[0], edge_weight)
+
+        aggregated = torch.zeros(
+            hidden.shape[0],
+            self.num_heads,
+            self.head_dim,
+            dtype=hidden.dtype,
+            device=hidden.device,
+        )
+        aggregated.index_add_(0, dst, values * attention.unsqueeze(-1))
+        attended = self.output(aggregated.reshape(hidden.shape[0], hidden.shape[1]))
+        hidden = self.norm1(hidden + attended)
+        return self.norm2(hidden + self.feed_forward(hidden))
+
+
+class OperatorMessageLayer(nn.Module):
+    def __init__(self, hidden_dim: int, edge_dim: int, global_dim: int):
+        super().__init__()
+        input_dim = 2 * hidden_dim + edge_dim + global_dim
+        self.kernel = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.SiLU(),
+            nn.Linear(hidden_dim, hidden_dim),
+        )
+        self.gate = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.SiLU(),
+            nn.Linear(hidden_dim, 1),
+        )
+        self.update = nn.Sequential(
+            nn.Linear(2 * hidden_dim + global_dim, hidden_dim),
+            nn.SiLU(),
+            nn.Linear(hidden_dim, hidden_dim),
+        )
+        _zero_init_linear(self.update[-1])
+
+    def forward(
+        self,
+        hidden: torch.Tensor,
+        edge_index: torch.Tensor,
+        edge_attr: torch.Tensor,
+        edge_weight: torch.Tensor,
+        global_features: torch.Tensor,
+    ) -> torch.Tensor:
+        global_on_nodes = global_features.expand(hidden.shape[0], -1)
+        if edge_index.numel() == 0:
+            global_context = hidden.mean(dim=0, keepdim=True).expand_as(hidden)
+            return hidden + self.update(torch.cat([hidden, global_context, global_on_nodes], dim=-1))
+
+        src = edge_index[0]
+        dst = edge_index[1]
+        edge_global = global_features.expand(src.shape[0], -1)
+        operator_input = torch.cat([hidden[src], hidden[dst], edge_attr, edge_global], dim=-1)
+        kernel_values = self.kernel(operator_input)
+        kernel_scale = torch_functional.softplus(self.gate(operator_input)).squeeze(-1)
+        weighted_scale = kernel_scale * edge_weight.clamp_min(1.0e-6)
+
+        aggregated = torch.zeros_like(hidden)
+        aggregated.index_add_(0, dst, kernel_values * weighted_scale.unsqueeze(-1))
+        normaliser = torch.zeros(hidden.shape[0], device=hidden.device, dtype=hidden.dtype)
+        normaliser.index_add_(0, dst, weighted_scale)
+        aggregated = aggregated / normaliser.clamp_min(1.0e-6).unsqueeze(-1)
+        global_context = aggregated.mean(dim=0, keepdim=True).expand_as(hidden)
+        return hidden + self.update(
+            torch.cat([hidden, aggregated + global_context, global_on_nodes], dim=-1)
+        )
+
+
+class MultKANMessageLayer(nn.Module):
+    def __init__(self, hidden_dim: int, edge_dim: int, global_dim: int):
+        super().__init__()
+        input_dim = hidden_dim + edge_dim + global_dim
+        self.message = RadialKANLinear(input_dim, hidden_dim)
+        self.gate = RadialKANLinear(input_dim, hidden_dim)
+        self.update = RadialKANLinear(2 * hidden_dim, hidden_dim, zero_init=True)
+
+    def forward(
+        self,
+        hidden: torch.Tensor,
+        edge_index: torch.Tensor,
+        edge_attr: torch.Tensor,
+        edge_weight: torch.Tensor,
+        global_features: torch.Tensor,
+    ) -> torch.Tensor:
+        if edge_index.numel() == 0:
+            return hidden
+
+        src = edge_index[0]
+        dst = edge_index[1]
+        edge_global = global_features.expand(src.shape[0], -1)
+        message_input = torch.cat([hidden[src], edge_attr, edge_global], dim=-1)
+        candidate = self.message(message_input)
+        gate = torch.sigmoid(self.gate(message_input))
+        message = candidate * gate * edge_weight.unsqueeze(-1)
+
+        aggregated = torch.zeros_like(hidden)
+        aggregated.index_add_(0, dst, message)
+        normaliser = torch.zeros(hidden.shape[0], device=hidden.device, dtype=hidden.dtype)
+        normaliser.index_add_(0, dst, edge_weight.clamp_min(1.0e-6))
+        aggregated = aggregated / normaliser.clamp_min(1.0e-6).unsqueeze(-1)
+        return hidden + self.update(torch.cat([hidden, aggregated], dim=-1))
+
+
 def _make_message_layer(layer_kind: str, hidden_dim: int, edge_dim: int, global_dim: int) -> nn.Module:
     if layer_kind == "residual":
         return ResidualMessageLayer(hidden_dim, edge_dim, global_dim)
@@ -263,6 +520,12 @@ def _make_message_layer(layer_kind: str, hidden_dim: int, edge_dim: int, global_
         return GatedMessageLayer(hidden_dim, edge_dim, global_dim)
     if layer_kind in {"attention", "attention_conservative"}:
         return AttentionMessageLayer(hidden_dim, edge_dim, global_dim)
+    if layer_kind == "graph_transformer":
+        return GraphTransformerMessageLayer(hidden_dim, edge_dim, global_dim)
+    if layer_kind == "graph_operator":
+        return OperatorMessageLayer(hidden_dim, edge_dim, global_dim)
+    if layer_kind == "multkan":
+        return MultKANMessageLayer(hidden_dim, edge_dim, global_dim)
     raise ValueError(f"Unsupported architecture '{layer_kind}'")
 
 
@@ -365,8 +628,9 @@ class TorchGNNFingerprint(nn.Module):
         self._rng = random.Random(seed)
         self._device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
         self.architecture = ARCHITECTURE_ALIASES.get(str(architecture).strip(), str(architecture).strip())
-        self._use_component_coupling = self.architecture == "attention_coupled"
-        self._message_layer_kind = "attention" if self._use_component_coupling else self.architecture
+        self._coupled_message_layer_kind = COUPLED_ARCHITECTURES.get(self.architecture)
+        self._use_component_coupling = self._coupled_message_layer_kind is not None
+        self._message_layer_kind = self._coupled_message_layer_kind or self.architecture
 
         torch.manual_seed(self.seed)
         np.random.seed(self.seed)
@@ -1308,7 +1572,10 @@ class TorchGNNFingerprint(nn.Module):
         fingerprint_loss_weight: float = 1.0,
         target_vertex_weight: float = 0.0,
         target_position_weight: float = 0.0,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        repulsion_weight: float = 10.0,
+        minimum_distance_scale: float = 0.75,
+        cell_violation_weight: float = 0.0,
+    ) -> Tuple[torch.Tensor, dict[str, torch.Tensor]]:
         (
             (vertex_2body, vertex_3body, vertex_4body),
             (prediction_2body, prediction_3body, prediction_4body),
@@ -1333,18 +1600,27 @@ class TorchGNNFingerprint(nn.Module):
         pbc = torch.as_tensor(prepared.pbc, dtype=torch.bool, device=self._device)
         covalent_radii = _float_tensor(topology.covalent_radii, self._device)
 
-        regularisation = torch.zeros((), dtype=torch.float32, device=self._device)
+        repulsion_loss = torch.zeros((), dtype=torch.float32, device=self._device)
         if pair_index.numel() > 0:
             pair_left = pair_index[:, 0]
             pair_right = pair_index[:, 1]
             pair_delta = self._minimum_image_delta(cell, pbc, positions[pair_right] - positions[pair_left])
             pair_distance = pair_delta.norm(dim=-1)
 
-            min_distance = 0.75 * (covalent_radii[pair_left] + covalent_radii[pair_right])
+            min_distance = float(minimum_distance_scale) * (covalent_radii[pair_left] + covalent_radii[pair_right])
             overlap = torch.relu(min_distance - pair_distance) / min_distance.clamp_min(1.0e-6)
-            regularisation = regularisation + 10.0 * torch.mean(overlap ** 2)
+            repulsion_loss = torch.mean(overlap ** 2)
 
-        total_loss = total_loss + regularisation
+        total_loss = total_loss + float(repulsion_weight) * repulsion_loss
+
+        cell_violation_loss = torch.zeros((), dtype=torch.float32, device=self._device)
+        if bool(np.all(prepared.pbc)):
+            inverse_cell = torch.linalg.inv(cell)
+            fractional_positions = positions @ inverse_cell
+            lower_violation = torch.relu(-fractional_positions)
+            upper_violation = torch.relu(fractional_positions - 1.0)
+            cell_violation_loss = torch.mean((lower_violation + upper_violation) ** 2)
+            total_loss = total_loss + float(cell_violation_weight) * cell_violation_loss
 
         if target_vertex_fingerprints is not None and float(target_vertex_weight) > 0.0:
             target_vertex_2body, target_vertex_3body, target_vertex_4body = target_vertex_fingerprints
@@ -1366,7 +1642,11 @@ class TorchGNNFingerprint(nn.Module):
                     position_loss = torch.zeros((), dtype=torch.float32, device=self._device)
             total_loss = total_loss + float(target_position_weight) * position_loss
 
-        return total_loss, fingerprint_loss
+        return total_loss, {
+            "fingerprint_loss": fingerprint_loss,
+            "repulsion_loss": repulsion_loss,
+            "cell_violation_loss": cell_violation_loss,
+        }
 
     def inverse_design(
         self,
@@ -1383,9 +1663,17 @@ class TorchGNNFingerprint(nn.Module):
         inverse_lr_decay_rate: Optional[float] = None,
         num_restarts: int = 1,
         restart_noise_scale: float = 0.0,
+        repulsion_weight: float = 10.0,
+        minimum_distance_scale: float = 0.75,
+        cell_violation_weight: float = 0.0,
+        coordinate_clip_value: Optional[float] = None,
         step_observer: Optional[Callable[[dict[str, object]], None]] = None,
     ):
         self.eval()
+        if float(target_vertex_weight) != 0.0:
+            raise ValueError("target_vertex_weight must remain 0.0 for plan-compliant inverse design")
+        if float(target_position_weight) != 0.0:
+            raise ValueError("target_position_weight must remain 0.0 for plan-compliant inverse design")
         prepared = self.prepare_structure(atoms, include_targets=False)
         positions_initial = _float_tensor(prepared.positions, self._device)
         fixed_mask = torch.as_tensor(np.asarray(fixed_atoms, dtype=bool), dtype=torch.bool, device=self._device)
@@ -1473,7 +1761,7 @@ class TorchGNNFingerprint(nn.Module):
                     positions_initial,
                     positions_parameter,
                 )
-                total_loss, fingerprint_loss = self._positions_to_loss(
+                total_loss, loss_components = self._positions_to_loss(
                     prepared,
                     candidate_positions,
                     target_2body,
@@ -1486,6 +1774,9 @@ class TorchGNNFingerprint(nn.Module):
                     fingerprint_loss_weight=fingerprint_loss_weight,
                     target_vertex_weight=target_vertex_weight,
                     target_position_weight=target_position_weight,
+                    repulsion_weight=repulsion_weight,
+                    minimum_distance_scale=minimum_distance_scale,
+                    cell_violation_weight=cell_violation_weight,
                 )
                 total_loss.backward()
                 if positions_parameter.grad is not None:
@@ -1496,18 +1787,22 @@ class TorchGNNFingerprint(nn.Module):
                     scheduler.step()
                 with torch.no_grad():
                     positions_parameter.data[fixed_mask] = positions_initial[fixed_mask]
-                if step_observer is not None:
-                    observed_atoms = atoms.copy()
-                    observed_atoms.set_positions(
-                        torch.where(
-                            fixed_mask.unsqueeze(-1),
-                            positions_initial,
-                            positions_parameter,
+                    if coordinate_clip_value is not None and bool(movable_mask.any()):
+                        max_delta = float(coordinate_clip_value)
+                        movable_delta = positions_parameter.data[movable_mask] - positions_initial[movable_mask]
+                        positions_parameter.data[movable_mask] = positions_initial[movable_mask] + movable_delta.clamp(
+                            min=-max_delta,
+                            max=max_delta,
                         )
-                        .detach()
-                        .cpu()
-                        .numpy()
+                if step_observer is not None:
+                    observer_positions = torch.where(
+                        fixed_mask.unsqueeze(-1),
+                        positions_initial,
+                        positions_parameter,
                     )
+                    observed_atoms = atoms.copy()
+                    observed_atoms.set_positions(observer_positions.detach().cpu().numpy())
+                    current_learning_rate = float(optimiser.param_groups[0]["lr"])
                     step_observer(
                         {
                             "restart_index": int(restart_index),
@@ -1516,6 +1811,12 @@ class TorchGNNFingerprint(nn.Module):
                             "num_steps": int(num_steps),
                             "is_initial_state": False,
                             "atoms": observed_atoms,
+                            "learning_rate": current_learning_rate,
+                            "total_loss": float(total_loss.item()),
+                            "fingerprint_loss": float(loss_components["fingerprint_loss"].item()),
+                            "repulsion_loss": float(loss_components["repulsion_loss"].item()),
+                            "cell_violation_loss": float(loss_components["cell_violation_loss"].item()),
+                            "minimum_distance_scale": float(minimum_distance_scale),
                         }
                     )
                 current_loss = float(total_loss.item())
@@ -1526,7 +1827,9 @@ class TorchGNNFingerprint(nn.Module):
                     print(
                         f"restart={restart_index + 1:2d}/{num_restarts:2d} "
                         f"step={step + 1:4d} total_loss={current_loss:.6e} "
-                        f"fingerprint_loss={float(fingerprint_loss.item()):.6e}"
+                        f"fingerprint_loss={float(loss_components['fingerprint_loss'].item()):.6e} "
+                        f"repulsion_loss={float(loss_components['repulsion_loss'].item()):.6e} "
+                        f"cell_violation_loss={float(loss_components['cell_violation_loss'].item()):.6e}"
                     )
 
             with torch.no_grad():
@@ -1548,6 +1851,9 @@ class TorchGNNFingerprint(nn.Module):
                     fingerprint_loss_weight=fingerprint_loss_weight,
                     target_vertex_weight=target_vertex_weight,
                     target_position_weight=target_position_weight,
+                    repulsion_weight=repulsion_weight,
+                    minimum_distance_scale=minimum_distance_scale,
+                    cell_violation_weight=cell_violation_weight,
                 )
                 final_loss = float(final_total_loss.item())
             if final_loss < best_loss:

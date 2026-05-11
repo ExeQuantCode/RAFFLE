@@ -22,6 +22,7 @@ from torch_gnn_workflow_common import (
     load_target_fingerprint,
     print_position_differences,
     read_single_structure,
+    save_descriptor_comparison_report,
     write_inverse_design_log,
     write_json,
     write_structure,
@@ -110,6 +111,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--inverse-lr-decay-rate", type=float, default=0.0)
     parser.add_argument("--inverse-restarts", type=int, default=1)
     parser.add_argument("--inverse-restart-noise-scale", type=float, default=0.0)
+    parser.add_argument("--repulsion-weight", type=float, default=10.0)
+    parser.add_argument("--minimum-distance-scale", type=float, default=0.75)
+    parser.add_argument("--cell-violation-weight", type=float, default=0.0)
+    parser.add_argument("--coordinate-clip-value", type=float, default=None)
     parser.add_argument("--save-optimisation-traj", action="store_true")
     parser.add_argument("--plot-2body-fingerprint-comparison", action="store_true")
     parser.add_argument(
@@ -157,6 +162,10 @@ def main() -> None:
         inverse_lr_decay_rate=args.inverse_lr_decay_rate,
         inverse_restarts=args.inverse_restarts,
         inverse_restart_noise_scale=args.inverse_restart_noise_scale,
+        repulsion_weight=args.repulsion_weight,
+        minimum_distance_scale=args.minimum_distance_scale,
+        cell_violation_weight=args.cell_violation_weight,
+        coordinate_clip_value=args.coordinate_clip_value,
     )
     optimised = model.inverse_design(
         target_fingerprint=target_fingerprint,
@@ -204,6 +213,12 @@ def main() -> None:
                 "inverse_lr_decay_rate": float(args.inverse_lr_decay_rate),
                 "inverse_restarts": int(args.inverse_restarts),
                 "inverse_restart_noise_scale": float(args.inverse_restart_noise_scale),
+                "repulsion_weight": float(args.repulsion_weight),
+                "minimum_distance_scale": float(args.minimum_distance_scale),
+                "cell_violation_weight": float(args.cell_violation_weight),
+                "coordinate_clip_value": (
+                    None if args.coordinate_clip_value is None else float(args.coordinate_clip_value)
+                ),
             },
             "checkpoint_training_config": checkpoint.get("training_config", {}),
         }
@@ -213,11 +228,19 @@ def main() -> None:
     metrics_path = output_dir / "torch_gnn_inverse_design_metrics.json"
     log_path = output_dir / "torch_gnn_inverse_design_metrics.log"
     write_structure(structure_path, optimised)
+    descriptor_report = save_descriptor_comparison_report(
+        model=model,
+        target_fingerprint=target_fingerprint,
+        final_atoms=optimised,
+        structure_path=structure_path,
+    )
     metrics["output_files"] = {
         "optimised_structure": str(structure_path),
+        "optimised_structure_descriptor_comparison": descriptor_report["report_file"],
         "metrics": str(metrics_path),
         "log": str(log_path),
     }
+    metrics["descriptor_comparisons"] = {"final": descriptor_report}
 
     if args.save_optimisation_traj:
         traj_path = output_dir / "torch_gnn_inverse_design_path.traj"
@@ -243,6 +266,10 @@ def main() -> None:
         print_position_differences(target_atoms, input_atoms, optimised)
         print()
     print(f"Saved optimised structure: {structure_path}")
+    print(
+        "Saved descriptor comparison: "
+        f"{metrics['output_files']['optimised_structure_descriptor_comparison']}"
+    )
     print(f"Saved metrics log: {log_path}")
     if args.save_optimisation_traj:
         print(f"Saved optimisation trajectory: {metrics['output_files']['optimisation_traj']}")

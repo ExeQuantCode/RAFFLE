@@ -55,6 +55,208 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True))
 
 
+def fingerprint_component_dimensions(model) -> dict[str, int]:
+    if all(
+        hasattr(model, attribute)
+        for attribute in ("fingerprint_dim_2body", "fingerprint_dim_3body", "fingerprint_dim_4body")
+    ):
+        return {
+            "2body": int(model.fingerprint_dim_2body),
+            "3body": int(model.fingerprint_dim_3body),
+            "4body": int(model.fingerprint_dim_4body),
+        }
+    if hasattr(model, "component_dims"):
+        dims = tuple(int(value) for value in model.component_dims)
+        if len(dims) != 3:
+            raise ValueError("model.component_dims must contain exactly three entries")
+        return {"2body": dims[0], "3body": dims[1], "4body": dims[2]}
+    raise AttributeError("Model does not expose fingerprint component dimensions")
+
+
+def fingerprint_component_ranges(model) -> list[tuple[str, int, int]]:
+    start = 0
+    ranges: list[tuple[str, int, int]] = []
+    for label, width in fingerprint_component_dimensions(model).items():
+        end = start + int(width)
+        ranges.append((label, start, end))
+        start = end
+    return ranges
+
+
+def split_fingerprint_components(model, fingerprint: np.ndarray) -> dict[str, np.ndarray]:
+    array = np.asarray(fingerprint, dtype=np.float32).reshape(-1)
+    components: dict[str, np.ndarray] = {}
+    expected_size = 0
+    for label, start, end in fingerprint_component_ranges(model):
+        components[label] = array[start:end].astype(np.float32, copy=False)
+        expected_size = end
+    if array.size != expected_size:
+        raise ValueError(
+            "Fingerprint length does not match model component dimensions: "
+            f"{array.size} != {expected_size}"
+        )
+    return components
+
+
+def _resolve_true_fingerprint(model, atoms) -> np.ndarray:
+    if hasattr(model, "compute_reference_fingerprint"):
+        values = model.compute_reference_fingerprint(atoms)
+    elif hasattr(model, "compute_fingerprint"):
+        values = model.compute_fingerprint(atoms)
+    else:
+        raise AttributeError("Model does not expose a true RAFFLE fingerprint API")
+    return np.asarray(values, dtype=np.float32).reshape(-1)
+
+
+def _resolve_true_fingerprint_components(model, atoms) -> dict[str, np.ndarray]:
+    if hasattr(model, "compute_reference_components"):
+        values = model.compute_reference_components(atoms)
+        return {
+            "2body": np.asarray(values[0], dtype=np.float32).reshape(-1),
+            "3body": np.asarray(values[1], dtype=np.float32).reshape(-1),
+            "4body": np.asarray(values[2], dtype=np.float32).reshape(-1),
+        }
+    if hasattr(model, "compute_fingerprint_components"):
+        values = model.compute_fingerprint_components(atoms)
+        return {
+            "2body": np.asarray(values[0], dtype=np.float32).reshape(-1),
+            "3body": np.asarray(values[1], dtype=np.float32).reshape(-1),
+            "4body": np.asarray(values[2], dtype=np.float32).reshape(-1),
+        }
+    return split_fingerprint_components(model, _resolve_true_fingerprint(model, atoms))
+
+
+def _resolve_predicted_fingerprint(model, atoms) -> np.ndarray:
+    if not hasattr(model, "predict"):
+        raise AttributeError("Model does not expose a predicted fingerprint API")
+    return np.asarray(model.predict(atoms), dtype=np.float32).reshape(-1)
+
+
+def _resolve_predicted_fingerprint_components(model, atoms) -> dict[str, np.ndarray]:
+    if hasattr(model, "predict_components"):
+        values = model.predict_components(atoms)
+        return {
+            "2body": np.asarray(values[0], dtype=np.float32).reshape(-1),
+            "3body": np.asarray(values[1], dtype=np.float32).reshape(-1),
+            "4body": np.asarray(values[2], dtype=np.float32).reshape(-1),
+        }
+    return split_fingerprint_components(model, _resolve_predicted_fingerprint(model, atoms))
+
+
+def fingerprint_error_summary(reference: np.ndarray, candidate: np.ndarray) -> dict[str, float]:
+    reference_array = np.asarray(reference, dtype=np.float32).reshape(-1)
+    candidate_array = np.asarray(candidate, dtype=np.float32).reshape(-1)
+    if reference_array.shape != candidate_array.shape:
+        raise ValueError(
+            "Fingerprint arrays must have the same shape: "
+            f"{reference_array.shape} != {candidate_array.shape}"
+        )
+    delta = candidate_array - reference_array
+    mse = float(np.mean(delta ** 2)) if delta.size else 0.0
+    return {
+        "mae": float(np.mean(np.abs(delta))) if delta.size else 0.0,
+        "rmse": float(np.sqrt(mse)),
+        "mse": mse,
+        "l2": float(np.linalg.norm(delta)),
+        "max_abs_error": float(np.max(np.abs(delta))) if delta.size else 0.0,
+    }
+
+
+def descriptor_report_path(structure_path: Path) -> Path:
+    return structure_path.with_name(f"{structure_path.stem}_descriptor_comparison.json")
+
+
+def save_descriptor_comparison_report(
+    model,
+    target_fingerprint: np.ndarray,
+    final_atoms,
+    structure_path: Path,
+    structure_label: str = "final",
+) -> dict[str, Any]:
+    resolved_structure_path = structure_path.resolve()
+    target_global = np.asarray(target_fingerprint, dtype=np.float32).reshape(-1)
+    predicted_global = _resolve_predicted_fingerprint(model, final_atoms)
+    true_global = _resolve_true_fingerprint(model, final_atoms)
+    if predicted_global.shape != target_global.shape:
+        raise ValueError(
+            "Predicted and target fingerprints must have the same shape: "
+            f"{predicted_global.shape} != {target_global.shape}"
+        )
+    if true_global.shape != target_global.shape:
+        raise ValueError(
+            "True and target fingerprints must have the same shape: "
+            f"{true_global.shape} != {target_global.shape}"
+        )
+
+    target_components = split_fingerprint_components(model, target_global)
+    predicted_components = _resolve_predicted_fingerprint_components(model, final_atoms)
+    true_components = _resolve_true_fingerprint_components(model, final_atoms)
+
+    global_error_vectors = {
+        "ml_predicted_minus_target": (predicted_global - target_global).astype(np.float32),
+        "true_raffle_minus_target": (true_global - target_global).astype(np.float32),
+        "ml_predicted_minus_true_raffle": (predicted_global - true_global).astype(np.float32),
+    }
+    component_reports: dict[str, Any] = {}
+    component_summaries: dict[str, Any] = {}
+    for component_name in ("2body", "3body", "4body"):
+        target_component = target_components[component_name]
+        predicted_component = predicted_components[component_name]
+        true_component = true_components[component_name]
+        component_metrics = {
+            "ml_predicted_vs_target": fingerprint_error_summary(
+                target_component,
+                predicted_component,
+            ),
+            "true_raffle_vs_target": fingerprint_error_summary(
+                target_component,
+                true_component,
+            ),
+            "ml_predicted_vs_true_raffle": fingerprint_error_summary(
+                true_component,
+                predicted_component,
+            ),
+        }
+        component_reports[component_name] = {
+            "target_raffle": target_component.tolist(),
+            "ml_predicted": predicted_component.tolist(),
+            "true_raffle": true_component.tolist(),
+            "error_vectors": {
+                "ml_predicted_minus_target": (predicted_component - target_component).tolist(),
+                "true_raffle_minus_target": (true_component - target_component).tolist(),
+                "ml_predicted_minus_true_raffle": (predicted_component - true_component).tolist(),
+            },
+            "metrics": component_metrics,
+        }
+        component_summaries[component_name] = component_metrics
+
+    report = {
+        "structure_label": str(structure_label),
+        "structure_file": str(resolved_structure_path),
+        "fingerprint_length": int(target_global.size),
+        "component_dimensions": fingerprint_component_dimensions(model),
+        "global_fingerprints": {
+            "target_raffle": target_global.tolist(),
+            "ml_predicted": predicted_global.tolist(),
+            "true_raffle": true_global.tolist(),
+        },
+        "global_error_vectors": {
+            key: value.tolist() for key, value in global_error_vectors.items()
+        },
+        "global_metrics": {
+            "ml_predicted_vs_target": fingerprint_error_summary(target_global, predicted_global),
+            "true_raffle_vs_target": fingerprint_error_summary(target_global, true_global),
+            "ml_predicted_vs_true_raffle": fingerprint_error_summary(true_global, predicted_global),
+        },
+        "components": component_reports,
+        "component_summaries": component_summaries,
+    }
+    report_path = descriptor_report_path(resolved_structure_path)
+    write_json(report_path, report)
+    report["report_file"] = str(report_path)
+    return report
+
+
 def resolve_path(value: Optional[str | Path], base_dir: Path) -> Optional[Path]:
     if value is None:
         return None
@@ -223,21 +425,29 @@ def build_inverse_design_options(
     inverse_lr_decay_rate: float = 0.0,
     inverse_restarts: int = 1,
     inverse_restart_noise_scale: float = 0.0,
+    repulsion_weight: float = 10.0,
+    minimum_distance_scale: float = 0.75,
+    cell_violation_weight: float = 0.0,
+    coordinate_clip_value: float | None = None,
 ) -> dict[str, Any]:
-    if target_atoms is None and (
-        float(target_vertex_weight) > 0.0 or float(target_position_weight) > 0.0
-    ):
-        raise ValueError(
-            "target_vertex_weight and target_position_weight require a target structure"
-        )
+    if float(target_vertex_weight) != 0.0:
+        raise ValueError("target_vertex_weight must remain 0.0 for plan-compliant inverse design")
+    if float(target_position_weight) != 0.0:
+        raise ValueError("target_position_weight must remain 0.0 for plan-compliant inverse design")
     return {
-        "target_atoms": target_atoms,
+        "target_atoms": None,
         "fingerprint_loss_weight": float(fingerprint_loss_weight),
         "target_vertex_weight": float(target_vertex_weight),
         "target_position_weight": float(target_position_weight),
         "inverse_lr_decay_rate": float(inverse_lr_decay_rate),
         "num_restarts": int(inverse_restarts),
         "restart_noise_scale": float(inverse_restart_noise_scale),
+        "repulsion_weight": float(repulsion_weight),
+        "minimum_distance_scale": float(minimum_distance_scale),
+        "cell_violation_weight": float(cell_violation_weight),
+        "coordinate_clip_value": (
+            None if coordinate_clip_value is None else float(coordinate_clip_value)
+        ),
     }
 
 

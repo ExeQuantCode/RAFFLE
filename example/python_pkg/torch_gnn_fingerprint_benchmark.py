@@ -16,6 +16,7 @@ from ase.io import read, write
 
 from raffle import symmetry_aware_rmsd
 from raffle.torch_gnn_fingerprint import TorchGNNFingerprint
+from torch_gnn_workflow_common import save_descriptor_comparison_report
 
 
 PERTURBATION = np.array(
@@ -137,6 +138,12 @@ def run_workflow(
     write(output_dir / "torch_gnn_diamond_original.xyz", original)
     write(output_dir / "torch_gnn_diamond_perturbed.xyz", perturbed)
     write(output_dir / "torch_gnn_diamond_optimised.xyz", optimised)
+    descriptor_report = save_descriptor_comparison_report(
+        model=model,
+        target_fingerprint=target_fingerprint,
+        final_atoms=optimised,
+        structure_path=output_dir / "torch_gnn_diamond_optimised.xyz",
+    )
 
     figure = plt.figure(figsize=(14, 4.5))
     ax1 = figure.add_subplot(1, 3, 1)
@@ -218,7 +225,9 @@ def run_workflow(
             "original": str(output_dir / "torch_gnn_diamond_original.xyz"),
             "perturbed": str(output_dir / "torch_gnn_diamond_perturbed.xyz"),
             "optimised": str(output_dir / "torch_gnn_diamond_optimised.xyz"),
+            "optimised_descriptor_comparison": descriptor_report["report_file"],
         },
+        "descriptor_comparisons": {"final": descriptor_report},
     }
     metrics_path = output_dir / "torch_gnn_fingerprint_benchmark_metrics.json"
     metrics_path.write_text(json.dumps(metrics, indent=2))

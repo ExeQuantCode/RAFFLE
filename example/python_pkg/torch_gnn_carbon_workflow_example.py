@@ -22,6 +22,12 @@ from raffle import (
     symmetry_aware_displacements,
     symmetry_aware_rmsd,
 )
+from torch_gnn_rollout import (
+    PrioritizedReplayBuffer,
+    ReplaySample,
+    classify_rollout_step,
+)
+from torch_gnn_workflow_common import save_descriptor_comparison_report
 
 
 PERTURBATION = np.array(
@@ -38,13 +44,32 @@ PERTURBATION = np.array(
     dtype=np.float32,
 )
 
-FIXED_LEADING_ATOMS = 0
+FIXED_LEADING_ATOMS = 1
 FINGERPRINT_LOSS_WEIGHT = 0.5
-TARGET_VERTEX_WEIGHT = 0.5
+TARGET_VERTEX_WEIGHT = 0.0
 TARGET_POSITION_WEIGHT = 0.0
 INVERSE_LR_DECAY_RATE = 0.0
 INVERSE_RESTARTS = 1
 INVERSE_RESTART_NOISE_SCALE = 0.0
+REPULSION_WEIGHT = 10.0
+MINIMUM_DISTANCE_SCALE = 0.75
+CELL_VIOLATION_WEIGHT = 0.0
+COORDINATE_CLIP_VALUE = None
+ROLLOUT_STAGES = 1
+ROLLOUT_EPOCHS_PER_STAGE = 1
+ROLLOUT_STEP_STRIDE = 25
+REPLAY_BUFFER_CAPACITY = 64
+REPLAY_SAMPLE_SIZE = 8
+ROLLOUT_DRIFT_THRESHOLD = 5.0e-4
+ROLLOUT_HIGH_ERROR_THRESHOLD = 1.0e-3
+ROLLOUT_INSTABILITY_THRESHOLD = 1.0e-4
+DEFAULT_REPLAY_CATEGORY_WEIGHTS = {
+    "successful": 1.0,
+    "failed": 2.0,
+    "unstable": 2.0,
+    "high_error": 2.0,
+    "difficult": 2.0,
+}
 DEFAULT_COMPONENT_WEIGHT = (4.0, 1.0, 1.0)
 DEFAULT_MODEL_CONFIG = {
     "architecture": "residual",
@@ -121,6 +146,21 @@ def parse_float_list(value: str) -> list[float]:
     return [float(item.strip()) for item in value.split(",") if item.strip()]
 
 
+def parse_category_weights(value: str) -> dict[str, float]:
+    resolved = dict(DEFAULT_REPLAY_CATEGORY_WEIGHTS)
+    for item in value.split(","):
+        entry = item.strip()
+        if not entry:
+            continue
+        key, separator, raw_value = entry.partition("=")
+        if separator != "=" or not key.strip() or not raw_value.strip():
+            raise ValueError(
+                "replay-category-weights entries must use category=value format"
+            )
+        resolved[key.strip()] = float(raw_value.strip())
+    return resolved
+
+
 def build_inverse_design_options(
     original,
     fingerprint_loss_weight: float,
@@ -129,16 +169,34 @@ def build_inverse_design_options(
     inverse_lr_decay_rate: float,
     inverse_restarts: int,
     inverse_restart_noise_scale: float,
+    repulsion_weight: float,
+    minimum_distance_scale: float,
+    cell_violation_weight: float,
+    coordinate_clip_value: float | None,
 ) -> dict:
+    if float(target_vertex_weight) != 0.0:
+        raise ValueError("target_vertex_weight must remain 0.0 for inverse-design runs")
+    if float(target_position_weight) != 0.0:
+        raise ValueError("target_position_weight must remain 0.0 for inverse-design runs")
     return {
-        "target_atoms": original,
+        "target_atoms": None,
         "fingerprint_loss_weight": float(fingerprint_loss_weight),
         "target_vertex_weight": float(target_vertex_weight),
         "target_position_weight": float(target_position_weight),
         "inverse_lr_decay_rate": float(inverse_lr_decay_rate),
         "num_restarts": int(inverse_restarts),
         "restart_noise_scale": float(inverse_restart_noise_scale),
+        "repulsion_weight": float(repulsion_weight),
+        "minimum_distance_scale": float(minimum_distance_scale),
+        "cell_violation_weight": float(cell_violation_weight),
+        "coordinate_clip_value": (
+            None if coordinate_clip_value is None else float(coordinate_clip_value)
+        ),
     }
+
+
+def minimum_training_carbon_count(total_count: int) -> int:
+    return max(1, int(np.ceil(0.3 * max(int(total_count), 0))))
 
 
 def score_candidate(original, candidate_atoms) -> float:
@@ -171,6 +229,294 @@ def capture_checkpoint(model: TorchGNNFingerprint, epochs: int, position_differe
     }
 
 
+def build_rollout_step_observer(trajectory_records: list[dict]) -> Callable[[dict[str, object]], None]:
+    def observer(step_record: dict[str, object]) -> None:
+        trajectory_records.append(
+            {
+                "atoms": step_record["atoms"].copy(),
+                "restart_index": int(step_record["restart_index"]),
+                "num_restarts": int(step_record["num_restarts"]),
+                "step": int(step_record["step"]),
+                "num_steps": int(step_record["num_steps"]),
+                "is_initial_state": bool(step_record["is_initial_state"]),
+                "learning_rate": float(step_record.get("learning_rate", 0.0)),
+                "total_loss": float(step_record.get("total_loss", 0.0)),
+                "fingerprint_loss": float(step_record.get("fingerprint_loss", 0.0)),
+                "repulsion_loss": float(step_record.get("repulsion_loss", 0.0)),
+                "cell_violation_loss": float(step_record.get("cell_violation_loss", 0.0)),
+            }
+        )
+
+    return observer
+
+
+def summarise_convergence(trace: list[dict[str, float]]) -> dict[str, float | int | bool]:
+    if not trace:
+        return {
+            "best_step": 0,
+            "best_position_difference": 0.0,
+            "final_position_difference": 0.0,
+            "best_fingerprint_mse": 0.0,
+            "final_fingerprint_mse": 0.0,
+            "tail_position_range": 0.0,
+            "tail_fingerprint_range": 0.0,
+            "fingerprint_nonincreasing_fraction": 1.0,
+            "position_nonincreasing_fraction": 1.0,
+            "converges_to_best_within_5pct": True,
+        }
+
+    position_values = np.asarray([entry["position_difference"] for entry in trace], dtype=np.float64)
+    fingerprint_values = np.asarray([entry["fingerprint_mse"] for entry in trace], dtype=np.float64)
+    step_values = np.asarray([entry["step"] for entry in trace], dtype=np.int64)
+    best_index = int(np.argmin(position_values))
+    tail_count = min(3, len(trace))
+    tail_positions = position_values[-tail_count:]
+    tail_fingerprint = fingerprint_values[-tail_count:]
+    fingerprint_deltas = np.diff(fingerprint_values)
+    position_deltas = np.diff(position_values)
+
+    return {
+        "best_step": int(step_values[best_index]),
+        "best_position_difference": float(position_values[best_index]),
+        "final_position_difference": float(position_values[-1]),
+        "best_fingerprint_mse": float(np.min(fingerprint_values)),
+        "final_fingerprint_mse": float(fingerprint_values[-1]),
+        "tail_position_range": float(np.max(tail_positions) - np.min(tail_positions)),
+        "tail_fingerprint_range": float(np.max(tail_fingerprint) - np.min(tail_fingerprint)),
+        "fingerprint_nonincreasing_fraction": (
+            1.0
+            if len(fingerprint_deltas) == 0
+            else float(np.mean(fingerprint_deltas <= 1.0e-12))
+        ),
+        "position_nonincreasing_fraction": (
+            1.0 if len(position_deltas) == 0 else float(np.mean(position_deltas <= 1.0e-12))
+        ),
+        "converges_to_best_within_5pct": bool(
+            position_values[-1] <= 1.05 * max(position_values[best_index], 1.0e-12)
+        ),
+    }
+
+
+def run_rollout_retraining(
+    model: TorchGNNFingerprint,
+    carbon_structures,
+    original,
+    perturbed,
+    fixed_atoms: np.ndarray,
+    target_fingerprint: np.ndarray,
+    batch_size: int,
+    inverse_steps: int,
+    inverse_step_size: float,
+    inverse_design_options: dict,
+    seed: int,
+    rollout_stages: int,
+    rollout_epochs_per_stage: int,
+    rollout_step_stride: int,
+    replay_buffer_capacity: int,
+    replay_sample_size: int,
+    replay_category_weights: dict[str, float],
+    rollout_drift_threshold: float,
+    rollout_high_error_threshold: float,
+    rollout_instability_threshold: float,
+    training_observer: Optional[Callable[[int, float], None]] = None,
+    training_epoch_offset: int = 0,
+) -> tuple[TorchGNNFingerprint, dict]:
+    if int(rollout_stages) <= 0:
+        return model, {
+            "enabled": False,
+            "num_rollout_epochs": 0,
+            "replay_buffer": {
+                "capacity": int(replay_buffer_capacity),
+                "size": 0,
+                "category_counts": {},
+                "mean_priority": 0.0,
+                "mean_fingerprint_drift_mse": 0.0,
+                "mean_true_target_fingerprint_mse": 0.0,
+            },
+            "stages": [],
+        }
+
+    replay_buffer = PrioritizedReplayBuffer(capacity=replay_buffer_capacity, seed=seed)
+    stage_summaries = []
+    rollout_epoch_index = int(training_epoch_offset)
+
+    for stage_index in range(int(rollout_stages)):
+        trajectory_records: list[dict] = []
+        step_observer = build_rollout_step_observer(trajectory_records)
+        model.inverse_design(
+            target_fingerprint=target_fingerprint,
+            atoms=perturbed,
+            fixed_atoms=fixed_atoms,
+            num_steps=inverse_steps,
+            step_size=inverse_step_size,
+            verbose=0,
+            step_observer=step_observer,
+            **inverse_design_options,
+        )
+
+        retained_records = []
+        last_step = max((record["step"] for record in trajectory_records), default=0)
+        for record in trajectory_records:
+            if record["is_initial_state"]:
+                retained_records.append(record)
+                continue
+            if int(record["step"]) == int(last_step):
+                retained_records.append(record)
+                continue
+            if int(rollout_step_stride) <= 1 or int(record["step"]) % int(rollout_step_stride) == 0:
+                retained_records.append(record)
+
+        new_samples = []
+        previous_true_error = None
+        category_counts: dict[str, int] = {}
+        for record in retained_records:
+            true_fingerprint = model.compute_reference_fingerprint(record["atoms"])
+            surrogate_fingerprint = model.predict(record["atoms"])
+            true_target_fingerprint_mse = float(
+                np.mean((true_fingerprint - target_fingerprint) ** 2)
+            )
+            surrogate_target_fingerprint_mse = float(
+                np.mean((surrogate_fingerprint - target_fingerprint) ** 2)
+            )
+            fingerprint_drift_mse = float(
+                np.mean((surrogate_fingerprint - true_fingerprint) ** 2)
+            )
+            position_difference = float(score_candidate(original, record["atoms"]))
+            categories = classify_rollout_step(
+                true_target_fingerprint_mse=true_target_fingerprint_mse,
+                previous_true_target_fingerprint_mse=previous_true_error,
+                fingerprint_drift_mse=fingerprint_drift_mse,
+                repulsion_loss=float(record["repulsion_loss"]),
+                cell_violation_loss=float(record["cell_violation_loss"]),
+                drift_threshold=rollout_drift_threshold,
+                high_error_threshold=rollout_high_error_threshold,
+                instability_threshold=rollout_instability_threshold,
+            )
+            for category in categories:
+                category_counts[category] = category_counts.get(category, 0) + 1
+            priority = (
+                true_target_fingerprint_mse
+                + surrogate_target_fingerprint_mse
+                + fingerprint_drift_mse
+                + float(record["repulsion_loss"])
+                + float(record["cell_violation_loss"])
+            )
+            new_sample = ReplaySample(
+                atoms=record["atoms"],
+                priority=priority,
+                categories=categories,
+                stage_index=stage_index + 1,
+                step=int(record["step"]),
+                restart_index=int(record["restart_index"]),
+                true_target_fingerprint_mse=true_target_fingerprint_mse,
+                surrogate_target_fingerprint_mse=surrogate_target_fingerprint_mse,
+                fingerprint_drift_mse=fingerprint_drift_mse,
+                position_difference=position_difference,
+                repulsion_loss=float(record["repulsion_loss"]),
+                cell_violation_loss=float(record["cell_violation_loss"]),
+                is_initial_state=bool(record["is_initial_state"]),
+            )
+            new_samples.append(new_sample)
+            previous_true_error = true_target_fingerprint_mse
+
+        replay_buffer.extend(new_samples)
+        replay_batch = replay_buffer.sample(
+            sample_size=replay_sample_size,
+            category_weights=replay_category_weights,
+        )
+
+        stage_training_losses = []
+        if replay_batch and int(rollout_epochs_per_stage) > 0:
+            replay_structures = [sample.atoms for sample in replay_batch]
+            for _ in range(int(rollout_epochs_per_stage)):
+                history = model.fit(
+                    carbon_structures,
+                    num_epochs=1,
+                    batch_size=batch_size,
+                    augment_structures=replay_structures,
+                    verbose=0,
+                    reset_optimiser=False,
+                    recalibrate_base=False,
+                )
+                epoch_loss = float(history[-1])
+                stage_training_losses.append(epoch_loss)
+                rollout_epoch_index += 1
+                if training_observer is not None:
+                    training_observer(rollout_epoch_index, epoch_loss)
+
+        stage_true_errors = [sample.true_target_fingerprint_mse for sample in new_samples]
+        stage_surrogate_errors = [sample.surrogate_target_fingerprint_mse for sample in new_samples]
+        stage_drifts = [sample.fingerprint_drift_mse for sample in new_samples]
+        stage_position_differences = [
+            sample.position_difference for sample in new_samples if sample.position_difference is not None
+        ]
+        stage_summaries.append(
+            {
+                "stage_index": int(stage_index + 1),
+                "num_stage_samples": int(len(new_samples)),
+                "sampled_replay_count": int(len(replay_batch)),
+                "buffer_size": int(len(replay_buffer)),
+                "category_counts": category_counts,
+                "initial_true_target_fingerprint_mse": (
+                    None if not stage_true_errors else float(stage_true_errors[0])
+                ),
+                "best_true_target_fingerprint_mse": (
+                    None if not stage_true_errors else float(np.min(stage_true_errors))
+                ),
+                "final_true_target_fingerprint_mse": (
+                    None if not stage_true_errors else float(stage_true_errors[-1])
+                ),
+                "best_surrogate_target_fingerprint_mse": (
+                    None if not stage_surrogate_errors else float(np.min(stage_surrogate_errors))
+                ),
+                "final_surrogate_target_fingerprint_mse": (
+                    None if not stage_surrogate_errors else float(stage_surrogate_errors[-1])
+                ),
+                "mean_fingerprint_drift_mse": (
+                    0.0 if not stage_drifts else float(np.mean(stage_drifts))
+                ),
+                "best_position_difference": (
+                    None
+                    if not stage_position_differences
+                    else float(np.min(stage_position_differences))
+                ),
+                "final_position_difference": (
+                    None
+                    if not stage_position_differences
+                    else float(stage_position_differences[-1])
+                ),
+                "training_losses": [float(loss) for loss in stage_training_losses],
+                "trajectory": [
+                    {
+                        "restart_index": int(sample.restart_index),
+                        "step": int(sample.step),
+                        "is_initial_state": bool(sample.is_initial_state),
+                        "categories": list(sample.categories),
+                        "priority": float(sample.priority),
+                        "true_target_fingerprint_mse": float(sample.true_target_fingerprint_mse),
+                        "surrogate_target_fingerprint_mse": float(sample.surrogate_target_fingerprint_mse),
+                        "fingerprint_drift_mse": float(sample.fingerprint_drift_mse),
+                        "position_difference": (
+                            None
+                            if sample.position_difference is None
+                            else float(sample.position_difference)
+                        ),
+                        "repulsion_loss": float(sample.repulsion_loss),
+                        "cell_violation_loss": float(sample.cell_violation_loss),
+                    }
+                    for sample in new_samples
+                ],
+            }
+        )
+
+    return model, {
+        "enabled": True,
+        "num_rollout_epochs": int(max(rollout_epoch_index - int(training_epoch_offset), 0)),
+        "replay_buffer": replay_buffer.stats(),
+        "stages": stage_summaries,
+    }
+
+
 def inverse_design_trace(
     model: TorchGNNFingerprint,
     original,
@@ -199,6 +545,12 @@ def inverse_design_trace(
                 **inverse_design_options,
             )
         position_difference = score_candidate(original, candidate_atoms)
+        predicted_fingerprint = model.predict(candidate_atoms)
+        fingerprint_mse = float(np.mean((predicted_fingerprint - target_fingerprint) ** 2))
+        fingerprint_l2 = float(np.linalg.norm(predicted_fingerprint - target_fingerprint))
+        structure_update_norm = float(
+            np.linalg.norm(candidate_atoms.get_positions() - perturbed.get_positions())
+        )
         if step == requested_step_values[-1]:
             optimised = candidate_atoms.copy()
         best_candidate = update_best_candidate(
@@ -207,11 +559,15 @@ def inverse_design_trace(
             position_difference,
             source="inverse_step_sweep",
             step=int(step),
+            fingerprint_mse=fingerprint_mse,
         )
         trace.append(
             {
                 "step": step,
                 "position_difference": position_difference,
+                "fingerprint_mse": fingerprint_mse,
+                "fingerprint_l2": fingerprint_l2,
+                "structure_update_norm": structure_update_norm,
             }
         )
     return optimised, trace, best_candidate
@@ -560,21 +916,46 @@ def run_example(
     inverse_lr_decay_rate: float,
     inverse_restarts: int,
     inverse_restart_noise_scale: float,
+    repulsion_weight: float,
+    minimum_distance_scale: float,
+    cell_violation_weight: float,
+    coordinate_clip_value: float | None,
+    rollout_stages: int,
+    rollout_epochs_per_stage: int,
+    rollout_step_stride: int,
+    replay_buffer_capacity: int,
+    replay_sample_size: int,
+    replay_category_weights: dict[str, float],
+    rollout_drift_threshold: float,
+    rollout_high_error_threshold: float,
+    rollout_instability_threshold: float,
     seed: int,
     model_config: Optional[dict] = None,
     training_observer: Optional[Callable[[int, float], None]] = None,
     architecture_name: str = "torch_gnn_residual",
+    enable_checkpoint_step_size_sweep: bool = True,
+    enable_checkpoint_step_schedule_sweep: bool = True,
 ) -> dict:
+    if int(augmented_count) != 0:
+        raise ValueError("augmented_count must remain 0 for inverse-design runs")
+    if float(target_vertex_weight) != 0.0:
+        raise ValueError("target_vertex_weight must remain 0.0 for inverse-design runs")
     if float(target_position_weight) != 0.0:
         raise ValueError("target_position_weight must remain 0.0 for inverse-design runs")
 
     carbon_xyz = repo_root / "example" / "data" / "carbon.xyz"
     all_carbon_structures = read(str(carbon_xyz), index=":")
     carbon_structures = select_carbon_structures(all_carbon_structures, carbon_count)
+    minimum_carbon_count = minimum_training_carbon_count(len(all_carbon_structures))
+    if len(carbon_structures) < minimum_carbon_count:
+        raise ValueError(
+            "carbon_count must select at least 30% of example/data/carbon.xyz "
+            f"structures ({minimum_carbon_count} minimum, received {len(carbon_structures)})"
+        )
 
     original = bulk("C", "diamond", a=3.567, cubic=True)
     original.pbc = True
-    augmented_structures = build_augmented_structures(original, augmented_count, seed)
+    augmented_structures = []
     perturbed, fixed_atoms = build_perturbed_structure(original, fixed_leading_atoms=fixed_leading_atoms)
     inverse_design_options = build_inverse_design_options(
         original=original,
@@ -584,6 +965,10 @@ def run_example(
         inverse_lr_decay_rate=inverse_lr_decay_rate,
         inverse_restarts=inverse_restarts,
         inverse_restart_noise_scale=inverse_restart_noise_scale,
+        repulsion_weight=repulsion_weight,
+        minimum_distance_scale=minimum_distance_scale,
+        cell_violation_weight=cell_violation_weight,
+        coordinate_clip_value=coordinate_clip_value,
     )
 
     model, epoch_results, training_losses, best_epoch_candidate, checkpoint_records = sweep_epochs(
@@ -603,6 +988,41 @@ def run_example(
     )
 
     target_fingerprint = model.compute_reference_fingerprint(original)
+    model, rollout_metrics = run_rollout_retraining(
+        model=model,
+        carbon_structures=carbon_structures,
+        original=original,
+        perturbed=perturbed,
+        fixed_atoms=fixed_atoms,
+        target_fingerprint=target_fingerprint,
+        batch_size=batch_size,
+        inverse_steps=inverse_steps,
+        inverse_step_size=inverse_step_size,
+        inverse_design_options=inverse_design_options,
+        seed=seed,
+        rollout_stages=rollout_stages,
+        rollout_epochs_per_stage=rollout_epochs_per_stage,
+        rollout_step_stride=rollout_step_stride,
+        replay_buffer_capacity=replay_buffer_capacity,
+        replay_sample_size=replay_sample_size,
+        replay_category_weights=replay_category_weights,
+        rollout_drift_threshold=rollout_drift_threshold,
+        rollout_high_error_threshold=rollout_high_error_threshold,
+        rollout_instability_threshold=rollout_instability_threshold,
+        training_observer=training_observer,
+        training_epoch_offset=len(training_losses),
+    )
+    if rollout_metrics["enabled"]:
+        final_rollout_position_difference = rollout_metrics["stages"][-1]["final_position_difference"]
+        if final_rollout_position_difference is not None:
+            checkpoint_records.append(
+                capture_checkpoint(
+                    model,
+                    int(num_epochs + rollout_metrics["num_rollout_epochs"]),
+                    float(final_rollout_position_difference),
+                )
+            )
+
     optimised, full_inverse_trace, best_inverse_candidate = inverse_design_trace(
         model=model,
         original=original,
@@ -614,6 +1034,7 @@ def run_example(
         inverse_design_options=inverse_design_options,
     )
     inverse_trace = full_inverse_trace
+    convergence_summary = summarise_convergence(inverse_trace)
     step_size_results, best_step_size_candidate = sweep_step_sizes(
         model=model,
         original=original,
@@ -624,30 +1045,36 @@ def run_example(
         step_sizes=step_size_values,
         inverse_design_options=inverse_design_options,
     )
-    checkpoint_step_size_results, best_checkpoint_step_size_candidate = sweep_step_sizes_for_checkpoints(
-        model=model,
-        checkpoint_records=checkpoint_records,
-        original=original,
-        perturbed=perturbed,
-        fixed_atoms=fixed_atoms,
-        target_fingerprint=target_fingerprint,
-        inverse_steps=inverse_steps,
-        step_sizes=step_size_values,
-        inverse_design_options=inverse_design_options,
-    )
-    checkpoint_step_schedule_results, best_checkpoint_step_schedule_candidate = (
-        sweep_step_schedules_for_checkpoints(
+    checkpoint_step_size_results = []
+    best_checkpoint_step_size_candidate = None
+    if enable_checkpoint_step_size_sweep:
+        checkpoint_step_size_results, best_checkpoint_step_size_candidate = sweep_step_sizes_for_checkpoints(
             model=model,
             checkpoint_records=checkpoint_records,
             original=original,
             perturbed=perturbed,
             fixed_atoms=fixed_atoms,
             target_fingerprint=target_fingerprint,
-            step_values=inverse_step_values,
+            inverse_steps=inverse_steps,
             step_sizes=step_size_values,
             inverse_design_options=inverse_design_options,
         )
-    )
+    checkpoint_step_schedule_results = []
+    best_checkpoint_step_schedule_candidate = None
+    if enable_checkpoint_step_schedule_sweep:
+        checkpoint_step_schedule_results, best_checkpoint_step_schedule_candidate = (
+            sweep_step_schedules_for_checkpoints(
+                model=model,
+                checkpoint_records=checkpoint_records,
+                original=original,
+                perturbed=perturbed,
+                fixed_atoms=fixed_atoms,
+                target_fingerprint=target_fingerprint,
+                step_values=inverse_step_values,
+                step_sizes=step_size_values,
+                inverse_design_options=inverse_design_options,
+            )
+        )
 
     configured_final_rmsd = score_candidate(original, optimised)
     best_candidate = update_best_candidate(
@@ -692,6 +1119,19 @@ def run_example(
     write(output_dir / "torch_gnn_carbon_original.xyz", original)
     write(output_dir / "torch_gnn_carbon_initial.xyz", perturbed)
     write(output_dir / "torch_gnn_carbon_final.xyz", optimised)
+    descriptor_report = save_descriptor_comparison_report(
+        model=model,
+        target_fingerprint=target_fingerprint,
+        final_atoms=optimised,
+        structure_path=output_dir / "torch_gnn_carbon_final.xyz",
+    )
+
+    initial_prediction = model.predict(perturbed)
+    final_prediction = model.predict(optimised)
+    initial_fingerprint_mse = float(np.mean((initial_prediction - target_fingerprint) ** 2))
+    final_fingerprint_mse = float(np.mean((final_prediction - target_fingerprint) ** 2))
+    initial_fingerprint_l2 = float(np.linalg.norm(initial_prediction - target_fingerprint))
+    final_fingerprint_l2 = float(np.linalg.norm(final_prediction - target_fingerprint))
 
     figure_path = output_dir / "torch_gnn_carbon_position_sweeps.png"
     plot_position_sweeps(
@@ -709,8 +1149,14 @@ def run_example(
         "epoch_sweep": epoch_results,
         "inverse_step_sweep": inverse_trace,
         "step_size_sweep": step_size_results,
+        "convergence_summary": convergence_summary,
+        "rollout": rollout_metrics,
         "checkpoint_step_size_sweep": checkpoint_step_size_results,
         "checkpoint_step_schedule_sweep": checkpoint_step_schedule_results,
+        "initial_fingerprint_mse": initial_fingerprint_mse,
+        "final_fingerprint_mse": final_fingerprint_mse,
+        "initial_fingerprint_l2": initial_fingerprint_l2,
+        "final_fingerprint_l2": final_fingerprint_l2,
         "initial_position_difference": symmetry_aware_displacements(original, perturbed).tolist(),
         "final_position_difference": symmetry_aware_displacements(original, optimised).tolist(),
         "initial_rmsd": initial_rmsd,
@@ -733,13 +1179,32 @@ def run_example(
             "inverse_lr_decay_rate": float(inverse_lr_decay_rate),
             "inverse_restarts": int(inverse_restarts),
             "inverse_restart_noise_scale": float(inverse_restart_noise_scale),
+            "repulsion_weight": float(repulsion_weight),
+            "minimum_distance_scale": float(minimum_distance_scale),
+            "cell_violation_weight": float(cell_violation_weight),
+            "coordinate_clip_value": (
+                None if coordinate_clip_value is None else float(coordinate_clip_value)
+            ),
+            "rollout_stages": int(rollout_stages),
+            "rollout_epochs_per_stage": int(rollout_epochs_per_stage),
+            "rollout_step_stride": int(rollout_step_stride),
+            "replay_buffer_capacity": int(replay_buffer_capacity),
+            "replay_sample_size": int(replay_sample_size),
+            "replay_category_weights": {
+                key: float(value) for key, value in replay_category_weights.items()
+            },
+            "rollout_drift_threshold": float(rollout_drift_threshold),
+            "rollout_high_error_threshold": float(rollout_high_error_threshold),
+            "rollout_instability_threshold": float(rollout_instability_threshold),
         },
         "output_files": {
             "plot": str(figure_path),
             "original": str(output_dir / "torch_gnn_carbon_original.xyz"),
             "initial": str(output_dir / "torch_gnn_carbon_initial.xyz"),
             "final": str(output_dir / "torch_gnn_carbon_final.xyz"),
+            "final_descriptor_comparison": descriptor_report["report_file"],
         },
+        "descriptor_comparisons": {"final": descriptor_report},
     }
     metrics_path = output_dir / "torch_gnn_carbon_workflow_metrics.json"
     metrics["output_files"]["metrics"] = str(metrics_path)
@@ -750,7 +1215,7 @@ def run_example(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--carbon-count", type=int, default=-1)
-    parser.add_argument("--augmented-count", type=int, default=16)
+    parser.add_argument("--augmented-count", type=int, default=0)
     parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--inverse-steps", type=int, default=400)
@@ -768,6 +1233,37 @@ def parse_args() -> argparse.Namespace:
         "--inverse-restart-noise-scale",
         type=float,
         default=INVERSE_RESTART_NOISE_SCALE,
+    )
+    parser.add_argument("--repulsion-weight", type=float, default=REPULSION_WEIGHT)
+    parser.add_argument("--minimum-distance-scale", type=float, default=MINIMUM_DISTANCE_SCALE)
+    parser.add_argument("--cell-violation-weight", type=float, default=CELL_VIOLATION_WEIGHT)
+    parser.add_argument("--coordinate-clip-value", type=float, default=COORDINATE_CLIP_VALUE)
+    parser.add_argument("--rollout-stages", type=int, default=ROLLOUT_STAGES)
+    parser.add_argument(
+        "--rollout-epochs-per-stage",
+        type=int,
+        default=ROLLOUT_EPOCHS_PER_STAGE,
+    )
+    parser.add_argument("--rollout-step-stride", type=int, default=ROLLOUT_STEP_STRIDE)
+    parser.add_argument("--replay-buffer-capacity", type=int, default=REPLAY_BUFFER_CAPACITY)
+    parser.add_argument("--replay-sample-size", type=int, default=REPLAY_SAMPLE_SIZE)
+    parser.add_argument(
+        "--replay-category-weights",
+        type=str,
+        default=",".join(
+            f"{key}={value}" for key, value in DEFAULT_REPLAY_CATEGORY_WEIGHTS.items()
+        ),
+    )
+    parser.add_argument("--rollout-drift-threshold", type=float, default=ROLLOUT_DRIFT_THRESHOLD)
+    parser.add_argument(
+        "--rollout-high-error-threshold",
+        type=float,
+        default=ROLLOUT_HIGH_ERROR_THRESHOLD,
+    )
+    parser.add_argument(
+        "--rollout-instability-threshold",
+        type=float,
+        default=ROLLOUT_INSTABILITY_THRESHOLD,
     )
     parser.add_argument("--hidden-dim", type=int, default=DEFAULT_MODEL_CONFIG["hidden_dim"])
     parser.add_argument("--architecture", type=str, default=DEFAULT_MODEL_CONFIG["architecture"])
@@ -812,6 +1308,8 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=Path("build") / "torch_gnn_carbon_workflow_example",
     )
+    parser.add_argument("--skip-checkpoint-step-size-sweep", action="store_true")
+    parser.add_argument("--skip-checkpoint-step-schedule-sweep", action="store_true")
     parser.add_argument("--seed", type=int, default=42)
     return parser.parse_args()
 
@@ -840,6 +1338,19 @@ def main() -> None:
     print(f"Using inverse LR decay rate: {args.inverse_lr_decay_rate}")
     print(f"Using inverse restarts: {args.inverse_restarts}")
     print(f"Using inverse restart noise scale: {args.inverse_restart_noise_scale}")
+    print(f"Using repulsion weight: {args.repulsion_weight}")
+    print(f"Using minimum distance scale: {args.minimum_distance_scale}")
+    print(f"Using cell violation weight: {args.cell_violation_weight}")
+    print(f"Using coordinate clip value: {args.coordinate_clip_value}")
+    print(f"Using rollout stages: {args.rollout_stages}")
+    print(f"Using rollout epochs per stage: {args.rollout_epochs_per_stage}")
+    print(f"Using rollout step stride: {args.rollout_step_stride}")
+    print(f"Using replay buffer capacity: {args.replay_buffer_capacity}")
+    print(f"Using replay sample size: {args.replay_sample_size}")
+    print(f"Using replay category weights: {args.replay_category_weights}")
+    print(f"Using rollout drift threshold: {args.rollout_drift_threshold}")
+    print(f"Using rollout high-error threshold: {args.rollout_high_error_threshold}")
+    print(f"Using rollout instability threshold: {args.rollout_instability_threshold}")
     print(f"Using hidden dim: {args.hidden_dim}")
     print(f"Using architecture: {args.architecture}")
     print(f"Using message layers: {args.num_message_layers}")
@@ -872,6 +1383,19 @@ def main() -> None:
         inverse_lr_decay_rate=args.inverse_lr_decay_rate,
         inverse_restarts=args.inverse_restarts,
         inverse_restart_noise_scale=args.inverse_restart_noise_scale,
+        repulsion_weight=args.repulsion_weight,
+        minimum_distance_scale=args.minimum_distance_scale,
+        cell_violation_weight=args.cell_violation_weight,
+        coordinate_clip_value=args.coordinate_clip_value,
+        rollout_stages=args.rollout_stages,
+        rollout_epochs_per_stage=args.rollout_epochs_per_stage,
+        rollout_step_stride=args.rollout_step_stride,
+        replay_buffer_capacity=args.replay_buffer_capacity,
+        replay_sample_size=args.replay_sample_size,
+        replay_category_weights=parse_category_weights(args.replay_category_weights),
+        rollout_drift_threshold=args.rollout_drift_threshold,
+        rollout_high_error_threshold=args.rollout_high_error_threshold,
+        rollout_instability_threshold=args.rollout_instability_threshold,
         seed=args.seed,
         model_config={
             "architecture": str(args.architecture),
@@ -888,6 +1412,8 @@ def main() -> None:
             ),
         },
         architecture_name=str(args.architecture),
+        enable_checkpoint_step_size_sweep=not args.skip_checkpoint_step_size_sweep,
+        enable_checkpoint_step_schedule_sweep=not args.skip_checkpoint_step_schedule_sweep,
     )
     print()
     print(json.dumps(metrics, indent=2))

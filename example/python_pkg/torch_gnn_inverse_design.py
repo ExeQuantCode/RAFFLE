@@ -54,6 +54,47 @@ def build_optimisation_step_observer(
     return observer
 
 
+def save_optimisation_path(
+    output_dir: Path,
+    trajectory_frames: list,
+    optimisation_history: list[dict[str, int | bool]],
+) -> tuple[str | None, list[dict[str, int | bool]]]:
+    if not trajectory_frames:
+        return None, optimisation_history
+    traj_path = output_dir / "torch_gnn_inverse_design_path.traj"
+    write(traj_path, trajectory_frames)
+    return str(traj_path), optimisation_history
+
+
+def parse_fixed_atom_indices(value: str) -> list[int]:
+    text = str(value).strip()
+    if not text:
+        return []
+    return [int(item.strip()) for item in text.split(",") if item.strip()]
+
+
+def build_fixed_atoms_mask(
+    num_atoms: int,
+    *,
+    fixed_leading_atoms: int,
+    fixed_atom_indices: list[int] | None = None,
+) -> tuple[np.ndarray, list[int]]:
+    resolved_indices = set(range(max(min(int(fixed_leading_atoms), int(num_atoms)), 0)))
+    for atom_index in fixed_atom_indices or []:
+        resolved_index = int(atom_index)
+        if resolved_index < 0 or resolved_index >= int(num_atoms):
+            raise ValueError(
+                f"fixed atom index {resolved_index} is out of bounds for a structure "
+                f"with {num_atoms} atoms"
+            )
+        resolved_indices.add(resolved_index)
+    ordered_indices = sorted(resolved_indices)
+    fixed_atoms = np.zeros(int(num_atoms), dtype=bool)
+    if ordered_indices:
+        fixed_atoms[np.asarray(ordered_indices, dtype=np.int64)] = True
+    return fixed_atoms, ordered_indices
+
+
 def save_2body_fingerprint_comparison_plot(
     target_fingerprint_2body: np.ndarray,
     predicted_fingerprint_2body: np.ndarray,
@@ -93,18 +134,88 @@ def save_2body_fingerprint_comparison_plot(
     plt.close(figure)
 
 
-def parse_args() -> argparse.Namespace:
+def resolve_target_fingerprint(
+    model,
+    *,
+    target_fingerprint_path: Path | None,
+    target_atoms,
+    target_structure_path: Path | None,
+    target_structure_index: int,
+) -> tuple[np.ndarray, dict[str, int | str]]:
+    if target_fingerprint_path is not None:
+        resolved_path = target_fingerprint_path.resolve()
+        return load_target_fingerprint(resolved_path), {
+            "type": "file",
+            "path": str(resolved_path),
+        }
+    if target_atoms is None or target_structure_path is None:
+        raise ValueError(
+            "Provide --target-fingerprint or --target-structure so the target descriptor "
+            "can be resolved."
+        )
+    fingerprint = np.asarray(
+        model.compute_reference_fingerprint(target_atoms),
+        dtype=np.float32,
+    ).reshape(-1)
+    return fingerprint, {
+        "type": "target_structure",
+        "path": str(target_structure_path.resolve()),
+        "index": int(target_structure_index),
+    }
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     repo_root = Path(__file__).resolve().parents[2]
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input-structure", type=Path, required=True)
-    parser.add_argument("--input-structure-index", type=int, default=0)
-    parser.add_argument("--target-fingerprint", type=Path, required=True)
+    parser.add_argument(
+        "--input-structure",
+        "--reference-structure",
+        dest="input_structure",
+        type=Path,
+        required=True,
+        help="Starting structure to optimise during inverse design.",
+    )
+    parser.add_argument(
+        "--input-structure-index",
+        "--reference-structure-index",
+        dest="input_structure_index",
+        type=int,
+        default=0,
+    )
+    parser.add_argument(
+        "--target-fingerprint",
+        type=Path,
+        default=None,
+        help=(
+            "Optional saved target fingerprint (.npy or .json). If omitted, the script "
+            "computes the analytical target descriptor from --target-structure."
+        ),
+    )
     parser.add_argument("--model-checkpoint", type=Path, required=True)
-    parser.add_argument("--target-structure", type=Path, default=None)
+    parser.add_argument(
+        "--target-structure",
+        type=Path,
+        default=None,
+        help=(
+            "Structure used for evaluation metrics and, when --target-fingerprint is not "
+            "provided, for the analytical target descriptor."
+        ),
+    )
     parser.add_argument("--target-structure-index", type=int, default=0)
     parser.add_argument("--inverse-steps", type=int, default=400)
     parser.add_argument("--inverse-step-size", type=float, default=5.0e-3)
     parser.add_argument("--fixed-leading-atoms", type=int, default=0)
+    parser.add_argument(
+        "--fixed-atoms",
+        "--fix-atoms",
+        dest="fixed_atoms",
+        type=parse_fixed_atom_indices,
+        default=[],
+        help=(
+            "Comma-separated atom indices to keep fixed during inverse design. "
+            "Combined with --fixed-leading-atoms."
+        ),
+    )
     parser.add_argument("--fingerprint-loss-weight", type=float, default=1.0)
     parser.add_argument("--target-vertex-weight", type=float, default=0.0)
     parser.add_argument("--target-position-weight", type=float, default=0.0)
@@ -115,18 +226,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--minimum-distance-scale", type=float, default=0.75)
     parser.add_argument("--cell-violation-weight", type=float, default=0.0)
     parser.add_argument("--coordinate-clip-value", type=float, default=None)
-    parser.add_argument("--save-optimisation-traj", action="store_true")
+    parser.add_argument(
+        "--save-optimisation-traj",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Save the full inverse-design path as a multi-frame .traj file.",
+    )
     parser.add_argument("--plot-2body-fingerprint-comparison", action="store_true")
     parser.add_argument(
         "--output-dir",
         type=Path,
         default=repo_root / "build" / "torch_gnn_inverse_design",
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
-def main() -> None:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> None:
+    args = parse_args(argv)
     output_dir = args.output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -138,10 +254,19 @@ def main() -> None:
             args.target_structure.resolve(),
             index=args.target_structure_index,
         )
-    fixed_atoms = np.zeros(len(input_atoms), dtype=bool)
-    fixed_atoms[: max(int(args.fixed_leading_atoms), 0)] = True
+    fixed_atoms, fixed_atom_indices = build_fixed_atoms_mask(
+        len(input_atoms),
+        fixed_leading_atoms=args.fixed_leading_atoms,
+        fixed_atom_indices=args.fixed_atoms,
+    )
 
-    target_fingerprint = load_target_fingerprint(args.target_fingerprint.resolve())
+    target_fingerprint, target_fingerprint_source = resolve_target_fingerprint(
+        model,
+        target_fingerprint_path=args.target_fingerprint,
+        target_atoms=target_atoms,
+        target_structure_path=args.target_structure,
+        target_structure_index=args.target_structure_index,
+    )
     if target_fingerprint.size != int(model.fingerprint_dim):
         raise ValueError(
             "Target fingerprint length does not match model fingerprint dimension: "
@@ -190,7 +315,12 @@ def main() -> None:
     metrics.update(
         {
             "model_checkpoint": str(args.model_checkpoint.resolve()),
-            "target_fingerprint_file": str(args.target_fingerprint.resolve()),
+            "target_fingerprint_file": (
+                target_fingerprint_source["path"]
+                if target_fingerprint_source["type"] == "file"
+                else None
+            ),
+            "target_fingerprint_source": target_fingerprint_source,
             "input_structure_file": str(args.input_structure.resolve()),
             "final_fingerprint_mse_2body": float(
                 np.mean((predicted_fingerprint_2body - target_fingerprint_2body) ** 2)
@@ -207,6 +337,7 @@ def main() -> None:
                 "inverse_steps": int(args.inverse_steps),
                 "inverse_step_size": float(args.inverse_step_size),
                 "fixed_leading_atoms": int(args.fixed_leading_atoms),
+                "fixed_atoms": fixed_atom_indices,
                 "fingerprint_loss_weight": float(args.fingerprint_loss_weight),
                 "target_vertex_weight": float(args.target_vertex_weight),
                 "target_position_weight": float(args.target_position_weight),
@@ -237,16 +368,21 @@ def main() -> None:
     metrics["output_files"] = {
         "optimised_structure": str(structure_path),
         "optimised_structure_descriptor_comparison": descriptor_report["report_file"],
+        "optimised_structure_descriptor_comparison_plot": descriptor_report["plot_file"],
         "metrics": str(metrics_path),
         "log": str(log_path),
     }
     metrics["descriptor_comparisons"] = {"final": descriptor_report}
 
     if args.save_optimisation_traj:
-        traj_path = output_dir / "torch_gnn_inverse_design_path.traj"
-        write(traj_path, trajectory_frames)
-        metrics["optimisation_history"] = optimisation_history
-        metrics["output_files"]["optimisation_traj"] = str(traj_path)
+        traj_path, optimisation_path = save_optimisation_path(
+            output_dir,
+            trajectory_frames,
+            optimisation_history,
+        )
+        metrics["optimisation_history"] = optimisation_path
+        if traj_path is not None:
+            metrics["output_files"]["optimisation_traj"] = traj_path
 
     if args.plot_2body_fingerprint_comparison:
         plot_path = output_dir / "torch_gnn_inverse_design_2body_fingerprint.png"
@@ -269,6 +405,10 @@ def main() -> None:
     print(
         "Saved descriptor comparison: "
         f"{metrics['output_files']['optimised_structure_descriptor_comparison']}"
+    )
+    print(
+        "Saved descriptor comparison plot: "
+        f"{metrics['output_files']['optimised_structure_descriptor_comparison_plot']}"
     )
     print(f"Saved metrics log: {log_path}")
     if args.save_optimisation_traj:

@@ -250,6 +250,84 @@ def build_rollout_step_observer(trajectory_records: list[dict]) -> Callable[[dic
     return observer
 
 
+def save_inverse_design_path(
+    output_dir: Path,
+    trajectory_records: list[dict],
+    *,
+    prefix: str,
+) -> dict[str, object]:
+    if not trajectory_records:
+        return {
+            "traj_file": None,
+            "step_structure_dir": None,
+            "step_structure_files": [],
+            "steps": [],
+        }
+
+    step_structure_dir = output_dir / f"{prefix}_steps"
+    step_structure_dir.mkdir(parents=True, exist_ok=True)
+
+    trajectory_frames = []
+    step_structure_files: list[str] = []
+    step_summaries: list[dict[str, object]] = []
+    for record in trajectory_records:
+        atoms_snapshot = record["atoms"].copy()
+        restart_index = int(record["restart_index"]) + 1
+        step = int(record["step"])
+        num_steps = int(record["num_steps"])
+        is_initial_state = bool(record["is_initial_state"])
+
+        atoms_snapshot.info["inverse_restart_index"] = restart_index
+        atoms_snapshot.info["inverse_num_restarts"] = int(record["num_restarts"])
+        atoms_snapshot.info["inverse_step"] = step
+        atoms_snapshot.info["inverse_num_steps"] = num_steps
+        atoms_snapshot.info["inverse_is_initial_state"] = is_initial_state
+        atoms_snapshot.info["inverse_learning_rate"] = float(record.get("learning_rate", 0.0))
+        atoms_snapshot.info["inverse_total_loss"] = float(record.get("total_loss", 0.0))
+        atoms_snapshot.info["inverse_fingerprint_loss"] = float(
+            record.get("fingerprint_loss", 0.0)
+        )
+        atoms_snapshot.info["inverse_repulsion_loss"] = float(record.get("repulsion_loss", 0.0))
+        atoms_snapshot.info["inverse_cell_violation_loss"] = float(
+            record.get("cell_violation_loss", 0.0)
+        )
+
+        step_label = f"{prefix}_restart_{restart_index:02d}_step_{step:04d}"
+        if is_initial_state:
+            step_label += "_initial"
+        elif step == num_steps:
+            step_label += "_final"
+        step_path = step_structure_dir / f"{step_label}.xyz"
+        write(step_path, atoms_snapshot)
+
+        trajectory_frames.append(atoms_snapshot)
+        step_structure_files.append(str(step_path))
+        step_summaries.append(
+            {
+                "restart_index": restart_index,
+                "num_restarts": int(record["num_restarts"]),
+                "step": step,
+                "num_steps": num_steps,
+                "is_initial_state": is_initial_state,
+                "learning_rate": float(record.get("learning_rate", 0.0)),
+                "total_loss": float(record.get("total_loss", 0.0)),
+                "fingerprint_loss": float(record.get("fingerprint_loss", 0.0)),
+                "repulsion_loss": float(record.get("repulsion_loss", 0.0)),
+                "cell_violation_loss": float(record.get("cell_violation_loss", 0.0)),
+                "structure_file": str(step_path),
+            }
+        )
+
+    traj_path = output_dir / f"{prefix}_path.traj"
+    write(traj_path, trajectory_frames)
+    return {
+        "traj_file": str(traj_path),
+        "step_structure_dir": str(step_structure_dir),
+        "step_structure_files": step_structure_files,
+        "steps": step_summaries,
+    }
+
+
 def summarise_convergence(trace: list[dict[str, float]]) -> dict[str, float | int | bool]:
     if not trace:
         return {
@@ -571,6 +649,30 @@ def inverse_design_trace(
             }
         )
     return optimised, trace, best_candidate
+
+
+def run_configured_inverse_design(
+    model: TorchGNNFingerprint,
+    perturbed,
+    fixed_atoms: np.ndarray,
+    target_fingerprint: np.ndarray,
+    inverse_steps: int,
+    inverse_step_size: float,
+    inverse_design_options: dict,
+) -> tuple[object, list[dict]]:
+    trajectory_records: list[dict] = []
+    step_observer = build_rollout_step_observer(trajectory_records)
+    optimised = model.inverse_design(
+        target_fingerprint=target_fingerprint,
+        atoms=perturbed,
+        fixed_atoms=fixed_atoms,
+        num_steps=inverse_steps,
+        step_size=inverse_step_size,
+        verbose=0,
+        step_observer=step_observer,
+        **inverse_design_options,
+    )
+    return optimised, trajectory_records
 
 
 def sweep_epochs(
@@ -1076,10 +1178,19 @@ def run_example(
             )
         )
 
-    configured_final_rmsd = score_candidate(original, optimised)
+    configured_optimised, configured_trajectory_records = run_configured_inverse_design(
+        model=model,
+        perturbed=perturbed,
+        fixed_atoms=fixed_atoms,
+        target_fingerprint=target_fingerprint,
+        inverse_steps=inverse_steps,
+        inverse_step_size=inverse_step_size,
+        inverse_design_options=inverse_design_options,
+    )
+    configured_final_rmsd = score_candidate(original, configured_optimised)
     best_candidate = update_best_candidate(
         None,
-        optimised,
+        configured_optimised,
         configured_final_rmsd,
         source="configured_inverse_design",
         epochs=int(num_epochs),
@@ -1119,6 +1230,11 @@ def run_example(
     write(output_dir / "torch_gnn_carbon_original.xyz", original)
     write(output_dir / "torch_gnn_carbon_initial.xyz", perturbed)
     write(output_dir / "torch_gnn_carbon_final.xyz", optimised)
+    configured_inverse_design_path = save_inverse_design_path(
+        output_dir,
+        configured_trajectory_records,
+        prefix="torch_gnn_carbon_inverse_design",
+    )
     descriptor_report = save_descriptor_comparison_report(
         model=model,
         target_fingerprint=target_fingerprint,
@@ -1197,12 +1313,17 @@ def run_example(
             "rollout_high_error_threshold": float(rollout_high_error_threshold),
             "rollout_instability_threshold": float(rollout_instability_threshold),
         },
+        "configured_inverse_design_path": configured_inverse_design_path,
         "output_files": {
             "plot": str(figure_path),
             "original": str(output_dir / "torch_gnn_carbon_original.xyz"),
             "initial": str(output_dir / "torch_gnn_carbon_initial.xyz"),
             "final": str(output_dir / "torch_gnn_carbon_final.xyz"),
+            "configured_inverse_design_traj": str(
+                configured_inverse_design_path["traj_file"]
+            ),
             "final_descriptor_comparison": descriptor_report["report_file"],
+            "final_descriptor_comparison_plot": descriptor_report["plot_file"],
         },
         "descriptor_comparisons": {"final": descriptor_report},
     }

@@ -82,6 +82,22 @@ with mock.patch.dict(
 
 class TestTorchGNNSweepCLI(unittest.TestCase):
 
+    def test_build_sweep_config_uses_epochs_hyperparameter(self):
+        args = carbon_wandb.parse_args(["--sweep-profile", "plan-attention-refine"])
+
+        sweep_config = carbon_wandb.build_sweep_config(args)
+
+        self.assertEqual(
+            sweep_config["parameters"]["epochs"]["values"],
+            carbon_wandb.SWEEP_EPOCH_VALUES,
+        )
+        self.assertNotIn("epoch_values", sweep_config["parameters"])
+
+    def test_resolve_epoch_values_uses_single_job_epoch_count(self):
+        resolved = carbon_wandb.resolve_epoch_values({"epochs": 75, "epoch_values": "0,10,75"})
+
+        self.assertEqual(resolved, [75])
+
     def test_log_series_tables_includes_descriptor_tables(self):
         carbon_wandb.wandb.log.reset_mock()
         carbon_wandb.wandb.Table.reset_mock()

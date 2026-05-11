@@ -29,7 +29,6 @@ from torch_gnn_carbon_workflow_example import (
     ROLLOUT_STAGES,
     ROLLOUT_STEP_STRIDE,
     TARGET_VERTEX_WEIGHT,
-    default_epoch_values,
     default_inverse_step_values,
     default_step_sizes,
     parse_category_weights,
@@ -42,6 +41,7 @@ from torch_gnn_carbon_workflow_example import (
 WANDB_PROJECT = "raffle-inverse-design-new"
 DEFAULT_ARCHITECTURE = "torch_gnn_residual"
 DEFAULT_TAGS = ["carbon", "diamond", "inverse-design"]
+SWEEP_EPOCH_VALUES = [25, 50, 75, 100]
 
 
 def parse_tags(value: str) -> list[str]:
@@ -72,6 +72,13 @@ def validate_plan_constraints(config: dict) -> None:
         raise ValueError("target_vertex_weight must remain 0.0 for plan_model benchmarks")
     if float(config["target_position_weight"]) != 0.0:
         raise ValueError("target_position_weight must remain 0.0 for plan_model benchmarks")
+
+
+def apply_epoch_hyperparameter(parameters: dict) -> dict:
+    resolved = dict(parameters)
+    resolved["epochs"] = {"values": list(SWEEP_EPOCH_VALUES)}
+    resolved.pop("epoch_values", None)
+    return resolved
 
 
 def build_sweep_config(args: argparse.Namespace) -> dict:
@@ -273,6 +280,7 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
             "replay_sample_size": {"values": [4, 8]},
             "seed": {"values": [11, 42, 101]},
         }
+    parameters = apply_epoch_hyperparameter(parameters)
     return {
         "name": (
             f"multi-architecture-{args.sweep_profile}-carbon-sweep"
@@ -329,9 +337,7 @@ def launch_sweep_agent(
 
 
 def resolve_epoch_values(config: dict) -> list[int]:
-    if config["epoch_values"]:
-        return parse_int_list(str(config["epoch_values"]))
-    return default_epoch_values(int(config["epochs"]))
+    return [int(config["epochs"])]
 
 
 def resolve_inverse_step_values(config: dict) -> list[int]:
@@ -509,11 +515,19 @@ def log_series_tables(metrics: dict) -> None:
 
 def log_artifacts(run: wandb.sdk.wandb_run.Run, metrics: dict) -> None:
     wandb.log({"plots/position_sweeps": wandb.Image(metrics["output_files"]["plot"])})
+    for output_name, file_path in metrics["output_files"].items():
+        if output_name.endswith("_descriptor_comparison_plot"):
+            wandb.log({f"plots/{output_name}": wandb.Image(file_path)})
     artifact = wandb.Artifact(
         name=f"{metrics['architecture_name']}-{run.id}-outputs",
         type="inverse-design-results",
     )
     for file_path in metrics["output_files"].values():
+        artifact.add_file(file_path)
+    for file_path in metrics.get("configured_inverse_design_path", {}).get(
+        "step_structure_files",
+        [],
+    ):
         artifact.add_file(file_path)
     run.log_artifact(artifact)
 
@@ -695,6 +709,7 @@ def execute_run(config: dict, sweep_run: bool = False) -> dict:
                     else {
                         "global_metrics": descriptor_report["global_metrics"],
                         "report_file": descriptor_report["report_file"],
+                        "plot_file": descriptor_report.get("plot_file"),
                         "structure_file": descriptor_report["structure_file"],
                     }
                 ),
@@ -729,7 +744,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--run-name", type=str, default="")
     parser.add_argument("--carbon-count", type=int, default=-1)
     parser.add_argument("--augmented-count", type=int, default=0)
-    parser.add_argument("--epochs", type=int, default=30)
+    parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--inverse-steps", type=int, default=400)
     parser.add_argument("--inverse-step-size", type=float, default=5.0e-3)
@@ -844,6 +859,7 @@ def main() -> None:
 
     config = vars(args).copy()
     config["output_dir"] = str(args.output_dir)
+    config.pop("epoch_values", None)
     config.pop("sweep_id", None)
 
     if args.sweep_id:

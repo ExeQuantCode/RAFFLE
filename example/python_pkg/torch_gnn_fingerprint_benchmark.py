@@ -226,6 +226,7 @@ def run_workflow(
             "perturbed": str(output_dir / "torch_gnn_diamond_perturbed.xyz"),
             "optimised": str(output_dir / "torch_gnn_diamond_optimised.xyz"),
             "optimised_descriptor_comparison": descriptor_report["report_file"],
+            "optimised_descriptor_comparison_plot": descriptor_report["plot_file"],
         },
         "descriptor_comparisons": {"final": descriptor_report},
     }

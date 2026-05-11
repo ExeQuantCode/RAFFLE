@@ -150,10 +150,20 @@ class TestTorchGNNFingerprintCarbonWorkflow(unittest.TestCase):
         )
         self.assertTrue(Path(metrics["output_files"]["plot"]).exists())
         self.assertTrue(Path(metrics["output_files"]["metrics"]).exists())
+        self.assertTrue(Path(metrics["output_files"]["configured_inverse_design_traj"]).exists())
         descriptor_path = Path(metrics["output_files"]["final_descriptor_comparison"])
+        descriptor_plot_path = Path(metrics["output_files"]["final_descriptor_comparison_plot"])
         self.assertTrue(descriptor_path.exists())
+        self.assertTrue(descriptor_plot_path.exists())
         saved_descriptor_report = json.loads(descriptor_path.read_text())
         self.assertEqual(saved_descriptor_report["structure_file"], metrics["output_files"]["final"])
+        self.assertEqual(saved_descriptor_report["plot_file"], metrics["output_files"]["final_descriptor_comparison_plot"])
+        configured_path = metrics["configured_inverse_design_path"]
+        self.assertTrue(Path(configured_path["step_structure_dir"]).exists())
+        self.assertGreater(len(configured_path["step_structure_files"]), 0)
+        self.assertTrue(all(Path(path).exists() for path in configured_path["step_structure_files"]))
+        saved_path_frames = read(metrics["output_files"]["configured_inverse_design_traj"], index=":")
+        self.assertEqual(len(saved_path_frames), len(configured_path["step_structure_files"]))
 
 
 if __name__ == "__main__":

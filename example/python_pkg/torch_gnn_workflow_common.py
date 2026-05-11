@@ -166,6 +166,128 @@ def descriptor_report_path(structure_path: Path) -> Path:
     return structure_path.with_name(f"{structure_path.stem}_descriptor_comparison.json")
 
 
+def descriptor_plot_path(structure_path: Path) -> Path:
+    return structure_path.with_name(f"{structure_path.stem}_descriptor_comparison.png")
+
+
+def _add_component_guides(axis, component_dimensions: dict[str, int], annotate: bool = False) -> None:
+    start = 0
+    for label, width in component_dimensions.items():
+        end = start + int(width)
+        if start > 0:
+            axis.axvline(start - 0.5, color="0.5", linestyle=":", linewidth=1.0)
+        if annotate and width > 0:
+            midpoint = start + 0.5 * (width - 1)
+            axis.text(
+                midpoint,
+                1.01,
+                label,
+                ha="center",
+                va="bottom",
+                transform=axis.get_xaxis_transform(),
+            )
+        start = end
+
+
+def save_descriptor_comparison_plot(report: dict[str, Any], output_path: Path) -> None:
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    target = np.asarray(report["global_fingerprints"]["target_raffle"], dtype=np.float32)
+    predicted = np.asarray(report["global_fingerprints"]["ml_predicted"], dtype=np.float32)
+    true_raffle = np.asarray(report["global_fingerprints"]["true_raffle"], dtype=np.float32)
+    indices = np.arange(target.size)
+    component_dimensions = {
+        key: int(value) for key, value in report["component_dimensions"].items()
+    }
+
+    figure = plt.figure(figsize=(14, 10))
+    axis_top = figure.add_subplot(3, 1, 1)
+    axis_top.plot(indices, target, label="Target RAFFLE", linewidth=2.0, color="black")
+    axis_top.plot(indices, predicted, label="ML predicted", linewidth=1.6, color="tab:blue")
+    axis_top.plot(
+        indices,
+        true_raffle,
+        label="True RAFFLE (final)",
+        linewidth=1.6,
+        color="tab:green",
+        linestyle="--",
+    )
+    axis_top.set_ylabel("Fingerprint value")
+    axis_top.set_title("Final descriptor comparison")
+    axis_top.grid(alpha=0.3)
+    axis_top.legend(loc="best")
+
+    axis_middle = figure.add_subplot(3, 1, 2)
+    axis_middle.plot(
+        indices,
+        predicted - target,
+        label="ML predicted - target",
+        linewidth=1.5,
+        color="tab:blue",
+    )
+    axis_middle.plot(
+        indices,
+        true_raffle - target,
+        label="True RAFFLE - target",
+        linewidth=1.5,
+        color="tab:green",
+        linestyle="--",
+    )
+    axis_middle.axhline(0.0, color="black", linewidth=1.0, linestyle="--")
+    axis_middle.set_ylabel("Error vs target")
+    axis_middle.grid(alpha=0.3)
+    axis_middle.legend(loc="best")
+
+    axis_bottom = figure.add_subplot(3, 1, 3)
+    axis_bottom.plot(
+        indices,
+        predicted - true_raffle,
+        label="ML predicted - true RAFFLE",
+        linewidth=1.5,
+        color="tab:red",
+    )
+    axis_bottom.axhline(0.0, color="black", linewidth=1.0, linestyle="--")
+    axis_bottom.set_xlabel("Fingerprint index")
+    axis_bottom.set_ylabel("Prediction error")
+    axis_bottom.grid(alpha=0.3)
+    axis_bottom.legend(loc="best")
+
+    _add_component_guides(axis_top, component_dimensions, annotate=True)
+    _add_component_guides(axis_middle, component_dimensions)
+    _add_component_guides(axis_bottom, component_dimensions)
+
+    predicted_vs_target = report["global_metrics"]["ml_predicted_vs_target"]
+    true_vs_target = report["global_metrics"]["true_raffle_vs_target"]
+    predicted_vs_true = report["global_metrics"]["ml_predicted_vs_true_raffle"]
+    figure.suptitle(
+        " | ".join(
+            [
+                (
+                    "ML vs target "
+                    f"MAE={predicted_vs_target['mae']:.3e} "
+                    f"RMSE={predicted_vs_target['rmse']:.3e}"
+                ),
+                (
+                    "True vs target "
+                    f"MAE={true_vs_target['mae']:.3e} "
+                    f"RMSE={true_vs_target['rmse']:.3e}"
+                ),
+                (
+                    "ML vs true "
+                    f"MAE={predicted_vs_true['mae']:.3e} "
+                    f"RMSE={predicted_vs_true['rmse']:.3e}"
+                ),
+            ]
+        )
+    )
+    figure.tight_layout(rect=(0.0, 0.0, 1.0, 0.96))
+    figure.savefig(output_path, dpi=150)
+    plt.close(figure)
+
+
 def save_descriptor_comparison_report(
     model,
     target_fingerprint: np.ndarray,
@@ -252,8 +374,11 @@ def save_descriptor_comparison_report(
         "component_summaries": component_summaries,
     }
     report_path = descriptor_report_path(resolved_structure_path)
-    write_json(report_path, report)
+    plot_path = descriptor_plot_path(resolved_structure_path)
     report["report_file"] = str(report_path)
+    report["plot_file"] = str(plot_path)
+    save_descriptor_comparison_plot(report, plot_path)
+    write_json(report_path, report)
     return report
 
 

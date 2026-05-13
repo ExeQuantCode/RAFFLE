@@ -9,7 +9,7 @@ subroutine f90wrap_stoichiometry_type__get__element(this, f90wrap_element)
     type stoichiometry_type_ptr_type
         type(stoichiometry_type), pointer :: p => NULL()
     end type stoichiometry_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(stoichiometry_type_ptr_type) :: this_ptr
     character(3), intent(out) :: f90wrap_element
 
@@ -23,7 +23,7 @@ subroutine f90wrap_stoichiometry_type__set__element(this, f90wrap_element)
     type stoichiometry_type_ptr_type
         type(stoichiometry_type), pointer :: p => NULL()
     end type stoichiometry_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(stoichiometry_type_ptr_type) :: this_ptr
     character(3), intent(in) :: f90wrap_element
 
@@ -37,7 +37,7 @@ subroutine f90wrap_stoichiometry_type__get__num(this, f90wrap_num)
     type stoichiometry_type_ptr_type
         type(stoichiometry_type), pointer :: p => NULL()
     end type stoichiometry_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(stoichiometry_type_ptr_type) :: this_ptr
     integer, intent(out) :: f90wrap_num
 
@@ -51,7 +51,7 @@ subroutine f90wrap_stoichiometry_type__set__num(this, f90wrap_num)
     type stoichiometry_type_ptr_type
         type(stoichiometry_type), pointer :: p => NULL()
     end type stoichiometry_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(stoichiometry_type_ptr_type) :: this_ptr
     integer, intent(in) :: f90wrap_num
 
@@ -67,7 +67,7 @@ subroutine f90wrap_stoichiometry_type_initialise(this)
         type(stoichiometry_type), pointer :: p => NULL()
     end type stoichiometry_type_ptr_type
     type(stoichiometry_type_ptr_type) :: this_ptr
-    integer, intent(out), dimension(2) :: this
+    integer, intent(out), dimension(10) :: this
     allocate(this_ptr%p)
     this = transfer(this_ptr, this)
 end subroutine f90wrap_stoichiometry_type_initialise
@@ -80,7 +80,7 @@ subroutine f90wrap_stoichiometry_type_finalise(this)
         type(stoichiometry_type), pointer :: p => NULL()
     end type stoichiometry_type_ptr_type
     type(stoichiometry_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     this_ptr = transfer(this, this_ptr)
     deallocate(this_ptr%p)
 end subroutine f90wrap_stoichiometry_type_finalise
@@ -101,10 +101,10 @@ subroutine f90wrap_stoich_type_xnum_array__array_getitem__items( &
     type stoichiometry_type_ptr_type
         type(stoichiometry_type), pointer :: p => NULL()
     end type stoichiometry_type_ptr_type
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     type(stoichiometry_type_xnum_array_ptr_type) :: this_ptr
     integer, intent(in) :: f90wrap_i
-    integer, intent(out) :: itemsitem(2)
+    integer, intent(out) :: itemsitem(10)
     type(stoichiometry_type_ptr_type) :: items_ptr
 
     this_ptr = transfer(this, this_ptr)
@@ -130,10 +130,10 @@ subroutine f90wrap_stoich_type_xnum_array__array_setitem__items(this, f90wrap_i,
     type stoichiometry_type_ptr_type
         type(stoichiometry_type), pointer :: p => NULL()
     end type stoichiometry_type_ptr_type
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     type(stoichiometry_type_xnum_array_ptr_type) :: this_ptr
     integer, intent(in) :: f90wrap_i
-    integer, intent(out) :: itemsitem(2)
+    integer, intent(out) :: itemsitem(10)
     type(stoichiometry_type_ptr_type) :: items_ptr
 
     this_ptr = transfer(this, this_ptr)
@@ -156,7 +156,7 @@ subroutine f90wrap_stoich_type_xnum_array__array_len__items(this, f90wrap_n)
     type stoichiometry_type_xnum_array_ptr_type
         type(stoichiometry_type_xnum_array), pointer :: p => NULL()
     end type stoichiometry_type_xnum_array_ptr_type
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     type(stoichiometry_type_xnum_array_ptr_type) :: this_ptr
     integer, intent(out) :: f90wrap_n
     this_ptr = transfer(this, this_ptr)
@@ -176,7 +176,7 @@ subroutine f90wrap_stoich_type_xnum_array__array_alloc__items(this, num)
     end type stoichiometry_type_xnum_array_ptr_type
     type(stoichiometry_type_xnum_array_ptr_type) :: this_ptr
     integer, intent(in) :: num
-    integer, intent(inout), dimension(2) :: this
+    integer, intent(inout), dimension(10) :: this
 
     this_ptr = transfer(this, this_ptr)
     allocate(this_ptr%p%items(num))
@@ -195,7 +195,7 @@ subroutine f90wrap_stoich_type_xnum_array__array_dealloc__items(this)
         type(stoichiometry_type_xnum_array), pointer :: p => NULL()
     end type stoichiometry_type_xnum_array_ptr_type
     type(stoichiometry_type_xnum_array_ptr_type) :: this_ptr
-    integer, intent(inout), dimension(2) :: this
+    integer, intent(inout), dimension(10) :: this
 
     this_ptr = transfer(this, this_ptr)
     deallocate(this_ptr%p%items)
@@ -219,7 +219,7 @@ subroutine f90wrap_generator__stoich_type_xnum_array_initialise(this)
         type(stoichiometry_type_xnum_array), pointer :: p => NULL()
     end type stoichiometry_type_xnum_array_ptr_type
     type(stoichiometry_type_xnum_array_ptr_type) :: this_ptr
-    integer, intent(out), dimension(2) :: this
+    integer, intent(out), dimension(10) :: this
     allocate(this_ptr%p)
     this = transfer(this_ptr, this)
 end subroutine f90wrap_generator__stoich_type_xnum_array_initialise
@@ -236,7 +236,7 @@ subroutine f90wrap_generator__stoich_type_xnum_array_finalise(this)
         type(stoichiometry_type_xnum_array), pointer :: p => NULL()
     end type stoichiometry_type_xnum_array_ptr_type
     type(stoichiometry_type_xnum_array_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     this_ptr = transfer(this, this_ptr)
     deallocate(this_ptr%p)
 end subroutine f90wrap_generator__stoich_type_xnum_array_finalise
@@ -254,7 +254,7 @@ subroutine f90wrap_raffle_generator_type__get__num_structures( &
     type raffle_generator_type_ptr_type
         type(raffle_generator_type), pointer :: p => NULL()
     end type raffle_generator_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(raffle_generator_type_ptr_type) :: this_ptr
     integer, intent(out) :: f90wrap_num_structures
 
@@ -270,7 +270,7 @@ subroutine f90wrap_raffle_generator_type__set__num_structures( &
     type raffle_generator_type_ptr_type
         type(raffle_generator_type), pointer :: p => NULL()
     end type raffle_generator_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(raffle_generator_type_ptr_type) :: this_ptr
     integer, intent(in) :: f90wrap_num_structures
 
@@ -295,7 +295,7 @@ subroutine f90wrap_raffle_generator_type__get__host_defined( &
     type basis_type_ptr_type
         type(basis_type), pointer :: p => NULL()
     end type basis_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(raffle_generator_type_ptr_type) :: this_ptr
     logical, intent(out) :: f90wrap_host_is_defined
 
@@ -313,9 +313,9 @@ subroutine f90wrap_raffle_generator_type__get__host(this, f90wrap_host)
     type basis_type_ptr_type
         type(basis_type), pointer :: p => NULL()
     end type basis_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(raffle_generator_type_ptr_type) :: this_ptr
-    integer, intent(out) :: f90wrap_host(2)
+    integer, intent(out) :: f90wrap_host(10)
     type(basis_type_ptr_type) :: host_ptr
 
     this_ptr = transfer(this, this_ptr)
@@ -333,9 +333,9 @@ subroutine f90wrap_raffle_generator_type__set__host(this, f90wrap_host)
     type basis_type_ptr_type
         type(basis_type), pointer :: p => NULL()
     end type basis_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(raffle_generator_type_ptr_type) :: this_ptr
-    integer, intent(in) :: f90wrap_host(2)
+    integer, intent(in) :: f90wrap_host(10)
     type(basis_type_ptr_type) :: host_ptr
 
     this_ptr = transfer(this, this_ptr)
@@ -357,7 +357,7 @@ subroutine f90wrap_raffle_generator_type__array__grid( &
     type raffle_generator_type_ptr_type
         type(raffle_generator_type), pointer :: p => NULL()
     end type raffle_generator_type_ptr_type
-    integer(c_int), intent(in) :: this(2)
+    integer(c_int), intent(in) :: this(10)
     type(raffle_generator_type_ptr_type) :: this_ptr
     integer(c_int), intent(out) :: nd
     integer(c_int), intent(out) :: dtype
@@ -380,7 +380,7 @@ subroutine f90wrap_raffle_generator_type__array__grid_offset( &
     type raffle_generator_type_ptr_type
         type(raffle_generator_type), pointer :: p => NULL()
     end type raffle_generator_type_ptr_type
-    integer(c_int), intent(in) :: this(2)
+    integer(c_int), intent(in) :: this(10)
     type(raffle_generator_type_ptr_type) :: this_ptr
     integer(c_int), intent(out) :: nd
     integer(c_int), intent(out) :: dtype
@@ -402,7 +402,7 @@ subroutine f90wrap_raffle_generator_type__get__grid_spacing( &
     type raffle_generator_type_ptr_type
         type(raffle_generator_type), pointer :: p => NULL()
     end type raffle_generator_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(raffle_generator_type_ptr_type) :: this_ptr
     real(4), intent(out) :: f90wrap_grid_spacing
 
@@ -418,7 +418,7 @@ subroutine f90wrap_raffle_generator_type__set__grid_spacing( &
     type raffle_generator_type_ptr_type
         type(raffle_generator_type), pointer :: p => NULL()
     end type raffle_generator_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(raffle_generator_type_ptr_type) :: this_ptr
     real(4), intent(in) :: f90wrap_grid_spacing
 
@@ -435,7 +435,7 @@ subroutine f90wrap_raffle_generator_type__array__bounds( &
     type raffle_generator_type_ptr_type
         type(raffle_generator_type), pointer :: p => NULL()
     end type raffle_generator_type_ptr_type
-    integer(c_int), intent(in) :: this(2)
+    integer(c_int), intent(in) :: this(10)
     type(raffle_generator_type_ptr_type) :: this_ptr
     integer(c_int), intent(out) :: nd
     integer(c_int), intent(out) :: dtype
@@ -466,9 +466,9 @@ subroutine f90wrap_raffle_generator_type__get__distributions( &
     type distribs_container_type_ptr_type
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(raffle_generator_type_ptr_type) :: this_ptr
-    integer, intent(out) :: f90wrap_distributions(2)
+    integer, intent(out) :: f90wrap_distributions(10)
     type(distribs_container_type_ptr_type) :: distributions_ptr
 
     this_ptr = transfer(this, this_ptr)
@@ -488,9 +488,9 @@ subroutine f90wrap_raffle_generator_type__set__distributions( &
     type distribs_container_type_ptr_type
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(raffle_generator_type_ptr_type) :: this_ptr
-    integer, intent(in) :: f90wrap_distributions(2)
+    integer, intent(in) :: f90wrap_distributions(10)
     type(distribs_container_type_ptr_type) :: distributions_ptr
 
     this_ptr = transfer(this, this_ptr)
@@ -511,7 +511,7 @@ subroutine f90wrap_raffle_generator_type__get__max_attempts( &
     type raffle_generator_type_ptr_type
         type(raffle_generator_type), pointer :: p => NULL()
     end type raffle_generator_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(raffle_generator_type_ptr_type) :: this_ptr
     integer, intent(out) :: f90wrap_max_attempts
 
@@ -527,7 +527,7 @@ subroutine f90wrap_raffle_generator_type__set__max_attempts( &
     type raffle_generator_type_ptr_type
         type(raffle_generator_type), pointer :: p => NULL()
     end type raffle_generator_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(raffle_generator_type_ptr_type) :: this_ptr
     integer, intent(in) :: f90wrap_max_attempts
 
@@ -543,7 +543,7 @@ subroutine f90wrap_raffle_generator_type__get__walk_step_size_coarse( &
     type raffle_generator_type_ptr_type
         type(raffle_generator_type), pointer :: p => NULL()
     end type raffle_generator_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(raffle_generator_type_ptr_type) :: this_ptr
     real(4), intent(out) :: f90wrap_walk_step_size_coarse
 
@@ -559,7 +559,7 @@ subroutine f90wrap_raffle_generator_type__set__walk_step_size_coarse( &
     type raffle_generator_type_ptr_type
         type(raffle_generator_type), pointer :: p => NULL()
     end type raffle_generator_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(raffle_generator_type_ptr_type) :: this_ptr
     real(4), intent(in) :: f90wrap_walk_step_size_coarse
 
@@ -575,7 +575,7 @@ subroutine f90wrap_raffle_generator_type__get__walk_step_size_fine( &
     type raffle_generator_type_ptr_type
         type(raffle_generator_type), pointer :: p => NULL()
     end type raffle_generator_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(raffle_generator_type_ptr_type) :: this_ptr
     real(4), intent(out) :: f90wrap_walk_step_size_fine
 
@@ -591,7 +591,7 @@ subroutine f90wrap_raffle_generator_type__set__walk_step_size_fine( &
     type raffle_generator_type_ptr_type
         type(raffle_generator_type), pointer :: p => NULL()
     end type raffle_generator_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(raffle_generator_type_ptr_type) :: this_ptr
     real(4), intent(in) :: f90wrap_walk_step_size_fine
 
@@ -613,7 +613,7 @@ subroutine f90wrap_raffle_generator_type__array__method_ratio( &
     type raffle_generator_type_ptr_type
         type(raffle_generator_type), pointer :: p => NULL()
     end type raffle_generator_type_ptr_type
-    integer(c_int), intent(in) :: this(2)
+    integer(c_int), intent(in) :: this(10)
     type(raffle_generator_type_ptr_type) :: this_ptr
     integer(c_int), intent(out) :: nd
     integer(c_int), intent(out) :: dtype
@@ -636,7 +636,7 @@ subroutine f90wrap_raffle_generator_type__array__method_ratio_default( &
     type raffle_generator_type_ptr_type
         type(raffle_generator_type), pointer :: p => NULL()
     end type raffle_generator_type_ptr_type
-    integer(c_int), intent(in) :: this(2)
+    integer(c_int), intent(in) :: this(10)
     type(raffle_generator_type_ptr_type) :: this_ptr
     integer(c_int), intent(out) :: nd
     integer(c_int), intent(out) :: dtype
@@ -669,10 +669,10 @@ subroutine f90wrap_raffle_generator_type__array_getitem__structures( &
     type basis_type_ptr_type
         type(basis_type), pointer :: p => NULL()
     end type basis_type_ptr_type
-    integer, intent(in) :: f90wrap_this(2)
+    integer, intent(in) :: f90wrap_this(10)
     type(raffle_generator_type_ptr_type) :: this_ptr
     integer, intent(in) :: f90wrap_i
-    integer, intent(out) :: structuresitem(2)
+    integer, intent(out) :: structuresitem(10)
     type(basis_type_ptr_type) :: structures_ptr
 
     this_ptr = transfer(f90wrap_this, this_ptr)
@@ -702,10 +702,10 @@ subroutine f90wrap_raffle_generator_type__array_setitem__structures( &
     type basis_type_ptr_type
         type(basis_type), pointer :: p => NULL()
     end type basis_type_ptr_type
-    integer, intent(in) :: f90wrap_this(2)
+    integer, intent(in) :: f90wrap_this(10)
     type(raffle_generator_type_ptr_type) :: this_ptr
     integer, intent(in) :: f90wrap_i
-    integer, intent(in) :: structuresitem(2)
+    integer, intent(in) :: structuresitem(10)
     type(basis_type_ptr_type) :: structures_ptr
 
     this_ptr = transfer(f90wrap_this, this_ptr)
@@ -733,7 +733,7 @@ subroutine f90wrap_raffle_generator_type__array_len__structures( &
         type(raffle_generator_type), pointer :: p => NULL()
     end type raffle_generator_type_ptr_type
     integer, intent(out) :: f90wrap_n
-    integer, intent(in) :: f90wrap_this(2)
+    integer, intent(in) :: f90wrap_this(10)
     type(raffle_generator_type_ptr_type) :: this_ptr
 
     this_ptr = transfer(f90wrap_this, this_ptr)
@@ -757,7 +757,7 @@ subroutine f90wrap_generator__raffle_generator_type_initialise(this)
         type(raffle_generator_type), pointer :: p => NULL()
     end type raffle_generator_type_ptr_type
     type(raffle_generator_type_ptr_type) :: this_ptr
-    integer, intent(out), dimension(2) :: this
+    integer, intent(out), dimension(10) :: this
     allocate(this_ptr%p)
     this = transfer(this_ptr, this)
 end subroutine f90wrap_generator__raffle_generator_type_initialise
@@ -770,7 +770,7 @@ subroutine f90wrap_generator__raffle_generator_type_finalise(this)
         type(raffle_generator_type), pointer :: p => NULL()
     end type raffle_generator_type_ptr_type
     type(raffle_generator_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     this_ptr = transfer(this, this_ptr)
     deallocate(this_ptr%p)
 end subroutine f90wrap_generator__raffle_generator_type_finalise
@@ -790,7 +790,7 @@ subroutine f90wrap_generator__set_method_ratio_default__binding__rgt( &
         type(raffle_generator_type), pointer :: p => NULL()
     end type raffle_generator_type_ptr_type
     type(raffle_generator_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     real(4), dimension(5), intent(in) :: method_ratio
 
     this_ptr = transfer(this, this_ptr)
@@ -812,7 +812,7 @@ subroutine f90wrap_generator__init_seed__binding__rgt( &
         type(raffle_generator_type), pointer :: p => NULL()
     end type raffle_generator_type_ptr_type
     type(raffle_generator_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     integer, optional, intent(in), dimension(n0) :: put
     integer, optional, intent(inout), dimension(n1) :: get
     integer, optional, intent(inout) :: num_threads
@@ -841,9 +841,9 @@ subroutine f90wrap_generator__set_host__binding__rgt(this, host)
         type(basis_type), pointer :: p => NULL()
     end type basis_type_ptr_type
     type(raffle_generator_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     type(basis_type_ptr_type) :: host_ptr
-    integer, intent(in), dimension(2) :: host
+    integer, intent(in), dimension(10) :: host
     this_ptr = transfer(this, this_ptr)
     host_ptr = transfer(host, host_ptr)
     call this_ptr%p%set_host(host=host_ptr%p)
@@ -861,9 +861,9 @@ subroutine f90wrap_generator__get_host__binding__rgt(ret_output, this)
         type(basis_type), pointer :: p => NULL()
     end type basis_type_ptr_type
     type(basis_type_ptr_type) :: ret_output_ptr
-    integer, intent(out), dimension(2) :: ret_output
+    integer, intent(out), dimension(10) :: ret_output
     type(raffle_generator_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     this_ptr = transfer(this, this_ptr)
     allocate(ret_output_ptr%p)
     ret_output_ptr%p = this_ptr%p%get_host()
@@ -881,7 +881,7 @@ subroutine f90wrap_generator__prepare_host__binding__rgt( &
         type(raffle_generator_type), pointer :: p => NULL()
     end type raffle_generator_type_ptr_type
     type(raffle_generator_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     real(4), dimension(n0), intent(in) :: interface_location
     integer, intent(in), optional :: interface_axis
     real(4), intent(in), optional :: depth
@@ -910,7 +910,7 @@ subroutine f90wrap_generator__set_grid__binding__raffle_generator_type( &
         type(raffle_generator_type), pointer :: p => NULL()
     end type raffle_generator_type_ptr_type
     type(raffle_generator_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     integer, dimension(3), intent(in), optional :: grid
     real(4), intent(in), optional :: grid_spacing
     real(4), dimension(3), intent(in), optional :: grid_offset
@@ -930,7 +930,7 @@ subroutine f90wrap_generator__reset_grid__binding__raffle_generator_type(this)
         type(raffle_generator_type), pointer :: p => NULL()
     end type raffle_generator_type_ptr_type
     type(raffle_generator_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     this_ptr = transfer(this, this_ptr)
     call this_ptr%p%reset_grid()
 end subroutine f90wrap_generator__reset_grid__binding__raffle_generator_type
@@ -943,7 +943,7 @@ subroutine f90wrap_generator__set_bounds__binding__rgt(this, bounds)
         type(raffle_generator_type), pointer :: p => NULL()
     end type raffle_generator_type_ptr_type
     type(raffle_generator_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     real(4), dimension(2,3), intent(in) :: bounds
     this_ptr = transfer(this, this_ptr)
     call this_ptr%p%set_bounds(bounds=bounds)
@@ -957,7 +957,7 @@ subroutine f90wrap_generator__reset_bounds__binding__rgt(this)
         type(raffle_generator_type), pointer :: p => NULL()
     end type raffle_generator_type_ptr_type
     type(raffle_generator_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     this_ptr = transfer(this, this_ptr)
     call this_ptr%p%reset_bounds()
 end subroutine f90wrap_generator__reset_bounds__binding__rgt
@@ -983,10 +983,10 @@ subroutine f90wrap_generator__generate__binding__rgt( &
         type(stoichiometry_type_xnum_array), pointer :: p => NULL()
     end type stoichiometry_type_xnum_array_ptr_type
     type(raffle_generator_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     integer, intent(in) :: num_structures
     type(stoichiometry_type_xnum_array_ptr_type) :: stoichiometry_ptr
-    integer, intent(in), dimension(2) :: stoichiometry
+    integer, intent(in), dimension(10) :: stoichiometry
     real(4), intent(in), optional, dimension(5) :: method_ratio
     character*(*), intent(in), optional :: settings_out_file
     integer, intent(in), optional :: seed
@@ -1023,8 +1023,8 @@ subroutine f90wrap_generator__get_structures__binding__rgt(this, ret_structures)
         type(basis_type_xnum_array), pointer :: p => NULL()
     end type basis_type_xnum_array_ptr_type
     type(raffle_generator_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
-    integer, intent(out), dimension(2) :: ret_structures
+    integer, intent(in), dimension(10) :: this
+    integer, intent(out), dimension(10) :: ret_structures
     type(basis_type_xnum_array_ptr_type) :: ret_structures_ptr
 
     this_ptr = transfer(this, this_ptr)
@@ -1049,8 +1049,8 @@ subroutine f90wrap_generator__set_structures__binding__rgt(this, structures)
         type(basis_type_xnum_array), pointer :: p => NULL()
     end type basis_type_xnum_array_ptr_type
     type(raffle_generator_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
-    integer, intent(in), dimension(2) :: structures
+    integer, intent(in), dimension(10) :: this
+    integer, intent(in), dimension(10) :: structures
     type(basis_type_xnum_array_ptr_type) :: structures_ptr
 
     this_ptr = transfer(this, this_ptr)
@@ -1066,7 +1066,7 @@ subroutine f90wrap_generator__remove_structure__binding__rgt(this, index_bn, n0)
         type(raffle_generator_type), pointer :: p => NULL()
     end type raffle_generator_type_ptr_type
     type(raffle_generator_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     integer, dimension(n0), intent(in) :: index_bn
     integer :: n0
     !f2py intent(hide), depend(energy_above_hull_list) :: n0 = shape(energy_above_hull_list,0)
@@ -1086,10 +1086,10 @@ subroutine f90wrap_generator__evaluate__binding__rgt(this, ret_viability, basis)
         type(basis_type), pointer :: p => NULL()
     end type basis_type_ptr_type
     type(raffle_generator_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     real(4), intent(out) :: ret_viability
     type(basis_type_ptr_type) :: basis_ptr
-    integer, intent(in), dimension(2) :: basis
+    integer, intent(in), dimension(10) :: basis
     this_ptr = transfer(this, this_ptr)
     basis_ptr = transfer(basis, basis_ptr)
     ret_viability = this_ptr%p%evaluate(basis=basis_ptr%p)
@@ -1112,9 +1112,9 @@ subroutine f90wrap_generator__get_probability_density__rgt( &
         type(basis_type), pointer :: p => NULL()
     end type basis_type_ptr_type
     type(raffle_generator_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     type(basis_type_ptr_type) :: basis_ptr
-    integer, intent(in), dimension(2) :: basis
+    integer, intent(in), dimension(10) :: basis
     character(len=3), intent(in), dimension(n0) :: species_list
     integer, dimension(3), intent(in), optional :: grid
     real(4), dimension(3), intent(in), optional :: grid_offset
@@ -1174,7 +1174,7 @@ subroutine f90wrap_generator__print_settings__binding__rgt( &
        type(raffle_generator_type), pointer :: p => NULL()
    end type raffle_generator_type_ptr_type
    type(raffle_generator_type_ptr_type) :: this_ptr
-   integer, intent(in), dimension(2) :: this
+   integer, intent(in), dimension(10) :: this
    character*(*), intent(in) :: file
    this_ptr = transfer(this, this_ptr)
    call this_ptr%p%print_settings(file=file)
@@ -1191,7 +1191,7 @@ subroutine f90wrap_generator__read_settings__binding__rgt( &
        type(raffle_generator_type), pointer :: p => NULL()
    end type raffle_generator_type_ptr_type
    type(raffle_generator_type_ptr_type) :: this_ptr
-   integer, intent(in), dimension(2) :: this
+   integer, intent(in), dimension(10) :: this
    character*(*), intent(in) :: file
    this_ptr = transfer(this, this_ptr)
    call this_ptr%p%read_settings(file=file)

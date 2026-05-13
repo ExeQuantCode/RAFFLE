@@ -15,10 +15,25 @@ endif()
 
 
 # set compiler
-set(CMAKE_Fortran_COMPILER gfortran
-  CACHE STRING "Select Fortran compiler." )  # Change this to your desired compiler
-set(CMAKE_C_COMPILER gcc
-  CACHE STRING "Select C compiler." )  # Change this to your desired compiler
+if(NOT DEFINED CMAKE_Fortran_COMPILER)
+    if(DEFINED ENV{FC} AND NOT "$ENV{FC}" STREQUAL "")
+        set(CMAKE_Fortran_COMPILER "$ENV{FC}"
+            CACHE STRING "Select Fortran compiler." FORCE)
+    else()
+        set(CMAKE_Fortran_COMPILER gfortran
+            CACHE STRING "Select Fortran compiler." )
+    endif()
+endif()
+
+if(NOT DEFINED CMAKE_C_COMPILER)
+    if(DEFINED ENV{CC} AND NOT "$ENV{CC}" STREQUAL "")
+        set(CMAKE_C_COMPILER "$ENV{CC}"
+            CACHE STRING "Select C compiler." FORCE)
+    else()
+        set(CMAKE_C_COMPILER gcc
+            CACHE STRING "Select C compiler." )
+    endif()
+endif()
 set(CMAKE_Fortran_STANDARD 2018)
 
 # set the project version
@@ -32,6 +47,8 @@ project(raffle
     VERSION ${PROJECT_VERSION}
     LANGUAGES C Fortran
 )
+
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # set the library name
 set( LIB_NAME ${PROJECT_NAME} )
@@ -156,6 +173,7 @@ set(DEBUGFLAGS "")
 set(MEMFLAGS "")
 set(OPTIMFLAGS "")
 set(FASTFLAGS "")
+set(AMD_FLANG_LINK_DIRS "")
 
 # set flags based on compiler
 if (CMAKE_Fortran_COMPILER MATCHES ".*gfortran.*" OR CMAKE_Fortran_COMPILER MATCHES ".*gcc.*")
@@ -189,6 +207,62 @@ elseif (CMAKE_Fortran_COMPILER MATCHES ".*ifort.*" OR CMAKE_Fortran_COMPILER MAT
     set(MEMFLAGS -mcmodel=large)
     set(OPTIMFLAGS -O3)
     set(FASTFLAGS -Ofast)
+elseif (CMAKE_Fortran_COMPILER MATCHES ".*amdflang.*" OR CMAKE_Fortran_COMPILER_ID STREQUAL "LLVMFlang")
+    message(STATUS "Using AMD flang compiler")
+    set(PPFLAGS -cpp)
+    set(MPFLAGS -fopenmp)
+    set(WARNFLAGS -Wall)
+    set(DEVFLAGS -g -O0)
+    set(DEBUGFLAGS -g -O0)
+    set(OPTIMFLAGS -O3)
+    set(FASTFLAGS -Ofast)
+    set(PYTHONFLAGS -c -O3 -fPIC)
+
+    find_file(AMD_FLANG_RUNTIME_LIB
+        NAMES libflang_rt.runtime.a
+        PATHS
+            "$ENV{ROCM_PATH}/lib/llvm/lib/clang/22/lib/x86_64-unknown-linux-gnu"
+            "$ENV{ROCM_PATH}/lib/llvm/lib/22/lib/x86_64-unknown-linux-gnu"
+            "$ENV{ROCM_PATH}/lib/llvm/lib/clang/21/lib/x86_64-unknown-linux-gnu"
+            "$ENV{ROCM_PATH}/lib/llvm/lib/21/lib/x86_64-unknown-linux-gnu"
+    )
+    if(AMD_FLANG_RUNTIME_LIB)
+        get_filename_component(AMD_FLANG_RUNTIME_DIR "${AMD_FLANG_RUNTIME_LIB}" DIRECTORY)
+        list(APPEND AMD_FLANG_LINK_DIRS "${AMD_FLANG_RUNTIME_DIR}")
+    endif()
+
+    find_file(AMD_FLANG_OMP_LIB
+        NAMES libomp.so
+        PATHS
+            "$ENV{ROCM_PATH}/lib/llvm/lib"
+    )
+    if(AMD_FLANG_OMP_LIB)
+        get_filename_component(AMD_FLANG_OMP_DIR "${AMD_FLANG_OMP_LIB}" DIRECTORY)
+        list(APPEND AMD_FLANG_LINK_DIRS "${AMD_FLANG_OMP_DIR}")
+    endif()
+
+    find_file(AMD_FLANG_DECIMAL_LIB
+        NAMES libFortranDecimal.a
+        PATHS
+            "$ENV{ROCM_PATH}/lib/llvm/lib"
+    )
+    if(AMD_FLANG_DECIMAL_LIB)
+        get_filename_component(AMD_FLANG_DECIMAL_DIR "${AMD_FLANG_DECIMAL_LIB}" DIRECTORY)
+        list(APPEND AMD_FLANG_LINK_DIRS "${AMD_FLANG_DECIMAL_DIR}")
+    endif()
+
+    list(REMOVE_DUPLICATES AMD_FLANG_LINK_DIRS)
+
+    if(AMD_FLANG_RUNTIME_LIB)
+        set(FLANG_COMPAT_LIB_DIR "${CMAKE_BUILD_DIR}/flang_compat_lib")
+        file(MAKE_DIRECTORY "${FLANG_COMPAT_LIB_DIR}")
+        execute_process(
+            COMMAND ${CMAKE_COMMAND} -E create_symlink
+                "${AMD_FLANG_RUNTIME_LIB}"
+                "${FLANG_COMPAT_LIB_DIR}/libFortranRuntime.a"
+        )
+        list(APPEND AMD_FLANG_LINK_DIRS "${FLANG_COMPAT_LIB_DIR}")
+    endif()
 else()
     # Code for other Fortran compilers
     message(STATUS "Using a different Fortran compiler")
@@ -313,6 +387,11 @@ if (BUILD_PYTHON)
     message(STATUS "Object files directory for ${PROJECT_NAME}: ${OBJECTS_DIR}")
 
     # Include f90wrap
+    set(Python_FIND_STRATEGY LOCATION)
+    set(Python_FIND_VIRTUALENV FIRST)
+    if(DEFINED ENV{CONDA_PREFIX} AND NOT "$ENV{CONDA_PREFIX}" STREQUAL "")
+        list(PREPEND CMAKE_PREFIX_PATH "$ENV{CONDA_PREFIX}")
+    endif()
     find_package(Python COMPONENTS Interpreter Development.Module NumPy REQUIRED)
     if(NOT DEFINED PYTHON_EXECUTABLE)
         set(PYTHON_EXECUTABLE ${Python_EXECUTABLE})
@@ -383,15 +462,30 @@ if (BUILD_PYTHON)
 
     # If parallel build, need to add the parallel flag
     if (CMAKE_BUILD_TYPE MATCHES "Release*" OR CMAKE_BUILD_TYPE MATCHES "Parallel*" OR CMAKE_BUILD_TYPE MATCHES "Debug")
-        set(GOMPFLAGS "-lgomp")
+        if (CMAKE_Fortran_COMPILER MATCHES ".*gfortran.*" OR CMAKE_Fortran_COMPILER MATCHES ".*gcc.*")
+            set(GOMPFLAGS "-lgomp")
+        elseif (CMAKE_Fortran_COMPILER MATCHES ".*amdflang.*" OR CMAKE_Fortran_COMPILER_ID STREQUAL "LLVMFlang")
+            set(GOMPFLAGS "-lomp")
+        else()
+            set(GOMPFLAGS "")
+        endif()
     else()
         set(GOMPFLAGS "")
     endif()
 
     # Create a Python module using f2py
+    set(F2PY_EXTRA_LDFLAGS "")
+    set(F2PY_EXTRA_LINK_ARGS "")
+    if (CMAKE_Fortran_COMPILER MATCHES ".*amdflang.*" OR CMAKE_Fortran_COMPILER_ID STREQUAL "LLVMFlang")
+        foreach(link_dir IN LISTS AMD_FLANG_LINK_DIRS)
+            string(APPEND F2PY_EXTRA_LDFLAGS " -L${link_dir}")
+            list(APPEND F2PY_EXTRA_LINK_ARGS -L${link_dir})
+        endforeach()
+    endif()
+
     add_custom_command(
         OUTPUT ${F2PY_OUTPUT_FILE}
-        COMMAND CC="${CMAKE_C_COMPILER}" LDFLAGS="-L${CMAKE_BUILD_DIR} -L$<TARGET_FILE_DIR:coreutils> -L$<TARGET_FILE_DIR:atomstruc> " LIBS="-lraffle -lcoreutils -latomstruc" ${F2PY_EXECUTABLE}
+        COMMAND FC="${CMAKE_Fortran_COMPILER}" F77="${CMAKE_Fortran_COMPILER}" CC="${CMAKE_C_COMPILER}" LDFLAGS="-L${CMAKE_BUILD_DIR} -L$<TARGET_FILE_DIR:coreutils> -L$<TARGET_FILE_DIR:atomstruc>${F2PY_EXTRA_LDFLAGS} " LIBS="-lraffle -lcoreutils -latomstruc" ${F2PY_EXECUTABLE}
         -c
         -m _${PROJECT_NAME}
         -I${MODULE_DIR}
@@ -407,6 +501,7 @@ if (BUILD_PYTHON)
         -lcoreutils
         -L$<TARGET_FILE_DIR:atomstruc>
         -latomstruc
+        ${F2PY_EXTRA_LINK_ARGS}
         # --build-dir ${CMAKE_BUILD_DIR}/Dmeson
         DEPENDS ${F90WRAP_FILE} ${CMAKE_BUILD_DIR}/raffle/python_copied ${PROJECT_NAME} coreutils atomstruc
         WORKING_DIRECTORY ${CMAKE_BUILD_DIR}/raffle

@@ -11,7 +11,7 @@ subroutine f90wrap_distribs_container_type__get__iteration( &
     type distribs_container_type_ptr_type
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(distribs_container_type_ptr_type) :: this_ptr
     integer, intent(out) :: f90wrap_iteration
 
@@ -27,7 +27,7 @@ subroutine f90wrap_distribs_container_type__set__iteration( &
     type distribs_container_type_ptr_type
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(distribs_container_type_ptr_type) :: this_ptr
     integer, intent(in) :: f90wrap_iteration
 
@@ -43,7 +43,7 @@ subroutine f90wrap_distribs_container_type__get__num_evaluated( &
     type distribs_container_type_ptr_type
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(distribs_container_type_ptr_type) :: this_ptr
     integer, intent(out) :: f90wrap_num_evaluated
 
@@ -59,7 +59,7 @@ subroutine f90wrap_distribs_container_type__set__num_evaluated( &
     type distribs_container_type_ptr_type
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(distribs_container_type_ptr_type) :: this_ptr
     integer, intent(in) :: f90wrap_num_evaluated
 
@@ -75,7 +75,7 @@ subroutine f90wrap_distribs_container_type__get__num_evaluated_allocated( &
     type distribs_container_type_ptr_type
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(distribs_container_type_ptr_type) :: this_ptr
     integer, intent(out) :: f90wrap_num_evaluated_allocated
 
@@ -91,7 +91,7 @@ subroutine f90wrap_distribs_container_type__set__num_evaluated_allocated( &
     type distribs_container_type_ptr_type
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(distribs_container_type_ptr_type) :: this_ptr
     integer, intent(in) :: f90wrap_num_evaluated_allocated
 
@@ -110,7 +110,7 @@ subroutine f90wrap_distribs_container_type__get__kBT(this, f90wrap_kBT)
     type distribs_container_type_ptr_type
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(distribs_container_type_ptr_type) :: this_ptr
     real(4), intent(out) :: f90wrap_kBT
 
@@ -124,7 +124,7 @@ subroutine f90wrap_distribs_container_type__set__kBT(this, f90wrap_kBT)
     type distribs_container_type_ptr_type
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(distribs_container_type_ptr_type) :: this_ptr
     real(4), intent(in) :: f90wrap_kBT
 
@@ -145,7 +145,7 @@ subroutine f90wrap_distribs_container_type__get__history_len( &
     type distribs_container_type_ptr_type
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(distribs_container_type_ptr_type) :: this_ptr
     integer, intent(out) :: f90wrap_history_len
 
@@ -161,7 +161,7 @@ subroutine f90wrap_distribs_container_type__set__history_len( &
     type distribs_container_type_ptr_type
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(distribs_container_type_ptr_type) :: this_ptr
     integer, intent(in) :: f90wrap_history_len
 
@@ -178,7 +178,7 @@ subroutine f90wrap_distribs_container_type__array__history_deltas( &
     type distribs_container_type_ptr_type
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
-    integer(c_int), intent(in) :: this(2)
+    integer(c_int), intent(in) :: this(10)
     type(distribs_container_type_ptr_type) :: this_ptr
     integer(c_int), intent(out) :: nd
     integer(c_int), intent(out) :: dtype
@@ -209,7 +209,7 @@ subroutine f90wrap_distribs_container_type__get__weight_by_hull( &
     type distribs_container_type_ptr_type
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(distribs_container_type_ptr_type) :: this_ptr
     logical, intent(out) :: f90wrap_weight_by_hull
 
@@ -225,7 +225,7 @@ subroutine f90wrap_distribs_container_type__set__weight_by_hull( &
     type distribs_container_type_ptr_type
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(distribs_container_type_ptr_type) :: this_ptr
     logical, intent(in) :: f90wrap_weight_by_hull
 
@@ -246,7 +246,7 @@ subroutine f90wrap_distribs_container_type__get__viability_3body_default( &
     type distribs_container_type_ptr_type
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(distribs_container_type_ptr_type) :: this_ptr
     real(4), intent(out) :: f90wrap_viability_3body_default
 
@@ -262,7 +262,7 @@ subroutine f90wrap_distribs_container_type__set__viability_3body_default( &
     type distribs_container_type_ptr_type
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(distribs_container_type_ptr_type) :: this_ptr
     real(4), intent(in) :: f90wrap_viability_3body_default
 
@@ -278,7 +278,7 @@ subroutine f90wrap_distribs_container_type__get__viability_4body_default( &
     type distribs_container_type_ptr_type
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(distribs_container_type_ptr_type) :: this_ptr
     real(4), intent(out) :: f90wrap_viability_4body_default
 
@@ -294,7 +294,7 @@ subroutine f90wrap_distribs_container_type__set__viability_4body_default( &
     type distribs_container_type_ptr_type
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(distribs_container_type_ptr_type) :: this_ptr
     real(4), intent(in) :: f90wrap_viability_4body_default
 
@@ -310,7 +310,7 @@ subroutine f90wrap_distribs_container_type__get__smooth_viability( &
     type distribs_container_type_ptr_type
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(distribs_container_type_ptr_type) :: this_ptr
     logical, intent(out) :: f90wrap_smooth_viability
 
@@ -326,7 +326,7 @@ subroutine f90wrap_distribs_container_type__set__smooth_viability( &
     type distribs_container_type_ptr_type
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(distribs_container_type_ptr_type) :: this_ptr
     logical, intent(in) :: f90wrap_smooth_viability
 
@@ -348,7 +348,7 @@ subroutine f90wrap_distribs_container_type__array__nbins( &
     type distribs_container_type_ptr_type
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
-    integer(c_int), intent(in) :: this(2)
+    integer(c_int), intent(in) :: this(10)
     type(distribs_container_type_ptr_type) :: this_ptr
     integer(c_int), intent(out) :: nd
     integer(c_int), intent(out) :: dtype
@@ -371,7 +371,7 @@ subroutine f90wrap_distribs_container_type__array__sigma( &
     type distribs_container_type_ptr_type
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
-    integer(c_int), intent(in) :: this(2)
+    integer(c_int), intent(in) :: this(10)
     type(distribs_container_type_ptr_type) :: this_ptr
     integer(c_int), intent(out) :: nd
     integer(c_int), intent(out) :: dtype
@@ -394,7 +394,7 @@ subroutine f90wrap_distribs_container_type__array__width( &
     type distribs_container_type_ptr_type
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
-    integer(c_int), intent(in) :: this(2)
+    integer(c_int), intent(in) :: this(10)
     type(distribs_container_type_ptr_type) :: this_ptr
     integer(c_int), intent(out) :: nd
     integer(c_int), intent(out) :: dtype
@@ -417,7 +417,7 @@ subroutine f90wrap_distribs_container_type__array__cutoff_min( &
     type distribs_container_type_ptr_type
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
-    integer(c_int), intent(in) :: this(2)
+    integer(c_int), intent(in) :: this(10)
     type(distribs_container_type_ptr_type) :: this_ptr
     integer(c_int), intent(out) :: nd
     integer(c_int), intent(out) :: dtype
@@ -440,7 +440,7 @@ subroutine f90wrap_distribs_container_type__array__cutoff_max( &
     type distribs_container_type_ptr_type
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
-    integer(c_int), intent(in) :: this(2)
+    integer(c_int), intent(in) :: this(10)
     type(distribs_container_type_ptr_type) :: this_ptr
     integer(c_int), intent(out) :: nd
     integer(c_int), intent(out) :: dtype
@@ -463,7 +463,7 @@ subroutine f90wrap_distribs_container_type__array__radius_distance_tol( &
     type distribs_container_type_ptr_type
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
-    integer(c_int), intent(in) :: this(2)
+    integer(c_int), intent(in) :: this(10)
     type(distribs_container_type_ptr_type) :: this_ptr
     integer(c_int), intent(out) :: nd
     integer(c_int), intent(out) :: dtype
@@ -490,7 +490,7 @@ subroutine f90wrap_raffle__dc__dc_type_initialise(this)
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(out), dimension(2) :: this
+    integer, intent(out), dimension(10) :: this
     allocate(this_ptr%p)
     this = transfer(this_ptr, this)
 end subroutine f90wrap_raffle__dc__dc_type_initialise
@@ -503,7 +503,7 @@ subroutine f90wrap_raffle__dc__dc_type_finalise(this)
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     this_ptr = transfer(this, this_ptr)
     deallocate(this_ptr%p)
 end subroutine f90wrap_raffle__dc__dc_type_finalise
@@ -523,7 +523,7 @@ subroutine f90wrap_raffle__dc__set_width__binding__dc_type( &
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     real(4), dimension(3), intent(in) :: width
     this_ptr = transfer(this, this_ptr)
     call this_ptr%p%set_width(width=width)
@@ -539,7 +539,7 @@ subroutine f90wrap_raffle__dc__set_sigma__binding__dc_type( &
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     real(4), dimension(3), intent(in) :: sigma
     this_ptr = transfer(this, this_ptr)
     call this_ptr%p%set_sigma(sigma=sigma)
@@ -555,7 +555,7 @@ subroutine f90wrap_raffle__dc__set_cutoff_min__binding__dc_type( &
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     real(4), dimension(3), intent(in) :: cutoff_min
     this_ptr = transfer(this, this_ptr)
     call this_ptr%p%set_cutoff_min(cutoff_min=cutoff_min)
@@ -571,7 +571,7 @@ subroutine f90wrap_raffle__dc__set_cutoff_max__binding__dc_type( &
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     real(4), dimension(3), intent(in) :: cutoff_max
     this_ptr = transfer(this, this_ptr)
     call this_ptr%p%set_cutoff_max(cutoff_max=cutoff_max)
@@ -587,7 +587,7 @@ subroutine f90wrap_raffle__dc__set_radius_distance_tol__binding__dc_type( &
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     real(4), dimension(4), intent(in) :: radius_distance_tol
     this_ptr = transfer(this, this_ptr)
     call this_ptr%p%set_radius_distance_tol( &
@@ -605,7 +605,7 @@ subroutine f90wrap_raffle__dc__set_history_len__binding__dc_type( &
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     integer, intent(in) :: history_len
     this_ptr = transfer(this, this_ptr)
     call this_ptr%p%set_history_len(history_len=history_len)
@@ -635,9 +635,9 @@ subroutine f90wrap_raffle__dc__create__binding__dc_type( &
         type(basis_type_xnum_array), pointer :: p => NULL()
     end type basis_type_xnum_array_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     type(basis_type_xnum_array_ptr_type) :: basis_list_ptr
-    integer, intent(in), dimension(2) :: basis_list
+    integer, intent(in), dimension(10) :: basis_list
     logical, intent(in), optional :: deallocate_systems
     integer, intent(in), optional :: verbose
     real(4), dimension(n0), intent(in), optional :: energy_above_hull_list
@@ -674,9 +674,9 @@ subroutine f90wrap_raffle__dc__update__binding__dc_type( &
         type(basis_type_xnum_array), pointer :: p => NULL()
     end type basis_type_xnum_array_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     type(basis_type_xnum_array_ptr_type) :: basis_list_ptr
-    integer, intent(in), dimension(2) :: basis_list
+    integer, intent(in), dimension(10) :: basis_list
     logical, intent(in), optional :: from_host
     logical, intent(in), optional :: deallocate_systems
     integer, intent(in), optional :: verbose
@@ -709,7 +709,7 @@ subroutine f90wrap_raffle__dc__deallocate_systems__binding__dc_type( &
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     this_ptr = transfer(this, this_ptr)
     call this_ptr%p%deallocate_systems()
 end subroutine f90wrap_raffle__dc__deallocate_systems__binding__dc_type
@@ -734,9 +734,9 @@ subroutine f90wrap_raffle__dc__add_basis__binding__dc_type( &
         type(basis_type), pointer :: p => NULL()
     end type basis_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     type(basis_type_ptr_type) :: basis_ptr
-    integer, intent(in), dimension(2) :: basis
+    integer, intent(in), dimension(10) :: basis
     this_ptr = transfer(this, this_ptr)
     basis_ptr = transfer(basis, basis_ptr)
     call this_ptr%p%add_basis(basis=basis_ptr%p)
@@ -755,7 +755,7 @@ subroutine f90wrap_raffle__dc__get__num_elements( &
     type distribs_container_type_ptr_type
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(distribs_container_type_ptr_type) :: this_ptr
     integer, intent(out) :: ret_num_elements
 
@@ -781,7 +781,7 @@ subroutine f90wrap_raffle__dc__set_element_energy__binding__dc_type( &
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     character(3), intent(in) :: element
     real(4), intent(in) :: energy
     this_ptr = transfer(this, this_ptr)
@@ -798,7 +798,7 @@ subroutine f90wrap_raffle__dc__set_element_energies__binding__dc_type( &
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     character(3), dimension(n0), intent(in) :: elements
     real(4), dimension(n0), intent(in) :: energies
     integer :: n0
@@ -817,7 +817,7 @@ subroutine f90wrap_raffle__dc__get_element_energies_sm__binding__dc_type( &
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     character(3), intent(inout), dimension(n0) :: elements
     real(4), intent(inout), dimension(n0) :: energies
     integer :: n0
@@ -837,7 +837,7 @@ subroutine f90wrap_raffle__dc__set_bond_radius__binding__dc_type( &
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     character(3), dimension(2), intent(in) :: elements
     real(4), intent(in) :: radius
     this_ptr = transfer(this, this_ptr)
@@ -854,7 +854,7 @@ subroutine f90wrap_raffle__dc__set_bond_radii__binding__dc_type( &
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     character(3), intent(in), dimension(n0,n1) :: elements
     real(4), intent(in), dimension(n2) :: radii
     integer :: n0
@@ -877,7 +877,7 @@ subroutine f90wrap_raffle__dc__get_bond_radii_staticmem__binding__dc_type( &
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     character(3), intent(inout), dimension(n0,2) :: elements
     real(4), intent(inout), dimension(n0) :: radii
     integer :: n0
@@ -899,7 +899,7 @@ subroutine f90wrap_raffle__dc__initialise_gdfs__binding__dc_type(this)
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     this_ptr = transfer(this, this_ptr)
     call this_ptr%p%initialise_gdfs()
 end subroutine f90wrap_raffle__dc__initialise_gdfs__binding__dc_type
@@ -920,9 +920,9 @@ subroutine f90wrap_raffle__dc__evolve__binding__dc_type(this) !, system)
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     ! type(distribs_type_ptr_type) :: system_ptr
-    ! integer, optional, intent(in), dimension(2) :: system
+    ! integer, optional, intent(in), dimension(10) :: system
     this_ptr = transfer(this, this_ptr)
     ! if (present(system)) then
     !     system_ptr = transfer(system, system_ptr)
@@ -947,7 +947,7 @@ subroutine f90wrap_raffle__dc__is_converged__binding__dc_type( &
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     logical, intent(out) :: ret_converged
     real(4), intent(in), optional :: threshold
     this_ptr = transfer(this, this_ptr)
@@ -969,7 +969,7 @@ subroutine f90wrap_raffle__dc__read_gdfs__binding__dc_type( &
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     character*(*), intent(in) :: file
     this_ptr = transfer(this, this_ptr)
     call this_ptr%p%read_gdfs(file=file)
@@ -985,7 +985,7 @@ subroutine f90wrap_raffle__dc__write_gdfs__binding__dc_type( &
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     character*(*), intent(in) :: file
     this_ptr = transfer(this, this_ptr)
     call this_ptr%p%write_gdfs(file=file)
@@ -1001,7 +1001,7 @@ subroutine f90wrap_raffle__dc__read_dfs__binding__dc_type( &
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     character*(*), intent(in) :: file
     this_ptr = transfer(this, this_ptr)
     call this_ptr%p%read_dfs(file=file)
@@ -1017,7 +1017,7 @@ subroutine f90wrap_raffle__dc__write_dfs__binding__dc_type( &
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     character*(*), intent(in) :: file
     this_ptr = transfer(this, this_ptr)
     call this_ptr%p%write_dfs(file=file)
@@ -1033,7 +1033,7 @@ subroutine f90wrap_raffle__dc__write_2body__binding__dc_type( &
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     character*(*), intent(in) :: file
     this_ptr = transfer(this, this_ptr)
     call this_ptr%p%write_2body(file=file)
@@ -1049,7 +1049,7 @@ subroutine f90wrap_raffle__dc__write_3body__binding__dc_type( &
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     character*(*), intent(in) :: file
     this_ptr = transfer(this, this_ptr)
     call this_ptr%p%write_3body(file=file)
@@ -1065,7 +1065,7 @@ subroutine f90wrap_raffle__dc__write_4body__binding__dc_type( &
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     character*(*), intent(in) :: file
     this_ptr = transfer(this, this_ptr)
     call this_ptr%p%write_4body(file=file)
@@ -1086,7 +1086,7 @@ subroutine f90wrap_raffle__dc__get_pair_index__binding__dc_type( &
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     character(3), intent(in) :: species1
     integer, intent(out) :: ret_idx
     character(3), intent(in) :: species2
@@ -1104,7 +1104,7 @@ subroutine f90wrap_raffle__dc__get_bin__binding__dc_type( &
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     real(4), intent(in) :: value
     integer, intent(out) :: ret_bin
     integer, intent(in) :: dim
@@ -1128,7 +1128,7 @@ subroutine f90wrap_raffle__dc__get_2body__binding__dc_type( &
     end type distribs_container_type_ptr_type
     real(4), intent(out), dimension(n0,n1) :: ret_output
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     integer :: n0
     integer :: n1
     this_ptr = transfer(this, this_ptr)
@@ -1146,7 +1146,7 @@ subroutine f90wrap_raffle__dc__get_3body__binding__dc_type( &
     end type distribs_container_type_ptr_type
     real(4), intent(out), dimension(n0,n1) :: ret_output
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     integer :: n0
     integer :: n1
     this_ptr = transfer(this, this_ptr)
@@ -1164,7 +1164,7 @@ subroutine f90wrap_raffle__dc__get_4body__binding__dc_type( &
     end type distribs_container_type_ptr_type
     real(4), intent(out), dimension(n0,n1) :: ret_output
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     integer :: n0
     integer :: n1
     this_ptr = transfer(this, this_ptr)
@@ -1186,9 +1186,9 @@ subroutine f90wrap_raffle__dc__generate_fingerprint_python__dc_type( &
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     type(basis_type_ptr_type) :: structure_ptr
-    integer, intent(in), dimension(2) :: structure
+    integer, intent(in), dimension(10) :: structure
     real(4), intent(inout), dimension(n0,n1) :: output_2body
     real(4), intent(inout), dimension(n2,n3) :: output_3body
     real(4), intent(inout), dimension(n4,n5) :: output_4body
@@ -1222,7 +1222,7 @@ subroutine f90wrap_raffle__dc__get_num_species__dc_type( &
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     integer, intent(out) :: ret_num_species
     this_ptr = transfer(this, this_ptr)
     ret_num_species = size(this_ptr%p%element_info, dim = 1)
@@ -1238,7 +1238,7 @@ subroutine f90wrap_raffle__dc__get_num_pairs__dc_type( &
         type(distribs_container_type), pointer :: p => NULL()
     end type distribs_container_type_ptr_type
     type(distribs_container_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     integer, intent(out) :: ret_num_pairs
     this_ptr = transfer(this, this_ptr)
     ret_num_pairs = size(this_ptr%p%bond_info, dim = 1)

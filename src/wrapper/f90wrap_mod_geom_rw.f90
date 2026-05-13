@@ -7,7 +7,7 @@ subroutine f90wrap_species_type__array__atom_idx(this, nd, dtype, dshape, dloc)
     type species_type_ptr_type
         type(species_type), pointer :: p => NULL()
     end type species_type_ptr_type
-    integer(c_int), intent(in) :: this(2)
+    integer(c_int), intent(in) :: this(10)
     type(species_type_ptr_type) :: this_ptr
     integer(c_int), intent(out) :: nd
     integer(c_int), intent(out) :: dtype
@@ -32,7 +32,7 @@ subroutine f90wrap_species_type__array__atom(this, nd, dtype, dshape, dloc)
     type species_type_ptr_type
         type(species_type), pointer :: p => NULL()
     end type species_type_ptr_type
-    integer(c_int), intent(in) :: this(2)
+    integer(c_int), intent(in) :: this(10)
     type(species_type_ptr_type) :: this_ptr
     integer(c_int), intent(out) :: nd
     integer(c_int), intent(out) :: dtype
@@ -56,7 +56,7 @@ subroutine f90wrap_species_type__get__mass(this, f90wrap_mass)
     type species_type_ptr_type
         type(species_type), pointer :: p => NULL()
     end type species_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(species_type_ptr_type) :: this_ptr
     real(4), intent(out) :: f90wrap_mass
 
@@ -70,7 +70,7 @@ subroutine f90wrap_species_type__set__mass(this, f90wrap_mass)
     type species_type_ptr_type
         type(species_type), pointer :: p => NULL()
     end type species_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(species_type_ptr_type) :: this_ptr
     real(4), intent(in) :: f90wrap_mass
 
@@ -84,7 +84,7 @@ subroutine f90wrap_species_type__get__charge(this, f90wrap_charge)
     type species_type_ptr_type
         type(species_type), pointer :: p => NULL()
     end type species_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(species_type_ptr_type) :: this_ptr
     real(4), intent(out) :: f90wrap_charge
 
@@ -98,7 +98,7 @@ subroutine f90wrap_species_type__set__charge(this, f90wrap_charge)
     type species_type_ptr_type
         type(species_type), pointer :: p => NULL()
     end type species_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(species_type_ptr_type) :: this_ptr
     real(4), intent(in) :: f90wrap_charge
 
@@ -112,7 +112,7 @@ subroutine f90wrap_species_type__get__radius(this, f90wrap_radius)
     type species_type_ptr_type
         type(species_type), pointer :: p => NULL()
     end type species_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(species_type_ptr_type) :: this_ptr
     real(4), intent(out) :: f90wrap_radius
 
@@ -126,7 +126,7 @@ subroutine f90wrap_species_type__set__radius(this, f90wrap_radius)
     type species_type_ptr_type
         type(species_type), pointer :: p => NULL()
     end type species_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(species_type_ptr_type) :: this_ptr
     real(4), intent(in) :: f90wrap_radius
 
@@ -140,7 +140,7 @@ subroutine f90wrap_species_type__get__name(this, f90wrap_name)
     type species_type_ptr_type
         type(species_type), pointer :: p => NULL()
     end type species_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(species_type_ptr_type) :: this_ptr
     character(3), intent(out) :: f90wrap_name
 
@@ -154,7 +154,7 @@ subroutine f90wrap_species_type__set__name(this, f90wrap_name)
     type species_type_ptr_type
         type(species_type), pointer :: p => NULL()
     end type species_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(species_type_ptr_type) :: this_ptr
     character(3), intent(in) :: f90wrap_name
 
@@ -168,7 +168,7 @@ subroutine f90wrap_species_type__get__num(this, f90wrap_num)
     type species_type_ptr_type
         type(species_type), pointer :: p => NULL()
     end type species_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(species_type_ptr_type) :: this_ptr
     integer, intent(out) :: f90wrap_num
 
@@ -182,7 +182,7 @@ subroutine f90wrap_species_type__set__num(this, f90wrap_num)
     type species_type_ptr_type
         type(species_type), pointer :: p => NULL()
     end type species_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(species_type_ptr_type) :: this_ptr
     integer, intent(in) :: f90wrap_num
 
@@ -198,7 +198,7 @@ subroutine f90wrap_geom_rw__species_type_initialise(this)
         type(species_type), pointer :: p => NULL()
     end type species_type_ptr_type
     type(species_type_ptr_type) :: this_ptr
-    integer, intent(out), dimension(2) :: this
+    integer, intent(out), dimension(10) :: this
     allocate(this_ptr%p)
     this = transfer(this_ptr, this)
 end subroutine f90wrap_geom_rw__species_type_initialise
@@ -211,7 +211,7 @@ subroutine f90wrap_geom_rw__species_type_finalise(this)
         type(species_type), pointer :: p => NULL()
     end type species_type_ptr_type
     type(species_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     this_ptr = transfer(this, this_ptr)
     deallocate(this_ptr%p)
 end subroutine f90wrap_geom_rw__species_type_finalise
@@ -227,10 +227,10 @@ subroutine f90wrap_basis_type__array_getitem__spec(f90wrap_this, f90wrap_i, spec
     type species_type_ptr_type
         type(species_type), pointer :: p => NULL()
     end type species_type_ptr_type
-    integer, intent(in) :: f90wrap_this(2)
+    integer, intent(in) :: f90wrap_this(10)
     type(basis_type_ptr_type) :: this_ptr
     integer, intent(in) :: f90wrap_i
-    integer, intent(out) :: specitem(2)
+    integer, intent(out) :: specitem(10)
     type(species_type_ptr_type) :: spec_ptr
 
     this_ptr = transfer(f90wrap_this, this_ptr)
@@ -257,10 +257,10 @@ subroutine f90wrap_basis_type__array_setitem__spec(f90wrap_this, f90wrap_i, spec
     type species_type_ptr_type
         type(species_type), pointer :: p => NULL()
     end type species_type_ptr_type
-    integer, intent(in) :: f90wrap_this(2)
+    integer, intent(in) :: f90wrap_this(10)
     type(basis_type_ptr_type) :: this_ptr
     integer, intent(in) :: f90wrap_i
-    integer, intent(in) :: specitem(2)
+    integer, intent(in) :: specitem(10)
     type(species_type_ptr_type) :: spec_ptr
 
     this_ptr = transfer(f90wrap_this, this_ptr)
@@ -288,7 +288,7 @@ subroutine f90wrap_basis_type__array_len__spec(f90wrap_this, f90wrap_n)
         type(species_type), pointer :: p => NULL()
     end type species_type_ptr_type
     integer, intent(out) :: f90wrap_n
-    integer, intent(in) :: f90wrap_this(2)
+    integer, intent(in) :: f90wrap_this(10)
     type(basis_type_ptr_type) :: this_ptr
 
     this_ptr = transfer(f90wrap_this, this_ptr)
@@ -305,7 +305,7 @@ subroutine f90wrap_basis_type__get__nspec(this, f90wrap_nspec)
     type basis_type_ptr_type
         type(basis_type), pointer :: p => NULL()
     end type basis_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(basis_type_ptr_type) :: this_ptr
     integer, intent(out) :: f90wrap_nspec
 
@@ -319,7 +319,7 @@ subroutine f90wrap_basis_type__set__nspec(this, f90wrap_nspec)
     type basis_type_ptr_type
         type(basis_type), pointer :: p => NULL()
     end type basis_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(basis_type_ptr_type) :: this_ptr
     integer, intent(in) :: f90wrap_nspec
 
@@ -333,7 +333,7 @@ subroutine f90wrap_basis_type__get__natom(this, f90wrap_natom)
     type basis_type_ptr_type
         type(basis_type), pointer :: p => NULL()
     end type basis_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(basis_type_ptr_type) :: this_ptr
     integer, intent(out) :: f90wrap_natom
 
@@ -347,7 +347,7 @@ subroutine f90wrap_basis_type__set__natom(this, f90wrap_natom)
     type basis_type_ptr_type
         type(basis_type), pointer :: p => NULL()
     end type basis_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(basis_type_ptr_type) :: this_ptr
     integer, intent(in) :: f90wrap_natom
 
@@ -361,7 +361,7 @@ subroutine f90wrap_basis_type__get__energy(this, f90wrap_energy)
     type basis_type_ptr_type
         type(basis_type), pointer :: p => NULL()
     end type basis_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(basis_type_ptr_type) :: this_ptr
     real(4), intent(out) :: f90wrap_energy
 
@@ -375,7 +375,7 @@ subroutine f90wrap_basis_type__set__energy(this, f90wrap_energy)
     type basis_type_ptr_type
         type(basis_type), pointer :: p => NULL()
     end type basis_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(basis_type_ptr_type) :: this_ptr
     real(4), intent(in) :: f90wrap_energy
 
@@ -390,7 +390,7 @@ subroutine f90wrap_basis_type__array__lat(this, nd, dtype, dshape, dloc)
     type basis_type_ptr_type
         type(basis_type), pointer :: p => NULL()
     end type basis_type_ptr_type
-    integer(c_int), intent(in) :: this(2)
+    integer(c_int), intent(in) :: this(10)
     type(basis_type_ptr_type) :: this_ptr
     integer(c_int), intent(out) :: nd
     integer(c_int), intent(out) :: dtype
@@ -410,7 +410,7 @@ subroutine f90wrap_basis_type__get__lcart(this, f90wrap_lcart)
     type basis_type_ptr_type
         type(basis_type), pointer :: p => NULL()
     end type basis_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(basis_type_ptr_type) :: this_ptr
     logical, intent(out) :: f90wrap_lcart
 
@@ -424,7 +424,7 @@ subroutine f90wrap_basis_type__set__lcart(this, f90wrap_lcart)
     type basis_type_ptr_type
         type(basis_type), pointer :: p => NULL()
     end type basis_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(basis_type_ptr_type) :: this_ptr
     logical, intent(in) :: f90wrap_lcart
 
@@ -439,7 +439,7 @@ subroutine f90wrap_basis_type__array__pbc(this, nd, dtype, dshape, dloc)
     type basis_type_ptr_type
         type(basis_type), pointer :: p => NULL()
     end type basis_type_ptr_type
-    integer(c_int), intent(in) :: this(2)
+    integer(c_int), intent(in) :: this(10)
     type(basis_type_ptr_type) :: this_ptr
     integer(c_int), intent(out) :: nd
     integer(c_int), intent(out) :: dtype
@@ -459,7 +459,7 @@ subroutine f90wrap_basis_type__get__sysname(this, f90wrap_sysname)
     type basis_type_ptr_type
         type(basis_type), pointer :: p => NULL()
     end type basis_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(basis_type_ptr_type) :: this_ptr
     character(128), intent(out) :: f90wrap_sysname
 
@@ -473,7 +473,7 @@ subroutine f90wrap_basis_type__set__sysname(this, f90wrap_sysname)
     type basis_type_ptr_type
         type(basis_type), pointer :: p => NULL()
     end type basis_type_ptr_type
-    integer, intent(in)   :: this(2)
+    integer, intent(in)   :: this(10)
     type(basis_type_ptr_type) :: this_ptr
     character(128), intent(in) :: f90wrap_sysname
 
@@ -489,7 +489,7 @@ subroutine f90wrap_geom_rw__basis_type_initialise(this)
         type(basis_type), pointer :: p => NULL()
     end type basis_type_ptr_type
     type(basis_type_ptr_type) :: this_ptr
-    integer, intent(out), dimension(2) :: this
+    integer, intent(out), dimension(10) :: this
     allocate(this_ptr%p)
     this = transfer(this_ptr, this)
 end subroutine f90wrap_geom_rw__basis_type_initialise
@@ -502,7 +502,7 @@ subroutine f90wrap_geom_rw__basis_type_finalise(this)
         type(basis_type), pointer :: p => NULL()
     end type basis_type_ptr_type
     type(basis_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     this_ptr = transfer(this, this_ptr)
     deallocate(this_ptr%p)
 end subroutine f90wrap_geom_rw__basis_type_finalise
@@ -526,10 +526,10 @@ subroutine f90wrap_basis_type_xnum_array__array_getitem__items( &
     type basis_type_ptr_type
         type(basis_type), pointer :: p => NULL()
     end type basis_type_ptr_type
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     type(basis_type_xnum_array_ptr_type) :: this_ptr
     integer, intent(in) :: f90wrap_i
-    integer, intent(out) :: itemsitem(2)
+    integer, intent(out) :: itemsitem(10)
     type(basis_type_ptr_type) :: items_ptr
 
     this_ptr = transfer(this, this_ptr)
@@ -555,10 +555,10 @@ subroutine f90wrap_basis_type_xnum_array__array_setitem__items(this, f90wrap_i, 
     type basis_type_ptr_type
         type(basis_type), pointer :: p => NULL()
     end type basis_type_ptr_type
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     type(basis_type_xnum_array_ptr_type) :: this_ptr
     integer, intent(in) :: f90wrap_i
-    integer, intent(out) :: itemsitem(2)
+    integer, intent(out) :: itemsitem(10)
     type(basis_type_ptr_type) :: items_ptr
 
     this_ptr = transfer(this, this_ptr)
@@ -581,7 +581,7 @@ subroutine f90wrap_basis_type_xnum_array__array_len__items(this, f90wrap_n)
     type basis_type_xnum_array_ptr_type
         type(basis_type_xnum_array), pointer :: p => NULL()
     end type basis_type_xnum_array_ptr_type
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     type(basis_type_xnum_array_ptr_type) :: this_ptr
     integer, intent(out) :: f90wrap_n
     this_ptr = transfer(this, this_ptr)
@@ -601,7 +601,7 @@ subroutine f90wrap_basis_type_xnum_array__array_alloc__items(this, num)
     end type basis_type_xnum_array_ptr_type
     type(basis_type_xnum_array_ptr_type) :: this_ptr
     integer, intent(in) :: num
-    integer, intent(inout), dimension(2) :: this
+    integer, intent(inout), dimension(10) :: this
 
     this_ptr = transfer(this, this_ptr)
     allocate(this_ptr%p%items(num))
@@ -620,7 +620,7 @@ subroutine f90wrap_basis_type_xnum_array__array_dealloc__items(this)
         type(basis_type_xnum_array), pointer :: p => NULL()
     end type basis_type_xnum_array_ptr_type
     type(basis_type_xnum_array_ptr_type) :: this_ptr
-    integer, intent(inout), dimension(2) :: this
+    integer, intent(inout), dimension(10) :: this
 
     this_ptr = transfer(this, this_ptr)
     deallocate(this_ptr%p%items)
@@ -639,7 +639,7 @@ subroutine f90wrap_geom_rw__basis_type_xnum_array_initialise(this)
         type(basis_type_xnum_array), pointer :: p => NULL()
     end type basis_type_xnum_array_ptr_type
     type(basis_type_xnum_array_ptr_type) :: this_ptr
-    integer, intent(out), dimension(2) :: this
+    integer, intent(out), dimension(10) :: this
     allocate(this_ptr%p)
     this = transfer(this_ptr, this)
 end subroutine f90wrap_geom_rw__basis_type_xnum_array_initialise
@@ -656,7 +656,7 @@ subroutine f90wrap_geom_rw__basis_type_xnum_array_finalise(this)
         type(basis_type_xnum_array), pointer :: p => NULL()
     end type basis_type_xnum_array_ptr_type
     type(basis_type_xnum_array_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     this_ptr = transfer(this, this_ptr)
     deallocate(this_ptr%p)
 end subroutine f90wrap_geom_rw__basis_type_xnum_array_finalise
@@ -676,7 +676,7 @@ subroutine f90wrap_geom_rw__allocate_species__binding__basis_type( &
         type(basis_type), pointer :: p => NULL()
     end type basis_type_ptr_type
     type(basis_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     integer, intent(in), optional :: num_species
     character(3), intent(in), optional, dimension(n0) :: species_symbols
     integer, intent(in), optional, dimension(n1) :: species_count
@@ -708,7 +708,7 @@ subroutine f90wrap_geom_rw__convert__binding__basis_type(this)
         type(basis_type), pointer :: p => NULL()
     end type basis_type_ptr_type
     type(basis_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     this_ptr = transfer(this, this_ptr)
     call this_ptr%p%convert()
 end subroutine f90wrap_geom_rw__convert__binding__basis_type
@@ -721,9 +721,9 @@ subroutine f90wrap_geom_rw__copy__binding__basis_type(this, basis, length)
         type(basis_type), pointer :: p => NULL()
     end type basis_type_ptr_type
     type(basis_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     type(basis_type_ptr_type) :: basis_ptr
-    integer, intent(in), dimension(2) :: basis
+    integer, intent(in), dimension(10) :: basis
     integer, intent(in), optional :: length
     this_ptr = transfer(this, this_ptr)
     basis_ptr = transfer(basis, basis_ptr)
@@ -738,7 +738,7 @@ subroutine f90wrap_geom_rw__get_lattice_constants__binding__basis_type(this, ret
         type(basis_type), pointer :: p => NULL()
     end type basis_type_ptr_type
     type(basis_type_ptr_type) :: this_ptr
-    integer, intent(in), dimension(2) :: this
+    integer, intent(in), dimension(10) :: this
     real(4), dimension(2,3), intent(out) :: ret_output
     logical, intent(in), optional :: radians
     this_ptr = transfer(this, this_ptr)
@@ -754,7 +754,7 @@ subroutine f90wrap_geom_rw__geom_read(unit, basis, length, iostat)
     end type basis_type_ptr_type
     integer, intent(in) :: unit
     type(basis_type_ptr_type) :: basis_ptr
-    integer, intent(out), dimension(2) :: basis
+    integer, intent(out), dimension(10) :: basis
     integer, optional, intent(in) :: length
     integer, optional, intent(inout) :: iostat
     allocate(basis_ptr%p)
@@ -771,7 +771,7 @@ subroutine f90wrap_geom_rw__geom_write(unit, basis)
     end type basis_type_ptr_type
     integer, intent(in) :: unit
     type(basis_type_ptr_type) :: basis_ptr
-    integer, intent(in), dimension(2) :: basis
+    integer, intent(in), dimension(10) :: basis
     basis_ptr = transfer(basis, basis_ptr)
     call geom_write(UNIT=unit, basis=basis_ptr%p)
 end subroutine f90wrap_geom_rw__geom_write

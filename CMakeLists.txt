@@ -60,6 +60,12 @@ set( CMAKE_CONFIGURATION_TYPES "Release" "Parallel" "Serial" "Dev" "Debug" "Debu
 set( CMAKE_BUILD_TYPE "Release"
   CACHE STRING "Select which configuration to build." )
 
+set(RAFFLE_BUILD_TYPE "${CMAKE_BUILD_TYPE}")
+set(RAFFLE_DEPENDENCY_BUILD_TYPE "${RAFFLE_BUILD_TYPE}")
+if(RAFFLE_BUILD_TYPE MATCHES "Parallel")
+    set(RAFFLE_DEPENDENCY_BUILD_TYPE "Release")
+endif()
+
 # set options for building tests and examples
 option(BUILD_TESTS "Build the unit tests" On)
 option(BUILD_EXAMPLES "Build the examples" On)
@@ -86,13 +92,32 @@ enable_testing()
 
 # Fetch coreutils dependency
 include(FetchContent)
+
+function(raffle_fetchcontent_makeavailable dependency_name)
+    set(_raffle_saved_build_type "${CMAKE_BUILD_TYPE}")
+
+    if(NOT "${RAFFLE_DEPENDENCY_BUILD_TYPE}" STREQUAL "${_raffle_saved_build_type}")
+        message(STATUS
+            "Configuring ${dependency_name} with ${RAFFLE_DEPENDENCY_BUILD_TYPE} while RAFFLE uses ${RAFFLE_BUILD_TYPE}")
+        set(CMAKE_BUILD_TYPE "${RAFFLE_DEPENDENCY_BUILD_TYPE}"
+            CACHE STRING "Select which configuration to build." FORCE)
+    endif()
+
+    FetchContent_MakeAvailable(${dependency_name})
+
+    if(NOT "${CMAKE_BUILD_TYPE}" STREQUAL "${_raffle_saved_build_type}")
+        set(CMAKE_BUILD_TYPE "${_raffle_saved_build_type}"
+            CACHE STRING "Select which configuration to build." FORCE)
+    endif()
+endfunction()
+
 FetchContent_Declare(
     coreutils
     GIT_REPOSITORY https://github.com/nedtaylor/coreutils
     GIT_TAG v0.1.0
     OVERRIDE_FIND_PACKAGE
 )
-FetchContent_MakeAvailable(coreutils)
+raffle_fetchcontent_makeavailable(coreutils)
 
 # Fetch atomstruc dependency
 FetchContent_Declare(
@@ -101,7 +126,7 @@ FetchContent_Declare(
     GIT_TAG column-major-order
     EXCLUDE_FROM_ALL
 )
-FetchContent_MakeAvailable(atomstruc)
+raffle_fetchcontent_makeavailable(atomstruc)
 
 # Define the sources
 set(SRC_DIR src)

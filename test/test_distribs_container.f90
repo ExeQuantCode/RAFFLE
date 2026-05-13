@@ -757,7 +757,12 @@ contains
     type(basis_type), intent(in) :: basis
 
     type(distribs_container_type) :: distribs_container
+          type(basis_type), dimension(2) :: basis_list
     integer, dimension(1,1,1,1) :: test_array = 1
+
+          basis_list = [ basis, basis ]
+          basis_list(1)%energy = basis%energy + 1._real32
+          basis_list(2)%energy = basis%energy + 2._real32
 
     ! Call the add subroutine
     call distribs_container%add(basis)
@@ -784,11 +789,35 @@ contains
     )
 
     ! Call the add subroutine
+    call distribs_container%add(basis_list)
+
+    ! Check number of systems is correct
+    call assert( &
+         size(distribs_container%system, dim=1) .eq. 3,  &
+         "Number of systems is incorrect",  &
+         success &
+    )
+    call assert( &
+         abs( &
+              distribs_container%system(2)%energy - basis_list(1)%energy &
+         ) .lt. 1.E-6,  &
+         "Batch add did not preserve input ordering",  &
+         success &
+    )
+    call assert( &
+         abs( &
+              distribs_container%system(3)%energy - basis_list(2)%energy &
+         ) .lt. 1.E-6,  &
+         "Batch add did not preserve input ordering",  &
+         success &
+    )
+
+    ! Call the add subroutine
     call distribs_container%add([basis])
 
     ! Check number of systems is correct
     call assert( &
-         size(distribs_container%system, dim=1) .eq. 2,  &
+         size(distribs_container%system, dim=1) .eq. 4,  &
          "Number of systems is incorrect",  &
          success &
     )
@@ -798,7 +827,7 @@ contains
 
     ! Check number of systems is correct
     call assert( &
-         size(distribs_container%system, dim=1) .eq. 3,  &
+         size(distribs_container%system, dim=1) .eq. 5,  &
          "Number of systems is incorrect",  &
          success &
     )
@@ -808,7 +837,7 @@ contains
 
     ! Check number of systems is correct
     call assert( &
-         size(distribs_container%system, dim=1) .eq. 6,  &
+         size(distribs_container%system, dim=1) .eq. 10,  &
          "Number of systems is incorrect",  &
          success &
     )

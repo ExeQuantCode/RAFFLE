@@ -1337,12 +1337,12 @@ contains
     !! System to add to the container.
 
     ! Local variables
-    integer :: i
-    !! Loop index.
-    integer :: num_structures_previous
-    !! Number of structures in the container before adding the system.
     character(256) :: stop_msg
     !! Error message.
+
+    if(.not.allocated(this%system))then
+       allocate(this%system(0))
+    end if
 
     select rank(rank_ptr => system)
     rank(0)
@@ -1368,17 +1368,11 @@ contains
           return
        end select
     rank(1)
-       num_structures_previous = size(this%system)
-       if(.not.allocated(this%system))then
-          allocate(this%system(0))
-       end if
        select type(type_ptr => rank_ptr)
        type is (distribs_type)
           this%system = [ this%system, type_ptr ]
        class is (basis_type)
-          do i = 1, size(type_ptr)
-             call this%add_basis(type_ptr(i))
-          end do
+          call add_basis_list(this, type_ptr)
        class default
           write(stop_msg,*) "Invalid type for system" // &
                achar(13) // achar(10) // &
@@ -1393,6 +1387,7 @@ contains
        call stop_program( stop_msg )
        return
     end select
+      if(size(this%system).eq.0) return
     call this%update_element_info()
     call this%update_bond_info()
 
@@ -1412,24 +1407,141 @@ contains
     !! Basis to add to the container.
 
     ! Local variables
-    type(distribs_type) :: system
-    !! System to add to the container.
+    type(basis_type), dimension(1) :: basis_list
 
-    call system%calculate( &
-         basis, &
-         width = this%width, &
-         sigma = this%sigma, &
-         cutoff_min = this%cutoff_min, &
-         cutoff_max = this%cutoff_max, &
-         radius_distance_tol = this%radius_distance_tol &
-    )
-
-    if(.not.allocated(this%system))then
-       this%system = [ system ]
-    else
-       this%system = [ this%system, system ]
-    end if
+    basis_list(1) = basis
+    call add_basis_list(this, basis_list)
   end subroutine add_basis
+!###############################################################################
+
+
+!###############################################################################
+  subroutine add_basis_list(this, basis_list)
+    !! Add a list of basis structures to the container.
+    implicit none
+
+    ! Arguments
+    class(distribs_container_type), intent(inout) :: this
+    !! Parent. Instance of distribution functions container.
+    type(basis_type), dimension(:), intent(in) :: basis_list
+    !! Basis structures to add to the container.
+
+    ! Local variables
+    integer :: i
+    !! Loop index.
+    integer :: num_structures_previous
+    !! Number of structures already stored in the container.
+    type(distribs_type), allocatable, dimension(:) :: new_systems
+    !! Newly calculated distribution functions.
+    type(distribs_type), allocatable, dimension(:) :: combined_systems
+    !! Existing and new systems stored contiguously.
+
+    if(size(basis_list).eq.0) return
+
+    call prime_basis_cache(basis_list)
+    allocate(new_systems(size(basis_list)))
+
+!$omp parallel do default(shared) private(i) schedule(dynamic)
+    do i = 1, size(basis_list)
+       call new_systems(i)%calculate( &
+            basis_list(i), &
+            width = this%width, &
+            sigma = this%sigma, &
+            cutoff_min = this%cutoff_min, &
+            cutoff_max = this%cutoff_max, &
+            radius_distance_tol = this%radius_distance_tol &
+       )
+    end do
+!$omp end parallel do
+
+    num_structures_previous = size(this%system)
+    allocate(combined_systems(num_structures_previous + size(new_systems)))
+    if(num_structures_previous.gt.0)then
+       combined_systems(:num_structures_previous) = this%system
+    end if
+    combined_systems(num_structures_previous + 1:) = new_systems
+    call move_alloc(combined_systems, this%system)
+
+  end subroutine add_basis_list
+!###############################################################################
+
+
+!###############################################################################
+  subroutine prime_basis_cache(basis_list)
+    !! Ensure shared element and bond caches are populated before OMP work.
+    implicit none
+
+    ! Arguments
+    type(basis_type), dimension(:), intent(in) :: basis_list
+    !! Basis structures whose elements and bond pairs must be available.
+
+    ! Local variables
+    integer :: i, is, js
+    !! Loop indices.
+    real(real32) :: radius
+    !! Element radius.
+    character(len=3), dimension(:), allocatable :: element_list
+    !! Unique list of elements appearing in the input basis structures.
+
+    allocate(element_list(0))
+    do i = 1, size(basis_list)
+       do is = 1, basis_list(i)%nspec
+          element_list = [ element_list, strip_null(basis_list(i)%spec(is)%name) ]
+       end do
+    end do
+    call set(element_list)
+
+    if(.not.allocated(element_database)) allocate(element_database(0))
+    do i = 1, size(element_list)
+       if(findloc([ element_database(:)%name ], element_list(i), dim=1).lt.1)then
+          call get_element_properties(element_list(i), radius=radius)
+          element_database = [ &
+               element_database, &
+               element_type(name=element_list(i), radius=radius) &
+          ]
+       end if
+    end do
+
+    do is = 1, size(element_list)
+       do js = is, size(element_list)
+          if(.not.has_bond_radius([ element_list(is), element_list(js) ]))then
+             call set_bond_radius_to_default([ element_list(is), element_list(js) ])
+          end if
+       end do
+    end do
+
+  end subroutine prime_basis_cache
+!###############################################################################
+
+
+!###############################################################################
+  logical function has_bond_radius(elements) result(found)
+    !! Check if a bond entry is already present in the shared bond cache.
+    implicit none
+
+    ! Arguments
+    character(len=3), dimension(2), intent(in) :: elements
+    !! Element pair to look up.
+
+    ! Local variables
+    integer :: i
+    !! Loop index.
+    character(len=3), dimension(2) :: elements_sorted
+    !! Sorted element pair for comparison.
+
+    found = .false.
+    elements_sorted = elements
+    call sort_str(elements_sorted)
+    if(.not.allocated(element_bond_database)) return
+
+    do i = 1, size(element_bond_database)
+       if(all(element_bond_database(i)%element.eq.elements_sorted))then
+          found = .true.
+          return
+       end if
+    end do
+
+  end function has_bond_radius
 !###############################################################################
 
 

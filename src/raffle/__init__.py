@@ -25,6 +25,11 @@ try:
     from .torch_gnn_fingerprint import TorchGNNFingerprint
 except Exception:
     TorchGNNFingerprint = None
+try:
+    from .ensemble_exploration import InferenceEnsemble, InferenceEnsembleConfig
+except Exception:
+    InferenceEnsemble = None
+    InferenceEnsembleConfig = None
 # from .raffle import generator
 
 

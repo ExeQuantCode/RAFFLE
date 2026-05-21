@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import copy
+import importlib.util
 import json
 from pathlib import Path
+import sys
 from typing import Any, Optional, Sequence
 
 import numpy as np
@@ -12,11 +14,26 @@ import torch
 from ase.build import bulk
 from ase.io import read, write
 
+def _load_local_torch_gnn_fingerprint() -> None:
+    import raffle as raffle_package
+
+    module_path = Path(__file__).resolve().parents[2] / "src" / "raffle" / "torch_gnn_fingerprint.py"
+    spec = importlib.util.spec_from_file_location("raffle.torch_gnn_fingerprint", module_path)
+    if spec is None or spec.loader is None:
+        return
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["raffle.torch_gnn_fingerprint"] = module
+    spec.loader.exec_module(module)
+    raffle_package.TorchGNNFingerprint = module.TorchGNNFingerprint
+
+
+_load_local_torch_gnn_fingerprint()
+
 from raffle import (
     TorchGNNFingerprint,
     minimum_image_displacements,
+    structure_similarity_rmsd,
     symmetry_aware_displacements,
-    symmetry_aware_rmsd,
 )
 
 
@@ -453,9 +470,10 @@ def create_model(
 ) -> TorchGNNFingerprint:
     ensure_torch_gnn_available()
     resolved_config = normalise_model_config(model_config)
+    resolved_seed = int(resolved_config.pop("seed", seed))
     return TorchGNNFingerprint(
         species_list=[str(symbol).strip() for symbol in species_list],
-        seed=int(seed),
+        seed=resolved_seed,
         **resolved_config,
     )
 
@@ -499,11 +517,19 @@ def save_model_checkpoint(
     training_config: dict[str, Any],
     training_history: Sequence[float],
 ) -> dict[str, Any]:
+    resolved_model_config = normalise_model_config(model_config)
+    resolved_seed = int(
+        resolved_model_config.get(
+            "seed",
+            getattr(model, "seed", training_config.get("seed", 42)),
+        )
+    )
     payload = {
         "checkpoint_version": 1,
         "species_list": [str(symbol).strip() for symbol in species_list],
         "model_config": {
-            **normalise_model_config(model_config),
+            **resolved_model_config,
+            "seed": resolved_seed,
             "component_weight": list(
                 normalise_component_weight(model_config.get("component_weight", DEFAULT_COMPONENT_WEIGHT))
             ),
@@ -548,25 +574,25 @@ def build_inverse_design_options(
     target_vertex_weight: float = 0.0,
     target_position_weight: float = 0.0,
     inverse_lr_decay_rate: float = 0.0,
-    inverse_restarts: int = 1,
-    inverse_restart_noise_scale: float = 0.0,
     repulsion_weight: float = 10.0,
     minimum_distance_scale: float = 0.75,
     cell_violation_weight: float = 0.0,
     coordinate_clip_value: float | None = None,
+    inverse_restarts: int | None = None,
+    inverse_restart_noise_scale: float | None = None,
 ) -> dict[str, Any]:
+    del inverse_restarts
+    del inverse_restart_noise_scale
     if float(target_vertex_weight) != 0.0:
         raise ValueError("target_vertex_weight must remain 0.0 for plan-compliant inverse design")
     if float(target_position_weight) != 0.0:
         raise ValueError("target_position_weight must remain 0.0 for plan-compliant inverse design")
     return {
-        "target_atoms": None,
+        "target_atoms": target_atoms,
         "fingerprint_loss_weight": float(fingerprint_loss_weight),
         "target_vertex_weight": float(target_vertex_weight),
         "target_position_weight": float(target_position_weight),
         "inverse_lr_decay_rate": float(inverse_lr_decay_rate),
-        "num_restarts": int(inverse_restarts),
-        "restart_noise_scale": float(inverse_restart_noise_scale),
         "repulsion_weight": float(repulsion_weight),
         "minimum_distance_scale": float(minimum_distance_scale),
         "cell_violation_weight": float(cell_violation_weight),
@@ -582,7 +608,11 @@ def fingerprint_mse(model: TorchGNNFingerprint, atoms, target_fingerprint: np.nd
 
 
 def score_candidate(target_atoms, candidate_atoms) -> float:
-    return float(symmetry_aware_rmsd(target_atoms, candidate_atoms))
+    return float(structure_similarity_rmsd(target_atoms, candidate_atoms))
+
+
+def structures_have_matching_atom_count(reference_atoms, candidate_atoms) -> bool:
+    return int(len(reference_atoms)) == int(len(candidate_atoms))
 
 
 def compute_inverse_design_metrics(
@@ -609,20 +639,38 @@ def compute_inverse_design_metrics(
         ),
     }
     if target_atoms is not None:
-        initial_delta = symmetry_aware_displacements(target_atoms, initial_atoms)
-        final_delta = symmetry_aware_displacements(target_atoms, optimised_atoms)
+        initial_rmsd = score_candidate(target_atoms, initial_atoms)
+        final_rmsd = score_candidate(target_atoms, optimised_atoms)
         metrics.update(
             {
-                "position_error_metric": "symmetry_aware_rmsd",
-                "initial_rmsd": score_candidate(target_atoms, initial_atoms),
-                "final_rmsd": score_candidate(target_atoms, optimised_atoms),
-                "initial_position_difference": initial_delta.tolist(),
-                "final_position_difference": final_delta.tolist(),
+                "position_error_metric": "structure_similarity_rmsd",
+                "initial_rmsd": initial_rmsd,
+                "final_rmsd": final_rmsd,
             }
         )
-        if metrics["initial_rmsd"] != 0.0:
-            metrics["rmsd_reduction_fraction"] = (
-                1.0 - metrics["final_rmsd"] / metrics["initial_rmsd"]
+        if initial_rmsd != 0.0:
+            metrics["rmsd_reduction_fraction"] = 1.0 - final_rmsd / initial_rmsd
+
+        if structures_have_matching_atom_count(target_atoms, initial_atoms) and structures_have_matching_atom_count(
+            target_atoms,
+            optimised_atoms,
+        ):
+            initial_delta = symmetry_aware_displacements(target_atoms, initial_atoms)
+            final_delta = symmetry_aware_displacements(target_atoms, optimised_atoms)
+            metrics.update(
+                {
+                    "initial_position_difference": initial_delta.tolist(),
+                    "final_position_difference": final_delta.tolist(),
+                }
+            )
+        else:
+            metrics.update(
+                {
+                    "position_difference_skipped_reason": "atom_count_mismatch",
+                    "target_atom_count": int(len(target_atoms)),
+                    "initial_atom_count": int(len(initial_atoms)),
+                    "optimised_atom_count": int(len(optimised_atoms)),
+                }
             )
     return metrics
 
@@ -651,6 +699,14 @@ def write_inverse_design_log(log_path: Path, metrics: dict[str, Any]) -> None:
 
 
 def print_position_differences(target_atoms, initial_atoms, optimised_atoms) -> None:
+    if not structures_have_matching_atom_count(target_atoms, initial_atoms) or not structures_have_matching_atom_count(
+        target_atoms,
+        optimised_atoms,
+    ):
+        raise ValueError(
+            "Position differences require target_atoms, initial_atoms, and optimised_atoms "
+            "to have the same number of atoms"
+        )
     initial_delta = symmetry_aware_displacements(target_atoms, initial_atoms)
     final_delta = symmetry_aware_displacements(target_atoms, optimised_atoms)
     optimisation_delta = minimum_image_displacements(initial_atoms, optimised_atoms)

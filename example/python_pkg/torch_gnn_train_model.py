@@ -1,4 +1,9 @@
-"""Train and save a single PyTorch GNN surrogate model for inverse design."""
+"""Train and save a single PyTorch GNN surrogate model for inverse design.
+
+This is the recommended split-workflow training entry point. It writes a reusable
+checkpoint together with the resolved training config, target fingerprint, and
+reference structure needed for reproducible inverse-design runs.
+"""
 
 from __future__ import annotations
 
@@ -34,29 +39,97 @@ from torch_gnn_workflow_common import (
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--config", type=Path, default=None)
-    parser.add_argument("--training-structures", type=str, default=None)
-    parser.add_argument("--training-structure-limit", type=int, default=None)
-    parser.add_argument("--reference-structure", type=str, default=None)
-    parser.add_argument("--reference-structure-index", type=int, default=None)
-    parser.add_argument("--augmented-count", type=int, default=None)
-    parser.add_argument("--augmentation-noise-scale", type=float, default=None)
-    parser.add_argument("--epochs", type=int, default=None)
-    parser.add_argument("--batch-size", type=int, default=None)
-    parser.add_argument("--seed", type=int, default=None)
-    parser.add_argument("--species-list", type=str, default=None)
-    parser.add_argument("--hidden-dim", type=int, default=None)
-    parser.add_argument("--architecture", type=str, default=None)
-    parser.add_argument("--num-message-layers", type=int, default=None)
-    parser.add_argument("--learning-rate", type=float, default=None)
-    parser.add_argument("--model-lr-decay-rate", type=float, default=None)
-    parser.add_argument("--smooth-cutoff-width", type=float, default=None)
-    parser.add_argument("--reference-layer-type", type=int, default=None)
-    parser.add_argument("--component-weight-2body", type=float, default=None)
-    parser.add_argument("--component-weight-3body", type=float, default=None)
-    parser.add_argument("--component-weight-4body", type=float, default=None)
-    parser.add_argument("--output-dir", type=str, default=None)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help="Optional JSON config file. Explicit CLI flags override config values.",
+    )
+    parser.add_argument(
+        "--training-structures",
+        type=str,
+        default=None,
+        help="Structure file used for surrogate training.",
+    )
+    parser.add_argument(
+        "--training-structure-limit",
+        type=int,
+        default=None,
+        help="Limit the number of loaded training structures. Use 0 for all structures.",
+    )
+    parser.add_argument(
+        "--reference-structure",
+        type=str,
+        default=None,
+        help="Structure whose analytical fingerprint is exported with the checkpoint bundle.",
+    )
+    parser.add_argument(
+        "--reference-structure-index",
+        type=int,
+        default=None,
+        help="Frame index when --reference-structure contains multiple structures.",
+    )
+    parser.add_argument(
+        "--augmented-count",
+        type=int,
+        default=None,
+        help="Number of noisy reference-structure augmentations to add during training.",
+    )
+    parser.add_argument(
+        "--augmentation-noise-scale",
+        type=float,
+        default=None,
+        help="Gaussian noise scale used to create augmented structures.",
+    )
+    parser.add_argument("--epochs", type=int, default=None, help="Number of training epochs.")
+    parser.add_argument("--batch-size", type=int, default=None, help="Mini-batch size.")
+    parser.add_argument("--seed", type=int, default=None, help="Random seed for training and augmentation.")
+    parser.add_argument(
+        "--species-list",
+        type=str,
+        default=None,
+        help="Optional comma-separated species list. By default it is inferred from the data.",
+    )
+    parser.add_argument("--hidden-dim", type=int, default=None, help="Hidden width of each message-passing branch.")
+    parser.add_argument("--architecture", type=str, default=None, help="Torch GNN branch architecture alias.")
+    parser.add_argument(
+        "--num-message-layers",
+        type=int,
+        default=None,
+        help="Number of message-passing layers in each branch.",
+    )
+    parser.add_argument("--learning-rate", type=float, default=None, help="Initial optimiser learning rate.")
+    parser.add_argument(
+        "--model-lr-decay-rate",
+        type=float,
+        default=None,
+        help="Exponential learning-rate decay applied once per epoch.",
+    )
+    parser.add_argument(
+        "--smooth-cutoff-width",
+        type=float,
+        default=None,
+        help="Smooth cutoff width used in the graph construction features.",
+    )
+    parser.add_argument(
+        "--reference-layer-type",
+        type=int,
+        default=None,
+        help="Fortran reference model layer type forwarded into TorchGNNFingerprint.",
+    )
+    parser.add_argument("--component-weight-2body", type=float, default=None, help="Relative loss weight for the 2-body component.")
+    parser.add_argument("--component-weight-3body", type=float, default=None, help="Relative loss weight for the 3-body component.")
+    parser.add_argument("--component-weight-4body", type=float, default=None, help="Relative loss weight for the 4-body component.")
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=None,
+        help="Directory for the checkpoint, target fingerprint, resolved config, and metrics.",
+    )
     return parser
 
 

@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
-import platform
 from pathlib import Path
-import subprocess
-import sys
-from typing import Any
 
 import wandb
+
+from torch_gnn_carbon_wandb import (
+    build_reproducibility_metadata as build_shared_reproducibility_metadata,
+    build_resolved_workflow_config as build_shared_resolved_workflow_config,
+    persist_reproducibility_payloads as persist_shared_reproducibility_payloads,
+)
 
 from torch_gnn_carbon_workflow_example import (
     CELL_VIOLATION_WEIGHT,
@@ -34,7 +35,6 @@ from torch_gnn_carbon_workflow_example import (
     ROLLOUT_STAGES,
     ROLLOUT_STEP_STRIDE,
     TARGET_VERTEX_WEIGHT,
-    build_perturbed_structure,
     default_inverse_step_values,
     default_step_sizes,
     parse_category_weights,
@@ -42,10 +42,9 @@ from torch_gnn_carbon_workflow_example import (
     parse_int_list,
     run_example,
 )
-from torch_gnn_workflow_common import default_reference_structure
 
 
-WANDB_PROJECT = "raffle-inverse-design-new"
+WANDB_PROJECT = "raffle-inverse-design-ensemble-new2"
 DEFAULT_ARCHITECTURE = "torch_gnn_residual"
 DEFAULT_TAGS = ["carbon", "diamond", "inverse-design"]
 SWEEP_EPOCH_COUNTS = [25, 50, 75, 100]
@@ -53,10 +52,6 @@ DEPRECATED_RESTART_FIELDS = (
     "inverse_restarts",
     "inverse_restart_noise_scale",
 )
-CARBON_DATASET_RELATIVE_PATH = "example/data/carbon.xyz"
-RESOLVED_WORKFLOW_CONFIG_KEY = "resolved_workflow_config_json"
-REPRODUCIBILITY_METADATA_KEY = "reproducibility_metadata_json"
-WORKFLOW_CONFIG_SPEC_VERSION = 1
 
 
 def parse_tags(value: str) -> list[str]:
@@ -78,234 +73,6 @@ def build_model_config(config: dict) -> dict:
             float(config["component_weight_4body"]),
         ),
     }
-
-
-def parse_serialized_run_payload(value: Any, *, key: str) -> dict[str, Any]:
-    if isinstance(value, dict):
-        return dict(value)
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"Missing serialized run payload '{key}' in W&B config")
-    payload = json.loads(value)
-    if not isinstance(payload, dict):
-        raise ValueError(f"Serialized run payload '{key}' must decode to a JSON object")
-    return payload
-
-
-def _resolve_optional_float(value: Any, default: float | None) -> float | None:
-    if value is None:
-        return default
-    if isinstance(value, str) and value.strip().lower() in {"", "none", "null"}:
-        return None
-    return float(value)
-
-
-def _resolve_replay_category_weights(value: Any) -> dict[str, float]:
-    if value is None:
-        return dict(DEFAULT_REPLAY_CATEGORY_WEIGHTS)
-    if isinstance(value, dict):
-        return {str(key): float(raw_value) for key, raw_value in value.items()}
-    return parse_category_weights(str(value))
-
-
-def _serialise_structure(atoms) -> dict[str, Any]:
-    return {
-        "symbols": list(atoms.get_chemical_symbols()),
-        "positions": atoms.get_positions().tolist(),
-        "cell": atoms.cell.array.tolist(),
-        "pbc": [bool(value) for value in atoms.pbc],
-    }
-
-
-def _resolve_git_commit(repo_root: Path) -> str | None:
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=repo_root,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except (FileNotFoundError, subprocess.CalledProcessError):
-        return None
-    commit = result.stdout.strip()
-    return commit or None
-
-
-def _sha256_file(path: Path) -> str | None:
-    if not path.exists():
-        return None
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(65536), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def build_reproducibility_metadata(repo_root: Path) -> dict[str, Any]:
-    dataset_path = repo_root / CARBON_DATASET_RELATIVE_PATH
-    torch_version = None
-    raffle_version = None
-    raffle_module_path = None
-    try:
-        import torch  # type: ignore
-
-        torch_version = getattr(torch, "__version__", None)
-    except Exception:
-        torch_version = None
-    try:
-        import raffle  # type: ignore
-
-        raffle_version = getattr(raffle, "__version__", None)
-        raffle_module_path = getattr(raffle, "__file__", None)
-    except Exception:
-        raffle_version = None
-        raffle_module_path = None
-    return {
-        "spec_version": WORKFLOW_CONFIG_SPEC_VERSION,
-        "platform": platform.platform(),
-        "python_version": sys.version.split()[0],
-        "wandb_version": getattr(wandb, "__version__", None),
-        "torch_version": torch_version,
-        "raffle_version": raffle_version,
-        "raffle_module_path": raffle_module_path,
-        "git_commit": _resolve_git_commit(repo_root),
-        "carbon_dataset": {
-            "relative_path": CARBON_DATASET_RELATIVE_PATH,
-            "sha256": _sha256_file(dataset_path),
-        },
-    }
-
-
-def build_resolved_workflow_config(
-    config: dict[str, Any],
-    *,
-    repo_root: Path,
-    run_id: str,
-    sweep_run: bool,
-    extra_fields: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    architecture = str(config["architecture"])
-    fixed_leading_atoms = int(config["fixed_leading_atoms"])
-    output_dir = resolve_output_dir(
-        Path(str(config["output_dir"])),
-        architecture=architecture,
-        run_id=run_id,
-    )
-    reference_structure = default_reference_structure()
-    perturbed_structure, _ = build_perturbed_structure(
-        reference_structure,
-        fixed_leading_atoms=fixed_leading_atoms,
-    )
-    resolved = {
-        "spec_version": WORKFLOW_CONFIG_SPEC_VERSION,
-        "run_id": run_id,
-        "job_type": "sweep" if sweep_run else "benchmark",
-        "architecture": architecture,
-        "architecture_name": architecture,
-        "output_dir": str(output_dir),
-        "carbon_dataset_path": CARBON_DATASET_RELATIVE_PATH,
-        "carbon_count": int(config["carbon_count"]),
-        "augmented_count": int(config["augmented_count"]),
-        "epochs": int(config["epochs"]),
-        "batch_size": int(config["batch_size"]),
-        "inverse_steps": int(config["inverse_steps"]),
-        "inverse_step_size": float(config["inverse_step_size"]),
-        "inverse_step_values": resolve_inverse_step_values(config),
-        "step_size_values": resolve_step_size_values(config),
-        "fixed_leading_atoms": fixed_leading_atoms,
-        "fingerprint_loss_weight": float(config["fingerprint_loss_weight"]),
-        "target_vertex_weight": float(config["target_vertex_weight"]),
-        "target_position_weight": float(config["target_position_weight"]),
-        "inverse_lr_decay_rate": float(config["inverse_lr_decay_rate"]),
-        "repulsion_weight": float(config.get("repulsion_weight", REPULSION_WEIGHT)),
-        "minimum_distance_scale": float(
-            config.get("minimum_distance_scale", MINIMUM_DISTANCE_SCALE)
-        ),
-        "cell_violation_weight": float(
-            config.get("cell_violation_weight", CELL_VIOLATION_WEIGHT)
-        ),
-        "coordinate_clip_value": _resolve_optional_float(
-            config.get("coordinate_clip_value"),
-            COORDINATE_CLIP_VALUE,
-        ),
-        "rollout_stages": int(config.get("rollout_stages", ROLLOUT_STAGES)),
-        "rollout_epochs_per_stage": int(
-            config.get("rollout_epochs_per_stage", ROLLOUT_EPOCHS_PER_STAGE)
-        ),
-        "rollout_step_stride": int(
-            config.get("rollout_step_stride", ROLLOUT_STEP_STRIDE)
-        ),
-        "replay_buffer_capacity": int(
-            config.get("replay_buffer_capacity", REPLAY_BUFFER_CAPACITY)
-        ),
-        "replay_sample_size": int(
-            config.get("replay_sample_size", REPLAY_SAMPLE_SIZE)
-        ),
-        "replay_category_weights": _resolve_replay_category_weights(
-            config.get("replay_category_weights")
-        ),
-        "rollout_drift_threshold": float(
-            config.get("rollout_drift_threshold", ROLLOUT_DRIFT_THRESHOLD)
-        ),
-        "rollout_high_error_threshold": float(
-            config.get("rollout_high_error_threshold", ROLLOUT_HIGH_ERROR_THRESHOLD)
-        ),
-        "rollout_instability_threshold": float(
-            config.get(
-                "rollout_instability_threshold",
-                ROLLOUT_INSTABILITY_THRESHOLD,
-            )
-        ),
-        "seed": int(config["seed"]),
-        "model_config": build_model_config(config),
-        "ignored_deprecated_config_fields": resolve_ignored_deprecated_fields(config),
-        "enable_checkpoint_step_size_sweep": not bool(
-            config.get("skip_checkpoint_step_size_sweep", False)
-        ),
-        "enable_checkpoint_step_schedule_sweep": not bool(
-            config.get("skip_checkpoint_step_schedule_sweep", False)
-        ),
-        "reference_structure": _serialise_structure(reference_structure),
-        "perturbation_matrix": (
-            perturbed_structure.get_positions() - reference_structure.get_positions()
-        ).tolist(),
-    }
-    if extra_fields:
-        resolved.update(extra_fields)
-    validate_plan_constraints(resolved)
-    return resolved
-
-
-def resolve_project_name(config: dict[str, Any]) -> str:
-    return str(config.get("project", WANDB_PROJECT))
-
-
-def persist_reproducibility_payloads(
-    run: wandb.sdk.wandb_run.Run,
-    *,
-    resolved_workflow_config: dict[str, Any],
-    reproducibility_metadata: dict[str, Any],
-) -> None:
-    config_updates = {
-        RESOLVED_WORKFLOW_CONFIG_KEY: json.dumps(
-            resolved_workflow_config,
-            sort_keys=True,
-        ),
-        REPRODUCIBILITY_METADATA_KEY: json.dumps(
-            reproducibility_metadata,
-            sort_keys=True,
-        ),
-    }
-    try:
-        run.config.update(config_updates, allow_val_change=True)
-    except TypeError:
-        run.config.update(config_updates)
-    run.summary.update(
-        {
-            "resolved_workflow_config": resolved_workflow_config,
-            "reproducibility_metadata": reproducibility_metadata,
-        }
-    )
 
 
 def validate_plan_constraints(config: dict) -> None:
@@ -338,6 +105,50 @@ def resolve_ignored_deprecated_fields(config: dict) -> dict[str, object]:
     }
 
 
+def resolve_ensemble_config(config: dict) -> dict[str, object]:
+    return {
+        "ensemble_enabled": bool(config.get("ensemble_enabled", False)),
+        "ensemble_num_trajectories": int(config.get("ensemble_num_trajectories", 16)),
+        "ensemble_perturbation_scale": float(
+            config.get("ensemble_perturbation_scale", 0.01)
+        ),
+        "ensemble_langevin_noise_scale": float(
+            config.get("ensemble_langevin_noise_scale", 0.005)
+        ),
+        "ensemble_temperature": float(config.get("ensemble_temperature", 1.0)),
+        "ensemble_adaptive_scaling": bool(
+            config.get("ensemble_adaptive_scaling", True)
+        ),
+        "ensemble_trajectory_pruning": bool(
+            config.get("ensemble_trajectory_pruning", True)
+        ),
+        "ensemble_escape_detection": bool(
+            config.get("ensemble_escape_detection", True)
+        ),
+        "ensemble_consensus_metric": str(
+            config.get("ensemble_consensus_metric", "cluster")
+        ),
+        "ensemble_aggregation": str(
+            config.get("ensemble_aggregation", "mean_variance")
+        ),
+    }
+
+
+def add_ensemble_parameters(parameters: dict) -> dict:
+    """Add ensemble exploration parameters to sweep config."""
+    parameters["ensemble_enabled"] = {"values": [False]}
+    parameters["ensemble_num_trajectories"] = {"values": [16]}
+    parameters["ensemble_perturbation_scale"] = {"values": [0.01]}
+    parameters["ensemble_langevin_noise_scale"] = {"values": [0.005]}
+    parameters["ensemble_temperature"] = {"values": [1.0]}
+    parameters["ensemble_adaptive_scaling"] = {"values": [True]}
+    parameters["ensemble_trajectory_pruning"] = {"values": [True]}
+    parameters["ensemble_escape_detection"] = {"values": [True]}
+    parameters["ensemble_consensus_metric"] = {"values": ["cluster"]}
+    parameters["ensemble_aggregation"] = {"values": ["mean_variance"]}
+    return parameters
+
+
 def build_sweep_config(args: argparse.Namespace) -> dict:
     parameters = {
         "carbon_count": {"values": [-1]},
@@ -353,8 +164,8 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
         "fingerprint_loss_weight": {"values": [1.0]},
         "target_vertex_weight": {"values": [0.0]},
         "target_position_weight": {"values": [0.0]},
-        "inverse_steps": {"values": [100, 200, 300]},
-        "inverse_step_size": {"values": [1.0e-3, 5.0e-3, 1.0e-2, 1.e-1]},
+        "inverse_steps": {"values": [100]},
+        "inverse_step_size": {"values": [1e-4, 1e-3, 1e-2, 1e-1]},
         "augmented_count": {"values": [0]},
         "inverse_restarts": {"values": [0]},
         "inverse_restart_noise_scale": {"values": [0.0, 0.005, 0.01]},
@@ -384,8 +195,8 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
             "fingerprint_loss_weight": {"values": [0.5, 1.0, 2.0]},
             "target_vertex_weight": {"values": [0.0]},
             "target_position_weight": {"values": [0.0]},
-            "inverse_steps": {"values": [400, 800, 1200]},
-            "inverse_step_size": {"values": [5.0e-4, 1.0e-3, 2.5e-3]},
+            "inverse_steps": {"values": [100]},
+            "inverse_step_size": {"values": [1e-4, 1e-3, 1e-2, 1e-1]},
             "augmented_count": {"values": [0]},
             "inverse_restarts": {"values": [1, 2, 4]},
             "inverse_restart_noise_scale": {"values": [0.0, 0.005, 0.01]},
@@ -415,8 +226,8 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
             "fingerprint_loss_weight": {"values": [0.25, 0.275, 0.3]},
             "target_vertex_weight": {"values": [0.0]},
             "target_position_weight": {"values": [0.0]},
-            "inverse_steps": {"values": [20, 25, 30]},
-            "inverse_step_size": {"values": [0.0205, 0.021, 0.0215]},
+            "inverse_steps": {"values": [100]},
+            "inverse_step_size": {"values": [1e-4, 1e-3, 1e-2, 1e-1]},
             "augmented_count": {"values": [0]},
             "inverse_restarts": {"values": [1]},
             "inverse_restart_noise_scale": {"values": [0.0]},
@@ -446,8 +257,8 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
             "fingerprint_loss_weight": {"values": [0.25, 0.5, 1.0]},
             "target_vertex_weight": {"values": [0.0]},
             "target_position_weight": {"values": [0.0]},
-            "inverse_steps": {"values": [100, 200, 400]},
-            "inverse_step_size": {"values": [0.02, 0.05, 0.1]},
+            "inverse_steps": {"values": [100]},
+            "inverse_step_size": {"values": [1e-4, 1e-3, 1e-2, 1e-1]},
             "augmented_count": {"values": [0]},
             "inverse_restarts": {"values": [0, 1]},
             "inverse_restart_noise_scale": {"values": [0.0, 0.0025, 0.005]},
@@ -478,9 +289,8 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
             "fingerprint_loss_weight": {"values": [0.25, 0.275, 0.3, 0.5, 1.0]},
             "target_vertex_weight": {"values": [0.0]},
             "target_position_weight": {"values": [0.0]},
-            "inverse_steps": {"values": [30]},
-            "inverse_step_values": {"values": ["0,20,25,30"]},
-            "inverse_step_size": {"values": [0.021]},
+            "inverse_steps": {"values": [100]},
+            "inverse_step_size": {"values": [1e-4, 1e-3, 1e-2, 1e-1]},
             "step_size_values": {"values": ["0.018,0.0205,0.021,0.0215,0.022"]},
             "augmented_count": {"values": [0]},
             "inverse_restarts": {"values": [0, 1]},
@@ -520,8 +330,8 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
             "fingerprint_loss_weight": {"values": [0.25, 0.5, 1.0]},
             "target_vertex_weight": {"values": [0.0]},
             "target_position_weight": {"values": [0.0]},
-            "inverse_steps": {"values": [25, 50, 100]},
-            "inverse_step_size": {"values": [0.01, 0.02, 0.05]},
+            "inverse_steps": {"values": [100]},
+            "inverse_step_size": {"values": [1e-4, 1e-3, 1e-2, 1e-1]},
             "augmented_count": {"values": [0]},
             "inverse_restarts": {"values": [0, 1]},
             "inverse_restart_noise_scale": {"values": [0.0, 0.0025]},
@@ -536,6 +346,7 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
             "replay_sample_size": {"values": [4, 8]},
             "seed": {"values": [11, 42, 101]},
         }
+    parameters = add_ensemble_parameters(parameters)
     parameters = apply_epoch_hyperparameter(parameters)
     parameters = strip_deprecated_sweep_parameters(parameters)
     return {
@@ -550,19 +361,19 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
     }
 
 
-def resolve_existing_sweep(sweep_id: str, project: str = WANDB_PROJECT) -> dict[str, str]:
-    api = wandb.Api(overrides={"project": project})
+def resolve_existing_sweep(sweep_id: str) -> dict[str, str]:
+    api = wandb.Api(overrides={"project": WANDB_PROJECT})
     try:
         sweep = api.sweep(str(sweep_id))
     except Exception as exc:
         raise ValueError(
             f"Sweep id '{sweep_id}' could not be resolved in W&B project "
-            f"'{project}': {exc}"
+            f"'{WANDB_PROJECT}': {exc}"
         ) from exc
-    if str(sweep.project) != project:
+    if str(sweep.project) != WANDB_PROJECT:
         raise ValueError(
             f"Sweep id '{sweep_id}' belongs to project '{sweep.project}', "
-            f"not '{project}'."
+            f"not '{WANDB_PROJECT}'."
         )
     return {
         "entity": str(sweep.entity),
@@ -818,11 +629,10 @@ def log_artifacts(run: wandb.sdk.wandb_run.Run, metrics: dict) -> None:
 def execute_run(config: dict, sweep_run: bool = False) -> dict:
     validate_plan_constraints(config)
     architecture = str(config["architecture"])
-    project = resolve_project_name(config)
     tags = resolve_tags(config, sweep_run=sweep_run)
     group = architecture
     with wandb.init(
-        project=project,
+        project=WANDB_PROJECT,
         group=group,
         tags=tags,
         job_type="sweep" if sweep_run else "benchmark",
@@ -832,18 +642,19 @@ def execute_run(config: dict, sweep_run: bool = False) -> dict:
     ) as run:
         run_config = dict(run.config)
         repo_root = Path(__file__).resolve().parents[2]
-        resolved_config = build_resolved_workflow_config(
+        resolved_config = build_shared_resolved_workflow_config(
             run_config,
             repo_root=repo_root,
             run_id=run.id,
             sweep_run=sweep_run,
+            extra_fields=resolve_ensemble_config(run_config),
         )
         ignored_restart_fields = dict(resolved_config["ignored_deprecated_config_fields"])
         output_dir = Path(str(resolved_config["output_dir"]))
-        persist_reproducibility_payloads(
+        persist_shared_reproducibility_payloads(
             run,
             resolved_workflow_config=resolved_config,
-            reproducibility_metadata=build_reproducibility_metadata(repo_root),
+            reproducibility_metadata=build_shared_reproducibility_metadata(repo_root),
         )
 
         def training_observer(epoch: int, loss: float) -> None:
@@ -855,6 +666,7 @@ def execute_run(config: dict, sweep_run: bool = False) -> dict:
                 f"{json.dumps(ignored_restart_fields, sort_keys=True)}"
             )
 
+        print(f"[{run.id}] Starting training phase at epochs={int(resolved_config['epochs'])}")
         metrics = run_example(
             repo_root=repo_root,
             output_dir=output_dir,
@@ -894,7 +706,31 @@ def execute_run(config: dict, sweep_run: bool = False) -> dict:
             enable_checkpoint_step_schedule_sweep=bool(
                 resolved_config["enable_checkpoint_step_schedule_sweep"]
             ),
+            ensemble_enabled=bool(resolved_config["ensemble_enabled"]),
+            ensemble_num_trajectories=int(resolved_config["ensemble_num_trajectories"]),
+            ensemble_perturbation_scale=float(
+                resolved_config["ensemble_perturbation_scale"]
+            ),
+            ensemble_langevin_noise_scale=float(
+                resolved_config["ensemble_langevin_noise_scale"]
+            ),
+            ensemble_temperature=float(resolved_config["ensemble_temperature"]),
+            ensemble_adaptive_scaling=bool(
+                resolved_config["ensemble_adaptive_scaling"]
+            ),
+            ensemble_trajectory_pruning=bool(
+                resolved_config["ensemble_trajectory_pruning"]
+            ),
+            ensemble_escape_detection=bool(
+                resolved_config["ensemble_escape_detection"]
+            ),
+            ensemble_consensus_metric=str(
+                resolved_config["ensemble_consensus_metric"]
+            ),
+            ensemble_aggregation=str(resolved_config["ensemble_aggregation"]),
         )
+
+        print(f"[{run.id}] Training/inference complete. Initial RMSD: {metrics['initial_rmsd']:.4f}, Final RMSD: {metrics['final_rmsd']:.4f}")
 
         descriptor_report = metrics.get("descriptor_comparisons", {}).get("final")
         descriptor_payload = {}
@@ -939,6 +775,10 @@ def execute_run(config: dict, sweep_run: bool = False) -> dict:
                     f"descriptor/{component_name}_true_vs_target_rmse"
                 ] = component_summary["true_raffle_vs_target"]["rmse"]
 
+        ensemble_metrics = dict(metrics.get("ensemble_exploration") or {})
+        ensemble_enabled = bool(ensemble_metrics.get("enabled", False))
+        ensemble_final_stats = dict(ensemble_metrics.get("final_stats") or {})
+
         wandb.log(
             {
                 "inverse/initial_fingerprint_mse": metrics["initial_fingerprint_mse"],
@@ -957,6 +797,44 @@ def execute_run(config: dict, sweep_run: bool = False) -> dict:
                 "rollout/enabled": float(metrics["rollout"]["enabled"]),
                 "rollout/buffer_size": metrics["rollout"]["replay_buffer"]["size"],
                 "rollout/mean_fingerprint_drift_mse": metrics["rollout"]["replay_buffer"]["mean_fingerprint_drift_mse"],
+                **(
+                    {
+                        "ensemble/enabled": float(ensemble_enabled),
+                        "ensemble/num_trajectories": ensemble_metrics.get(
+                            "num_trajectories"
+                        ),
+                        "ensemble/statistics_collected": ensemble_metrics.get(
+                            "statistics_collected"
+                        ),
+                        "ensemble/mean_loss": (
+                            ensemble_final_stats.get("mean_loss")
+                            if ensemble_final_stats
+                            else None
+                        ),
+                        "ensemble/position_spread": (
+                            ensemble_final_stats.get("position_spread")
+                            if ensemble_final_stats
+                            else None
+                        ),
+                        "ensemble/consensus_strength": (
+                            ensemble_final_stats.get("consensus_strength")
+                            if ensemble_final_stats
+                            else None
+                        ),
+                        "ensemble/escape_count": (
+                            ensemble_final_stats.get("escape_count")
+                            if ensemble_final_stats
+                            else None
+                        ),
+                        "ensemble/num_clusters": (
+                            ensemble_final_stats.get("num_clusters")
+                            if ensemble_final_stats
+                            else None
+                        ),
+                    }
+                    if ensemble_enabled
+                    else {}
+                ),
                 **descriptor_payload,
             }
         )
@@ -1002,7 +880,7 @@ def execute_run(config: dict, sweep_run: bool = False) -> dict:
                 {
                     "run_id": run.id,
                     "run_name": run.name,
-                    "project": project,
+                    "project": WANDB_PROJECT,
                     "group": group,
                     "tags": tags,
                     "final_rmsd": metrics["final_rmsd"],
@@ -1011,12 +889,12 @@ def execute_run(config: dict, sweep_run: bool = False) -> dict:
                 indent=2,
             )
         )
+        print(f"[{run.id}] Run completed successfully")
         return metrics
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--project", type=str, default=WANDB_PROJECT)
     parser.add_argument("--architecture", type=str, default=DEFAULT_ARCHITECTURE)
     parser.add_argument("--variant-tags", type=str, default="baseline")
     parser.add_argument("--run-name", type=str, default="")
@@ -1120,6 +998,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--skip-checkpoint-step-size-sweep", action="store_true")
     parser.add_argument("--skip-checkpoint-step-schedule-sweep", action="store_true")
+    parser.add_argument("--ensemble-enabled", action="store_true")
+    parser.add_argument("--ensemble-num-trajectories", type=int, default=16)
+    parser.add_argument("--ensemble-perturbation-scale", type=float, default=0.01)
+    parser.add_argument("--ensemble-langevin-noise-scale", type=float, default=0.005)
+    parser.add_argument("--ensemble-temperature", type=float, default=1.0)
+    parser.add_argument("--ensemble-adaptive-scaling", action="store_true", default=True)
+    parser.add_argument("--no-ensemble-adaptive-scaling", action="store_false", dest="ensemble_adaptive_scaling")
+    parser.add_argument("--ensemble-trajectory-pruning", action="store_true", default=True)
+    parser.add_argument("--no-ensemble-trajectory-pruning", action="store_false", dest="ensemble_trajectory_pruning")
+    parser.add_argument("--ensemble-escape-detection", action="store_true", default=True)
+    parser.add_argument("--no-ensemble-escape-detection", action="store_false", dest="ensemble_escape_detection")
+    parser.add_argument("--ensemble-consensus-metric", type=str, default="cluster")
+    parser.add_argument("--ensemble-aggregation", type=str, default="mean_variance")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--print-sweep-config", action="store_true")
     sweep_group = parser.add_mutually_exclusive_group()
@@ -1148,7 +1039,7 @@ def main() -> None:
 
     if args.sweep_id:
         try:
-            existing_sweep = resolve_existing_sweep(args.sweep_id, project=str(args.project))
+            existing_sweep = resolve_existing_sweep(args.sweep_id)
         except ValueError as exc:
             raise SystemExit(str(exc)) from exc
         print(json.dumps({"action": "continue", **existing_sweep}, indent=2))
@@ -1163,13 +1054,13 @@ def main() -> None:
 
     if args.launch_sweep:
         sweep_config = build_sweep_config(args)
-        sweep_id = wandb.sweep(sweep=sweep_config, project=str(args.project))
-        print(json.dumps({"project": str(args.project), "sweep_id": sweep_id}, indent=2))
+        sweep_id = wandb.sweep(sweep=sweep_config, project=WANDB_PROJECT)
+        print(json.dumps({"project": WANDB_PROJECT, "sweep_id": sweep_id}, indent=2))
         launch_sweep_agent(
             sweep_id=str(sweep_id),
             config=config,
             sweep_count=int(args.sweep_count),
-            project=str(args.project),
+            project=WANDB_PROJECT,
         )
         return
 

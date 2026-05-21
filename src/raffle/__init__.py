@@ -17,8 +17,8 @@ from .nn_fingerprint import NNFingerprint
 from .gnn_fingerprint import GNNFingerprint
 from .structure_metrics import (
     minimum_image_displacements,
+    structure_similarity_rmsd,
     symmetry_aware_displacements,
-    symmetry_aware_rmsd,
     wrap_atoms_to_unit_cell,
 )
 try:
@@ -69,8 +69,8 @@ __all__ = [
     'GNNFingerprint',
     'TorchGNNFingerprint',
     'minimum_image_displacements',
+    'structure_similarity_rmsd',
     'symmetry_aware_displacements',
-    'symmetry_aware_rmsd',
     'wrap_atoms_to_unit_cell',
 ]
 

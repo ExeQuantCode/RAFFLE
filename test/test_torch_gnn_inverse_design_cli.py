@@ -32,6 +32,7 @@ workflow_common_stub.read_single_structure = mock.Mock()
 workflow_common_stub.save_descriptor_comparison_report = mock.Mock(
     return_value={"report_file": "descriptor_report.json", "plot_file": "descriptor_plot.png"}
 )
+workflow_common_stub.structures_have_matching_atom_count = mock.Mock(return_value=True)
 workflow_common_stub.write_inverse_design_log = mock.Mock()
 workflow_common_stub.write_json = mock.Mock()
 workflow_common_stub.write_structure = mock.Mock()

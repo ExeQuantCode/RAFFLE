@@ -34,6 +34,8 @@ dependencies = [
     "ase>=3.23.0",
     "numpy>=1.26.4,<=2.2",
     "f90wrap>=0.2.14,<=0.2.16",
+    "scipy>=1.11",
+    "spglib>=2.5",
 ]
 requires-python = ">=3.11,<3.14"
 authors = [
@@ -66,7 +68,6 @@ tests = [
     "pytest",
     "pytest-cov",
     "parameterized",
-    "unittest",
 ]
 torch = [
     "torch>=2.7,<3",

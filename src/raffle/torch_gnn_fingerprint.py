@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import itertools
 import math
 import random
 from typing import Callable, Iterable, Optional, Sequence, Tuple
@@ -696,6 +697,20 @@ class TorchGNNFingerprint(nn.Module):
             self.cutoff_min[2]
             + self.width[2] * torch.arange(self.nbins[2], dtype=torch.float32),
         )
+        self._two_body_eta = 1.0 / (2.0 * (self.sigma[0] ** 2))
+        pair_type_lookup = torch.full(
+            (self.num_species, self.num_species),
+            -1,
+            dtype=torch.long,
+        )
+        for (left, right), pair_index in self._pair_to_index.items():
+            pair_type_lookup[left, right] = pair_index
+            pair_type_lookup[right, left] = pair_index
+        self.register_buffer("_pair_type_lookup", pair_type_lookup)
+        self.register_buffer(
+            "_reference_2body_bin_weights",
+            self._build_reference_2body_bin_weights(),
+        )
 
         self.branch_2body = GraphBranch(
             node_dim=3 + self.num_species + 2,
@@ -781,8 +796,10 @@ class TorchGNNFingerprint(nn.Module):
         Tuple[torch.Tensor, torch.Tensor, torch.Tensor],
         Tuple[torch.Tensor, torch.Tensor, torch.Tensor],
     ]:
-        projected_vertices = tuple(
-            self._project_fingerprint_tensor(vertex) for vertex in vertices
+        projected_vertices = (
+            self._pair_block_normalise(self._project_fingerprint_tensor(vertices[0])),
+            self._project_fingerprint_tensor(vertices[1]),
+            self._project_fingerprint_tensor(vertices[2]),
         )
         projected_fingerprints = tuple(
             vertex.mean(dim=0) for vertex in projected_vertices
@@ -952,6 +969,145 @@ class TorchGNNFingerprint(nn.Module):
         normaliser = basis.sum(dim=-1, keepdim=True).clamp_min(1.0e-8)
         return basis / normaliser
 
+    def _build_reference_2body_bin_weights(self) -> torch.Tensor:
+        weights = torch.ones_like(self._centers_2body)
+        upper_start = self.cutoff_max[0] - 0.25
+        lower_end = self.cutoff_min[0] + 0.25
+        if upper_start < self.cutoff_max[0]:
+            upper_weight = 0.5 * (
+                1.0
+                + torch.cos(
+                    math.pi
+                    * (self._centers_2body - upper_start)
+                    / (self.cutoff_max[0] - upper_start)
+                )
+            )
+            weights = torch.where(self._centers_2body > upper_start, upper_weight, weights)
+        if lower_end > self.cutoff_min[0]:
+            lower_weight = 0.5 * (
+                1.0
+                + torch.cos(
+                    math.pi
+                    * (self._centers_2body - lower_end)
+                    / (lower_end - self.cutoff_min[0])
+                )
+            )
+            weights = torch.where(self._centers_2body < lower_end, lower_weight, weights)
+        return weights
+
+    def _reference_distribution(
+        self,
+        values: torch.Tensor,
+        centers: torch.Tensor,
+        eta: float,
+    ) -> torch.Tensor:
+        if values.numel() == 0:
+            return torch.zeros_like(centers)
+        basis = torch.exp(-eta * (values.unsqueeze(-1) - centers.unsqueeze(0)) ** 2)
+        histogram = basis.sum(dim=0)
+        histogram = histogram * math.sqrt(eta / math.pi) / float(values.numel())
+        return histogram
+
+    def _pair_block_normalise(self, fingerprint: torch.Tensor) -> torch.Tensor:
+        if self.num_pairs <= 0 or self.nbins[0] <= 0:
+            return fingerprint
+        if fingerprint.ndim == 1:
+            blocks = fingerprint.reshape(self.num_pairs, self.nbins[0])
+            block_sum = blocks.sum(dim=-1, keepdim=True)
+            normalised = torch.where(
+                block_sum > 1.0e-8,
+                blocks / block_sum.clamp_min(1.0e-8),
+                blocks,
+            )
+            return normalised.reshape(-1)
+        if fingerprint.ndim == 2:
+            blocks = fingerprint.reshape(fingerprint.shape[0], self.num_pairs, self.nbins[0])
+            block_sum = blocks.sum(dim=-1, keepdim=True)
+            normalised = torch.where(
+                block_sum > 1.0e-8,
+                blocks / block_sum.clamp_min(1.0e-8),
+                blocks,
+            )
+            return normalised.reshape(fingerprint.shape[0], -1)
+        raise ValueError(f"Unsupported 2-body fingerprint rank: {fingerprint.ndim}")
+
+    def _periodic_image_shifts(self, cell: torch.Tensor, pbc: torch.Tensor) -> torch.Tensor:
+        cell_lengths = torch.linalg.norm(cell, dim=1)
+        shift_ranges = []
+        for axis in range(3):
+            if bool(pbc[axis].item()):
+                axis_length = max(float(cell_lengths[axis].item()), 1.0e-8)
+                max_shift = int(math.ceil(self.cutoff_max[0] / axis_length)) + 1
+                shift_ranges.append(range(-max_shift, max_shift + 1))
+            else:
+                shift_ranges.append(range(0, 1))
+        shifts = list(itertools.product(*shift_ranges))
+        return torch.tensor(shifts, dtype=cell.dtype, device=cell.device)
+
+    def _reference_style_2body_base(
+        self,
+        positions: torch.Tensor,
+        cell: torch.Tensor,
+        pbc: torch.Tensor,
+        species_index: torch.Tensor,
+    ) -> torch.Tensor:
+        num_atoms = positions.shape[0]
+        if num_atoms == 0:
+            return torch.zeros(
+                (0, self.fingerprint_dim_2body),
+                dtype=positions.dtype,
+                device=positions.device,
+            )
+
+        shifts = self._periodic_image_shifts(cell, pbc)
+        shift_cart = shifts @ cell
+        shifted_positions = positions.unsqueeze(0) + shift_cart.unsqueeze(1)
+        zero_shift = torch.all(shifts == 0, dim=1)
+
+        histogram = torch.zeros(
+            (self.nbins[0], self.num_pairs),
+            dtype=positions.dtype,
+            device=positions.device,
+        )
+        centers = self._centers_2body.to(dtype=positions.dtype)
+        bin_weights = self._reference_2body_bin_weights.to(dtype=positions.dtype)
+
+        for center_index in range(num_atoms):
+            center_species = species_index[center_index]
+            pair_types = self._pair_type_lookup[center_species, species_index]
+            distances = torch.linalg.norm(
+                shifted_positions - positions[center_index].view(1, 1, 3),
+                dim=-1,
+            )
+            valid = (distances >= self.cutoff_min[0]) & (distances <= self.cutoff_max[0])
+            valid[zero_shift, center_index] = False
+
+            for pair_type in range(self.num_pairs):
+                neighbour_mask = pair_types == pair_type
+                if not torch.any(neighbour_mask):
+                    continue
+                pair_values = distances[:, neighbour_mask]
+                pair_valid = valid[:, neighbour_mask]
+                values = pair_values[pair_valid]
+                if values.numel() == 0:
+                    continue
+                histogram[:, pair_type] = histogram[:, pair_type] + self._reference_distribution(
+                    values,
+                    centers,
+                    self._two_body_eta,
+                )
+
+        histogram = histogram / centers.pow(2).clamp_min(1.0e-8).unsqueeze(-1)
+        histogram = histogram * bin_weights.unsqueeze(-1)
+        block_sum = histogram.sum(dim=0, keepdim=True)
+        histogram = torch.where(
+            block_sum > 1.0e-8,
+            histogram / block_sum.clamp_min(1.0e-8),
+            histogram,
+        )
+        graph_base = histogram.transpose(0, 1).reshape(-1)
+        return graph_base.unsqueeze(0).expand(num_atoms, -1)
+
     def _angle(self, vector_a: torch.Tensor, vector_b: torch.Tensor) -> torch.Tensor:
         numerator = torch.sum(vector_a * vector_b, dim=-1)
         denominator = vector_a.norm(dim=-1) * vector_b.norm(dim=-1)
@@ -1037,6 +1193,7 @@ class TorchGNNFingerprint(nn.Module):
 
         num_atoms = positions.shape[0]
         pair_index = _long_tensor(topology.pair_index, device)
+        atom_base = self._reference_style_2body_base(positions, cell, pbc, species_index)
         if pair_index.numel() > 0:
             pair_left = pair_index[:, 0]
             pair_right = pair_index[:, 1]
@@ -1071,23 +1228,6 @@ class TorchGNNFingerprint(nn.Module):
                 dim=0,
             )
             atom_edge_weight = torch.cat([pair_weight, pair_weight], dim=0)
-
-            pair_basis = self._gaussian_basis(pair_distance, self._centers_2body, self.sigma[0])
-            pair_vector = self._pair_block_vectors(
-                pair_basis,
-                _long_tensor(topology.pair_type_index, device),
-            )
-            pair_vector = pair_vector * pair_weight.unsqueeze(-1)
-            pair_normaliser = pair_weight.sum().clamp_min(1.0e-8)
-            pair_vector = pair_vector / pair_normaliser
-            atom_base = torch.zeros(
-                (num_atoms, self.fingerprint_dim_2body),
-                dtype=torch.float32,
-                device=device,
-            )
-            atom_scale = max(num_atoms, 1) / 2.0
-            atom_base.index_add_(0, pair_left, pair_vector * atom_scale)
-            atom_base.index_add_(0, pair_right, pair_vector * atom_scale)
         else:
             pair_node_features = torch.zeros(
                 (1, 7 + 2 * self.num_species),
@@ -1098,11 +1238,6 @@ class TorchGNNFingerprint(nn.Module):
             atom_edge_index = torch.zeros((2, 0), dtype=torch.long, device=device)
             atom_edge_attr = torch.zeros((0, 1), dtype=torch.float32, device=device)
             atom_edge_weight = torch.zeros((0,), dtype=torch.float32, device=device)
-            atom_base = torch.zeros(
-                (num_atoms, self.fingerprint_dim_2body),
-                dtype=torch.float32,
-                device=device,
-            )
 
         angle_index = _long_tensor(topology.angle_index, device)
         angle_atoms = _long_tensor(topology.angle_atoms, device)
@@ -1361,9 +1496,16 @@ class TorchGNNFingerprint(nn.Module):
         target_2body = self._project_fingerprint_targets(target_2body)
         target_3body = self._project_fingerprint_targets(target_3body)
         target_4body = self._project_fingerprint_targets(target_4body)
-        loss_2body = torch.mean((predicted_2body - target_2body) ** 2)
-        loss_3body = torch.mean((predicted_3body - target_3body) ** 2)
-        loss_4body = torch.mean((predicted_4body - target_4body) ** 2)
+
+        # Normalize by target energy so sparse, low-amplitude spectra do not
+        # make the trivial all-zero predictor artificially cheap.
+        def relative_component_mse(predicted: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+            target_energy = torch.mean(target ** 2).clamp_min(1.0e-8)
+            return torch.mean((predicted - target) ** 2) / target_energy
+
+        loss_2body = relative_component_mse(predicted_2body, target_2body)
+        loss_3body = relative_component_mse(predicted_3body, target_3body)
+        loss_4body = relative_component_mse(predicted_4body, target_4body)
         return (
             self._component_weight_tensor[0] * loss_2body
             + self._component_weight_tensor[1] * loss_3body
@@ -1565,13 +1707,8 @@ class TorchGNNFingerprint(nn.Module):
         target_2body: torch.Tensor,
         target_3body: torch.Tensor,
         target_4body: torch.Tensor,
-        reference_positions: Optional[torch.Tensor],
-        target_vertex_fingerprints: Optional[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = None,
-        target_positions: Optional[torch.Tensor] = None,
         fixed_mask: Optional[torch.Tensor] = None,
         fingerprint_loss_weight: float = 1.0,
-        target_vertex_weight: float = 0.0,
-        target_position_weight: float = 0.0,
         repulsion_weight: float = 10.0,
         minimum_distance_scale: float = 0.75,
         cell_violation_weight: float = 0.0,
@@ -1622,26 +1759,6 @@ class TorchGNNFingerprint(nn.Module):
             cell_violation_loss = torch.mean((lower_violation + upper_violation) ** 2)
             total_loss = total_loss + float(cell_violation_weight) * cell_violation_loss
 
-        if target_vertex_fingerprints is not None and float(target_vertex_weight) > 0.0:
-            target_vertex_2body, target_vertex_3body, target_vertex_4body = target_vertex_fingerprints
-            vertex_loss = (
-                torch.mean((vertex_2body - target_vertex_2body) ** 2)
-                + torch.mean((vertex_3body - target_vertex_3body) ** 2)
-                + torch.mean((vertex_4body - target_vertex_4body) ** 2)
-            )
-            total_loss = total_loss + float(target_vertex_weight) * vertex_loss
-
-        if target_positions is not None and float(target_position_weight) > 0.0:
-            if fixed_mask is None:
-                position_loss = torch.mean((positions - target_positions) ** 2)
-            else:
-                movable_mask = ~fixed_mask
-                if bool(movable_mask.any()):
-                    position_loss = torch.mean((positions[movable_mask] - target_positions[movable_mask]) ** 2)
-                else:
-                    position_loss = torch.zeros((), dtype=torch.float32, device=self._device)
-            total_loss = total_loss + float(target_position_weight) * position_loss
-
         return total_loss, {
             "fingerprint_loss": fingerprint_loss,
             "repulsion_loss": repulsion_loss,
@@ -1671,9 +1788,13 @@ class TorchGNNFingerprint(nn.Module):
     ):
         self.eval()
         if float(target_vertex_weight) != 0.0:
-            raise ValueError("target_vertex_weight must remain 0.0 for plan-compliant inverse design")
+            raise ValueError(
+                "target_vertex_weight is deprecated and no longer supported for inverse design"
+            )
         if float(target_position_weight) != 0.0:
-            raise ValueError("target_position_weight must remain 0.0 for plan-compliant inverse design")
+            raise ValueError(
+                "target_position_weight is deprecated and no longer supported for inverse design"
+            )
         prepared = self.prepare_structure(atoms, include_targets=False)
         positions_initial = _float_tensor(prepared.positions, self._device)
         fixed_mask = torch.as_tensor(np.asarray(fixed_atoms, dtype=bool), dtype=torch.bool, device=self._device)
@@ -1687,32 +1808,12 @@ class TorchGNNFingerprint(nn.Module):
         offset += self.fingerprint_dim_3body
         target_4body = target[offset:offset + self.fingerprint_dim_4body]
 
-        target_vertex_fingerprints = None
-        target_positions = None
-        if target_atoms is not None:
-            prepared_target = self.prepare_structure(target_atoms, include_targets=False)
-            if prepared_target.positions.shape != prepared.positions.shape:
-                raise ValueError("target_atoms must have the same number of atoms as atoms")
-            with torch.no_grad():
-                (target_vertex_2body, target_vertex_3body, target_vertex_4body), _ = self._forward_prepared(
-                    prepared_target,
-                    return_vertices=True,
-                )
-            target_vertex_fingerprints = (
-                target_vertex_2body.detach(),
-                target_vertex_3body.detach(),
-                target_vertex_4body.detach(),
-            )
-            target_positions = _float_tensor(prepared_target.positions, self._device)
-
         if inverse_lr_decay_rate is None:
             inverse_lr_decay_rate = self.lr_decay_rate
 
-        reference_positions = positions_initial
-        if target_atoms is not None and (
-            float(target_vertex_weight) > 0.0 or float(target_position_weight) > 0.0
-        ):
-            reference_positions = None
+        # target_atoms is retained only as an evaluation-side input. It no longer
+        # participates in inverse-design training and may differ in atom count.
+        del target_atoms
 
         num_restarts = max(int(num_restarts), 1)
         restart_noise_scale = max(float(restart_noise_scale), 0.0)
@@ -1732,6 +1833,19 @@ class TorchGNNFingerprint(nn.Module):
                 restart_positions[fixed_mask] = positions_initial[fixed_mask]
 
             if step_observer is not None:
+                with torch.no_grad():
+                    initial_total_loss, initial_loss_components = self._positions_to_loss(
+                        prepared,
+                        restart_positions,
+                        target_2body,
+                        target_3body,
+                        target_4body,
+                        fixed_mask=fixed_mask,
+                        fingerprint_loss_weight=fingerprint_loss_weight,
+                        repulsion_weight=repulsion_weight,
+                        minimum_distance_scale=minimum_distance_scale,
+                        cell_violation_weight=cell_violation_weight,
+                    )
                 initial_atoms = atoms.copy()
                 initial_atoms.set_positions(restart_positions.detach().cpu().numpy())
                 step_observer(
@@ -1742,6 +1856,16 @@ class TorchGNNFingerprint(nn.Module):
                         "num_steps": int(num_steps),
                         "is_initial_state": True,
                         "atoms": initial_atoms,
+                        "total_loss": float(initial_total_loss.item()),
+                        "fingerprint_loss": float(
+                            initial_loss_components["fingerprint_loss"].item()
+                        ),
+                        "repulsion_loss": float(
+                            initial_loss_components["repulsion_loss"].item()
+                        ),
+                        "cell_violation_loss": float(
+                            initial_loss_components["cell_violation_loss"].item()
+                        ),
                     }
                 )
 
@@ -1767,13 +1891,8 @@ class TorchGNNFingerprint(nn.Module):
                     target_2body,
                     target_3body,
                     target_4body,
-                    reference_positions,
-                    target_vertex_fingerprints=target_vertex_fingerprints,
-                    target_positions=target_positions,
                     fixed_mask=fixed_mask,
                     fingerprint_loss_weight=fingerprint_loss_weight,
-                    target_vertex_weight=target_vertex_weight,
-                    target_position_weight=target_position_weight,
                     repulsion_weight=repulsion_weight,
                     minimum_distance_scale=minimum_distance_scale,
                     cell_violation_weight=cell_violation_weight,
@@ -1800,6 +1919,19 @@ class TorchGNNFingerprint(nn.Module):
                         positions_initial,
                         positions_parameter,
                     )
+                    with torch.no_grad():
+                        observed_total_loss, observed_loss_components = self._positions_to_loss(
+                            prepared,
+                            observer_positions,
+                            target_2body,
+                            target_3body,
+                            target_4body,
+                            fixed_mask=fixed_mask,
+                            fingerprint_loss_weight=fingerprint_loss_weight,
+                            repulsion_weight=repulsion_weight,
+                            minimum_distance_scale=minimum_distance_scale,
+                            cell_violation_weight=cell_violation_weight,
+                        )
                     observed_atoms = atoms.copy()
                     observed_atoms.set_positions(observer_positions.detach().cpu().numpy())
                     current_learning_rate = float(optimiser.param_groups[0]["lr"])
@@ -1812,10 +1944,16 @@ class TorchGNNFingerprint(nn.Module):
                             "is_initial_state": False,
                             "atoms": observed_atoms,
                             "learning_rate": current_learning_rate,
-                            "total_loss": float(total_loss.item()),
-                            "fingerprint_loss": float(loss_components["fingerprint_loss"].item()),
-                            "repulsion_loss": float(loss_components["repulsion_loss"].item()),
-                            "cell_violation_loss": float(loss_components["cell_violation_loss"].item()),
+                            "total_loss": float(observed_total_loss.item()),
+                            "fingerprint_loss": float(
+                                observed_loss_components["fingerprint_loss"].item()
+                            ),
+                            "repulsion_loss": float(
+                                observed_loss_components["repulsion_loss"].item()
+                            ),
+                            "cell_violation_loss": float(
+                                observed_loss_components["cell_violation_loss"].item()
+                            ),
                             "minimum_distance_scale": float(minimum_distance_scale),
                         }
                     )
@@ -1844,13 +1982,8 @@ class TorchGNNFingerprint(nn.Module):
                     target_2body,
                     target_3body,
                     target_4body,
-                    reference_positions,
-                    target_vertex_fingerprints=target_vertex_fingerprints,
-                    target_positions=target_positions,
                     fixed_mask=fixed_mask,
                     fingerprint_loss_weight=fingerprint_loss_weight,
-                    target_vertex_weight=target_vertex_weight,
-                    target_position_weight=target_position_weight,
                     repulsion_weight=repulsion_weight,
                     minimum_distance_scale=minimum_distance_scale,
                     cell_violation_weight=cell_violation_weight,

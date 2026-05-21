@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import argparse
 import ast
+import copy
 import json
+import numpy as np
 from pathlib import Path
+import shutil
 import sys
 from typing import Any
 
@@ -17,44 +20,21 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from torch_gnn_carbon_wandb import (  # noqa: E402
-    DEFAULT_ARCHITECTURE,
+    REPRODUCIBILITY_METADATA_KEY,
+    RESOLVED_WORKFLOW_CONFIG_KEY,
     WANDB_PROJECT,
-    build_model_config,
+    parse_serialized_run_payload,
     validate_plan_constraints,
 )
 from torch_gnn_carbon_workflow_example import (  # noqa: E402
-    CELL_VIOLATION_WEIGHT,
-    COORDINATE_CLIP_VALUE,
-    DEFAULT_MODEL_CONFIG,
-    DEFAULT_REPLAY_CATEGORY_WEIGHTS,
-    FINGERPRINT_LOSS_WEIGHT,
-    FIXED_LEADING_ATOMS,
-    INVERSE_LR_DECAY_RATE,
-    INVERSE_RESTART_NOISE_SCALE,
-    INVERSE_RESTARTS,
-    MINIMUM_DISTANCE_SCALE,
-    REPLAY_BUFFER_CAPACITY,
-    REPLAY_SAMPLE_SIZE,
-    REPULSION_WEIGHT,
-    ROLLOUT_DRIFT_THRESHOLD,
-    ROLLOUT_EPOCHS_PER_STAGE,
-    ROLLOUT_HIGH_ERROR_THRESHOLD,
-    ROLLOUT_INSTABILITY_THRESHOLD,
-    ROLLOUT_STAGES,
-    ROLLOUT_STEP_STRIDE,
-    TARGET_POSITION_WEIGHT,
-    TARGET_VERTEX_WEIGHT,
     build_inverse_design_options,
-    build_perturbed_structure,
     minimum_training_carbon_count,
-    parse_category_weights,
-    run_rollout_retraining,
     select_carbon_structures,
     sweep_epochs,
 )
 from torch_gnn_workflow_common import (  # noqa: E402
-    default_reference_structure,
     load_structures,
+    load_model_from_checkpoint,
     save_model_checkpoint,
     save_target_fingerprint,
     write_json,
@@ -91,6 +71,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="Override the W&B-configured number of training epochs.",
     )
+    parser.add_argument(
+        "--replay-training",
+        action="store_true",
+        help=(
+            "Replay training from the serialized resolved W&B run config instead of "
+            "loading a persisted checkpoint."
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -102,20 +90,34 @@ def _strip_internal_config_keys(config: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _resolve_optional_float(value: Any, default: float | None) -> float | None:
-    if value is None:
-        return default
-    if isinstance(value, str) and value.strip().lower() in {"", "none", "null"}:
-        return None
-    return float(value)
+def _restore_reference_structure(payload: dict[str, Any]):
+    try:
+        from ase import Atoms  # type: ignore
+    except ImportError as exc:
+        raise RuntimeError(
+            "ASE is required to restore the serialized reference structure for replay"
+        ) from exc
+    return Atoms(
+        symbols=list(payload["symbols"]),
+        positions=payload["positions"],
+        cell=payload["cell"],
+        pbc=payload.get("pbc", True),
+    )
 
 
-def _resolve_replay_category_weights(value: Any) -> dict[str, float]:
-    if value is None:
-        return dict(DEFAULT_REPLAY_CATEGORY_WEIGHTS)
-    if isinstance(value, dict):
-        return {str(key): float(raw_value) for key, raw_value in value.items()}
-    return parse_category_weights(str(value))
+def _restore_perturbed_structure(reference_structure, config: dict[str, Any]):
+    perturbation = np.asarray(config["perturbation_matrix"], dtype=np.float32)
+    reference_positions = np.asarray(reference_structure.get_positions(), dtype=np.float32)
+    if perturbation.shape != reference_positions.shape:
+        raise ValueError(
+            "Serialized perturbation matrix shape does not match the serialized "
+            f"reference structure: {perturbation.shape} != {reference_positions.shape}"
+        )
+    perturbed = reference_structure.copy()
+    perturbed.set_positions(reference_positions + perturbation)
+    fixed_atoms = np.zeros(len(perturbed), dtype=bool)
+    fixed_atoms[: max(int(config["fixed_leading_atoms"]), 0)] = True
+    return perturbed, fixed_atoms
 
 
 def _parse_debug_log_config(debug_log_path: Path) -> dict[str, Any]:
@@ -130,6 +132,169 @@ def _parse_debug_log_config(debug_log_path: Path) -> dict[str, Any]:
     raise ValueError(f"No config payload found in {debug_log_path}")
 
 
+def _parse_wandb_scalar(value: str) -> Any:
+    text = value.strip()
+    lowered = text.lower()
+    if lowered == "true":
+        return True
+    if lowered == "false":
+        return False
+    if lowered in {"none", "null"}:
+        return None
+    try:
+        return ast.literal_eval(text)
+    except (SyntaxError, ValueError):
+        return text
+
+
+def _parse_wandb_files_config(config_path: Path) -> dict[str, Any]:
+    resolved: dict[str, Any] = {}
+    current_key: str | None = None
+
+    for line in config_path.read_text().splitlines():
+        if not line.strip():
+            continue
+        if not line.startswith(" "):
+            current_key = line[:-1] if line.endswith(":") else None
+            continue
+        if current_key is None:
+            continue
+        if not line.startswith("    value:"):
+            continue
+        raw_value = line.split(":", 1)[1].strip()
+        if raw_value:
+            resolved[current_key] = _parse_wandb_scalar(raw_value)
+        current_key = None
+
+    if not resolved:
+        raise ValueError(f"No persisted W&B config values found in {config_path}")
+    return resolved
+
+
+def _parse_json_file(path: Path) -> dict[str, Any]:
+    payload = json.loads(path.read_text())
+    if not isinstance(payload, dict):
+        raise ValueError(f"Expected JSON object in {path}")
+    return payload
+
+
+def _resolve_local_identity(debug_log_path: Path) -> dict[str, str | None]:
+    identity: dict[str, str | None] = {"entity": None, "project": None}
+    if not debug_log_path.exists():
+        return identity
+
+    marker = "finishing run "
+    for line in reversed(debug_log_path.read_text().splitlines()):
+        if marker not in line:
+            continue
+        run_path = line.split(marker, 1)[1].strip()
+        parts = [part for part in run_path.split("/") if part]
+        if len(parts) >= 3:
+            identity["entity"] = parts[-3]
+            identity["project"] = parts[-2]
+        break
+    return identity
+
+
+def _resolve_local_run_name(run_dir: Path) -> str | None:
+    output_log_path = run_dir / "files" / "output.log"
+    if not output_log_path.exists():
+        return None
+    marker = '  "run_name": '
+    for line in output_log_path.read_text().splitlines():
+        if not line.startswith(marker):
+            continue
+        raw_value = line[len(marker) :].strip().rstrip(",")
+        if raw_value in {"null", '""'}:
+            return None
+        try:
+            resolved = json.loads(raw_value)
+        except json.JSONDecodeError:
+            return raw_value.strip('"') or None
+        return None if resolved in {None, ""} else str(resolved)
+    return None
+
+
+def _resolve_local_output_dir(run_dir: Path) -> Path | None:
+    summary_path = run_dir / "files" / "wandb-summary.json"
+    if not summary_path.exists():
+        return None
+    output_dir = _parse_json_file(summary_path).get("output_dir")
+    if output_dir in {None, ""}:
+        return None
+    resolved = Path(str(output_dir))
+    if not resolved.is_absolute():
+        resolved = (SCRIPT_DIR / resolved).resolve()
+    return resolved
+
+
+def _find_adjacent_checkpoint_assets(checkpoint_path: Path) -> dict[str, Path]:
+    source_dir = checkpoint_path.parent
+    assets: dict[str, Path] = {}
+    for label, filename in (
+        ("target_fingerprint", "torch_gnn_target_fingerprint.npy"),
+        ("reference_structure", "torch_gnn_reference_structure.xyz"),
+    ):
+        candidate = source_dir / filename
+        if candidate.exists():
+            assets[label] = candidate
+    return assets
+
+
+def _resolve_wandb_run_path(run_record: dict[str, Any]) -> str | None:
+    entity = run_record.get("entity")
+    project = run_record.get("project")
+    run_id = run_record.get("run_id")
+    if entity and project and run_id:
+        return f"{entity}/{project}/{run_id}"
+
+    run_path = run_record.get("run_path")
+    if not run_path:
+        return None
+    parts = [part for part in str(run_path).split("/") if part]
+    if len(parts) == 3 and not Path(str(run_path)).is_absolute():
+        return "/".join(parts)
+    return None
+
+
+def _serialise_checkpoint_source(checkpoint_source: dict[str, Any]) -> dict[str, Any]:
+    serialised: dict[str, Any] = {}
+    for key, value in checkpoint_source.items():
+        if key == "assets":
+            continue
+        serialised[key] = str(value) if isinstance(value, Path) else value
+    return serialised
+
+
+def _resolve_remote_exact_checkpoint_source(
+    run_record: dict[str, Any],
+) -> dict[str, Any] | None:
+    run_path = _resolve_wandb_run_path(run_record)
+    if run_path is None:
+        return None
+
+    api = wandb.Api(overrides={"project": run_record["project"]})
+    run = api.run(run_path)
+    download_root = SCRIPT_DIR / ".wandb_artifact_cache" / str(run_record["run_id"])
+    for artifact in run.logged_artifacts():
+        if str(getattr(artifact, "type", "")) != "inverse-design-results":
+            continue
+        downloaded_dir = Path(artifact.download(root=str(download_root)))
+        checkpoint_path = downloaded_dir / "torch_gnn_model_checkpoint.pt"
+        if not checkpoint_path.exists():
+            matches = list(downloaded_dir.rglob("torch_gnn_model_checkpoint.pt"))
+            if not matches:
+                continue
+            checkpoint_path = matches[0]
+        return {
+            "mode": "wandb-artifact",
+            "artifact_name": str(getattr(artifact, "name", "")) or None,
+            "checkpoint_path": checkpoint_path,
+            "assets": _find_adjacent_checkpoint_assets(checkpoint_path),
+        }
+    return None
+
+
 def _resolve_local_run(run_id: str, project: str) -> dict[str, Any] | None:
     wandb_root = SCRIPT_DIR / "wandb"
     if not wandb_root.exists():
@@ -137,20 +302,34 @@ def _resolve_local_run(run_id: str, project: str) -> dict[str, Any] | None:
     matches = sorted(wandb_root.glob(f"run-*-{run_id}"))
     if not matches:
         return None
-    debug_log_path = matches[-1] / "logs" / "debug.log"
-    if not debug_log_path.exists():
+    run_dir = matches[-1]
+    files_config_path = run_dir / "files" / "config.yaml"
+    debug_log_path = run_dir / "logs" / "debug.log"
+    local_identity = _resolve_local_identity(debug_log_path)
+    if files_config_path.exists():
+        config = _strip_internal_config_keys(
+            _parse_wandb_files_config(files_config_path)
+        )
+    else:
+        if not debug_log_path.exists():
+            raise ValueError(
+                f"Local W&B cache for run '{run_id}' is missing config.yaml and "
+                f"{debug_log_path.name}"
+            )
+        config = _strip_internal_config_keys(_parse_debug_log_config(debug_log_path))
+    if not debug_log_path.exists() and not files_config_path.exists():
         raise ValueError(
             f"Local W&B cache for run '{run_id}' is missing {debug_log_path.name}"
         )
     return {
         "source": "local-cache",
-        "entity": None,
-        "project": project,
+        "entity": local_identity["entity"],
+        "project": local_identity["project"] or project,
         "run_id": run_id,
-        "run_name": None,
-        "run_path": str(matches[-1]),
+        "run_name": _resolve_local_run_name(run_dir),
+        "run_path": str(run_dir),
         "url": None,
-        "config": _strip_internal_config_keys(_parse_debug_log_config(debug_log_path)),
+        "config": config,
     }
 
 
@@ -177,7 +356,7 @@ def resolve_run_record(
     entity: str | None = None,
 ) -> dict[str, Any]:
     local_record = None
-    if "/" not in run_id:
+    if entity is None and "/" not in run_id:
         local_record = _resolve_local_run(run_id, project)
     if local_record is not None:
         return local_record
@@ -202,136 +381,51 @@ def build_replay_config(
     *,
     epochs_override: int | None = None,
 ) -> dict[str, Any]:
-    model_source = {
-        "architecture": str(run_config.get("architecture", DEFAULT_ARCHITECTURE)),
-        "hidden_dim": int(run_config.get("hidden_dim", DEFAULT_MODEL_CONFIG["hidden_dim"])),
-        "num_message_layers": int(
-            run_config.get(
-                "num_message_layers",
-                DEFAULT_MODEL_CONFIG["num_message_layers"],
-            )
-        ),
-        "learning_rate": float(
-            run_config.get("learning_rate", DEFAULT_MODEL_CONFIG["learning_rate"])
-        ),
-        "model_lr_decay_rate": float(
-            run_config.get("model_lr_decay_rate", DEFAULT_MODEL_CONFIG["lr_decay_rate"])
-        ),
-        "smooth_cutoff_width": float(
-            run_config.get(
-                "smooth_cutoff_width",
-                DEFAULT_MODEL_CONFIG["smooth_cutoff_width"],
-            )
-        ),
-        "reference_layer_type": int(
-            run_config.get(
-                "reference_layer_type",
-                DEFAULT_MODEL_CONFIG["reference_layer_type"],
-            )
-        ),
-        "component_weight_2body": float(
-            run_config.get(
-                "component_weight_2body",
-                DEFAULT_MODEL_CONFIG["component_weight"][0],
-            )
-        ),
-        "component_weight_3body": float(
-            run_config.get(
-                "component_weight_3body",
-                DEFAULT_MODEL_CONFIG["component_weight"][1],
-            )
-        ),
-        "component_weight_4body": float(
-            run_config.get(
-                "component_weight_4body",
-                DEFAULT_MODEL_CONFIG["component_weight"][2],
-            )
-        ),
+    if RESOLVED_WORKFLOW_CONFIG_KEY not in run_config:
+        raise ValueError(
+            "Run config does not contain the serialized resolved workflow payload "
+            f"'{RESOLVED_WORKFLOW_CONFIG_KEY}'. This run predates config-only replay."
+        )
+    resolved = copy.deepcopy(
+        parse_serialized_run_payload(
+            run_config[RESOLVED_WORKFLOW_CONFIG_KEY],
+            key=RESOLVED_WORKFLOW_CONFIG_KEY,
+        )
+    )
+    if not resolved.get("spec_version"):
+        raise ValueError(
+            "Serialized resolved workflow payload is missing 'spec_version' and "
+            "cannot be trusted for deterministic replay."
+        )
+    if epochs_override is not None:
+        resolved["epochs"] = int(epochs_override)
+    resolved["inverse_step_values"] = [
+        int(value) for value in resolved.get("inverse_step_values", [])
+    ]
+    resolved["step_size_values"] = [
+        float(value) for value in resolved.get("step_size_values", [])
+    ]
+    resolved["replay_category_weights"] = {
+        str(key): float(value)
+        for key, value in dict(resolved["replay_category_weights"]).items()
     }
-    resolved = {
-        "architecture": model_source["architecture"],
-        "carbon_count": int(run_config.get("carbon_count", -1)),
-        "augmented_count": int(run_config.get("augmented_count", 0)),
-        "epochs": int(
-            run_config.get("epochs", 50)
-            if epochs_override is None
-            else epochs_override
-        ),
-        "batch_size": int(run_config.get("batch_size", 8)),
-        "inverse_steps": int(run_config.get("inverse_steps", 400)),
-        "inverse_step_size": float(run_config.get("inverse_step_size", 5.0e-3)),
-        "fixed_leading_atoms": int(
-            run_config.get("fixed_leading_atoms", FIXED_LEADING_ATOMS)
-        ),
-        "fingerprint_loss_weight": float(
-            run_config.get("fingerprint_loss_weight", FINGERPRINT_LOSS_WEIGHT)
-        ),
-        "target_vertex_weight": float(
-            run_config.get("target_vertex_weight", TARGET_VERTEX_WEIGHT)
-        ),
-        "target_position_weight": float(
-            run_config.get("target_position_weight", TARGET_POSITION_WEIGHT)
-        ),
-        "inverse_lr_decay_rate": float(
-            run_config.get("inverse_lr_decay_rate", INVERSE_LR_DECAY_RATE)
-        ),
-        "inverse_restarts": int(run_config.get("inverse_restarts", INVERSE_RESTARTS)),
-        "inverse_restart_noise_scale": float(
-            run_config.get(
-                "inverse_restart_noise_scale",
-                INVERSE_RESTART_NOISE_SCALE,
-            )
-        ),
-        "repulsion_weight": float(
-            run_config.get("repulsion_weight", REPULSION_WEIGHT)
-        ),
-        "minimum_distance_scale": float(
-            run_config.get("minimum_distance_scale", MINIMUM_DISTANCE_SCALE)
-        ),
-        "cell_violation_weight": float(
-            run_config.get("cell_violation_weight", CELL_VIOLATION_WEIGHT)
-        ),
-        "coordinate_clip_value": _resolve_optional_float(
-            run_config.get("coordinate_clip_value"),
-            COORDINATE_CLIP_VALUE,
-        ),
-        "rollout_stages": int(run_config.get("rollout_stages", ROLLOUT_STAGES)),
-        "rollout_epochs_per_stage": int(
-            run_config.get(
-                "rollout_epochs_per_stage",
-                ROLLOUT_EPOCHS_PER_STAGE,
-            )
-        ),
-        "rollout_step_stride": int(
-            run_config.get("rollout_step_stride", ROLLOUT_STEP_STRIDE)
-        ),
-        "replay_buffer_capacity": int(
-            run_config.get("replay_buffer_capacity", REPLAY_BUFFER_CAPACITY)
-        ),
-        "replay_sample_size": int(
-            run_config.get("replay_sample_size", REPLAY_SAMPLE_SIZE)
-        ),
-        "replay_category_weights": _resolve_replay_category_weights(
-            run_config.get("replay_category_weights")
-        ),
-        "rollout_drift_threshold": float(
-            run_config.get("rollout_drift_threshold", ROLLOUT_DRIFT_THRESHOLD)
-        ),
-        "rollout_high_error_threshold": float(
-            run_config.get(
-                "rollout_high_error_threshold",
-                ROLLOUT_HIGH_ERROR_THRESHOLD,
-            )
-        ),
-        "rollout_instability_threshold": float(
-            run_config.get(
-                "rollout_instability_threshold",
-                ROLLOUT_INSTABILITY_THRESHOLD,
-            )
-        ),
-        "seed": int(run_config.get("seed", 42)),
-        "model_config": build_model_config(model_source),
-    }
+    resolved["model_config"] = dict(resolved["model_config"])
+    if "component_weight" in resolved["model_config"]:
+        resolved["model_config"]["component_weight"] = tuple(
+            float(value)
+            for value in resolved["model_config"]["component_weight"]
+        )
+    if resolved.get("coordinate_clip_value") is not None:
+        resolved["coordinate_clip_value"] = float(resolved["coordinate_clip_value"])
+    metadata_value = run_config.get(REPRODUCIBILITY_METADATA_KEY)
+    resolved["source_reproducibility_metadata"] = (
+        None
+        if metadata_value is None
+        else parse_serialized_run_payload(
+            metadata_value,
+            key=REPRODUCIBILITY_METADATA_KEY,
+        )
+    )
     validate_plan_constraints(resolved)
     return resolved
 
@@ -340,7 +434,12 @@ def replay_training(
     config: dict[str, Any],
 ) -> dict[str, Any]:
     repo_root = Path(__file__).resolve().parents[2]
-    carbon_xyz = repo_root / "example" / "data" / "carbon.xyz"
+    carbon_dataset_path = Path(str(config["carbon_dataset_path"]))
+    carbon_xyz = (
+        carbon_dataset_path
+        if carbon_dataset_path.is_absolute()
+        else repo_root / carbon_dataset_path
+    )
     all_carbon_structures = load_structures(carbon_xyz)
     carbon_structures = select_carbon_structures(
         all_carbon_structures,
@@ -353,20 +452,19 @@ def replay_training(
             f"structures ({minimum_carbon_count} minimum, received {len(carbon_structures)})"
         )
 
-    reference_structure = default_reference_structure()
+    reference_structure = _restore_reference_structure(
+        dict(config["reference_structure"])
+    )
     augmented_structures: list[Any] = []
-    perturbed_structure, fixed_atoms = build_perturbed_structure(
+    perturbed_structure, fixed_atoms = _restore_perturbed_structure(
         reference_structure,
-        fixed_leading_atoms=int(config["fixed_leading_atoms"]),
+        config,
     )
     inverse_design_options = build_inverse_design_options(
-        original=reference_structure,
         fingerprint_loss_weight=float(config["fingerprint_loss_weight"]),
         target_vertex_weight=float(config["target_vertex_weight"]),
         target_position_weight=float(config["target_position_weight"]),
         inverse_lr_decay_rate=float(config["inverse_lr_decay_rate"]),
-        inverse_restarts=int(config["inverse_restarts"]),
-        inverse_restart_noise_scale=float(config["inverse_restart_noise_scale"]),
         repulsion_weight=float(config["repulsion_weight"]),
         minimum_distance_scale=float(config["minimum_distance_scale"]),
         cell_violation_weight=float(config["cell_violation_weight"]),
@@ -379,13 +477,13 @@ def replay_training(
         del epoch
         training_history.append(float(loss))
 
-    model, _, _, _, _ = sweep_epochs(
+    model, _, _, _, _, rollout_metrics = sweep_epochs(
         carbon_structures=carbon_structures,
         augmented_structures=augmented_structures,
         original=reference_structure,
         perturbed=perturbed_structure,
         fixed_atoms=fixed_atoms,
-        epoch_values=[int(config["epochs"])],
+        num_epochs=int(config["epochs"]),
         batch_size=int(config["batch_size"]),
         inverse_steps=int(config["inverse_steps"]),
         inverse_step_size=float(config["inverse_step_size"]),
@@ -393,20 +491,6 @@ def replay_training(
         seed=int(config["seed"]),
         model_config=config["model_config"],
         training_observer=training_observer,
-    )
-    target_fingerprint = model.compute_reference_fingerprint(reference_structure)
-    model, rollout_metrics = run_rollout_retraining(
-        model=model,
-        carbon_structures=carbon_structures,
-        original=reference_structure,
-        perturbed=perturbed_structure,
-        fixed_atoms=fixed_atoms,
-        target_fingerprint=target_fingerprint,
-        batch_size=int(config["batch_size"]),
-        inverse_steps=int(config["inverse_steps"]),
-        inverse_step_size=float(config["inverse_step_size"]),
-        inverse_design_options=inverse_design_options,
-        seed=int(config["seed"]),
         rollout_stages=int(config["rollout_stages"]),
         rollout_epochs_per_stage=int(config["rollout_epochs_per_stage"]),
         rollout_step_stride=int(config["rollout_step_stride"]),
@@ -416,9 +500,8 @@ def replay_training(
         rollout_drift_threshold=float(config["rollout_drift_threshold"]),
         rollout_high_error_threshold=float(config["rollout_high_error_threshold"]),
         rollout_instability_threshold=float(config["rollout_instability_threshold"]),
-        training_observer=training_observer,
-        training_epoch_offset=len(training_history),
     )
+    target_fingerprint = model.compute_reference_fingerprint(reference_structure)
     return {
         "repo_root": repo_root,
         "species_list": ["C"],
@@ -430,6 +513,104 @@ def replay_training(
         "num_available_carbon_structures": len(all_carbon_structures),
         "num_training_carbon_structures": len(carbon_structures),
     }
+
+
+def resolve_exact_checkpoint_source(run_record: dict[str, Any]) -> dict[str, Any] | None:
+    run_path = run_record.get("run_path")
+    if run_path:
+        run_dir = Path(str(run_path))
+        candidates: list[Path] = []
+        output_dir = _resolve_local_output_dir(run_dir)
+        if output_dir is not None:
+            candidates.append(output_dir / "torch_gnn_model_checkpoint.pt")
+        candidates.append(run_dir / "files" / "torch_gnn_model_checkpoint.pt")
+
+        for candidate in candidates:
+            if not candidate.exists():
+                continue
+            return {
+                "mode": "local-checkpoint",
+                "checkpoint_path": candidate,
+                "assets": _find_adjacent_checkpoint_assets(candidate),
+            }
+    return _resolve_remote_exact_checkpoint_source(run_record)
+
+
+def export_exact_checkpoint(
+    *,
+    run_record: dict[str, Any],
+    checkpoint_source: dict[str, Any],
+    output_dir: Path,
+) -> dict[str, Any]:
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    source_checkpoint_path = Path(str(checkpoint_source["checkpoint_path"]))
+    config_path = output_dir / "torch_gnn_wandb_replay_config.json"
+    checkpoint_path = output_dir / "torch_gnn_model_checkpoint.pt"
+    fingerprint_path = output_dir / "torch_gnn_target_fingerprint.npy"
+    reference_structure_path = output_dir / "torch_gnn_reference_structure.xyz"
+    metrics_path = output_dir / "torch_gnn_wandb_replay_metrics.json"
+
+    if source_checkpoint_path.resolve() != checkpoint_path.resolve():
+        shutil.copy2(source_checkpoint_path, checkpoint_path)
+
+    copied_output_files: dict[str, str | None] = {
+        "config": str(config_path),
+        "checkpoint": str(checkpoint_path),
+        "target_fingerprint": None,
+        "reference_structure": None,
+        "metrics": str(metrics_path),
+    }
+    for label, source_path in checkpoint_source.get("assets", {}).items():
+        destination = (
+            fingerprint_path if label == "target_fingerprint" else reference_structure_path
+        )
+        if source_path.resolve() != destination.resolve():
+            shutil.copy2(source_path, destination)
+        copied_output_files[label] = str(destination)
+
+    _, checkpoint_payload = load_model_from_checkpoint(checkpoint_path)
+    training_history = [
+        float(value) for value in checkpoint_payload.get("training_history", [])
+    ]
+    replay_metadata = {
+        "source": run_record["source"],
+        "entity": run_record.get("entity"),
+        "project": run_record["project"],
+        "run_id": run_record["run_id"],
+        "run_name": run_record.get("run_name"),
+        "run_path": run_record.get("run_path"),
+        "url": run_record.get("url"),
+    }
+    exact_recovery_config = {
+        "source_wandb_run": replay_metadata,
+        "recovery_mode": "exact-checkpoint",
+        "checkpoint_source": _serialise_checkpoint_source(checkpoint_source),
+        "checkpoint_training_config": checkpoint_payload.get("training_config"),
+        "model_config": checkpoint_payload.get("model_config"),
+        "species_list": checkpoint_payload.get("species_list"),
+        "output_files": copied_output_files,
+    }
+    write_json(config_path, exact_recovery_config)
+
+    metrics = {
+        "source_wandb_run": replay_metadata,
+        "recovery_mode": "exact-checkpoint",
+        "checkpoint_source": _serialise_checkpoint_source(checkpoint_source),
+        "training_history": training_history,
+        "initial_training_loss": (
+            None if not training_history else float(training_history[0])
+        ),
+        "final_training_loss": (
+            None if not training_history else float(training_history[-1])
+        ),
+        "species_list": checkpoint_payload.get("species_list"),
+        "model_config": checkpoint_payload.get("model_config"),
+        "training_config": checkpoint_payload.get("training_config"),
+        "output_files": copied_output_files,
+    }
+    write_json(metrics_path, metrics)
+    return metrics
 
 
 def export_checkpoint(
@@ -456,14 +637,19 @@ def export_checkpoint(
         "run_path": run_record.get("run_path"),
         "url": run_record.get("url"),
     }
+    workflow_config = {
+        key: value for key, value in config.items() if key != "reference_structure_weight"
+    }
     effective_config = {
         "repo_root": str(replay_result["repo_root"]),
         "source_wandb_run": replay_metadata,
+        "recovery_mode": "config-replay",
         "workflow_config": {
-            **config,
-            "coordinate_clip_value": config["coordinate_clip_value"],
-            "replay_category_weights": dict(config["replay_category_weights"]),
+            **workflow_config,
+            "coordinate_clip_value": workflow_config["coordinate_clip_value"],
+            "replay_category_weights": dict(workflow_config["replay_category_weights"]),
         },
+        "source_reproducibility_metadata": config.get("source_reproducibility_metadata"),
         "species_list": list(replay_result["species_list"]),
         "rollout": replay_result["rollout"],
         "output_files": {
@@ -489,6 +675,7 @@ def export_checkpoint(
 
     metrics = {
         "source_wandb_run": replay_metadata,
+        "recovery_mode": "config-replay",
         "num_available_carbon_structures": replay_result["num_available_carbon_structures"],
         "num_training_carbon_structures": replay_result["num_training_carbon_structures"],
         "training_history": [float(value) for value in replay_result["training_history"]],
@@ -504,6 +691,7 @@ def export_checkpoint(
         ),
         "species_list": list(replay_result["species_list"]),
         "model_config": config["model_config"],
+        "source_reproducibility_metadata": config.get("source_reproducibility_metadata"),
         "training_config": {
             key: value
             for key, value in effective_config.items()
@@ -522,18 +710,38 @@ def main(argv: list[str] | None = None) -> None:
         project=str(args.project),
         entity=args.entity,
     )
-    config = build_replay_config(
-        run_record["config"],
-        epochs_override=args.epochs,
-    )
-    replay_result = replay_training(config)
     output_dir = args.output_dir.resolve()
-    metrics = export_checkpoint(
-        run_record=run_record,
-        config=config,
-        replay_result=replay_result,
-        output_dir=output_dir,
-    )
+    if args.epochs is not None and not args.replay_training:
+        raise ValueError(
+            "--epochs only applies to approximate retraining. Pass --replay-training "
+            "to opt into replaying training."
+        )
+
+    if args.replay_training:
+        config = build_replay_config(
+            run_record["config"],
+            epochs_override=args.epochs,
+        )
+        replay_result = replay_training(config)
+        metrics = export_checkpoint(
+            run_record=run_record,
+            config=config,
+            replay_result=replay_result,
+            output_dir=output_dir,
+        )
+    else:
+        checkpoint_source = resolve_exact_checkpoint_source(run_record)
+        if checkpoint_source is None:
+            raise ValueError(
+                "Exact checkpoint recovery is unavailable for this run because no "
+                "torch_gnn_model_checkpoint.pt was persisted in the run outputs. "
+                "Pass --replay-training for approximate retraining instead."
+            )
+        metrics = export_exact_checkpoint(
+            run_record=run_record,
+            checkpoint_source=checkpoint_source,
+            output_dir=output_dir,
+        )
     print(
         json.dumps(
             {

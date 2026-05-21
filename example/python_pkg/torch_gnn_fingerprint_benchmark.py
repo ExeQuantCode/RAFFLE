@@ -14,7 +14,7 @@ import numpy as np
 from ase.build import bulk
 from ase.io import read, write
 
-from raffle import symmetry_aware_rmsd
+from raffle import structure_similarity_rmsd
 from raffle.torch_gnn_fingerprint import TorchGNNFingerprint
 from torch_gnn_workflow_common import save_descriptor_comparison_report
 
@@ -108,7 +108,7 @@ def run_workflow(
         {
             "step": 0,
             "fingerprint_mse": initial_inverse_mse,
-            "rmsd": symmetry_aware_rmsd(original, current_atoms),
+            "rmsd": structure_similarity_rmsd(original, current_atoms),
         }
     )
     for step in range(1, inverse_steps + 1):
@@ -125,14 +125,14 @@ def run_workflow(
             {
                 "step": step,
                 "fingerprint_mse": float(np.mean((current_prediction - target_fingerprint) ** 2)),
-                "rmsd": symmetry_aware_rmsd(original, current_atoms),
+                "rmsd": structure_similarity_rmsd(original, current_atoms),
             }
         )
 
     optimised = current_atoms
     final_prediction = current_prediction
     final_inverse_mse = float(np.mean((final_prediction - target_fingerprint) ** 2))
-    final_rmsd = symmetry_aware_rmsd(original, optimised)
+    final_rmsd = structure_similarity_rmsd(original, optimised)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     write(output_dir / "torch_gnn_diamond_original.xyz", original)

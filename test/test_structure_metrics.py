@@ -1,9 +1,15 @@
 import unittest
 
 import numpy as np
-from ase.build import bulk
+from ase import Atoms
+from ase.build import bulk, make_supercell
 
-from raffle import minimum_image_displacements, symmetry_aware_rmsd, wrap_atoms_to_unit_cell
+from raffle import (
+    minimum_image_displacements,
+    structure_similarity_rmsd,
+    symmetry_aware_displacements,
+    wrap_atoms_to_unit_cell,
+)
 
 
 class TestStructureMetrics(unittest.TestCase):
@@ -12,14 +18,46 @@ class TestStructureMetrics(unittest.TestCase):
         self.original = bulk("C", "diamond", a=3.567, cubic=True)
         self.original.pbc = True
 
-    def test_symmetry_aware_rmsd_ignores_global_translation(self):
+    def test_structure_similarity_rmsd_ignores_global_translation(self):
         translated = self.original.copy()
         translated.set_positions(translated.get_positions() + np.array([0.1, 0.2, 0.3]))
 
         self.assertGreater(np.linalg.norm(minimum_image_displacements(self.original, translated)), 0.0)
-        self.assertLess(symmetry_aware_rmsd(self.original, translated), 1.0e-10)
+        self.assertLess(structure_similarity_rmsd(self.original, translated), 1.0e-10)
 
-    def test_symmetry_aware_rmsd_ignores_global_rotation(self):
+    def test_symmetry_aware_displacements_ignore_arbitrary_global_translation(self):
+        local_perturbation = np.array(
+            [
+                [0.01, -0.02, 0.03],
+                [-0.02, 0.01, -0.01],
+                [0.03, 0.01, -0.02],
+                [0.00, -0.01, 0.02],
+                [-0.01, 0.02, 0.01],
+                [0.02, -0.01, 0.00],
+                [-0.03, 0.00, 0.02],
+                [0.01, 0.03, -0.01],
+            ]
+        )
+        baseline = self.original.copy()
+        baseline.set_positions(self.original.get_positions() + local_perturbation)
+
+        shifted = baseline.copy()
+        shifted.set_positions(shifted.get_positions() + np.array([4.25, -3.5, 2.875]))
+        shifted = wrap_atoms_to_unit_cell(shifted)
+
+        baseline_delta = symmetry_aware_displacements(
+            self.original,
+            baseline,
+            allow_rotation=False,
+        )
+        shifted_delta = symmetry_aware_displacements(
+            self.original,
+            shifted,
+            allow_rotation=False,
+        )
+        np.testing.assert_allclose(shifted_delta, baseline_delta, atol=1.0e-10, rtol=0.0)
+
+    def test_structure_similarity_rmsd_ignores_global_rotation(self):
         rotated = self.original.copy()
         centroid = self.original.get_positions().mean(axis=0, keepdims=True)
         rotation = np.array(
@@ -31,7 +69,14 @@ class TestStructureMetrics(unittest.TestCase):
         )
         rotated.set_positions((self.original.get_positions() - centroid) @ rotation + centroid)
 
-        self.assertLess(symmetry_aware_rmsd(self.original, rotated), 1.0e-10)
+        self.assertLess(structure_similarity_rmsd(self.original, rotated), 1.0e-10)
+
+    def test_structure_similarity_rmsd_handles_primitive_supercell_equivalence(self):
+        primitive = bulk("Si", cubic=True)
+        primitive.pbc = True
+        supercell = make_supercell(primitive, np.diag([2, 2, 2]))
+
+        self.assertLess(structure_similarity_rmsd(primitive, supercell), 1.0e-10)
 
     def test_wrap_atoms_to_unit_cell_keeps_fractional_positions_bounded(self):
         displaced = self.original.copy()

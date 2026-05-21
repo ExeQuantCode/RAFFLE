@@ -1,4 +1,10 @@
-"""Run inverse design from a saved PyTorch GNN surrogate model checkpoint."""
+"""Run inverse design from a saved PyTorch GNN surrogate checkpoint.
+
+This is the supported split-workflow entry point for replaying inverse design from
+an input structure plus either a saved target fingerprint or a target structure.
+It writes the final structure, descriptor comparison report, and machine-readable
+metrics bundle into the requested output directory.
+"""
 
 from __future__ import annotations
 
@@ -23,6 +29,7 @@ from torch_gnn_workflow_common import (
     print_position_differences,
     read_single_structure,
     save_descriptor_comparison_report,
+    structures_have_matching_atom_count,
     write_inverse_design_log,
     write_json,
     write_structure,
@@ -35,16 +42,12 @@ def build_optimisation_step_observer(
 ):
     def observer(step_record: dict[str, object]) -> None:
         atoms_snapshot = step_record["atoms"].copy()
-        atoms_snapshot.info["inverse_restart_index"] = int(step_record["restart_index"]) + 1
-        atoms_snapshot.info["inverse_num_restarts"] = int(step_record["num_restarts"])
         atoms_snapshot.info["inverse_step"] = int(step_record["step"])
         atoms_snapshot.info["inverse_num_steps"] = int(step_record["num_steps"])
         atoms_snapshot.info["inverse_is_initial_state"] = bool(step_record["is_initial_state"])
         trajectory_frames.append(atoms_snapshot)
         optimisation_history.append(
             {
-                "restart_index": int(step_record["restart_index"]) + 1,
-                "num_restarts": int(step_record["num_restarts"]),
                 "step": int(step_record["step"]),
                 "num_steps": int(step_record["num_steps"]),
                 "is_initial_state": bool(step_record["is_initial_state"]),
@@ -166,7 +169,10 @@ def resolve_target_fingerprint(
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     repo_root = Path(__file__).resolve().parents[2]
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     parser.add_argument(
         "--input-structure",
         "--reference-structure",
@@ -181,6 +187,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         dest="input_structure_index",
         type=int,
         default=0,
+        help="Frame index to read when --input-structure contains multiple structures.",
     )
     parser.add_argument(
         "--target-fingerprint",
@@ -191,7 +198,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "computes the analytical target descriptor from --target-structure."
         ),
     )
-    parser.add_argument("--model-checkpoint", type=Path, required=True)
+    parser.add_argument(
+        "--model-checkpoint",
+        type=Path,
+        required=True,
+        help="Checkpoint written by torch_gnn_train_model.py or the W&B replay/export flow.",
+    )
     parser.add_argument(
         "--target-structure",
         type=Path,
@@ -201,10 +213,30 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "provided, for the analytical target descriptor."
         ),
     )
-    parser.add_argument("--target-structure-index", type=int, default=0)
-    parser.add_argument("--inverse-steps", type=int, default=400)
-    parser.add_argument("--inverse-step-size", type=float, default=5.0e-3)
-    parser.add_argument("--fixed-leading-atoms", type=int, default=0)
+    parser.add_argument(
+        "--target-structure-index",
+        type=int,
+        default=0,
+        help="Frame index to read when --target-structure contains multiple structures.",
+    )
+    parser.add_argument(
+        "--inverse-steps",
+        type=int,
+        default=400,
+        help="Number of gradient-based inverse-design optimisation steps.",
+    )
+    parser.add_argument(
+        "--inverse-step-size",
+        type=float,
+        default=5.0e-3,
+        help="Initial inverse-design step size.",
+    )
+    parser.add_argument(
+        "--fixed-leading-atoms",
+        type=int,
+        default=0,
+        help="Freeze the first N atoms before applying any explicit --fixed-atoms list.",
+    )
     parser.add_argument(
         "--fixed-atoms",
         "--fix-atoms",
@@ -216,27 +248,67 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "Combined with --fixed-leading-atoms."
         ),
     )
-    parser.add_argument("--fingerprint-loss-weight", type=float, default=1.0)
-    parser.add_argument("--target-vertex-weight", type=float, default=0.0)
-    parser.add_argument("--target-position-weight", type=float, default=0.0)
-    parser.add_argument("--inverse-lr-decay-rate", type=float, default=0.0)
-    parser.add_argument("--inverse-restarts", type=int, default=1)
-    parser.add_argument("--inverse-restart-noise-scale", type=float, default=0.0)
-    parser.add_argument("--repulsion-weight", type=float, default=10.0)
-    parser.add_argument("--minimum-distance-scale", type=float, default=0.75)
-    parser.add_argument("--cell-violation-weight", type=float, default=0.0)
-    parser.add_argument("--coordinate-clip-value", type=float, default=None)
+    parser.add_argument(
+        "--fingerprint-loss-weight",
+        type=float,
+        default=1.0,
+        help="Weight on the fingerprint-matching loss during inverse design.",
+    )
+    parser.add_argument("--target-vertex-weight", type=float, default=0.0, help=argparse.SUPPRESS)
+    parser.add_argument("--target-position-weight", type=float, default=0.0, help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--inverse-lr-decay-rate",
+        type=float,
+        default=0.0,
+        help="Optional exponential decay applied to the inverse-design step size.",
+    )
+    parser.add_argument("--inverse-restarts", type=int, default=1, help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--inverse-restart-noise-scale",
+        type=float,
+        default=0.0,
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--repulsion-weight",
+        type=float,
+        default=10.0,
+        help="Penalty weight that discourages atoms from moving too close together.",
+    )
+    parser.add_argument(
+        "--minimum-distance-scale",
+        type=float,
+        default=0.75,
+        help="Minimum allowed distance as a fraction of the covalent-radius sum.",
+    )
+    parser.add_argument(
+        "--cell-violation-weight",
+        type=float,
+        default=0.0,
+        help="Penalty weight for moving atoms outside the fixed simulation cell.",
+    )
+    parser.add_argument(
+        "--coordinate-clip-value",
+        type=float,
+        default=None,
+        help="Optional absolute clamp applied to each optimisation coordinate update.",
+    )
     parser.add_argument(
         "--save-optimisation-traj",
         action=argparse.BooleanOptionalAction,
         default=True,
         help="Save the full inverse-design path as a multi-frame .traj file.",
     )
-    parser.add_argument("--plot-2body-fingerprint-comparison", action="store_true")
+    parser.add_argument(
+        "--plot-2body-fingerprint-comparison",
+        action="store_true",
+        help="Save a target-vs-final 2-body fingerprint comparison plot.",
+    )
     parser.add_argument(
         "--output-dir",
         type=Path,
         default=repo_root / "build" / "torch_gnn_inverse_design",
+        help="Directory for the final structure, metrics bundle, and optional trajectory/plots.",
     )
     return parser.parse_args(argv)
 
@@ -285,8 +357,6 @@ def main(argv: list[str] | None = None) -> None:
         target_vertex_weight=args.target_vertex_weight,
         target_position_weight=args.target_position_weight,
         inverse_lr_decay_rate=args.inverse_lr_decay_rate,
-        inverse_restarts=args.inverse_restarts,
-        inverse_restart_noise_scale=args.inverse_restart_noise_scale,
         repulsion_weight=args.repulsion_weight,
         minimum_distance_scale=args.minimum_distance_scale,
         cell_violation_weight=args.cell_violation_weight,
@@ -342,8 +412,6 @@ def main(argv: list[str] | None = None) -> None:
                 "target_vertex_weight": float(args.target_vertex_weight),
                 "target_position_weight": float(args.target_position_weight),
                 "inverse_lr_decay_rate": float(args.inverse_lr_decay_rate),
-                "inverse_restarts": int(args.inverse_restarts),
-                "inverse_restart_noise_scale": float(args.inverse_restart_noise_scale),
                 "repulsion_weight": float(args.repulsion_weight),
                 "minimum_distance_scale": float(args.minimum_distance_scale),
                 "cell_violation_weight": float(args.cell_violation_weight),
@@ -398,7 +466,7 @@ def main(argv: list[str] | None = None) -> None:
     write_json(metrics_path, metrics)
     write_inverse_design_log(log_path, metrics)
 
-    if target_atoms is not None:
+    if target_atoms is not None and structures_have_matching_atom_count(target_atoms, input_atoms):
         print_position_differences(target_atoms, input_atoms, optimised)
         print()
     print(f"Saved optimised structure: {structure_path}")

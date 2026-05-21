@@ -257,6 +257,9 @@ class TrajectoryRecord:
         The effective Langevin noise scale for this trajectory.
     perturbation_seed:
         RNG seed used for reproducibility.
+    sampled_positions:
+        Sparse list of ``(step, positions)`` snapshots captured during
+        optimisation for downstream interval logging.
     """
 
     trajectory_id: int
@@ -272,6 +275,7 @@ class TrajectoryRecord:
     step_size: float = 0.0
     langevin_scale: float = 0.0
     perturbation_seed: int = 0
+    sampled_positions: List[Tuple[int, np.ndarray]] = field(default_factory=list)
 
 
 @dataclass
@@ -691,6 +695,7 @@ class InferenceEnsemble:
 
         loss_history: List[float] = []
         initial_loss: float = float("inf")
+        sampled_positions: List[Tuple[int, np.ndarray]] = []
 
         for step in range(int(num_steps)):
             optimiser.zero_grad()
@@ -755,6 +760,19 @@ class InferenceEnsemble:
             loss_history.append(step_loss)
             if step == 0:
                 initial_loss = step_loss
+            if (step + 1) == int(num_steps) or (step + 1) % 10 == 0:
+                with torch.no_grad():
+                    sampled_positions_t = torch.where(
+                        fixed_mask.unsqueeze(-1),
+                        positions_initial,
+                        positions_param,
+                    )
+                    sampled_positions.append(
+                        (
+                            int(step + 1),
+                            sampled_positions_t.detach().cpu().numpy().astype(np.float32),
+                        )
+                    )
 
         with torch.no_grad():
             final_positions_t = torch.where(
@@ -790,6 +808,7 @@ class InferenceEnsemble:
             step_size=traj_step_size,
             langevin_scale=traj_langevin,
             perturbation_seed=base_seed,
+            sampled_positions=sampled_positions,
         )
 
     def _apply_lattice_perturbation(self, prepared, scale: float, rng: np.random.Generator):

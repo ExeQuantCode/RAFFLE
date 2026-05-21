@@ -9,9 +9,12 @@ from pathlib import Path
 import wandb
 
 from torch_gnn_carbon_wandb import (
+    build_final_validation_logging_payload as build_shared_final_validation_logging_payload,
     build_reproducibility_metadata as build_shared_reproducibility_metadata,
     build_resolved_workflow_config as build_shared_resolved_workflow_config,
+    iter_result_artifact_paths as iter_shared_result_artifact_paths,
     persist_reproducibility_payloads as persist_shared_reproducibility_payloads,
+    summarise_final_validation_cases as summarise_shared_final_validation_cases,
 )
 
 from torch_gnn_carbon_workflow_example import (
@@ -44,9 +47,9 @@ from torch_gnn_carbon_workflow_example import (
 )
 
 
-WANDB_PROJECT = "raffle-inverse-design-ensemble-new2"
+WANDB_PROJECT = "raffle-inverse-design-ensemble-new3"
 DEFAULT_ARCHITECTURE = "torch_gnn_residual"
-DEFAULT_TAGS = ["carbon", "diamond", "inverse-design"]
+DEFAULT_TAGS = ["carbon", "dataset-perturbed", "inverse-design"]
 SWEEP_EPOCH_COUNTS = [25, 50, 75, 100]
 DEPRECATED_RESTART_FIELDS = (
     "inverse_restarts",
@@ -76,8 +79,10 @@ def build_model_config(config: dict) -> dict:
 
 
 def validate_plan_constraints(config: dict) -> None:
-    if int(config["augmented_count"]) != 0:
-        raise ValueError("augmented_count must remain 0 for plan_model benchmarks")
+    if int(config["augmented_count"]) <= 0:
+        raise ValueError(
+            "augmented_count must be positive so plan_model runs train only on perturbed dataset structures"
+        )
     if float(config["target_vertex_weight"]) != 0.0:
         raise ValueError("target_vertex_weight must remain 0.0 for plan_model benchmarks")
     if float(config["target_position_weight"]) != 0.0:
@@ -103,6 +108,20 @@ def resolve_ignored_deprecated_fields(config: dict) -> dict[str, object]:
         for key in DEPRECATED_RESTART_FIELDS
         if key in config and config[key] is not None
     }
+
+
+def resolve_project_name(project: object | None = None) -> str:
+    if project is not None:
+        resolved_project = str(project).strip()
+        if resolved_project:
+            return resolved_project
+    fallback_project = str(WANDB_PROJECT).strip()
+    if fallback_project:
+        return fallback_project
+    raise ValueError(
+        "A W&B project must be provided via --project or by setting WANDB_PROJECT "
+        "in torch_gnn_carbon_ensemble_wandb.py"
+    )
 
 
 def resolve_ensemble_config(config: dict) -> dict[str, object]:
@@ -166,7 +185,7 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
         "target_position_weight": {"values": [0.0]},
         "inverse_steps": {"values": [100]},
         "inverse_step_size": {"values": [1e-4, 1e-3, 1e-2, 1e-1]},
-        "augmented_count": {"values": [0]},
+        "augmented_count": {"values": [2, 4]},
         "inverse_restarts": {"values": [0]},
         "inverse_restart_noise_scale": {"values": [0.0, 0.005, 0.01]},
         "repulsion_weight": {"values": [5.0, 10.0, 20.0]},
@@ -197,7 +216,7 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
             "target_position_weight": {"values": [0.0]},
             "inverse_steps": {"values": [100]},
             "inverse_step_size": {"values": [1e-4, 1e-3, 1e-2, 1e-1]},
-            "augmented_count": {"values": [0]},
+            "augmented_count": {"values": [2, 4]},
             "inverse_restarts": {"values": [1, 2, 4]},
             "inverse_restart_noise_scale": {"values": [0.0, 0.005, 0.01]},
             "repulsion_weight": {"values": [5.0, 10.0, 20.0]},
@@ -228,7 +247,7 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
             "target_position_weight": {"values": [0.0]},
             "inverse_steps": {"values": [100]},
             "inverse_step_size": {"values": [1e-4, 1e-3, 1e-2, 1e-1]},
-            "augmented_count": {"values": [0]},
+            "augmented_count": {"values": [2, 4]},
             "inverse_restarts": {"values": [1]},
             "inverse_restart_noise_scale": {"values": [0.0]},
             "repulsion_weight": {"values": [5.0, 10.0, 15.0]},
@@ -259,7 +278,7 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
             "target_position_weight": {"values": [0.0]},
             "inverse_steps": {"values": [100]},
             "inverse_step_size": {"values": [1e-4, 1e-3, 1e-2, 1e-1]},
-            "augmented_count": {"values": [0]},
+            "augmented_count": {"values": [2, 4]},
             "inverse_restarts": {"values": [0, 1]},
             "inverse_restart_noise_scale": {"values": [0.0, 0.0025, 0.005]},
             "repulsion_weight": {"values": [5.0, 10.0, 20.0]},
@@ -292,7 +311,7 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
             "inverse_steps": {"values": [100]},
             "inverse_step_size": {"values": [1e-4, 1e-3, 1e-2, 1e-1]},
             "step_size_values": {"values": ["0.018,0.0205,0.021,0.0215,0.022"]},
-            "augmented_count": {"values": [0]},
+            "augmented_count": {"values": [2, 4]},
             "inverse_restarts": {"values": [0, 1]},
             "inverse_restart_noise_scale": {"values": [0.0, 0.0025]},
             "repulsion_weight": {"values": [5.0, 10.0, 15.0]},
@@ -332,7 +351,7 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
             "target_position_weight": {"values": [0.0]},
             "inverse_steps": {"values": [100]},
             "inverse_step_size": {"values": [1e-4, 1e-3, 1e-2, 1e-1]},
-            "augmented_count": {"values": [0]},
+            "augmented_count": {"values": [2, 4]},
             "inverse_restarts": {"values": [0, 1]},
             "inverse_restart_noise_scale": {"values": [0.0, 0.0025]},
             "repulsion_weight": {"values": [5.0, 10.0, 20.0]},
@@ -361,19 +380,20 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
     }
 
 
-def resolve_existing_sweep(sweep_id: str) -> dict[str, str]:
-    api = wandb.Api(overrides={"project": WANDB_PROJECT})
+def resolve_existing_sweep(sweep_id: str, project: str | None = None) -> dict[str, str]:
+    resolved_project = resolve_project_name(project)
+    api = wandb.Api(overrides={"project": resolved_project})
     try:
         sweep = api.sweep(str(sweep_id))
     except Exception as exc:
         raise ValueError(
             f"Sweep id '{sweep_id}' could not be resolved in W&B project "
-            f"'{WANDB_PROJECT}': {exc}"
+            f"'{resolved_project}': {exc}"
         ) from exc
-    if str(sweep.project) != WANDB_PROJECT:
+    if str(sweep.project) != resolved_project:
         raise ValueError(
             f"Sweep id '{sweep_id}' belongs to project '{sweep.project}', "
-            f"not '{WANDB_PROJECT}'."
+            f"not '{resolved_project}'."
         )
     return {
         "entity": str(sweep.entity),
@@ -575,6 +595,32 @@ def log_series_tables(metrics: dict) -> None:
                 for entry in metrics["checkpoint_step_schedule_sweep"]
             ],
         )
+    if metrics.get("final_validation_cases"):
+        payload["tables/final_model_validation"] = wandb.Table(
+            columns=[
+                "case",
+                "atom_count",
+                "fixed_atom_indices",
+                "initial_rmsd",
+                "final_rmsd",
+                "rmsd_reduction_percent",
+                "inverse_steps",
+                "step_size",
+            ],
+            data=[
+                [
+                    str(entry["name"]),
+                    int(entry["atom_count"]),
+                    ",".join(str(index) for index in entry.get("fixed_atom_indices", [])),
+                    float(entry["initial_rmsd"]),
+                    float(entry["final_rmsd"]),
+                    100.0 * float(entry["rmsd_reduction_fraction"]),
+                    int(entry["inverse_steps"]),
+                    float(entry["step_size"]),
+                ]
+                for entry in metrics["final_validation_cases"]
+            ],
+        )
     rollout = metrics.get("rollout", {})
     if rollout.get("stages"):
         payload["tables/rollout_stages"] = wandb.Table(
@@ -616,23 +662,18 @@ def log_artifacts(run: wandb.sdk.wandb_run.Run, metrics: dict) -> None:
         name=f"{metrics['architecture_name']}-{run.id}-outputs",
         type="inverse-design-results",
     )
-    for file_path in metrics["output_files"].values():
-        artifact.add_file(file_path)
-    for file_path in metrics.get("configured_inverse_design_path", {}).get(
-        "step_structure_files",
-        [],
-    ):
+    for file_path in iter_shared_result_artifact_paths(metrics):
         artifact.add_file(file_path)
     run.log_artifact(artifact)
 
 
 def execute_run(config: dict, sweep_run: bool = False) -> dict:
-    validate_plan_constraints(config)
+    project = resolve_project_name(config.get("project"))
     architecture = str(config["architecture"])
     tags = resolve_tags(config, sweep_run=sweep_run)
     group = architecture
     with wandb.init(
-        project=WANDB_PROJECT,
+        project=project,
         group=group,
         tags=tags,
         job_type="sweep" if sweep_run else "benchmark",
@@ -641,13 +682,17 @@ def execute_run(config: dict, sweep_run: bool = False) -> dict:
         config=config,
     ) as run:
         run_config = dict(run.config)
+        validate_plan_constraints(run_config)
         repo_root = Path(__file__).resolve().parents[2]
         resolved_config = build_shared_resolved_workflow_config(
             run_config,
             repo_root=repo_root,
             run_id=run.id,
             sweep_run=sweep_run,
-            extra_fields=resolve_ensemble_config(run_config),
+            extra_fields={
+                "project": project,
+                **resolve_ensemble_config(run_config),
+            },
         )
         ignored_restart_fields = dict(resolved_config["ignored_deprecated_config_fields"])
         output_dir = Path(str(resolved_config["output_dir"]))
@@ -734,6 +779,7 @@ def execute_run(config: dict, sweep_run: bool = False) -> dict:
 
         descriptor_report = metrics.get("descriptor_comparisons", {}).get("final")
         descriptor_payload = {}
+        validation_payload = build_shared_final_validation_logging_payload(metrics)
         if descriptor_report:
             global_metrics = descriptor_report["global_metrics"]
             descriptor_payload.update(
@@ -836,6 +882,7 @@ def execute_run(config: dict, sweep_run: bool = False) -> dict:
                     else {}
                 ),
                 **descriptor_payload,
+                **validation_payload,
             }
         )
         log_series_tables(metrics)
@@ -869,6 +916,12 @@ def execute_run(config: dict, sweep_run: bool = False) -> dict:
                 "reference_structure_file": metrics.get("output_files", {}).get(
                     "reference_structure"
                 ),
+                "final_validation_cases": (
+                    summarise_shared_final_validation_cases(metrics)
+                    if metrics.get("final_validation_cases")
+                    else None
+                ),
+                "final_validation_summary": metrics.get("final_validation_summary"),
                 "ignored_deprecated_config_fields": (
                     ignored_restart_fields if ignored_restart_fields else None
                 ),
@@ -880,7 +933,7 @@ def execute_run(config: dict, sweep_run: bool = False) -> dict:
                 {
                     "run_id": run.id,
                     "run_name": run.name,
-                    "project": WANDB_PROJECT,
+                    "project": project,
                     "group": group,
                     "tags": tags,
                     "final_rmsd": metrics["final_rmsd"],
@@ -895,11 +948,12 @@ def execute_run(config: dict, sweep_run: bool = False) -> dict:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--project", type=str, default=None)
     parser.add_argument("--architecture", type=str, default=DEFAULT_ARCHITECTURE)
     parser.add_argument("--variant-tags", type=str, default="baseline")
     parser.add_argument("--run-name", type=str, default="")
     parser.add_argument("--carbon-count", type=int, default=-1)
-    parser.add_argument("--augmented-count", type=int, default=0)
+    parser.add_argument("--augmented-count", type=int, default=2)
     parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--inverse-steps", type=int, default=400)
@@ -1032,6 +1086,7 @@ def main() -> None:
         return
 
     config = vars(args).copy()
+    config["project"] = resolve_project_name(config.get("project"))
     config["output_dir"] = str(args.output_dir)
     config.pop("inverse_restarts", None)
     config.pop("inverse_restart_noise_scale", None)
@@ -1039,7 +1094,10 @@ def main() -> None:
 
     if args.sweep_id:
         try:
-            existing_sweep = resolve_existing_sweep(args.sweep_id)
+            existing_sweep = resolve_existing_sweep(
+                args.sweep_id,
+                project=str(config["project"]),
+            )
         except ValueError as exc:
             raise SystemExit(str(exc)) from exc
         print(json.dumps({"action": "continue", **existing_sweep}, indent=2))
@@ -1054,13 +1112,13 @@ def main() -> None:
 
     if args.launch_sweep:
         sweep_config = build_sweep_config(args)
-        sweep_id = wandb.sweep(sweep=sweep_config, project=WANDB_PROJECT)
-        print(json.dumps({"project": WANDB_PROJECT, "sweep_id": sweep_id}, indent=2))
+        sweep_id = wandb.sweep(sweep=sweep_config, project=str(config["project"]))
+        print(json.dumps({"project": config["project"], "sweep_id": sweep_id}, indent=2))
         launch_sweep_agent(
             sweep_id=str(sweep_id),
             config=config,
             sweep_count=int(args.sweep_count),
-            project=WANDB_PROJECT,
+            project=str(config["project"]),
         )
         return
 

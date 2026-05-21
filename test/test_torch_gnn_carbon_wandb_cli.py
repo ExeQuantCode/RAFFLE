@@ -87,17 +87,6 @@ workflow_stub.ROLLOUT_STEP_STRIDE = 5
 workflow_stub.TARGET_VERTEX_WEIGHT = 0.0
 workflow_stub.default_inverse_step_values = lambda steps: [steps]
 workflow_stub.default_step_sizes = lambda step_size: [step_size]
-workflow_stub.build_perturbed_structure = mock.Mock(
-    side_effect=lambda original, fixed_leading_atoms=0: (
-        DummyAtoms(
-            symbols=original.get_chemical_symbols(),
-            positions=original.get_positions() + np.asarray([[0.1, 0.0, 0.0], [0.0, 0.1, 0.0]]),
-            cell=original.cell.array,
-            pbc=original.pbc,
-        ),
-        np.zeros(len(original.get_chemical_symbols()), dtype=bool),
-    )
-)
 workflow_stub.parse_category_weights = lambda value: {
     key.strip(): float(raw_value.strip())
     for key, raw_value in (
@@ -106,12 +95,33 @@ workflow_stub.parse_category_weights = lambda value: {
 }
 workflow_stub.parse_float_list = lambda value: [float(item) for item in value.split(",") if item]
 workflow_stub.parse_int_list = lambda value: [int(item) for item in value.split(",") if item]
+workflow_stub.select_carbon_structures = mock.Mock(
+    side_effect=lambda structures, requested_count: (
+        list(structures)
+        if int(requested_count) <= 0 or int(requested_count) >= len(structures)
+        else list(structures[: int(requested_count)])
+    )
+)
 workflow_stub.run_example = mock.Mock()
 
 workflow_common_stub = types.ModuleType("torch_gnn_workflow_common")
-workflow_common_stub.default_reference_structure = mock.Mock(
-    return_value=DummyAtoms()
+workflow_common_stub.build_inverse_design_pair = mock.Mock(
+    return_value=(
+        DummyAtoms(),
+        DummyAtoms(positions=[[0.1, 0.0, 0.0], [0.25, 0.35, 0.25]]),
+        np.asarray([True, False], dtype=bool),
+        {
+            "structure_index": 1,
+            "perturbation_settings": {
+                "min_displacement": 0.0,
+                "max_displacement": 1.0,
+                "minimum_interatomic_distance": 0.8,
+                "max_resamples": 64,
+            },
+        },
+    )
 )
+workflow_common_stub.load_structures = mock.Mock(return_value=[DummyAtoms(), DummyAtoms()])
 
 with mock.patch.dict(
     sys.modules,
@@ -128,9 +138,24 @@ class TestTorchGNNSweepCLI(unittest.TestCase):
 
     def setUp(self) -> None:
         workflow_stub.run_example.reset_mock()
-        workflow_stub.build_perturbed_structure.reset_mock()
-        workflow_common_stub.default_reference_structure.reset_mock()
-        workflow_common_stub.default_reference_structure.return_value = DummyAtoms()
+        workflow_stub.select_carbon_structures.reset_mock(side_effect=True)
+        workflow_common_stub.build_inverse_design_pair.reset_mock(return_value=True)
+        workflow_common_stub.load_structures.reset_mock(return_value=True)
+        workflow_common_stub.build_inverse_design_pair.return_value = (
+            DummyAtoms(),
+            DummyAtoms(positions=[[0.1, 0.0, 0.0], [0.25, 0.35, 0.25]]),
+            np.asarray([True, False], dtype=bool),
+            {
+                "structure_index": 1,
+                "perturbation_settings": {
+                    "min_displacement": 0.0,
+                    "max_displacement": 1.0,
+                    "minimum_interatomic_distance": 0.8,
+                    "max_resamples": 64,
+                },
+            },
+        )
+        workflow_common_stub.load_structures.return_value = [DummyAtoms(), DummyAtoms()]
         carbon_wandb.wandb.log.reset_mock()
         carbon_wandb.wandb.Artifact.reset_mock()
 
@@ -160,7 +185,7 @@ class TestTorchGNNSweepCLI(unittest.TestCase):
                 "variant_tags": "baseline",
                 "run_name": "",
                 "carbon_count": -1,
-                "augmented_count": 0,
+                "augmented_count": 2,
                 "epochs": 12,
                 "batch_size": 4,
                 "inverse_steps": 40,
@@ -259,12 +284,19 @@ class TestTorchGNNSweepCLI(unittest.TestCase):
             resolved_payload["reference_structure"]["symbols"],
             ["C", "C"],
         )
+        self.assertEqual(
+            resolved_payload["input_structure"]["symbols"],
+            ["C", "C"],
+        )
+        self.assertEqual(resolved_payload["evaluation_pair"]["structure_index"], 1)
+        self.assertEqual(resolved_payload["perturbation_settings"]["max_displacement"], 1.0)
         self.assertEqual(metadata_payload["carbon_dataset"]["relative_path"], "example/data/carbon.xyz")
         self.assertIn("resolved_workflow_config", run.summary)
         self.assertIn("reproducibility_metadata", run.summary)
 
         run_kwargs = workflow_stub.run_example.call_args.kwargs
         self.assertNotIn("reference_structure_weight", run_kwargs)
+        self.assertEqual(run_kwargs["augmented_count"], 2)
         self.assertEqual(run_kwargs["inverse_step_values"], [40])
         self.assertEqual(run_kwargs["step_size_values"], [0.02])
         self.assertFalse(run_kwargs["enable_checkpoint_step_schedule_sweep"])
@@ -298,6 +330,28 @@ class TestTorchGNNSweepCLI(unittest.TestCase):
             "step_size_sweep": [{"step_size": 0.02, "position_difference": 0.4}],
             "checkpoint_step_size_sweep": [],
             "checkpoint_step_schedule_sweep": [],
+            "final_validation_cases": [
+                {
+                    "name": "diamond",
+                    "atom_count": 8,
+                    "fixed_atom_indices": [0],
+                    "initial_rmsd": 0.2,
+                    "final_rmsd": 0.05,
+                    "rmsd_reduction_fraction": 0.75,
+                    "inverse_steps": 30,
+                    "step_size": 0.02,
+                },
+                {
+                    "name": "graphite",
+                    "atom_count": 4,
+                    "fixed_atom_indices": [0],
+                    "initial_rmsd": 0.1,
+                    "final_rmsd": 0.04,
+                    "rmsd_reduction_fraction": 0.6,
+                    "inverse_steps": 30,
+                    "step_size": 0.02,
+                },
+            ],
             "rollout": {},
             "descriptor_comparisons": {
                 "final": {
@@ -400,6 +454,7 @@ class TestTorchGNNSweepCLI(unittest.TestCase):
         payload = carbon_wandb.wandb.log.call_args.args[0]
         self.assertIn("tables/final_descriptor_components", payload)
         self.assertIn("tables/final_descriptor_values", payload)
+        self.assertIn("tables/final_model_validation", payload)
 
     def test_resolve_existing_sweep_rejects_other_project(self):
         sweep = mock.Mock(

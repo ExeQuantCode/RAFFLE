@@ -75,7 +75,6 @@ workflow_stub.select_carbon_structures = mock.Mock(side_effect=lambda structures
 workflow_stub.sweep_epochs = mock.Mock()
 
 workflow_common_stub = types.ModuleType("torch_gnn_workflow_common")
-workflow_common_stub.default_reference_structure = mock.Mock(return_value="reference-structure")
 workflow_common_stub.load_structures = mock.Mock(return_value=["s1", "s2", "s3"])
 workflow_common_stub.load_model_from_checkpoint = mock.Mock(
     return_value=(
@@ -127,8 +126,8 @@ class TestTorchGNNWandbCheckpointCLI(unittest.TestCase):
             "_restore_perturbed_structure",
             return_value=("perturbed", "fixed"),
         )
-        self.restore_reference_structure.start()
-        self.restore_perturbed_structure.start()
+        self.restore_reference_structure_mock = self.restore_reference_structure.start()
+        self.restore_perturbed_structure_mock = self.restore_perturbed_structure.start()
         self.addCleanup(self.restore_reference_structure.stop)
         self.addCleanup(self.restore_perturbed_structure.stop)
 
@@ -431,7 +430,7 @@ class TestTorchGNNWandbCheckpointCLI(unittest.TestCase):
             "architecture_name": "torch_gnn_residual",
             "carbon_dataset_path": "example/data/carbon.xyz",
             "carbon_count": -1,
-            "augmented_count": 0,
+            "augmented_count": 2,
             "epochs": 2,
             "batch_size": 4,
             "inverse_steps": 20,
@@ -478,7 +477,18 @@ class TestTorchGNNWandbCheckpointCLI(unittest.TestCase):
                 "cell": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
                 "pbc": [True, True, True],
             },
-            "perturbation_matrix": [[0.0, 0.0, 0.0]],
+            "input_structure": {
+                "symbols": ["C"],
+                "positions": [[0.1, 0.0, 0.0]],
+                "cell": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+                "pbc": [True, True, True],
+            },
+            "perturbation_settings": {
+                "min_displacement": 0.0,
+                "max_displacement": 1.0,
+                "minimum_interatomic_distance": 0.8,
+                "max_resamples": 64,
+            },
             "enable_checkpoint_step_size_sweep": True,
             "enable_checkpoint_step_schedule_sweep": True,
         }
@@ -523,6 +533,7 @@ class TestTorchGNNWandbCheckpointCLI(unittest.TestCase):
 
         carbon_wandb_stub.validate_plan_constraints.assert_called_once()
         workflow_stub.sweep_epochs.assert_called_once()
+        self.restore_perturbed_structure_mock.assert_not_called()
         self.assertEqual(workflow_stub.sweep_epochs.call_args.kwargs["num_epochs"], 5)
         self.assertNotIn(
             "reference_structure_weight",

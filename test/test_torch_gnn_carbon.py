@@ -18,8 +18,8 @@ if str(PYTHON_PKG_DIR) not in sys.path:
 
 from torch_gnn_carbon_workflow_example import (  # noqa: E402
     DEFAULT_MODEL_CONFIG,
-    PERTURBATION,
     DEFAULT_REPLAY_CATEGORY_WEIGHTS,
+    build_perturbed_structure,
     run_example,
 )
 from torch_gnn_workflow_common import (  # noqa: E402
@@ -35,9 +35,11 @@ class TestTorchGNNFingerprintCarbonWorkflow(unittest.TestCase):
     def test_inverse_design_rejects_target_supervision_losses(self):
         original = bulk("C", "diamond", a=3.567, cubic=True)
         original.pbc = True
-        perturbed = original.copy()
-        perturbed.set_positions(perturbed.get_positions() + PERTURBATION)
-        fixed_atoms = np.zeros(len(perturbed), dtype=bool)
+        perturbed, fixed_atoms = build_perturbed_structure(
+            original,
+            fixed_leading_atoms=0,
+            seed=42,
+        )
 
         model = TorchGNNFingerprint(
             species_list=["C"],
@@ -72,9 +74,11 @@ class TestTorchGNNFingerprintCarbonWorkflow(unittest.TestCase):
     def test_inverse_design_allows_different_target_atom_count(self):
         original = bulk("C", "diamond", a=3.567, cubic=True)
         original.pbc = True
-        perturbed = original.copy()
-        perturbed.set_positions(perturbed.get_positions() + PERTURBATION)
-        fixed_atoms = np.zeros(len(perturbed), dtype=bool)
+        perturbed, fixed_atoms = build_perturbed_structure(
+            original,
+            fixed_leading_atoms=0,
+            seed=7,
+        )
         different_target = bulk("C", "diamond", a=3.567, cubic=False)
         different_target = different_target[[0, 1]]
         different_target.pbc = True
@@ -108,7 +112,7 @@ class TestTorchGNNFingerprintCarbonWorkflow(unittest.TestCase):
             repo_root=REPO_ROOT,
             output_dir=output_dir,
             carbon_count=minimum_carbon_count,
-            augmented_count=0,
+            augmented_count=2,
             num_epochs=2,
             batch_size=8,
             inverse_steps=10,
@@ -156,6 +160,10 @@ class TestTorchGNNFingerprintCarbonWorkflow(unittest.TestCase):
             metrics["num_training_carbon_structures"],
             minimum_carbon_count,
         )
+        self.assertEqual(
+            metrics["num_perturbed_training_structures_per_epoch"],
+            metrics["num_training_carbon_structures"] * 2,
+        )
         self.assertEqual(metrics["inverse_design_config"]["target_vertex_weight"], 0.0)
         self.assertEqual(metrics["inverse_design_config"]["target_position_weight"], 0.0)
         self.assertNotIn("reference_structure_weight", metrics["inverse_design_config"])
@@ -175,6 +183,9 @@ class TestTorchGNNFingerprintCarbonWorkflow(unittest.TestCase):
         self.assertEqual(len(metrics["rollout"]["stages"]), 1)
         self.assertGreater(metrics["rollout"]["replay_buffer"]["size"], 0)
         self.assertGreater(metrics["rollout"]["stages"][0]["sampled_replay_count"], 0)
+        self.assertIn("evaluation_pair", metrics)
+        self.assertIn("structure_index", metrics["evaluation_pair"])
+        self.assertIn("perturbation_settings", metrics)
         self.assertEqual(
             [entry["step"] for entry in metrics["inverse_step_sweep"]],
             [0, 10],

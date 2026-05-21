@@ -455,11 +455,15 @@ def replay_training(
     reference_structure = _restore_reference_structure(
         dict(config["reference_structure"])
     )
-    augmented_structures: list[Any] = []
-    perturbed_structure, fixed_atoms = _restore_perturbed_structure(
-        reference_structure,
-        config,
-    )
+    if "input_structure" in config:
+        perturbed_structure = _restore_reference_structure(dict(config["input_structure"]))
+        fixed_atoms = np.zeros(len(perturbed_structure), dtype=bool)
+        fixed_atoms[: max(int(config["fixed_leading_atoms"]), 0)] = True
+    else:
+        perturbed_structure, fixed_atoms = _restore_perturbed_structure(
+            reference_structure,
+            config,
+        )
     inverse_design_options = build_inverse_design_options(
         fingerprint_loss_weight=float(config["fingerprint_loss_weight"]),
         target_vertex_weight=float(config["target_vertex_weight"]),
@@ -479,7 +483,8 @@ def replay_training(
 
     model, _, _, _, _, rollout_metrics = sweep_epochs(
         carbon_structures=carbon_structures,
-        augmented_structures=augmented_structures,
+        augmentation_variants_per_structure=int(config["augmented_count"]),
+        perturbation_settings=dict(config.get("perturbation_settings", {})),
         original=reference_structure,
         perturbed=perturbed_structure,
         fixed_atoms=fixed_atoms,

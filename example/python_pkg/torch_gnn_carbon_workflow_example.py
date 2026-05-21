@@ -13,14 +13,14 @@ import importlib.util
 import json
 from pathlib import Path
 import sys
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-from ase.build import bulk
+from ase import Atoms
 from ase.io import read, write
 
 def _load_local_torch_gnn_fingerprint() -> None:
@@ -56,26 +56,18 @@ from torch_gnn_rollout import (
     classify_rollout_step,
 )
 from torch_gnn_workflow_common import (
+    build_augmented_dataset,
+    build_augmented_structures as build_common_augmented_structures,
+    build_fixed_atoms_mask,
+    build_inverse_design_pair,
+    normalise_perturbation_settings,
+    perturb_structure,
     save_descriptor_comparison_report,
     save_model_checkpoint,
     save_target_fingerprint,
     write_structure,
 )
 
-
-PERTURBATION = np.array(
-    [
-        [0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0],
-        [0.172792, 0.2410809, 0.165219],
-        [-0.00651579, 0.00452678, 0.20223187],
-        [-0.10268477, 0.10290559, 0.20182286],
-        [2.00147066, 0.00014211, 0.10273356],
-    ],
-    dtype=np.float32,
-)
 
 FIXED_LEADING_ATOMS = 1
 FINGERPRINT_LOSS_WEIGHT = 0.5
@@ -116,27 +108,300 @@ DEFAULT_MODEL_CONFIG = {
     "component_weight": DEFAULT_COMPONENT_WEIGHT,
 }
 INVERSE_STEP_LOG_INTERVAL = 10
+DEFAULT_DATASET_PERTURBATION_SETTINGS = normalise_perturbation_settings()
+FINAL_VALIDATION_STRUCTURE_FILES = (
+    ("diamond", "diamond.xyz", "perturbed_diamond.xyz"),
+    ("graphite", "graphite.xyz", "perturbed_graphite.xyz"),
+)
 
 
-def build_augmented_structures(original, count: int, seed: int) -> list:
-    rng = np.random.default_rng(seed)
-    structures = []
-    for _ in range(count):
-        atoms = original.copy()
-        atoms.set_positions(
-            atoms.get_positions()
-            + rng.normal(scale=0.04, size=atoms.positions.shape).astype(np.float32)
-        )
-        structures.append(atoms)
-    return structures
+def build_augmented_structures(
+    original,
+    count: int,
+    seed: int,
+    perturbation_settings: Optional[dict] = None,
+) -> list:
+    resolved_settings = normalise_perturbation_settings(
+        DEFAULT_DATASET_PERTURBATION_SETTINGS if perturbation_settings is None else perturbation_settings
+    )
+    return build_common_augmented_structures(
+        original,
+        count=int(count),
+        seed=int(seed),
+        noise_scale=float(resolved_settings["max_displacement"]),
+        min_displacement=float(resolved_settings["min_displacement"]),
+        minimum_interatomic_distance=float(resolved_settings["minimum_interatomic_distance"]),
+        max_resamples=int(resolved_settings["max_resamples"]),
+    )
 
 
-def build_perturbed_structure(original, fixed_leading_atoms: int = FIXED_LEADING_ATOMS):
-    perturbed = original.copy()
-    perturbed.set_positions(perturbed.get_positions() + PERTURBATION)
-    fixed_atoms = np.zeros(len(perturbed), dtype=bool)
-    fixed_atoms[:max(int(fixed_leading_atoms), 0)] = True
+def build_perturbed_structure(
+    original,
+    fixed_leading_atoms: int = FIXED_LEADING_ATOMS,
+    *,
+    seed: Optional[int] = None,
+    rng: np.random.Generator | None = None,
+    perturbation_settings: Optional[dict] = None,
+):
+    fixed_atoms = build_fixed_atoms_mask(
+        len(original),
+        fixed_leading_atoms=int(fixed_leading_atoms),
+    )
+    perturbed = perturb_structure(
+        original,
+        seed=seed,
+        rng=rng,
+        fixed_atoms=fixed_atoms,
+        perturbation_settings=(
+            DEFAULT_DATASET_PERTURBATION_SETTINGS
+            if perturbation_settings is None
+            else perturbation_settings
+        ),
+    )
     return perturbed, fixed_atoms
+
+
+def load_final_validation_structure(file_name: str) -> tuple[Atoms, Path]:
+    structure_path = Path(__file__).resolve().parent / file_name
+    return read(str(structure_path)), structure_path
+
+
+def build_final_validation_cases(
+    *,
+    perturbation_settings: Optional[dict[str, Any]] = None,
+    seed: int = 0,
+) -> list[dict[str, Any]]:
+    del perturbation_settings
+    del seed
+
+    cases: list[dict[str, Any]] = []
+    for name, reference_file_name, perturbed_file_name in FINAL_VALIDATION_STRUCTURE_FILES:
+        reference_atoms, reference_path = load_final_validation_structure(reference_file_name)
+        perturbed_atoms, perturbed_path = load_final_validation_structure(perturbed_file_name)
+        if len(reference_atoms) != len(perturbed_atoms):
+            raise ValueError(
+                f"Final validation case '{name}' must use structures with matching atom counts"
+            )
+
+        fixed_atoms = build_fixed_atoms_mask(
+            len(reference_atoms),
+            fixed_atom_indices=[0],
+        )
+        cases.append(
+            {
+                "name": name,
+                "reference_atoms": reference_atoms,
+                "perturbed_atoms": perturbed_atoms,
+                "fixed_atoms": fixed_atoms,
+                "fixed_atom_indices": np.flatnonzero(fixed_atoms).astype(int).tolist(),
+                "input_files": {
+                    "reference": str(reference_path),
+                    "perturbed": str(perturbed_path),
+                },
+            }
+        )
+    return cases
+
+
+def compute_rmsd_reduction_fraction(initial_rmsd: float, final_rmsd: float) -> float:
+    if float(initial_rmsd) <= 1.0e-12:
+        return 0.0
+    return 1.0 - float(final_rmsd) / float(initial_rmsd)
+
+
+def build_fixed_atom_aligned_reference(
+    reference_atoms,
+    anchor_atoms,
+    fixed_atoms: np.ndarray,
+):
+    fixed_mask = np.asarray(fixed_atoms, dtype=bool)
+    if fixed_mask.shape != (len(reference_atoms),):
+        raise ValueError(
+            "fixed_atoms must contain one boolean entry per atom in the reference structure"
+        )
+    if not np.any(fixed_mask):
+        return reference_atoms.copy()
+
+    aligned_reference = reference_atoms.copy()
+    reference_positions = np.asarray(reference_atoms.get_positions(), dtype=np.float64)
+    anchor_positions = np.asarray(anchor_atoms.get_positions(), dtype=np.float64)
+    translation = np.mean(anchor_positions[fixed_mask] - reference_positions[fixed_mask], axis=0)
+    aligned_reference.set_positions(reference_positions + translation)
+    if bool(np.any(aligned_reference.pbc)):
+        aligned_reference.wrap(eps=1.0e-12)
+    return aligned_reference
+
+
+def compute_fixed_atom_aligned_rmsd(
+    reference_atoms,
+    candidate_atoms,
+    fixed_atoms: np.ndarray,
+) -> float:
+    aligned_reference = build_fixed_atom_aligned_reference(
+        reference_atoms,
+        candidate_atoms,
+        fixed_atoms,
+    )
+    aligned_displacements = symmetry_aware_displacements(
+        aligned_reference,
+        candidate_atoms,
+        allow_rotation=False,
+    )
+    return float(np.sqrt(np.mean(np.sum(aligned_displacements ** 2, axis=1))))
+
+
+def print_final_validation_result(
+    case_name: str,
+    *,
+    initial_rmsd: float,
+    final_rmsd: float,
+    comparison_reference_path: Path,
+    initial_structure_path: Path,
+    final_structure_path: Path,
+) -> None:
+    reduction_fraction = compute_rmsd_reduction_fraction(initial_rmsd, final_rmsd)
+    print(f"Final model validation: {case_name}")
+    print(f"#sym:structure_similarity_rmsd {comparison_reference_path} {initial_structure_path}")
+    print(f"Initial symmetry-aware RMSD: {initial_rmsd:.6f} A")
+    print(f"#sym:structure_similarity_rmsd {comparison_reference_path} {final_structure_path}")
+    print(f"Final symmetry-aware RMSD:   {final_rmsd:.6f} A")
+    print(f"RMSD reduction:              {100.0 * reduction_fraction:.2f}%")
+
+
+def evaluate_final_validation_cases(
+    model: TorchGNNFingerprint,
+    output_dir: Path,
+    *,
+    perturbation_settings: Optional[dict[str, Any]] = None,
+    seed: int,
+    inverse_steps: int,
+    inverse_step_size: float,
+    inverse_design_options: dict[str, Any],
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+    for case in build_final_validation_cases(
+        perturbation_settings=perturbation_settings,
+        seed=seed,
+    ):
+        case_name = str(case["name"])
+        reference_atoms = case["reference_atoms"].copy()
+        perturbed_atoms = case["perturbed_atoms"].copy()
+        fixed_atoms = np.asarray(case["fixed_atoms"], dtype=bool)
+        target_fingerprint = model.compute_reference_fingerprint(reference_atoms)
+        optimised_atoms, trajectory_records, inverse_trace = inverse_design_trace(
+            model=model,
+            original=reference_atoms,
+            perturbed=perturbed_atoms,
+            fixed_atoms=fixed_atoms,
+            target_fingerprint=target_fingerprint,
+            inverse_steps=int(inverse_steps),
+            step_values=[int(inverse_steps)],
+            step_size=float(inverse_step_size),
+            inverse_design_options=inverse_design_options,
+        )
+        aligned_trajectory_records = []
+        aligned_inverse_trace = []
+        for record, trace_entry in zip(trajectory_records, inverse_trace):
+            aligned_position_difference = compute_fixed_atom_aligned_rmsd(
+                reference_atoms,
+                record["atoms"],
+                fixed_atoms,
+            )
+            aligned_record = {
+                **record,
+                "position_difference": float(aligned_position_difference),
+            }
+            aligned_trajectory_records.append(aligned_record)
+            aligned_inverse_trace.append(
+                {
+                    **trace_entry,
+                    "position_difference": float(aligned_position_difference),
+                }
+            )
+        trajectory_records = aligned_trajectory_records
+        inverse_trace = aligned_inverse_trace
+
+        prefix = f"torch_gnn_carbon_validation_{case_name}"
+        original_path = output_dir / f"{prefix}_original.xyz"
+        initial_path = output_dir / f"{prefix}_initial.xyz"
+        final_path = output_dir / f"{prefix}_final.xyz"
+        comparison_reference = build_fixed_atom_aligned_reference(
+            reference_atoms,
+            perturbed_atoms,
+            fixed_atoms,
+        )
+        comparison_reference_path = output_dir / f"{prefix}_comparison_reference.xyz"
+        write(original_path, reference_atoms)
+        write(initial_path, perturbed_atoms)
+        write(final_path, optimised_atoms)
+        write(comparison_reference_path, comparison_reference)
+
+        initial_rmsd = compute_fixed_atom_aligned_rmsd(
+            reference_atoms,
+            perturbed_atoms,
+            fixed_atoms,
+        )
+        final_rmsd = compute_fixed_atom_aligned_rmsd(
+            reference_atoms,
+            optimised_atoms,
+            fixed_atoms,
+        )
+        reduction_fraction = compute_rmsd_reduction_fraction(initial_rmsd, final_rmsd)
+        print_final_validation_result(
+            case_name,
+            initial_rmsd=initial_rmsd,
+            final_rmsd=final_rmsd,
+            comparison_reference_path=comparison_reference_path,
+            initial_structure_path=initial_path,
+            final_structure_path=final_path,
+        )
+        print()
+
+        inverse_design_path = save_inverse_design_path(
+            output_dir,
+            trajectory_records,
+            prefix=prefix,
+        )
+
+        results.append(
+            {
+                "name": case_name,
+                "atom_count": int(len(reference_atoms)),
+                "fixed_atom_indices": list(case["fixed_atom_indices"]),
+                "input_files": dict(case["input_files"]),
+                "initial_rmsd": float(initial_rmsd),
+                "final_rmsd": float(final_rmsd),
+                "rmsd_reduction_fraction": float(reduction_fraction),
+                "inverse_steps": int(inverse_steps),
+                "step_size": float(inverse_step_size),
+                "comparison_metric": "#sym:structure_similarity_rmsd",
+                "inverse_trace": list(inverse_trace),
+                "output_files": {
+                    "comparison_reference": str(comparison_reference_path),
+                    "original": str(original_path),
+                    "initial": str(initial_path),
+                    "final": str(final_path),
+                    "inverse_design_traj": str(inverse_design_path["traj_file"]),
+                },
+                "inverse_design_path": inverse_design_path,
+            }
+        )
+
+    final_rmsds = [float(entry["final_rmsd"]) for entry in results]
+    reduction_fractions = [float(entry["rmsd_reduction_fraction"]) for entry in results]
+    summary = {
+        "case_count": int(len(results)),
+        "mean_final_rmsd": (
+            float(sum(final_rmsds) / len(final_rmsds)) if final_rmsds else None
+        ),
+        "max_final_rmsd": (max(final_rmsds) if final_rmsds else None),
+        "mean_rmsd_reduction_fraction": (
+            float(sum(reduction_fractions) / len(reduction_fractions))
+            if reduction_fractions
+            else None
+        ),
+    }
+    return results, summary
 
 
 def select_carbon_structures(structures: list, requested_count: int):
@@ -855,7 +1120,8 @@ def compute_rollout_stage_start_epochs(total_epochs: int, rollout_stages: int) -
 
 def sweep_epochs(
     carbon_structures,
-    augmented_structures,
+    augmentation_variants_per_structure: int,
+    perturbation_settings: dict[str, float | int],
     original,
     perturbed,
     fixed_atoms: np.ndarray,
@@ -877,12 +1143,17 @@ def sweep_epochs(
     rollout_high_error_threshold: float = ROLLOUT_HIGH_ERROR_THRESHOLD,
     rollout_instability_threshold: float = ROLLOUT_INSTABILITY_THRESHOLD,
 ) -> tuple:
+    if int(augmentation_variants_per_structure) <= 0:
+        raise ValueError(
+            "augmentation_variants_per_structure must be positive so training uses perturbed dataset structures only"
+        )
     model = create_model(seed, model_config=model_config)
     learnable_parameter_count = sum(
         parameter.numel() for parameter in model.parameters() if parameter.requires_grad
     )
     target_fingerprint = model.compute_reference_fingerprint(original)
     replay_buffer = PrioritizedReplayBuffer(capacity=int(replay_buffer_capacity), seed=int(seed))
+    training_augmentation_rng = np.random.default_rng(int(seed) + 1)
     training_losses = []
     epoch_results = []
     best_candidate = None
@@ -963,7 +1234,12 @@ def sweep_epochs(
                 f"buffer={len(replay_buffer)}"
             )
 
-        augment_batch = list(augmented_structures)
+        training_batch = build_augmented_dataset(
+            carbon_structures,
+            variants_per_structure=int(augmentation_variants_per_structure),
+            rng=training_augmentation_rng,
+            perturbation_settings=perturbation_settings,
+        )
         if active_stage_summary is not None and active_stage_epochs_remaining > 0:
             sampled_replay = replay_buffer.sample(
                 sample_size=int(replay_sample_size),
@@ -973,14 +1249,13 @@ def sweep_epochs(
                     else dict(replay_category_weights)
                 ),
             )
-            augment_batch.extend(sample.atoms for sample in sampled_replay)
+            training_batch.extend(sample.atoms for sample in sampled_replay)
             active_stage_summary["sampled_replay_count"] += len(sampled_replay)
 
         history = model.fit(
-            carbon_structures,
+            training_batch,
             num_epochs=1,
             batch_size=batch_size,
-            augment_structures=augment_batch,
             verbose=0,
             reset_optimiser=(trained_epochs == 0),
             recalibrate_base=(trained_epochs == 0),
@@ -1034,7 +1309,8 @@ def sweep_epochs(
 
 def run_for_epochs(
     carbon_structures,
-    augmented_structures,
+    augmentation_variants_per_structure: int,
+    perturbation_settings: dict[str, float | int],
     original,
     perturbed,
     fixed_atoms: np.ndarray,
@@ -1049,7 +1325,8 @@ def run_for_epochs(
 ) -> tuple:
     model, epoch_results, training_losses, best_candidate, checkpoint_records, _ = sweep_epochs(
         carbon_structures=carbon_structures,
-        augmented_structures=augmented_structures,
+        augmentation_variants_per_structure=augmentation_variants_per_structure,
+        perturbation_settings=perturbation_settings,
         original=original,
         perturbed=perturbed,
         fixed_atoms=fixed_atoms,
@@ -1328,8 +1605,8 @@ def run_example(
     ensemble_consensus_metric: str = "cluster",
     ensemble_aggregation: str = "mean_variance",
 ) -> dict:
-    if int(augmented_count) != 0:
-        raise ValueError("augmented_count must remain 0 for inverse-design runs")
+    if int(augmented_count) <= 0:
+        raise ValueError("augmented_count must be positive so training uses perturbed dataset structures only")
     if float(target_vertex_weight) != 0.0:
         raise ValueError("target_vertex_weight must remain 0.0 for inverse-design runs")
     if float(target_position_weight) != 0.0:
@@ -1346,11 +1623,15 @@ def run_example(
             f"structures ({minimum_carbon_count} minimum, received {len(carbon_structures)})"
         )
 
-    print("Setting up original and perturbed structures...")
-    original = bulk("C", "diamond", a=3.567, cubic=True)
-    original.pbc = True
-    augmented_structures = []
-    perturbed, fixed_atoms = build_perturbed_structure(original, fixed_leading_atoms=fixed_leading_atoms)
+    perturbation_settings = dict(DEFAULT_DATASET_PERTURBATION_SETTINGS)
+
+    print("Setting up dataset-derived target and rollout structures...")
+    original, perturbed, fixed_atoms, evaluation_pair = build_inverse_design_pair(
+        carbon_structures,
+        fixed_leading_atoms=int(fixed_leading_atoms),
+        seed=int(seed),
+        perturbation_settings=perturbation_settings,
+    )
     inverse_design_options = build_inverse_design_options(
         fingerprint_loss_weight=fingerprint_loss_weight,
         target_vertex_weight=target_vertex_weight,
@@ -1367,7 +1648,8 @@ def run_example(
     print(f"[workflow] training {int(num_epochs)} epochs")
     model, epoch_results, training_losses, best_epoch_candidate, checkpoint_records, rollout_metrics = sweep_epochs(
         carbon_structures=carbon_structures,
-        augmented_structures=augmented_structures,
+        augmentation_variants_per_structure=int(augmented_count),
+        perturbation_settings=perturbation_settings,
         original=original,
         perturbed=perturbed,
         fixed_atoms=fixed_atoms,
@@ -1615,6 +1897,16 @@ def run_example(
         print(f"Selected best candidate: {json.dumps(best_candidate_details, sort_keys=True)}")
 
     output_dir.mkdir(parents=True, exist_ok=True)
+    final_validation_cases, final_validation_summary = evaluate_final_validation_cases(
+        model=model,
+        output_dir=output_dir,
+        perturbation_settings=perturbation_settings,
+        seed=int(seed),
+        inverse_steps=int(resolved_inverse_steps),
+        inverse_step_size=float(inverse_step_size),
+        inverse_design_options=inverse_design_options,
+    )
+
     write(output_dir / "torch_gnn_carbon_original.xyz", original)
     write(output_dir / "torch_gnn_carbon_initial.xyz", perturbed)
     write(output_dir / "torch_gnn_carbon_final.xyz", optimised)
@@ -1649,17 +1941,28 @@ def run_example(
         output_path=figure_path,
     )
 
+    validation_output_files = {}
+    for case in final_validation_cases:
+        case_name = str(case["name"])
+        for output_name, file_path in case["output_files"].items():
+            validation_output_files[f"validation_{case_name}_{output_name}"] = file_path
+
     metrics = {
         "training_losses": training_losses,
         "num_available_carbon_structures": len(all_carbon_structures),
         "num_training_carbon_structures": len(carbon_structures),
+        "num_perturbed_training_structures_per_epoch": int(len(carbon_structures) * int(augmented_count)),
         "epoch_sweep": epoch_results,
         "inverse_step_sweep": inverse_trace,
         "step_size_sweep": step_size_results,
         "convergence_summary": convergence_summary,
         "rollout": rollout_metrics,
+        "evaluation_pair": evaluation_pair,
+        "perturbation_settings": dict(perturbation_settings),
         "checkpoint_step_size_sweep": checkpoint_step_size_results,
         "checkpoint_step_schedule_sweep": checkpoint_step_schedule_results,
+        "final_validation_cases": final_validation_cases,
+        "final_validation_summary": final_validation_summary,
         "initial_fingerprint_mse": initial_fingerprint_mse,
         "final_fingerprint_mse": final_fingerprint_mse,
         "initial_fingerprint_l2": initial_fingerprint_l2,
@@ -1721,6 +2024,7 @@ def run_example(
             ),
             "final_descriptor_comparison": descriptor_report["report_file"],
             "final_descriptor_comparison_plot": descriptor_report["plot_file"],
+            **validation_output_files,
         },
         "descriptor_comparisons": {"final": descriptor_report},
         "ensemble_exploration": {
@@ -1748,6 +2052,7 @@ def run_example(
         "workflow_config": {
             "carbon_count": int(carbon_count),
             "augmented_count": int(augmented_count),
+            "perturbation_settings": dict(perturbation_settings),
             "epochs": int(num_epochs),
             "batch_size": int(batch_size),
             "inverse_steps": int(inverse_steps),
@@ -1791,9 +2096,11 @@ def run_example(
         },
         "num_available_carbon_structures": len(all_carbon_structures),
         "num_training_carbon_structures": len(carbon_structures),
+        "evaluation_pair": evaluation_pair,
         "convergence_summary": convergence_summary,
         "selected_candidate": metrics["selected_candidate"],
         "rollout": rollout_metrics,
+        "final_validation_summary": final_validation_summary,
     }
     save_model_checkpoint(
         model=model,

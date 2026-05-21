@@ -34,20 +34,20 @@ from torch_gnn_carbon_workflow_example import (
     ROLLOUT_STAGES,
     ROLLOUT_STEP_STRIDE,
     TARGET_VERTEX_WEIGHT,
-    build_perturbed_structure,
     default_inverse_step_values,
     default_step_sizes,
     parse_category_weights,
     parse_float_list,
     parse_int_list,
     run_example,
+    select_carbon_structures,
 )
-from torch_gnn_workflow_common import default_reference_structure
+from torch_gnn_workflow_common import build_inverse_design_pair, load_structures
 
 
 WANDB_PROJECT = "raffle-inverse-design-new"
 DEFAULT_ARCHITECTURE = "torch_gnn_residual"
-DEFAULT_TAGS = ["carbon", "diamond", "inverse-design"]
+DEFAULT_TAGS = ["carbon", "dataset-perturbed", "inverse-design"]
 SWEEP_EPOCH_COUNTS = [25, 50, 75, 100]
 DEPRECATED_RESTART_FIELDS = (
     "inverse_restarts",
@@ -191,10 +191,13 @@ def build_resolved_workflow_config(
         architecture=architecture,
         run_id=run_id,
     )
-    reference_structure = default_reference_structure()
-    perturbed_structure, _ = build_perturbed_structure(
-        reference_structure,
+    dataset_path = repo_root / CARBON_DATASET_RELATIVE_PATH
+    all_carbon_structures = load_structures(dataset_path)
+    carbon_structures = select_carbon_structures(all_carbon_structures, int(config["carbon_count"]))
+    reference_structure, input_structure, _, evaluation_pair = build_inverse_design_pair(
+        carbon_structures,
         fixed_leading_atoms=fixed_leading_atoms,
+        seed=int(config["seed"]),
     )
     resolved = {
         "spec_version": WORKFLOW_CONFIG_SPEC_VERSION,
@@ -266,9 +269,9 @@ def build_resolved_workflow_config(
             config.get("skip_checkpoint_step_schedule_sweep", False)
         ),
         "reference_structure": _serialise_structure(reference_structure),
-        "perturbation_matrix": (
-            perturbed_structure.get_positions() - reference_structure.get_positions()
-        ).tolist(),
+        "input_structure": _serialise_structure(input_structure),
+        "evaluation_pair": evaluation_pair,
+        "perturbation_settings": dict(evaluation_pair["perturbation_settings"]),
     }
     if extra_fields:
         resolved.update(extra_fields)
@@ -309,8 +312,10 @@ def persist_reproducibility_payloads(
 
 
 def validate_plan_constraints(config: dict) -> None:
-    if int(config["augmented_count"]) != 0:
-        raise ValueError("augmented_count must remain 0 for plan_model benchmarks")
+    if int(config["augmented_count"]) <= 0:
+        raise ValueError(
+            "augmented_count must be positive so plan_model runs train only on perturbed dataset structures"
+        )
     if float(config["target_vertex_weight"]) != 0.0:
         raise ValueError("target_vertex_weight must remain 0.0 for plan_model benchmarks")
     if float(config["target_position_weight"]) != 0.0:
@@ -355,7 +360,7 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
         "target_position_weight": {"values": [0.0]},
         "inverse_steps": {"values": [100, 200, 300]},
         "inverse_step_size": {"values": [1.0e-3, 5.0e-3, 1.0e-2, 1.e-1]},
-        "augmented_count": {"values": [0]},
+        "augmented_count": {"values": [2, 4]},
         "inverse_restarts": {"values": [0]},
         "inverse_restart_noise_scale": {"values": [0.0, 0.005, 0.01]},
         "repulsion_weight": {"values": [5.0, 10.0, 20.0]},
@@ -386,7 +391,7 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
             "target_position_weight": {"values": [0.0]},
             "inverse_steps": {"values": [400, 800, 1200]},
             "inverse_step_size": {"values": [5.0e-4, 1.0e-3, 2.5e-3]},
-            "augmented_count": {"values": [0]},
+            "augmented_count": {"values": [2, 4]},
             "inverse_restarts": {"values": [1, 2, 4]},
             "inverse_restart_noise_scale": {"values": [0.0, 0.005, 0.01]},
             "repulsion_weight": {"values": [5.0, 10.0, 20.0]},
@@ -417,7 +422,7 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
             "target_position_weight": {"values": [0.0]},
             "inverse_steps": {"values": [20, 25, 30]},
             "inverse_step_size": {"values": [0.0205, 0.021, 0.0215]},
-            "augmented_count": {"values": [0]},
+            "augmented_count": {"values": [2, 4]},
             "inverse_restarts": {"values": [1]},
             "inverse_restart_noise_scale": {"values": [0.0]},
             "repulsion_weight": {"values": [5.0, 10.0, 15.0]},
@@ -448,7 +453,7 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
             "target_position_weight": {"values": [0.0]},
             "inverse_steps": {"values": [100, 200, 400]},
             "inverse_step_size": {"values": [0.02, 0.05, 0.1]},
-            "augmented_count": {"values": [0]},
+            "augmented_count": {"values": [2, 4]},
             "inverse_restarts": {"values": [0, 1]},
             "inverse_restart_noise_scale": {"values": [0.0, 0.0025, 0.005]},
             "repulsion_weight": {"values": [5.0, 10.0, 20.0]},
@@ -482,7 +487,7 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
             "inverse_step_values": {"values": ["0,20,25,30"]},
             "inverse_step_size": {"values": [0.021]},
             "step_size_values": {"values": ["0.018,0.0205,0.021,0.0215,0.022"]},
-            "augmented_count": {"values": [0]},
+            "augmented_count": {"values": [2, 4]},
             "inverse_restarts": {"values": [0, 1]},
             "inverse_restart_noise_scale": {"values": [0.0, 0.0025]},
             "repulsion_weight": {"values": [5.0, 10.0, 15.0]},
@@ -522,7 +527,7 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
             "target_position_weight": {"values": [0.0]},
             "inverse_steps": {"values": [25, 50, 100]},
             "inverse_step_size": {"values": [0.01, 0.02, 0.05]},
-            "augmented_count": {"values": [0]},
+            "augmented_count": {"values": [2, 4]},
             "inverse_restarts": {"values": [0, 1]},
             "inverse_restart_noise_scale": {"values": [0.0, 0.0025]},
             "repulsion_weight": {"values": [5.0, 10.0, 20.0]},
@@ -615,6 +620,86 @@ def resolve_tags(config: dict, sweep_run: bool) -> list[str]:
 
 def resolve_output_dir(base_output_dir: Path, architecture: str, run_id: str) -> Path:
     return base_output_dir / architecture / run_id
+
+
+def build_final_validation_logging_payload(metrics: dict[str, Any]) -> dict[str, float | int]:
+    cases = list(metrics.get("final_validation_cases") or [])
+    if not cases:
+        return {}
+
+    payload: dict[str, float | int] = {}
+    final_rmsds: list[float] = []
+    reduction_fractions: list[float] = []
+    for case in cases:
+        case_name = str(case["name"])
+        initial_rmsd = float(case["initial_rmsd"])
+        final_rmsd = float(case["final_rmsd"])
+        reduction_fraction = float(case["rmsd_reduction_fraction"])
+        payload[f"validation/{case_name}_initial_rmsd"] = initial_rmsd
+        payload[f"validation/{case_name}_final_rmsd"] = final_rmsd
+        payload[f"validation/{case_name}_rmsd_reduction_fraction"] = reduction_fraction
+        final_rmsds.append(final_rmsd)
+        reduction_fractions.append(reduction_fraction)
+
+    payload["validation/heldout_case_count"] = int(len(cases))
+    payload["validation/heldout_mean_final_rmsd"] = float(
+        sum(final_rmsds) / len(final_rmsds)
+    )
+    payload["validation/heldout_max_final_rmsd"] = float(max(final_rmsds))
+    payload["validation/heldout_mean_rmsd_reduction_fraction"] = float(
+        sum(reduction_fractions) / len(reduction_fractions)
+    )
+    return payload
+
+
+def summarise_final_validation_cases(metrics: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        {
+            "name": str(case["name"]),
+            "atom_count": int(case["atom_count"]),
+            "fixed_atom_indices": list(case.get("fixed_atom_indices") or []),
+            "initial_rmsd": float(case["initial_rmsd"]),
+            "final_rmsd": float(case["final_rmsd"]),
+            "rmsd_reduction_fraction": float(case["rmsd_reduction_fraction"]),
+            "inverse_steps": int(case["inverse_steps"]),
+            "step_size": float(case["step_size"]),
+            "output_files": dict(case.get("output_files") or {}),
+        }
+        for case in metrics.get("final_validation_cases", [])
+    ]
+
+
+def iter_result_artifact_paths(metrics: dict[str, Any]) -> list[str]:
+    seen: set[str] = set()
+    paths: list[str] = []
+
+    def add_path(candidate: Any) -> None:
+        resolved = candidate
+        if isinstance(resolved, Path):
+            resolved = str(resolved)
+        if not isinstance(resolved, str) or not resolved:
+            return
+        if resolved in seen:
+            return
+        seen.add(resolved)
+        paths.append(resolved)
+
+    for file_path in metrics.get("output_files", {}).values():
+        add_path(file_path)
+    for file_path in metrics.get("configured_inverse_design_path", {}).get(
+        "step_structure_files",
+        [],
+    ):
+        add_path(file_path)
+    for case in metrics.get("final_validation_cases", []):
+        for file_path in case.get("output_files", {}).values():
+            add_path(file_path)
+        for file_path in case.get("inverse_design_path", {}).get(
+            "step_structure_files",
+            [],
+        ):
+            add_path(file_path)
+    return paths
 
 
 def log_series_tables(metrics: dict) -> None:
@@ -764,6 +849,32 @@ def log_series_tables(metrics: dict) -> None:
                 for entry in metrics["checkpoint_step_schedule_sweep"]
             ],
         )
+    if metrics.get("final_validation_cases"):
+        payload["tables/final_model_validation"] = wandb.Table(
+            columns=[
+                "case",
+                "atom_count",
+                "fixed_atom_indices",
+                "initial_rmsd",
+                "final_rmsd",
+                "rmsd_reduction_percent",
+                "inverse_steps",
+                "step_size",
+            ],
+            data=[
+                [
+                    str(entry["name"]),
+                    int(entry["atom_count"]),
+                    ",".join(str(index) for index in entry.get("fixed_atom_indices", [])),
+                    float(entry["initial_rmsd"]),
+                    float(entry["final_rmsd"]),
+                    100.0 * float(entry["rmsd_reduction_fraction"]),
+                    int(entry["inverse_steps"]),
+                    float(entry["step_size"]),
+                ]
+                for entry in metrics["final_validation_cases"]
+            ],
+        )
     rollout = metrics.get("rollout", {})
     if rollout.get("stages"):
         payload["tables/rollout_stages"] = wandb.Table(
@@ -805,18 +916,12 @@ def log_artifacts(run: wandb.sdk.wandb_run.Run, metrics: dict) -> None:
         name=f"{metrics['architecture_name']}-{run.id}-outputs",
         type="inverse-design-results",
     )
-    for file_path in metrics["output_files"].values():
-        artifact.add_file(file_path)
-    for file_path in metrics.get("configured_inverse_design_path", {}).get(
-        "step_structure_files",
-        [],
-    ):
+    for file_path in iter_result_artifact_paths(metrics):
         artifact.add_file(file_path)
     run.log_artifact(artifact)
 
 
 def execute_run(config: dict, sweep_run: bool = False) -> dict:
-    validate_plan_constraints(config)
     architecture = str(config["architecture"])
     project = resolve_project_name(config)
     tags = resolve_tags(config, sweep_run=sweep_run)
@@ -831,6 +936,7 @@ def execute_run(config: dict, sweep_run: bool = False) -> dict:
         config=config,
     ) as run:
         run_config = dict(run.config)
+        validate_plan_constraints(run_config)
         repo_root = Path(__file__).resolve().parents[2]
         resolved_config = build_resolved_workflow_config(
             run_config,
@@ -898,6 +1004,7 @@ def execute_run(config: dict, sweep_run: bool = False) -> dict:
 
         descriptor_report = metrics.get("descriptor_comparisons", {}).get("final")
         descriptor_payload = {}
+        validation_payload = build_final_validation_logging_payload(metrics)
         if descriptor_report:
             global_metrics = descriptor_report["global_metrics"]
             descriptor_payload.update(
@@ -958,6 +1065,7 @@ def execute_run(config: dict, sweep_run: bool = False) -> dict:
                 "rollout/buffer_size": metrics["rollout"]["replay_buffer"]["size"],
                 "rollout/mean_fingerprint_drift_mse": metrics["rollout"]["replay_buffer"]["mean_fingerprint_drift_mse"],
                 **descriptor_payload,
+                **validation_payload,
             }
         )
         log_series_tables(metrics)
@@ -991,6 +1099,12 @@ def execute_run(config: dict, sweep_run: bool = False) -> dict:
                 "reference_structure_file": metrics.get("output_files", {}).get(
                     "reference_structure"
                 ),
+                "final_validation_cases": (
+                    summarise_final_validation_cases(metrics)
+                    if metrics.get("final_validation_cases")
+                    else None
+                ),
+                "final_validation_summary": metrics.get("final_validation_summary"),
                 "ignored_deprecated_config_fields": (
                     ignored_restart_fields if ignored_restart_fields else None
                 ),
@@ -1021,7 +1135,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--variant-tags", type=str, default="baseline")
     parser.add_argument("--run-name", type=str, default="")
     parser.add_argument("--carbon-count", type=int, default=-1)
-    parser.add_argument("--augmented-count", type=int, default=0)
+    parser.add_argument("--augmented-count", type=int, default=2)
     parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--inverse-steps", type=int, default=400)

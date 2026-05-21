@@ -22,11 +22,12 @@ if str(SCRIPT_DIR) not in sys.path:
 from torch_gnn_workflow_common import (
     DEFAULT_COMPONENT_WEIGHT,
     DEFAULT_MODEL_CONFIG,
-    build_augmented_structures,
+    build_augmented_dataset,
     create_model,
-    default_reference_structure,
     infer_species_list,
     load_structures,
+    normalise_perturbation_settings,
+    perturb_structure,
     normalise_model_config,
     read_json_config,
     read_single_structure,
@@ -83,7 +84,19 @@ def _parser() -> argparse.ArgumentParser:
         "--augmentation-noise-scale",
         type=float,
         default=None,
-        help="Gaussian noise scale used to create augmented structures.",
+        help="Maximum uniform displacement magnitude in angstrom applied to each augmented structure.",
+    )
+    parser.add_argument(
+        "--minimum-interatomic-distance",
+        type=float,
+        default=None,
+        help="Reject or resample perturbations whose minimum pair distance falls below this threshold.",
+    )
+    parser.add_argument(
+        "--augmentation-max-resamples",
+        type=int,
+        default=None,
+        help="Maximum perturbation resampling attempts per structure.",
     )
     parser.add_argument("--epochs", type=int, default=None, help="Number of training epochs.")
     parser.add_argument("--batch-size", type=int, default=None, help="Mini-batch size.")
@@ -139,8 +152,10 @@ def _default_config(repo_root: Path) -> dict[str, Any]:
         "training_structure_limit": 0,
         "reference_structure": None,
         "reference_structure_index": 0,
-        "augmented_count": 16,
-        "augmentation_noise_scale": 0.04,
+        "augmented_count": 2,
+        "augmentation_noise_scale": 1.0,
+        "minimum_interatomic_distance": 0.8,
+        "augmentation_max_resamples": 64,
         "epochs": 30,
         "batch_size": 8,
         "seed": 42,
@@ -192,6 +207,8 @@ def parse_args() -> dict[str, Any]:
         "reference_structure_index": args.reference_structure_index,
         "augmented_count": args.augmented_count,
         "augmentation_noise_scale": args.augmentation_noise_scale,
+        "minimum_interatomic_distance": args.minimum_interatomic_distance,
+        "augmentation_max_resamples": args.augmentation_max_resamples,
         "epochs": args.epochs,
         "batch_size": args.batch_size,
         "seed": args.seed,
@@ -254,23 +271,34 @@ def main() -> None:
     if not species_list:
         species_list = infer_species_list(training_structures)
 
-    if config["reference_structure"] is None:
-        if species_list != ["C"]:
-            raise ValueError(
-                "A reference structure file is required when species_list is not exactly ['C']"
-            )
-        reference_structure = default_reference_structure()
-    else:
-        reference_structure = read_single_structure(
-            Path(config["reference_structure"]),
-            index=int(config["reference_structure_index"]),
-        )
+    perturbation_settings = normalise_perturbation_settings(
+        {
+            "min_displacement": 0.0,
+            "max_displacement": float(config["augmentation_noise_scale"]),
+            "minimum_interatomic_distance": float(config["minimum_interatomic_distance"]),
+            "max_resamples": int(config["augmentation_max_resamples"]),
+        }
+    )
 
-    augmented_structures = build_augmented_structures(
-        reference_structure,
-        count=int(config["augmented_count"]),
+    if int(config["augmented_count"]) <= 0:
+        raise ValueError("augmented_count must be positive so training uses perturbed dataset structures only")
+
+    if config["reference_structure"] is None:
+        reference_source_index = int(int(config["seed"]) % len(training_structures))
+        reference_source = training_structures[reference_source_index]
+        reference_source_path = str(Path(config["training_structures"]))
+    else:
+        reference_source_index = int(config["reference_structure_index"])
+        reference_source = read_single_structure(
+            Path(config["reference_structure"]),
+            index=reference_source_index,
+        )
+        reference_source_path = str(Path(config["reference_structure"]))
+
+    reference_structure = perturb_structure(
+        reference_source,
         seed=int(config["seed"]),
-        noise_scale=float(config["augmentation_noise_scale"]),
+        perturbation_settings=perturbation_settings,
     )
 
     model = create_model(
@@ -278,13 +306,49 @@ def main() -> None:
         species_list=species_list,
         model_config=config["model_config"],
     )
-    history = model.fit(
+    augmentation_rng = np.random.default_rng(int(config["seed"]) + 1)
+    preview_structures = build_augmented_dataset(
         training_structures,
-        num_epochs=int(config["epochs"]),
-        batch_size=int(config["batch_size"]),
-        augment_structures=augmented_structures,
-        verbose=1,
+        variants_per_structure=int(config["augmented_count"]),
+        rng=augmentation_rng,
+        perturbation_settings=perturbation_settings,
     )
+    if not preview_structures:
+        raise ValueError("No perturbed training structures were generated")
+
+    requested_epochs = max(int(config["epochs"]), 0)
+    if requested_epochs == 0:
+        history = model.fit(
+            preview_structures,
+            num_epochs=0,
+            batch_size=int(config["batch_size"]),
+            verbose=0,
+            reset_optimiser=True,
+            recalibrate_base=True,
+        )
+    else:
+        history: list[float] = []
+        epoch_structures = preview_structures
+        for epoch_index in range(requested_epochs):
+            epoch_history = model.fit(
+                epoch_structures,
+                num_epochs=1,
+                batch_size=int(config["batch_size"]),
+                verbose=1,
+                reset_optimiser=(epoch_index == 0),
+                recalibrate_base=(epoch_index == 0),
+            )
+            if not history:
+                history.extend(float(value) for value in epoch_history)
+            else:
+                history.append(float(epoch_history[-1]))
+            if epoch_index + 1 < requested_epochs:
+                epoch_structures = build_augmented_dataset(
+                    training_structures,
+                    variants_per_structure=int(config["augmented_count"]),
+                    rng=augmentation_rng,
+                    perturbation_settings=perturbation_settings,
+                )
     target_fingerprint = model.compute_reference_fingerprint(reference_structure)
 
     config_path = output_dir / "torch_gnn_train_config.json"
@@ -297,6 +361,11 @@ def main() -> None:
         **config,
         "repo_root": str(repo_root),
         "species_list": species_list,
+        "reference_structure_source": {
+            "path": reference_source_path,
+            "index": int(reference_source_index),
+        },
+        "perturbation_settings": dict(perturbation_settings),
         "output_files": {
             "config": str(config_path),
             "checkpoint": str(checkpoint_path),
@@ -320,12 +389,13 @@ def main() -> None:
     metrics = {
         "num_available_training_structures": len(load_structures(Path(config["training_structures"]))),
         "num_training_structures": len(training_structures),
-        "num_augmented_structures": len(augmented_structures),
+        "num_augmented_structures": len(preview_structures),
         "training_history": [float(value) for value in history],
         "initial_training_loss": float(history[0]),
         "final_training_loss": float(history[-1]),
         "species_list": species_list,
         "model_config": config["model_config"],
+        "perturbation_settings": dict(perturbation_settings),
         "training_config": {
             key: value
             for key, value in effective_config.items()

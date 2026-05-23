@@ -11,7 +11,6 @@ from typing import Any, Optional, Sequence
 
 import numpy as np
 import torch
-from ase.build import bulk
 from ase.io import read, write
 
 def _load_local_torch_gnn_fingerprint() -> None:
@@ -55,10 +54,252 @@ def ensure_torch_gnn_available() -> None:
         raise RuntimeError("TorchGNNFingerprint is unavailable in this installation")
 
 
-def default_reference_structure():
-    reference = bulk("C", "diamond", a=3.567, cubic=True)
-    reference.pbc = True
-    return reference
+DEFAULT_PERTURBATION_SETTINGS = {
+    "min_displacement": 0.0,
+    "max_displacement": 1.0,
+    "minimum_interatomic_distance": 0.8,
+    "max_resamples": 64,
+}
+
+
+def normalise_perturbation_settings(
+    settings: Optional[dict[str, Any]] = None,
+) -> dict[str, float | int]:
+    resolved = dict(DEFAULT_PERTURBATION_SETTINGS)
+    if settings:
+        resolved.update({key: value for key, value in settings.items() if value is not None})
+    resolved_settings = {
+        "min_displacement": float(resolved["min_displacement"]),
+        "max_displacement": float(resolved["max_displacement"]),
+        "minimum_interatomic_distance": float(resolved["minimum_interatomic_distance"]),
+        "max_resamples": int(resolved["max_resamples"]),
+    }
+    if resolved_settings["min_displacement"] < 0.0:
+        raise ValueError("min_displacement must be non-negative")
+    if resolved_settings["max_displacement"] < resolved_settings["min_displacement"]:
+        raise ValueError("max_displacement must be greater than or equal to min_displacement")
+    if resolved_settings["minimum_interatomic_distance"] < 0.0:
+        raise ValueError("minimum_interatomic_distance must be non-negative")
+    if resolved_settings["max_resamples"] <= 0:
+        raise ValueError("max_resamples must be positive")
+    return resolved_settings
+
+
+def _coerce_rng(
+    seed: Optional[int] = None,
+    rng: np.random.Generator | None = None,
+) -> np.random.Generator:
+    if rng is not None:
+        return rng
+    return np.random.default_rng(None if seed is None else int(seed))
+
+
+def _sample_uniform_displacements(
+    num_atoms: int,
+    rng: np.random.Generator,
+    *,
+    min_displacement: float,
+    max_displacement: float,
+) -> np.ndarray:
+    if int(num_atoms) <= 0 or float(max_displacement) <= 0.0:
+        return np.zeros((max(int(num_atoms), 0), 3), dtype=np.float64)
+
+    directions = rng.normal(size=(int(num_atoms), 3))
+    norms = np.linalg.norm(directions, axis=1, keepdims=True)
+    zero_mask = np.squeeze(norms <= 1.0e-12, axis=1)
+    while np.any(zero_mask):
+        directions[zero_mask] = rng.normal(size=(int(np.sum(zero_mask)), 3))
+        norms = np.linalg.norm(directions, axis=1, keepdims=True)
+        zero_mask = np.squeeze(norms <= 1.0e-12, axis=1)
+    directions = directions / norms
+    magnitudes = rng.uniform(
+        float(min_displacement),
+        float(max_displacement),
+        size=(int(num_atoms), 1),
+    )
+    return directions * magnitudes
+
+
+def measure_minimum_interatomic_distance(atoms) -> float:
+    if len(atoms) < 2:
+        return float("inf")
+    distances = np.asarray(
+        atoms.get_all_distances(mic=bool(np.any(atoms.pbc))),
+        dtype=np.float64,
+    )
+    upper_triangle = distances[np.triu_indices(len(atoms), k=1)]
+    if upper_triangle.size == 0:
+        return float("inf")
+    return float(np.min(upper_triangle))
+
+
+def build_fixed_atoms_mask(
+    num_atoms: int,
+    *,
+    fixed_leading_atoms: int = 0,
+    fixed_atom_indices: Sequence[int] | None = None,
+) -> np.ndarray:
+    fixed_atoms = np.zeros(int(num_atoms), dtype=bool)
+    fixed_count = max(min(int(fixed_leading_atoms), int(num_atoms)), 0)
+    if fixed_count > 0:
+        fixed_atoms[:fixed_count] = True
+    for raw_index in fixed_atom_indices or ():
+        atom_index = int(raw_index)
+        if atom_index < 0 or atom_index >= int(num_atoms):
+            raise ValueError(
+                f"fixed atom index {atom_index} is out of bounds for a structure with {num_atoms} atoms"
+            )
+        fixed_atoms[atom_index] = True
+    return fixed_atoms
+
+
+def perturb_structure(
+    original,
+    *,
+    seed: Optional[int] = None,
+    rng: np.random.Generator | None = None,
+    fixed_atoms: Optional[np.ndarray] = None,
+    perturbation_settings: Optional[dict[str, Any]] = None,
+):
+    resolved_settings = normalise_perturbation_settings(perturbation_settings)
+    resolved_rng = _coerce_rng(seed=seed, rng=rng)
+    fixed_mask = None
+    if fixed_atoms is not None:
+        fixed_mask = np.asarray(fixed_atoms, dtype=bool).reshape(-1)
+        if fixed_mask.shape != (len(original),):
+            raise ValueError(
+                "fixed_atoms mask must have one entry per atom: "
+                f"{fixed_mask.shape} != ({len(original)},)"
+            )
+
+    for _ in range(int(resolved_settings["max_resamples"])):
+        atoms = original.copy()
+        displacements = _sample_uniform_displacements(
+            len(atoms),
+            resolved_rng,
+            min_displacement=float(resolved_settings["min_displacement"]),
+            max_displacement=float(resolved_settings["max_displacement"]),
+        )
+        if fixed_mask is not None:
+            displacements[fixed_mask] = 0.0
+        atoms.set_positions(np.asarray(atoms.get_positions(), dtype=np.float64) + displacements)
+        if bool(np.any(atoms.pbc)):
+            atoms.wrap(eps=1.0e-12)
+        if (
+            measure_minimum_interatomic_distance(atoms)
+            >= float(resolved_settings["minimum_interatomic_distance"]) - 1.0e-12
+        ):
+            return atoms
+
+    raise ValueError(
+        "Unable to generate a valid perturbed structure within the configured "
+        f"max_resamples={int(resolved_settings['max_resamples'])}"
+    )
+
+
+def build_augmented_structures(
+    original,
+    count: int,
+    seed: int,
+    noise_scale: float = 1.0,
+    *,
+    min_displacement: float = 0.0,
+    minimum_interatomic_distance: float = DEFAULT_PERTURBATION_SETTINGS["minimum_interatomic_distance"],
+    max_resamples: int = DEFAULT_PERTURBATION_SETTINGS["max_resamples"],
+    fixed_atoms: Optional[np.ndarray] = None,
+) -> list:
+    rng = np.random.default_rng(int(seed))
+    settings = {
+        "min_displacement": float(min_displacement),
+        "max_displacement": float(noise_scale),
+        "minimum_interatomic_distance": float(minimum_interatomic_distance),
+        "max_resamples": int(max_resamples),
+    }
+    return [
+        perturb_structure(
+            original,
+            rng=rng,
+            fixed_atoms=fixed_atoms,
+            perturbation_settings=settings,
+        )
+        for _ in range(max(int(count), 0))
+    ]
+
+
+def build_augmented_dataset(
+    structures: Sequence,
+    *,
+    variants_per_structure: int,
+    seed: Optional[int] = None,
+    rng: np.random.Generator | None = None,
+    perturbation_settings: Optional[dict[str, Any]] = None,
+) -> list:
+    resolved_rng = _coerce_rng(seed=seed, rng=rng)
+    augmented_structures = []
+    for atoms in structures:
+        for _ in range(max(int(variants_per_structure), 0)):
+            augmented_structures.append(
+                perturb_structure(
+                    atoms,
+                    rng=resolved_rng,
+                    perturbation_settings=perturbation_settings,
+                )
+            )
+    return augmented_structures
+
+
+def build_inverse_design_pair(
+    structures: Sequence,
+    *,
+    fixed_leading_atoms: int = 0,
+    structure_index: Optional[int] = None,
+    seed: int = 0,
+    perturbation_settings: Optional[dict[str, Any]] = None,
+) -> tuple[object, object, np.ndarray, dict[str, Any]]:
+    if not structures:
+        raise ValueError("At least one structure is required to build an inverse-design pair")
+
+    rng = np.random.default_rng(int(seed))
+    if structure_index is None:
+        resolved_index = int(rng.integers(0, len(structures)))
+    else:
+        resolved_index = int(structure_index)
+    if resolved_index < 0 or resolved_index >= len(structures):
+        raise ValueError(
+            f"structure_index {resolved_index} is out of bounds for {len(structures)} structures"
+        )
+
+    target_atoms = perturb_structure(
+        structures[resolved_index],
+        rng=rng,
+        perturbation_settings=perturbation_settings,
+    )
+    fixed_atoms = build_fixed_atoms_mask(
+        len(target_atoms),
+        fixed_leading_atoms=int(fixed_leading_atoms),
+    )
+    input_atoms = perturb_structure(
+        target_atoms,
+        rng=rng,
+        fixed_atoms=fixed_atoms,
+        perturbation_settings=perturbation_settings,
+    )
+    return target_atoms, input_atoms, fixed_atoms, {
+        "structure_index": int(resolved_index),
+        "fixed_atom_indices": np.flatnonzero(fixed_atoms).astype(int).tolist(),
+        "minimum_target_distance": float(measure_minimum_interatomic_distance(target_atoms)),
+        "minimum_input_distance": float(measure_minimum_interatomic_distance(input_atoms)),
+        "perturbation_settings": dict(normalise_perturbation_settings(perturbation_settings)),
+    }
+
+
+def serialise_structure(atoms) -> dict[str, Any]:
+    return {
+        "symbols": list(atoms.get_chemical_symbols()),
+        "positions": np.asarray(atoms.get_positions(), dtype=np.float64).tolist(),
+        "cell": np.asarray(atoms.cell.array, dtype=np.float64).tolist(),
+        "pbc": [bool(value) for value in atoms.pbc],
+    }
 
 
 def read_json_config(config_path: Path) -> dict[str, Any]:

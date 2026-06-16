@@ -993,6 +993,9 @@ contains
           end do
        end if
     end do spec_loop1
+    if(.not.allocated(this%bounds_container))then
+       allocate(this%bounds_container(0))
+    end if
 
 
     !---------------------------------------------------------------------------

@@ -144,6 +144,16 @@ module raffle__distribs_container
      procedure, pass(this) :: get_element_energies_staticmem
      !! Return the energies of elements in the container.
      !! Used in Python interface.
+     procedure, pass(this) :: get_best_energy_per_species
+     !! Return the best energies of elements in the container.
+     procedure, pass(this) :: get_best_energy_per_species_staticmem
+     !! Return the best energies of elements in the container.
+     !! Used in Python interface.
+     procedure, pass(this) :: get_best_energy_pair
+     !! Return the best energies of pairs in the container.
+     procedure, pass(this) :: get_best_energy_pair_staticmem
+     !! Return the best energies of pairs in the container.
+     !! Used in Python interface.
 
      procedure, pass(this) :: set_element_map
      !! Set the mapping of elements to distribution function elements.
@@ -1765,6 +1775,124 @@ contains
 
 
 !###############################################################################
+  subroutine get_best_energy_per_species(this, elements, energies)
+    !! Return the best energy per species in the container.
+    implicit none
+
+    ! Arguments
+    class(distribs_container_type), intent(in) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
+    character(len=3), dimension(:), allocatable, intent(out) :: elements
+    !! Element names.
+    real(real32), dimension(:), allocatable, intent(out) :: energies
+    !! Energies of the elements.
+
+    ! Local variables
+    integer :: i
+    !! Loop index.
+
+    allocate(elements(size(this%element_info)))
+    allocate(energies(size(this%element_info)))
+    do i = 1, size(this%element_info)
+       elements(i) = this%element_info(i)%name
+       energies(i) = this%element_info(i)%energy
+    end do
+
+  end subroutine get_best_energy_per_species
+!###############################################################################
+
+
+!###############################################################################51
+  subroutine get_best_energy_per_species_staticmem(this, elements, energies)
+    !! Return the best energy per species in the container.
+    !!
+    !! This subroutine is used when the memory for the output arrays is
+    !! allocated outside of the subroutine. Used in Python interface.
+    implicit none
+
+    ! Arguments
+    class(distribs_container_type), intent(in) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
+    character(len=3), dimension(size(this%element_info,1)), intent(out) :: &
+         elements
+    !! Element names.
+    real(real32), dimension(size(this%element_info,1)), intent(out) :: energies
+    !! Energies of the elements.
+
+    ! Local variables
+    integer :: i
+    !! Loop index.
+
+    do i = 1, size(this%element_info,1)
+       elements(i) = this%element_info(i)%name
+       energies(i) = this%element_info(i)%energy
+    end do
+
+  end subroutine get_best_energy_per_species_staticmem
+!###############################################################################
+
+
+!###############################################################################
+  subroutine get_best_energy_pair(this, elements, energies)
+    !! Return the best energy per pair in the container.
+    implicit none
+
+    ! Arguments
+    class(distribs_container_type), intent(in) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
+    character(len=3), dimension(:,:), allocatable, intent(out) :: elements
+    !! Element names.
+    real(real32), dimension(:), allocatable, intent(out) :: energies
+    !! Energies of the elements.
+
+    ! Local variables
+    integer :: i
+    !! Loop index.
+
+
+    allocate(elements(size(this%bond_info,1),2))
+    allocate(energies(size(this%bond_info,1)))
+    do i = 1, size(this%bond_info)
+       elements(i,:) = this%bond_info(i)%element
+       energies(i) = this%best_energy_pair(i)
+    end do
+
+  end subroutine get_best_energy_pair
+!###############################################################################
+
+
+!###############################################################################
+  subroutine get_best_energy_pair_staticmem(this, elements, energies)
+    !! Return the best energy per pair in the container.
+    !!
+    !! This subroutine is used when the memory for the output arrays is
+    !! allocated outside of the subroutine. Used in Python interface.
+    implicit none
+
+    ! Arguments
+    class(distribs_container_type), intent(in) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
+    character(len=3), dimension(size(this%bond_info,1),2), intent(out) :: &
+         elements
+    !! Element names.
+    real(real32), dimension(size(this%bond_info,1)), intent(out) :: energies
+    !! Energies of the elements.
+
+    ! Local variables
+    integer :: i
+    !! Loop index.
+
+
+    do i = 1, size(this%bond_info)
+       elements(i,:) = this%bond_info(i)%element
+       energies(i) = this%best_energy_pair(i)
+    end do
+
+  end subroutine get_best_energy_pair_staticmem
+!###############################################################################
+
+
+!###############################################################################
   subroutine set_bond_info(this)
     !! Set the 2-body bond information for the container.
     implicit none
@@ -2262,6 +2390,9 @@ contains
        end do
        deallocate(idx_list)
        if( this%best_energy_pair(j) .lt. -1.E1 )then
+          write(*,*) "system ", i, " has best energy pair ", this%best_energy_pair(j)
+          write(*,*) "species in system ", i, " are ", this%system(i)%element_symbols
+          write(*,*) "with stoichiometry ", this%system(i)%stoichiometry
           write(warn_msg, &
                '("Best energy pair is less than -10 eV, &
                &this is likely to be unphysical. Check the energy values.")' &

@@ -826,6 +826,43 @@ subroutine f90wrap_raffle__dc__get_element_energies_sm__binding__dc_type( &
     call this_ptr%p%get_element_energies_staticmem(elements=elements, energies=energies)
 end subroutine f90wrap_raffle__dc__get_element_energies_sm__binding__dc_type
 
+subroutine f90wrap_raffle__dc__get_best_en_per_spec_sm__binding__dc_type( &
+     this, elements, energies, n0 &
+)
+    use raffle__distribs_container, only: distribs_container_type
+    implicit none
+
+    type distribs_container_type_ptr_type
+        type(distribs_container_type), pointer :: p => NULL()
+    end type distribs_container_type_ptr_type
+    type(distribs_container_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    character(3), intent(inout), dimension(n0) :: elements
+    real(4), intent(inout), dimension(n0) :: energies
+    integer :: n0
+    !f2py intent(hide), depend(elements) :: n0 = shape(elements,0)
+    this_ptr = transfer(this, this_ptr)
+    call this_ptr%p%get_best_energy_per_species_staticmem(elements=elements, energies=energies)
+end subroutine f90wrap_raffle__dc__get_best_en_per_spec_sm__binding__dc_type
+
+subroutine f90wrap_raffle__dc__get_best_en_pair_sm__binding__dc_type( &
+     this, elements, energies, n0 &
+)
+    use raffle__distribs_container, only: distribs_container_type
+    implicit none
+
+    type distribs_container_type_ptr_type
+        type(distribs_container_type), pointer :: p => NULL()
+    end type distribs_container_type_ptr_type
+    type(distribs_container_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    character(3), intent(inout), dimension(n0,2) :: elements
+    real(4), intent(inout), dimension(n0) :: energies
+    integer :: n0
+    !f2py intent(hide), depend(elements) :: n0 = shape(elements,0)
+    this_ptr = transfer(this, this_ptr)
+    call this_ptr%p%get_best_energy_pair_staticmem(elements=elements, energies=energies)
+end subroutine f90wrap_raffle__dc__get_best_en_pair_sm__binding__dc_type
 
 subroutine f90wrap_raffle__dc__set_bond_radius__binding__dc_type( &
      this, elements, radius &

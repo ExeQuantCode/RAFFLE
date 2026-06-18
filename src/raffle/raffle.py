@@ -1195,6 +1195,63 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
 
             return element_energies
 
+        def get_best_energy_per_species(self):
+            """
+            Get the best energies for each species in the distribution functions.
+
+            Returns
+            -------
+            dict
+                Dictionary of best energies for each species.
+                The keys are the element symbols and the values are the best energies.
+            """
+
+            num_elements = _raffle.f90wrap_raffle__dc__get__num_elements(self._handle)
+            elements = numpy.zeros((num_elements,), dtype='S3')
+            energies = numpy.zeros((num_elements,), dtype=numpy.float32)
+
+            _raffle.f90wrap_raffle__dc__get_best_en_per_spec_sm__binding__dc_type(this=self._handle, \
+                elements=elements, energies=energies)
+            
+            # convert the fortran array to a python dictionary
+            best_energies = {}
+            for i, element in enumerate(elements):
+                name = str(element.decode()).strip()
+                best_energies[name] = energies[i]
+
+            return best_energies
+            
+        def get_best_energy_pair(self):
+            """
+            Get the best energies for each pair of species in the distribution functions.
+
+            Returns
+            -------
+            dict
+                Dictionary of best energies for each pair of species.
+                The keys are a tuple of the two element symbols and the values are the best energies.
+            """
+
+            num_elements = _raffle.f90wrap_raffle__dc__get__num_elements(self._handle)
+            if num_elements == 0:
+                return {}
+            num_pairs = round(num_elements * ( num_elements + 1 ) / 2)
+            elements = numpy.zeros((num_pairs,2,), dtype='S3', order='F')
+            energies = numpy.zeros((num_pairs,), dtype=numpy.float32, order='F')
+            print("DEBUG: num_elements = {}, num_pairs = {}".format(num_elements, num_pairs))
+
+            _raffle.f90wrap_raffle__dc__get_best_en_pair_sm__binding__dc_type(this=self._handle, \
+                elements=elements, energies=energies)
+            
+            # convert the fortran array to a python dictionary
+            best_energies = {}
+            for i, element in enumerate(elements):
+                print("DEBUG: element = {}, energy = {}".format(element, energies[i]))
+                names = tuple([str(name.decode()).strip() for name in element])
+                best_energies[names] = energies[i]
+
+            return best_energies
+
         def set_bond_info(self):
             """
             Allocate the bond information array.

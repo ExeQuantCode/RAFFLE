@@ -157,7 +157,7 @@ def resolve_target_fingerprint(
             "can be resolved."
         )
     fingerprint = np.asarray(
-        model.compute_reference_fingerprint(target_atoms),
+        model._compute_reference_fingerprint(target_atoms),
         dtype=np.float32,
     ).reshape(-1)
     return fingerprint, {
@@ -359,10 +359,18 @@ def main(argv: list[str] | None = None) -> None:
         cell_violation_weight=args.cell_violation_weight,
         coordinate_clip_value=args.coordinate_clip_value,
     )
+
+    # apply ase constraints to the input structure if any atoms are fixed
+    if np.any(fixed_atoms):
+        from ase.constraints import FixAtoms
+
+        input_atoms.set_constraint(FixAtoms(mask=fixed_atoms))
+
+    print(f"Inverse design options: {inverse_design_options}")
     optimised = model.inverse_design(
         target_fingerprint=target_fingerprint,
         atoms=input_atoms,
-        fixed_atoms=fixed_atoms,
+        # fixed_atoms=fixed_atoms,
         num_steps=args.inverse_steps,
         step_size=args.inverse_step_size,
         verbose=1,

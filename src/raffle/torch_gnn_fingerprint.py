@@ -1035,11 +1035,52 @@ class TorchGNNFingerprint(nn.Module):
         return array
 
     def _compute_reference_fingerprint(self, atoms) -> np.ndarray:
-        fingerprint = self.reference_model.distributions._compute_fingerprint(atoms)
-        return self._ensure_finite("fingerprint", fingerprint)
+        fp2, fp3, fp4 = self._compute_reference_fingerprint_components(atoms)
+        return np.concatenate([fp2, fp3, fp4])
 
     def _compute_reference_fingerprint_components(self, atoms) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        # Get reference components
         fp2, fp3, fp4 = self.reference_model.distributions._compute_fingerprint_components(atoms)
+
+        # Get species information
+        symbols = tuple(str(symbol).strip() for symbol in atoms.get_chemical_symbols())
+        present_species = sorted(set(symbols))
+        num_present = len(present_species)
+        num_total = self.num_species
+
+        # Only reshape if needed (same logic for all fingerprint types)
+        if num_present != num_total:
+            # Helper to expand species-based fingerprints
+            def expand_species_fingerprint(fp, nbins):
+                fp_reshaped = fp.reshape(num_present, nbins)
+                fp_full = np.zeros((num_total, nbins), dtype=np.float32)
+                for i, species in enumerate(present_species):
+                    fp_full[self._species_to_index[species]] = fp_reshaped[i]
+                return fp_full.flatten()
+
+            # Expand 3-body and 4-body fingerprints
+            fp3 = expand_species_fingerprint(fp3, int(self.nbins[1]))
+            fp4 = expand_species_fingerprint(fp4, int(self.nbins[2]))
+
+            # Expand 2-body fingerprint (pairs, different mapping)
+            nbins_2 = int(self.nbins[0])
+            num_pairs_present = num_present * (num_present + 1) // 2
+            num_pairs_total = self.num_pairs
+
+            if num_pairs_present != num_pairs_total:
+                fp2_reshaped = fp2.reshape(num_pairs_present, nbins_2)
+                fp2_full = np.zeros((num_pairs_total, nbins_2), dtype=np.float32)
+
+                # Map present species pairs to global pair indices
+                for i, s1 in enumerate(present_species):
+                    for j, s2 in enumerate(present_species[i:], start=i):
+                        pair_key = tuple(sorted((self._species_to_index[s1], self._species_to_index[s2])))
+                        global_pair_idx = self._pair_to_index[pair_key]
+                        present_pair_idx = i * num_present - i*(i-1)//2 + (j - i)
+                        fp2_full[global_pair_idx] = fp2_reshaped[present_pair_idx]
+
+                fp2 = fp2_full.flatten()
+
         return (
             self._ensure_finite("2-body fingerprint", fp2),
             self._ensure_finite("3-body fingerprint", fp3),

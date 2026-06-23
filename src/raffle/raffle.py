@@ -1030,6 +1030,19 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             _raffle.f90wrap_raffle__dc__set_radius_distance_tol__binding__dc_type(this=self._handle, \
                 radius_distance_tol=radius_distance_tol)
 
+        def get_nbins(self):
+            """
+            Get the number of bins for the distribution functions.
+
+            Returns
+            -------
+            list[int]
+                List of number of bins for the 2-body, 3-body, and 4-body distribution functions.
+            """
+            nbins = _raffle.f90wrap_raffle__dc__get_nbins__binding__dc_type(this=self._handle)
+            nbins = [int(n) for n in nbins]
+            return nbins
+
         def set_history_len(self, history_len : int = None):
             """
             Set the history length for the convergence check of the RAFFLE descriptor.
@@ -1531,6 +1544,48 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
                 output_3body=output_3body, output_4body=output_4body)
 
             return output_2body, output_3body, output_4body
+
+        def _compute_fingerprint(self,
+                                 structure: Atoms | Geom_Rw.basis = None,
+        ):
+            """
+            Compute the fingerprint for a given structure.
+
+            Parameters
+            ----------
+            structure : ase.Atoms
+                Atomic structure to compute the fingerprint for.
+
+            Returns
+            -------
+            output : list[floats]
+                list of floats representing the fingerprint (flattened)
+            """
+            output_2body, output_3body, output_4body = self.generate_fingerprint(structure=structure)
+            return numpy.concatenate([output_2body.flatten(order='F'), output_3body.flatten(order='F'), output_4body.flatten(order='F')])
+
+        def _compute_fingerprint_components(self,
+                                 structure: Atoms | Geom_Rw.basis = None,
+        ):
+            """
+            Compute the fingerprint components for a given structure.
+
+            Parameters
+            ----------
+            structure : ase.Atoms
+                Atomic structure to compute the fingerprint components for.
+
+            Returns
+            -------
+            output : list[arrays]
+                list of arrays representing the fingerprint components
+            """
+            output_2body, output_3body, output_4body = self.generate_fingerprint(structure=structure)
+            # flattent the arrays to 1D arrays
+            output_2body = output_2body.flatten(order='F')
+            output_3body = output_3body.flatten(order='F')
+            output_4body = output_4body.flatten(order='F')
+            return [output_2body, output_3body, output_4body]
 
         @property
         def iteration(self):

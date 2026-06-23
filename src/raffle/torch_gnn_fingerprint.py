@@ -11,6 +11,8 @@ import torch
 import torch.nn.functional as torch_functional
 from torch import nn
 
+from ase.constraints import FixAtoms  # added import
+
 from .gnn_fingerprint import GNNFingerprint
 from .structure_metrics import wrap_atoms_to_unit_cell
 
@@ -1299,7 +1301,9 @@ class TorchGNNFingerprint(nn.Module):
         self,
         prepared: PreparedStructure,
         positions_override: Optional[torch.Tensor] = None,
+        species_probabilities: Optional[torch.Tensor] = None,   # NEW
     ):
+        """Build graph tensors; if species_probabilities is given, use it for one‑hot features."""
         device = self._device
         topology = prepared.topology
         positions = positions_override
@@ -1310,7 +1314,14 @@ class TorchGNNFingerprint(nn.Module):
         species_index = _long_tensor(topology.species_index, device)
         atomic_numbers = _float_tensor(topology.atomic_numbers, device)
         covalent_radii = _float_tensor(topology.covalent_radii, device)
-        species_one_hot = torch_functional.one_hot(species_index, num_classes=self.num_species).to(torch.float32)
+
+        # Use provided probabilities if available, otherwise fall back to one‑hot from topology
+        if species_probabilities is not None:
+            # species_probabilities should be (num_atoms, num_species) and sum to 1 per atom
+            species_one_hot = species_probabilities.to(torch.float32)
+        else:
+            species_one_hot = torch_functional.one_hot(species_index, num_classes=self.num_species).to(torch.float32)
+
         global_features = self._lattice_features(cell)
 
         atom_node_features = torch.cat(
@@ -1335,18 +1346,18 @@ class TorchGNNFingerprint(nn.Module):
             pair_weight = self._smooth_cutoff(pair_distance)
             pair_midpoint = 0.5 * (positions[pair_left] + positions[pair_right] + pair_shift @ cell) / self.bond_cutoff
             pair_unit = pair_delta / pair_distance.clamp_min(1.0e-8).unsqueeze(-1)
-            pair_target_species = _long_tensor(topology.pair_target_species_index, device)
+            # Use probabilities for left atom and right atom (target species)
+            # pair_target_species from topology is no longer needed for one‑hot
             pair_node_features = torch.cat(
                 [
                     pair_midpoint,
                     pair_unit,
                     (pair_distance / self.bond_cutoff).unsqueeze(-1),
                     species_one_hot[pair_left],
-                    torch_functional.one_hot(pair_target_species, num_classes=self.num_species).to(torch.float32),
+                    species_one_hot[pair_right],  # replaced one‑hot(pair_target_species)
                 ],
                 dim=-1,
             )
-
             atom_edge_index = pair_index.T
             atom_edge_attr = (pair_distance / self.bond_cutoff).unsqueeze(-1)
             atom_edge_weight = pair_weight
@@ -1389,6 +1400,7 @@ class TorchGNNFingerprint(nn.Module):
             pair_edge_weight = torch.cat([angle_weight, angle_weight], dim=0)
 
             angle_basis = self._gaussian_basis(angle_value, self._centers_3body, self.sigma[1])
+            # angle_species_index still used for grouping; we keep it as is
             angle_vector = self._species_block_vectors(
                 angle_basis,
                 _long_tensor(topology.angle_species_index, device),
@@ -1431,17 +1443,34 @@ class TorchGNNFingerprint(nn.Module):
                 + positions[_long_tensor(topology.pair_target_index, device)][left_pair_id]
                 + positions[_long_tensor(topology.pair_target_index, device)][right_pair_id]
             ) / (3.0 * self.bond_cutoff)
-            left_species = _long_tensor(topology.pair_target_species_index, device)[left_pair_id]
-            right_species = _long_tensor(topology.pair_target_species_index, device)[right_pair_id]
+            # Use probabilities for the three atoms
+            left_species = species_one_hot[_long_tensor(topology.pair_target_species_index, device)[left_pair_id]]
+            right_species = species_one_hot[_long_tensor(topology.pair_target_species_index, device)[right_pair_id]]
+            # But we want the probabilities of the actual atoms: center atom and the two target atoms
+            # Better: use indices directly
+            triplet_atom_indices = torch.cat([
+                triplet_centers.unsqueeze(1),
+                _long_tensor(topology.pair_target_index, device)[left_pair_id].unsqueeze(1),
+                _long_tensor(topology.pair_target_index, device)[right_pair_id].unsqueeze(1)
+            ], dim=1)  # shape (n_triplets, 3)
+            # For each triplet, we need the species probabilities for these three atoms
+            # We can average or concatenate; we'll use the three one‑hot vectors
+            # To keep dimensions, we'll stack them
+            species_for_triplet = torch.stack([
+                species_one_hot[triplet_atom_indices[:, 0]],
+                species_one_hot[triplet_atom_indices[:, 1]],
+                species_one_hot[triplet_atom_indices[:, 2]]
+            ], dim=1)  # (n_triplets, 3, num_species)
+            # flatten to (n_triplets, 3*num_species)
+            species_for_triplet = species_for_triplet.reshape(species_for_triplet.shape[0], -1)
+
             triplet_node_features = torch.cat(
                 [
                     triplet_centroid,
                     (distance_ij / self.bond_cutoff).unsqueeze(-1),
                     (distance_jk / self.bond_cutoff).unsqueeze(-1),
                     (triplet_angle / math.pi).unsqueeze(-1),
-                    species_one_hot[triplet_centers],
-                    torch_functional.one_hot(left_species, num_classes=self.num_species).to(torch.float32),
-                    torch_functional.one_hot(right_species, num_classes=self.num_species).to(torch.float32),
+                    species_for_triplet,   # replaced the previous concatenation of one‑hots
                 ],
                 dim=-1,
             )
@@ -1535,9 +1564,14 @@ class TorchGNNFingerprint(nn.Module):
         self,
         prepared: PreparedStructure,
         positions_override: Optional[torch.Tensor] = None,
+        species_probabilities: Optional[torch.Tensor] = None,   # NEW
         return_vertices: bool = False,
     ):
-        graph = self._build_multigraph_tensors(prepared, positions_override=positions_override)
+        graph = self._build_multigraph_tensors(
+            prepared,
+            positions_override=positions_override,
+            species_probabilities=species_probabilities,
+        )
         vertex_2body, fingerprint_2body = self.branch_2body(
             graph["atom_node_features"],
             graph["atom_edge_index"],
@@ -1937,6 +1971,7 @@ class TorchGNNFingerprint(nn.Module):
         target_3body: torch.Tensor,
         target_4body: torch.Tensor,
         fixed_mask: Optional[torch.Tensor] = None,
+        species_probabilities: Optional[torch.Tensor] = None,   # NEW
         minimum_distance_scale: float = 0.75,
         repulsion_max: float = 100.0,
         repulsion_cutoff_scale: float = 1.0,
@@ -1947,6 +1982,7 @@ class TorchGNNFingerprint(nn.Module):
         ) = self._forward_prepared(
             prepared,
             positions_override=positions,
+            species_probabilities=species_probabilities,   # pass through
             return_vertices=True,
         )
         fingerprint_loss = self._component_loss(
@@ -2018,11 +2054,50 @@ class TorchGNNFingerprint(nn.Module):
             "cell_violation_loss": cell_violation_loss,
         }
 
+    def _discretize_species(
+        self,
+        probabilities: torch.Tensor,
+        mode: str = 'argmax'
+    ) -> torch.Tensor:
+        """Convert continuous probabilities to integer species indices."""
+        if mode == 'argmax':
+            return torch.argmax(probabilities, dim=-1)
+        elif mode == 'sample':
+            # sample from multinomial distribution
+            # probabilities shape (num_atoms, num_species)
+            dist = torch.distributions.Categorical(probs=probabilities)
+            return dist.sample()
+        else:
+            raise ValueError(f"Unknown species discretization mode: {mode}")
+
+    def _rebuild_topology_with_species(
+        self,
+        prepared: PreparedStructure,
+        positions: torch.Tensor,
+        species_indices: torch.Tensor,
+    ) -> PreparedStructure:
+        """Rebuild topology using new positions and species indices."""
+        positions_np = positions.detach().cpu().numpy().astype(np.float32)
+        symbols = [self.species_list[int(idx)] for idx in species_indices.cpu().numpy()]
+        cell = prepared.cell
+        pbc = prepared.pbc
+        new_topology = self._build_topology(symbols, positions_np, cell, pbc)
+        return PreparedStructure(
+            positions=positions_np,
+            cell=cell,
+            pbc=pbc,
+            topology=new_topology,
+            target_2body=prepared.target_2body,
+            target_3body=prepared.target_3body,
+            target_4body=prepared.target_4body,
+            graph_stats=prepared.graph_stats,
+        )
+
     def inverse_design(
         self,
         target_fingerprint: np.ndarray,
         atoms,
-        fixed_atoms: np.ndarray,
+        fixed_atoms: Optional[np.ndarray] = None,           # deprecated
         num_steps: int = 200,
         step_size: float = 1.0e-2,
         verbose: int = 0,
@@ -2042,16 +2117,50 @@ class TorchGNNFingerprint(nn.Module):
         multiplier_increase_factor: float = 2.0,
         max_multiplier: float = 1e6,
         constraint_tolerance: float = 1e-6,
-        update_topology_every_n_steps: int = 10,  # NEW parameter
+        update_topology_every_n_steps: int = 10,
+        # NEW parameters for species optimisation
+        optimize_species: bool = False,
+        species_optimization_mode: str = 'argmax',          # 'argmax' or 'sample'
+        species_learning_rate: float = 1.0e-2,              # LR for species logits
+        fixed_species: Optional[np.ndarray] = None,        # boolean mask for fixed species
+        species_initial: Optional[np.ndarray] = None,      # initial species indices (optional)
     ):
+        # --- Handle constraints and fixed_atoms ---
+        if fixed_atoms is not None:
+            import warnings
+            warnings.warn("`fixed_atoms` is deprecated; use `constraints` with ASE FixAtoms.", DeprecationWarning)
+            # convert fixed_atoms to FixAtoms constraint
+            indices = np.where(fixed_atoms)[0].tolist()
+            fix_constraint = FixAtoms(indices=indices)
+            if constraints is None:
+                constraints = [fix_constraint]
+            else:
+                constraints = list(constraints) + [fix_constraint]
+
+        # Extract fixed position mask from constraints on the atoms object
+        fixed_pos_mask = torch.zeros(len(atoms), dtype=torch.bool, device=self._device)
+        if atoms.constraints is not None:
+            for con in atoms.constraints:
+                if isinstance(con, FixAtoms):
+                    indices = con.get_indices()
+                    fixed_pos_mask[indices] = True
+
+        # --- Prepare initial structure ---
         self.eval()
         working_atoms = atoms.copy()
+        # If species_initial is provided, set them
+        if species_initial is not None:
+            symbols = [self.species_list[int(idx)] for idx in species_initial]
+            working_atoms.set_chemical_symbols(symbols)
+
         prepared = self.prepare_structure(working_atoms, include_targets=False)
         positions_initial = _float_tensor(prepared.positions, self._device)
         cell = _float_tensor(prepared.cell, self._device)
         pbc = torch.as_tensor(prepared.pbc, dtype=torch.bool, device=self._device)
-        fixed_mask = torch.as_tensor(np.asarray(fixed_atoms, dtype=bool), dtype=torch.bool, device=self._device)
+        fixed_mask = fixed_pos_mask
         movable_mask = ~fixed_mask
+
+        # --- Setup target fingerprints ---
         target = self._project_fingerprint_targets(
             _float_tensor(target_fingerprint, self._device)
         )
@@ -2069,7 +2178,7 @@ class TorchGNNFingerprint(nn.Module):
         best_positions = positions_initial.clone()
         best_loss = float("inf")
 
-        # Initialise augmented Lagrangian variables
+        # --- Initialise augmented Lagrangian ---
         if use_augmented_lagrangian:
             lambda_mult = float(initial_multiplier)
             mu = float(penalty_parameter)
@@ -2081,6 +2190,32 @@ class TorchGNNFingerprint(nn.Module):
 
         update_topology_every_n_steps = max(int(update_topology_every_n_steps), 1)
 
+        # --- Prepare species optimisation ---
+        if optimize_species:
+            # Create species logits parameter
+            # initial species from working_atoms
+            initial_symbols = working_atoms.get_chemical_symbols()
+            initial_indices = torch.tensor(
+                [self._species_to_index[sym] for sym in initial_symbols],
+                dtype=torch.long,
+                device=self._device
+            )
+            # one-hot as initial probabilities
+            init_prob = torch_functional.one_hot(initial_indices, num_classes=self.num_species).float()
+            # add small noise to break symmetry if desired
+            init_logits = torch.log(init_prob + 1e-8)
+            species_logits = nn.Parameter(init_logits, requires_grad=True)
+            # fixed species mask
+            if fixed_species is not None:
+                fixed_species_mask = torch.as_tensor(fixed_species, dtype=torch.bool, device=self._device)
+                # We'll zero out gradients for fixed species
+            else:
+                fixed_species_mask = torch.zeros(len(initial_symbols), dtype=torch.bool, device=self._device)
+        else:
+            species_logits = None
+            fixed_species_mask = None
+
+        # --- Restart loop ---
         for restart_index in range(num_restarts):
             restart_positions = positions_initial.clone()
             if restart_index > 0 and restart_noise_scale > 0.0 and bool(movable_mask.any()):
@@ -2094,55 +2229,23 @@ class TorchGNNFingerprint(nn.Module):
                 restart_positions = restart_positions + restart_noise_scale * restart_noise
                 restart_positions[fixed_mask] = positions_initial[fixed_mask]
 
-            if step_observer is not None:
-                with torch.no_grad():
-                    initial_loss_components = self._positions_to_loss(
-                        prepared,
-                        restart_positions,
-                        target_2body,
-                        target_3body,
-                        target_4body,
-                        fixed_mask=fixed_mask,
-                        minimum_distance_scale=minimum_distance_scale,
-                    )
-                initial_total_loss = self._compute_inverse_design_loss(
-                    initial_loss_components["fingerprint_loss"],
-                    initial_loss_components["repulsion_loss"],
-                    initial_loss_components["cell_violation_loss"],
-                    fingerprint_loss_weight=fingerprint_loss_weight,
-                    repulsion_weight=effective_repulsion_weight,
-                    cell_violation_weight=cell_violation_weight,
-                    use_augmented_lagrangian=use_augmented_lagrangian,
-                    lambda_mult=lambda_mult,
-                    mu=mu
-                )
-                initial_atoms = working_atoms.copy()
-                initial_atoms.set_positions(restart_positions.detach().cpu().numpy())
-                step_observer(
-                    {
-                        "restart_index": int(restart_index),
-                        "num_restarts": int(num_restarts),
-                        "step": 0,
-                        "num_steps": int(num_steps),
-                        "is_initial_state": True,
-                        "atoms": initial_atoms,
-                        "total_loss": float(initial_total_loss.item()),
-                        "fingerprint_loss": float(
-                            initial_loss_components["fingerprint_loss"].item()
-                        ),
-                        "repulsion_loss": float(
-                            initial_loss_components["repulsion_loss"].item()
-                        ),
-                        "cell_violation_loss": float(
-                            initial_loss_components["cell_violation_loss"].item()
-                        ),
-                        "lambda_multiplier": float(lambda_mult) if use_augmented_lagrangian else 0.0,
-                        "penalty_parameter": float(mu) if use_augmented_lagrangian else 0.0,
-                    }
-                )
+            if optimize_species and restart_index > 0:
+                # re‑initialize species logits? not necessary, we keep global parameter
+                pass
 
             positions_parameter = nn.Parameter(restart_positions)
-            optimiser = torch.optim.Adam([positions_parameter], lr=float(step_size))
+
+            # --- Prepare parameters ---
+            params = [positions_parameter] if not optimize_species else [positions_parameter, species_logits]
+            # if optimizing species, we could use a different LR for species, but we use same for simplicity
+            # Actually we can set different LRs by passing param groups
+            if optimize_species:
+                optimiser = torch.optim.Adam([
+                    {'params': [positions_parameter], 'lr': float(step_size)},
+                    {'params': [species_logits], 'lr': float(species_learning_rate)}
+                ])
+            else:
+                optimiser = torch.optim.Adam(params, lr=float(step_size))
             scheduler = None
             if float(inverse_lr_decay_rate) > 0.0:
                 scheduler = torch.optim.lr_scheduler.ExponentialLR(
@@ -2150,21 +2253,28 @@ class TorchGNNFingerprint(nn.Module):
                     gamma=float(math.exp(-float(inverse_lr_decay_rate))),
                 )
 
+            # --- Step loop ---
             for step in range(int(num_steps)):
-                # Update topology periodically based on current positions
+                # Update topology periodically if positions or species have changed
                 if step % update_topology_every_n_steps == 0 and step > 0:
-                    # Use the current positions (including fixed atoms) to rebuild topology
-                    current_positions_for_topology = torch.where(
+                    # Get current positions and species (discretized)
+                    current_positions = torch.where(
                         fixed_mask.unsqueeze(-1),
                         positions_initial,
                         positions_parameter,
                     )
-                    prepared = self._update_prepared_structure(
+                    if optimize_species:
+                        probs = torch_functional.softmax(species_logits, dim=-1)
+                        species_idx = self._discretize_species(probs, mode='argmax')  # use argmax for topology
+                    else:
+                        # use topology's species
+                        species_idx = torch.tensor(prepared.topology.species_index, device=self._device)
+                    prepared = self._rebuild_topology_with_species(
                         prepared,
-                        current_positions_for_topology
+                        current_positions,
+                        species_idx
                     )
-                    # Note: cell, pbc, and targets remain the same
-                    # We need to update the cell tensor in case it changed
+                    # update cell in case it changed (shouldn't)
                     cell = _float_tensor(prepared.cell, self._device)
                     pbc = torch.as_tensor(prepared.pbc, dtype=torch.bool, device=self._device)
 
@@ -2174,6 +2284,14 @@ class TorchGNNFingerprint(nn.Module):
                     positions_initial,
                     positions_parameter,
                 )
+
+                # Compute species probabilities if optimizing
+                if optimize_species:
+                    probs = torch_functional.softmax(species_logits, dim=-1)
+                    # apply fixed species mask: set gradients to zero later
+                else:
+                    probs = None
+
                 # Get loss components
                 loss_components = self._positions_to_loss(
                     prepared,
@@ -2182,6 +2300,7 @@ class TorchGNNFingerprint(nn.Module):
                     target_3body,
                     target_4body,
                     fixed_mask=fixed_mask,
+                    species_probabilities=probs,   # pass probabilities
                     minimum_distance_scale=minimum_distance_scale,
                 )
 
@@ -2193,25 +2312,35 @@ class TorchGNNFingerprint(nn.Module):
                     fingerprint_loss,
                     repulsion_loss,
                     cell_violation_loss,
-                    fingerprint_loss_weight=fingerprint_loss_weight,
-                    repulsion_weight=effective_repulsion_weight,
-                    cell_violation_weight=cell_violation_weight,
-                    use_augmented_lagrangian=use_augmented_lagrangian,
-                    lambda_mult=lambda_mult,
-                    mu=mu,
+                    fingerprint_loss_weight,
+                    effective_repulsion_weight,
+                    cell_violation_weight,
+                    use_augmented_lagrangian,
+                    lambda_mult,
+                    mu,
                 )
 
                 total_loss.backward()
+                # Zero gradients for fixed atoms positions
                 if positions_parameter.grad is not None:
                     positions_parameter.grad[fixed_mask] = 0.0
+                # Zero gradients for fixed species
+                if optimize_species and species_logits.grad is not None:
+                    # if fixed_species_mask is provided, set grad to 0 for those atoms
+                    if fixed_species_mask is not None:
+                        species_logits.grad[fixed_species_mask] = 0.0
+
                 torch.nn.utils.clip_grad_value_([positions_parameter], 1.0e-1)
+                if optimize_species:
+                    torch.nn.utils.clip_grad_value_([species_logits], 1.0e-1)
                 optimiser.step()
                 if scheduler is not None:
                     scheduler.step()
 
-                # Update augmented Lagrangian multipliers AFTER the step
+                # Update augmented Lagrangian multipliers after step
                 if use_augmented_lagrangian:
                     with torch.no_grad():
+                        # recompute repulsion with updated positions and species
                         updated_components = self._positions_to_loss(
                             prepared,
                             positions_parameter,
@@ -2219,16 +2348,17 @@ class TorchGNNFingerprint(nn.Module):
                             target_3body,
                             target_4body,
                             fixed_mask=fixed_mask,
+                            species_probabilities=probs,
                             minimum_distance_scale=minimum_distance_scale,
                         )
                         rep_val = updated_components["repulsion_loss"].detach().item()
-
                         if rep_val > 0.0:
                             lambda_mult = max(0.0, lambda_mult + mu * rep_val)
                             lambda_mult = min(lambda_mult, max_multiplier)
                             if rep_val > constraint_tolerance:
                                 mu = min(mu * multiplier_increase_factor, 1e6)
 
+                # --- Wrapping and clipping (unchanged) ---
                 with torch.no_grad():
                     positions_parameter.data[fixed_mask] = positions_initial[fixed_mask]
                     if bool(wrap_positions_to_cell) and bool(pbc.any()) and bool(movable_mask.any()):
@@ -2265,6 +2395,7 @@ class TorchGNNFingerprint(nn.Module):
                         positions_initial,
                         positions_parameter,
                     )
+                    # recompute loss for observer and best tracking
                     current_loss_components = self._positions_to_loss(
                         prepared,
                         current_positions,
@@ -2272,6 +2403,7 @@ class TorchGNNFingerprint(nn.Module):
                         target_3body,
                         target_4body,
                         fixed_mask=fixed_mask,
+                        species_probabilities=probs,
                         minimum_distance_scale=minimum_distance_scale,
                     )
                 if step_observer is not None:
@@ -2343,6 +2475,7 @@ class TorchGNNFingerprint(nn.Module):
                     target_3body,
                     target_4body,
                     fixed_mask=fixed_mask,
+                    species_probabilities=probs,
                     minimum_distance_scale=minimum_distance_scale,
                 )
                 final_total_loss = self._compute_inverse_design_loss(
@@ -2360,9 +2493,36 @@ class TorchGNNFingerprint(nn.Module):
             if final_loss < best_loss:
                 best_loss = final_loss
                 best_positions = final_positions.detach().clone()
+                # also store best species probabilities if optimizing
+                if optimize_species:
+                    best_probs = probs.detach().clone()
 
-        # Return optimised atoms
-        optimised = working_atoms.copy()
+        # --- End of restarts ---
+
+        # --- Final discretisation of species ---
+        if optimize_species:
+            # Use best_probs if available, else current probs
+            if 'best_probs' in locals():
+                final_probs = best_probs
+            else:
+                # compute from current species_logits
+                final_probs = torch_functional.softmax(species_logits, dim=-1)
+            if species_optimization_mode == 'argmax':
+                species_idx = torch.argmax(final_probs, dim=-1)
+            elif species_optimization_mode == 'sample':
+                # sample from multinomial
+                dist = torch.distributions.Categorical(probs=final_probs)
+                species_idx = dist.sample()
+            else:
+                # fallback to argmax
+                species_idx = torch.argmax(final_probs, dim=-1)
+            # assign final symbols
+            final_symbols = [self.species_list[int(idx)] for idx in species_idx.cpu().numpy()]
+            optimised = working_atoms.copy()
+            optimised.set_chemical_symbols(final_symbols)
+        else:
+            optimised = working_atoms.copy()
+
         optimised.set_positions(best_positions.detach().cpu().numpy())
         return wrap_atoms_to_unit_cell(optimised) if bool(wrap_positions_to_cell) else optimised
 

@@ -115,6 +115,8 @@ module raffle__distribs_container
      !! Set the maximum cutoff for the 2-, 3-, and 4-body.
      procedure, pass(this) :: set_radius_distance_tol
      !! Set the tolerance for the distance between atoms for 3- and 4-body.
+     procedure, pass(this) :: get_nbins
+     !! Return the number of bins for the 2-, 3-, and 4-body distribution functions.
      procedure, pass(this) :: set_history_len
      !! Set the length of the history for the distribution functions.
 
@@ -205,6 +207,10 @@ module raffle__distribs_container
      !! Calculate the distribution functions for a given system.
      procedure, pass(this) :: generate_fingerprint_python
      !! Calculate the distribution functions for a given system.
+     procedure, pass(this) :: compute_fingerprint
+     !! Compute the distribution functions for a given system and return the flattened fingerprint.
+     procedure, pass(this) :: compute_fingerprint_components
+     !! Compute the distribution functions for a given system, and return the components.
   end type distribs_container_type
 
   interface distribs_container_type
@@ -396,6 +402,29 @@ contains
     this%radius_distance_tol = radius_distance_tol
 
   end subroutine set_radius_distance_tol
+!###############################################################################
+
+
+!###############################################################################
+  function get_nbins(this) result(nbins)
+    !! Return the number of bins for the 2-, 3-, and 4-body distribution functions.
+    implicit none
+
+    ! Arguments
+    class(distribs_container_type), intent(in) :: this
+    !! Parent. Instance of distribution functions container.
+
+    integer, dimension(3) :: nbins
+    !! Number of bins for the 2-, 3-, and 4-body distribution functions.
+
+    nbins = this%nbins
+
+    ! if nbins is not set, calculate it from the cutoff and width
+    if(any(nbins .le. 0))then
+       nbins = 1 + nint( (this%cutoff_max - this%cutoff_min)/this%width )
+    end if
+
+  end function get_nbins
 !###############################################################################
 
 
@@ -1284,6 +1313,7 @@ contains
     type(distribs_type) :: output
     !! Descriptor for the structure.
 
+    ! nbins is not used as it is determined from the cutoff and width
     call output%calculate( &
          structure, &
          width = this%width, &
@@ -1323,6 +1353,111 @@ contains
     output_4body = distrib%df_4body
 
   end subroutine generate_fingerprint_python
+!-------------------------------------------------------------------------------
+  subroutine compute_fingerprint(this, structure, fingerprint)
+    !! Compute the RAFFLE descriptor fingerprint for a given structure.
+    !!
+    !! Uses distribs_type%calculate() to compute 2/3/4-body distributions
+    !! and flattens them into a single vector.
+    implicit none
+
+    ! Arguments
+    class(distribs_container_type), intent(inout) :: this
+    !! Parent. Instance of distribution functions container.
+    type(basis_type), intent(in) :: structure
+    !! Atomic structure.
+    real(real32), dimension(:), intent(out) :: fingerprint
+    !! Output fingerprint vector of length fingerprint_dim.
+
+    ! Local variables
+    type(distribs_type) :: distrib
+    !! Descriptor for the structure.
+    integer :: offset, i, j
+
+    distrib = this%generate_fingerprint(structure)
+
+    fingerprint = 0._real32
+    offset = 0
+
+    ! Flatten 2-body
+    do j = 1, size(distrib%df_2body, 2)
+       do i = 1, size(distrib%df_2body, 1)
+          offset = offset + 1
+          fingerprint(offset) = distrib%df_2body(i, j)
+       end do
+    end do
+
+    ! Flatten 3-body
+    do j = 1, size(distrib%df_3body, 2)
+       do i = 1, size(distrib%df_3body, 1)
+          offset = offset + 1
+          fingerprint(offset) = distrib%df_3body(i, j)
+       end do
+    end do
+
+    ! Flatten 4-body
+    do j = 1, size(distrib%df_4body, 2)
+       do i = 1, size(distrib%df_4body, 1)
+          offset = offset + 1
+          fingerprint(offset) = distrib%df_4body(i, j)
+       end do
+    end do
+
+  end subroutine compute_fingerprint
+!-------------------------------------------------------------------------------
+  subroutine compute_fingerprint_components(this, structure, fingerprint_2body, &
+       fingerprint_3body, fingerprint_4body)
+    !! Compute the analytical RAFFLE fingerprint split into 2/3/4-body blocks.
+    implicit none
+
+    ! Arguments
+    class(distribs_container_type), intent(inout) :: this
+    !! Parent. Instance of distribution functions container.
+    type(basis_type), intent(in) :: structure
+    !! Atomic structure.
+    real(real32), dimension(:), intent(out) :: fingerprint_2body
+    !! 2-body fingerprint vector of length fingerprint_2body_dim.
+    real(real32), dimension(:), intent(out) :: fingerprint_3body
+    !! 3-body fingerprint vector of length fingerprint_3body_dim.
+    real(real32), dimension(:), intent(out) :: fingerprint_4body
+    !! 4-body fingerprint vector of length fingerprint_4body_dim.
+
+    ! Local variables
+    type(distribs_type) :: distrib
+    !! Descriptor for the structure.
+    integer :: offset, i, j
+
+    distrib = this%generate_fingerprint(structure)
+
+    fingerprint_2body = 0._real32
+    fingerprint_3body = 0._real32
+    fingerprint_4body = 0._real32
+
+    offset = 0
+    do j = 1, size(distrib%df_2body, 2)
+       do i = 1, size(distrib%df_2body, 1)
+          offset = offset + 1
+          fingerprint_2body(offset) = distrib%df_2body(i, j)
+       end do
+    end do
+
+    offset = 0
+    do j = 1, size(distrib%df_3body, 2)
+       do i = 1, size(distrib%df_3body, 1)
+          offset = offset + 1
+          fingerprint_3body(offset) = distrib%df_3body(i, j)
+       end do
+    end do
+
+    offset = 0
+    do j = 1, size(distrib%df_4body, 2)
+       do i = 1, size(distrib%df_4body, 1)
+          offset = offset + 1
+          fingerprint_4body(offset) = distrib%df_4body(i, j)
+       end do
+    end do
+
+  end subroutine compute_fingerprint_components
 !###############################################################################
 
 

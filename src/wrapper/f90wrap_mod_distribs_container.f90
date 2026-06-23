@@ -595,6 +595,22 @@ subroutine f90wrap_raffle__dc__set_radius_distance_tol__binding__dc_type( &
     )
 end subroutine f90wrap_raffle__dc__set_radius_distance_tol__binding__dc_type
 
+subroutine f90wrap_raffle__dc__get_nbins__binding__dc_type( &
+     this, nbins &
+)
+    use raffle__distribs_container, only: distribs_container_type
+    implicit none
+
+    type distribs_container_type_ptr_type
+        type(distribs_container_type), pointer :: p => NULL()
+    end type distribs_container_type_ptr_type
+    type(distribs_container_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    integer, dimension(3), intent(out) :: nbins
+    this_ptr = transfer(this, this_ptr)
+    nbins = this_ptr%p%get_nbins()
+end subroutine f90wrap_raffle__dc__get_nbins__binding__dc_type
+
 subroutine f90wrap_raffle__dc__set_history_len__binding__dc_type( &
      this, history_len &
 )
@@ -1211,6 +1227,65 @@ subroutine f90wrap_raffle__dc__generate_fingerprint_python__dc_type( &
         output_3body=output_3body, output_4body=output_4body &
     )
 end subroutine f90wrap_raffle__dc__generate_fingerprint_python__dc_type
+
+
+!###############################################################################
+! Compute fingerprint
+!###############################################################################
+subroutine f90wrap_raffle__dc__compute_fingerprint( &
+	 this, structure, fingerprint_out, fp_dim)
+    use raffle__distribs_container, only: distribs_container_type
+    use raffle__geom_rw, only: basis_type
+    implicit none
+
+    type basis_type_ptr_type
+        type(basis_type), pointer :: p => NULL()
+    end type basis_type_ptr_type
+    type distribs_container_type_ptr_type
+        type(distribs_container_type), pointer :: p => NULL()
+    end type distribs_container_type_ptr_type
+    type(distribs_container_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    type(basis_type_ptr_type) :: structure_ptr
+    integer, intent(in), dimension(2) :: structure
+	integer, intent(in) :: fp_dim
+	real(4), dimension(fp_dim), intent(out) :: fingerprint_out
+    this_ptr = transfer(this, this_ptr)
+    structure_ptr = transfer(structure, structure_ptr)
+    call this_ptr%p%compute_fingerprint(structure_ptr%p, fingerprint_out)
+end subroutine f90wrap_raffle__dc__compute_fingerprint
+
+
+!###############################################################################
+! Compute fingerprint components
+!###############################################################################
+subroutine f90wrap_raffle__dc__compute_fingerprint_components( &
+	 this, structure, fingerprint_2body, fp_dim_2body, fingerprint_3body, &
+	 fp_dim_3body, fingerprint_4body, fp_dim_4body)
+    use raffle__distribs_container, only: distribs_container_type
+    use raffle__geom_rw, only: basis_type
+    implicit none
+
+    type basis_type_ptr_type
+        type(basis_type), pointer :: p => NULL()
+    end type basis_type_ptr_type
+    type distribs_container_type_ptr_type
+        type(distribs_container_type), pointer :: p => NULL()
+    end type distribs_container_type_ptr_type
+    type(distribs_container_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    type(basis_type_ptr_type) :: structure_ptr
+    integer, intent(in), dimension(2) :: structure
+	integer, intent(in) :: fp_dim_2body, fp_dim_3body, fp_dim_4body
+	real(4), dimension(fp_dim_2body), intent(out) :: fingerprint_2body
+	real(4), dimension(fp_dim_3body), intent(out) :: fingerprint_3body
+	real(4), dimension(fp_dim_4body), intent(out) :: fingerprint_4body
+    this_ptr = transfer(this, this_ptr)
+    structure_ptr = transfer(structure, structure_ptr)
+    call this_ptr%p%compute_fingerprint_components( &
+        structure_ptr%p, fingerprint_2body, fingerprint_3body, fingerprint_4body &
+    )
+end subroutine f90wrap_raffle__dc__compute_fingerprint_components
 
 subroutine f90wrap_raffle__dc__get_num_species__dc_type( &
      this, ret_num_species &

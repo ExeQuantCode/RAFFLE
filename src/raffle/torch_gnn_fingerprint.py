@@ -2002,7 +2002,7 @@ class TorchGNNFingerprint(nn.Module):
                 repulsion_value = (r_ratio ** 2) * (1 - pair_distance / r_cutoff.clamp_min(1e-6)) ** 2
                 repulsion_value = torch.clamp(repulsion_value, max=float(repulsion_max))
                 repulsion_value = repulsion_value * is_active.float()
-                repulsion_loss = repulsion_value.mean()   # sum, not mean
+                repulsion_loss = repulsion_value.sum()   # sum, not mean
 
         cell_violation_loss = torch.zeros((), dtype=torch.float32, device=self._device)
         if bool(np.all(prepared.pbc)):

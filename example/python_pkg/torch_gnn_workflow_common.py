@@ -881,6 +881,8 @@ def compute_inverse_design_metrics(
         )
         if initial_rmsd != 0.0:
             metrics["rmsd_reduction_fraction"] = 1.0 - final_rmsd / initial_rmsd
+        else:
+            metrics["rmsd_reduction_fraction"] = 0.0
 
         if structures_have_matching_atom_count(target_atoms, initial_atoms) and structures_have_matching_atom_count(
             target_atoms,

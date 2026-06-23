@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Mapping
 import json
 from pathlib import Path
+import sys
 
 import wandb
 
@@ -38,6 +40,7 @@ from torch_gnn_carbon_workflow_example import (
     ROLLOUT_STAGES,
     ROLLOUT_STEP_STRIDE,
     TARGET_VERTEX_WEIGHT,
+    WRAP_POSITIONS_TO_CELL,
     default_inverse_step_values,
     default_step_sizes,
     parse_category_weights,
@@ -47,7 +50,7 @@ from torch_gnn_carbon_workflow_example import (
 )
 
 
-WANDB_PROJECT = "raffle-inverse-design-ensemble-new3"
+WANDB_PROJECT = "raffle-surrogate"
 DEFAULT_ARCHITECTURE = "torch_gnn_residual"
 DEFAULT_TAGS = ["carbon", "dataset-perturbed", "inverse-design"]
 SWEEP_EPOCH_COUNTS = [25, 50, 75, 100]
@@ -100,6 +103,138 @@ def strip_deprecated_sweep_parameters(parameters: dict) -> dict:
     for key in DEPRECATED_RESTART_FIELDS:
         resolved.pop(key, None)
     return resolved
+
+
+def deep_merge_dicts(base: Mapping[str, object], updates: Mapping[str, object]) -> dict:
+    merged = dict(base)
+    for key, value in updates.items():
+        if key in merged and isinstance(merged[key], Mapping) and isinstance(value, Mapping):
+            merged[key] = deep_merge_dicts(
+                dict(merged[key]),
+                dict(value),
+            )
+        else:
+            merged[key] = value
+    return merged
+
+
+def load_yaml_mapping(path: Path) -> dict:
+    try:
+        import yaml
+    except ImportError as exc:
+        raise RuntimeError(
+            "YAML config requested but PyYAML is not installed. "
+            "Install it with: pip install pyyaml"
+        ) from exc
+
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if data is None:
+        return {}
+    if not isinstance(data, Mapping):
+        raise ValueError(f"YAML config must be a mapping at the top level: {path}")
+    return dict(data)
+
+
+def load_external_wandb_config(path_value: str | Path) -> tuple[dict, dict | None]:
+    path = Path(path_value).expanduser()
+    payload = load_yaml_mapping(path)
+    run_config: dict
+    if "config" in payload:
+        config_value = payload["config"]
+        if not isinstance(config_value, Mapping):
+            raise ValueError("YAML field 'config' must be a mapping")
+        run_config = dict(config_value)
+    else:
+        run_config = {
+            key: value
+            for key, value in payload.items()
+            if key not in {"sweep_config", "sweep_parameters"}
+        }
+
+    sweep_override = payload.get("sweep_config")
+    if sweep_override is not None and not isinstance(sweep_override, Mapping):
+        raise ValueError("YAML field 'sweep_config' must be a mapping")
+
+    sweep_parameters = payload.get("sweep_parameters")
+    if sweep_parameters is not None:
+        if not isinstance(sweep_parameters, Mapping):
+            raise ValueError("YAML field 'sweep_parameters' must be a mapping")
+        base_sweep = dict(sweep_override) if isinstance(sweep_override, Mapping) else {}
+        existing_parameters = base_sweep.get("parameters", {})
+        if existing_parameters and not isinstance(existing_parameters, Mapping):
+            raise ValueError("YAML sweep_config.parameters must be a mapping")
+        base_sweep["parameters"] = deep_merge_dicts(
+            dict(existing_parameters) if isinstance(existing_parameters, Mapping) else {},
+            dict(sweep_parameters),
+        )
+        sweep_override = base_sweep
+
+    return run_config, (dict(sweep_override) if isinstance(sweep_override, Mapping) else None)
+
+
+def collect_explicit_cli_destinations(
+    parser: argparse.ArgumentParser,
+    argv: list[str] | None,
+) -> set[str]:
+    option_map = {}
+    for action in parser._actions:
+        for option_string in action.option_strings:
+            option_map[option_string] = action.dest
+
+    tokens = list(sys.argv[1:] if argv is None else argv)
+    explicit_dests: set[str] = set()
+    for token in tokens:
+        if token == "--":
+            break
+        if not token.startswith("--"):
+            continue
+        option = token.split("=", maxsplit=1)[0]
+        destination = option_map.get(option)
+        if destination is not None:
+            explicit_dests.add(destination)
+    return explicit_dests
+
+
+def coerce_yaml_value(destination: str, template_value: object, yaml_value: object) -> object:
+    if template_value is None or yaml_value is None:
+        return yaml_value
+    if isinstance(template_value, bool):
+        if isinstance(yaml_value, bool):
+            return yaml_value
+        if isinstance(yaml_value, str):
+            lowered = yaml_value.strip().lower()
+            if lowered in {"1", "true", "yes", "on"}:
+                return True
+            if lowered in {"0", "false", "no", "off"}:
+                return False
+        raise ValueError(
+            f"YAML value for '{destination}' must be boolean-compatible, got: {yaml_value!r}"
+        )
+    if isinstance(template_value, int) and not isinstance(template_value, bool):
+        return int(yaml_value)
+    if isinstance(template_value, float):
+        return float(yaml_value)
+    if isinstance(template_value, Path):
+        return Path(str(yaml_value)).expanduser()
+    if isinstance(template_value, str):
+        return str(yaml_value)
+    return yaml_value
+
+
+def merge_yaml_config_into_args(
+    *,
+    args: argparse.Namespace,
+    yaml_config: dict,
+    explicit_cli_destinations: set[str],
+) -> argparse.Namespace:
+    merged = vars(args).copy()
+    for key, value in yaml_config.items():
+        if key not in merged:
+            raise ValueError(f"Unknown config key in YAML file: '{key}'")
+        if key in explicit_cli_destinations:
+            continue
+        merged[key] = coerce_yaml_value(key, merged[key], value)
+    return argparse.Namespace(**merged)
 
 
 def resolve_ignored_deprecated_fields(config: dict) -> dict[str, object]:
@@ -168,11 +303,11 @@ def add_ensemble_parameters(parameters: dict) -> dict:
     return parameters
 
 
-def build_sweep_config(args: argparse.Namespace) -> dict:
+def build_sweep_config(args: argparse.Namespace, sweep_override: dict | None = None) -> dict:
     parameters = {
         "carbon_count": {"values": [-1]},
-        "hidden_dim": {"values": [64, 80, 96, 128]},
-        "num_message_layers": {"values": [2, 3, 4]},
+        "hidden_dim": {"values": [32, 48, 64, 80]},
+        "num_message_layers": {"values": [1, 2, 3]},
         "learning_rate": {"values": [1.0e-3, 5.0e-4, 2.5e-4]},
         "model_lr_decay_rate": {"values": [1.0e-2, 5.0e-3, 1.0e-3]},
         "smooth_cutoff_width": {"values": [0.1, 0.15, 0.2, 0.3]},
@@ -202,8 +337,8 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
     if args.sweep_profile in {"vertex-focus", "fingerprint-focus"}:
         parameters = {
             "carbon_count": {"values": [-1]},
-            "hidden_dim": {"values": [128, 192, 256]},
-            "num_message_layers": {"values": [4, 6]},
+            "hidden_dim": {"values": [48, 64, 80]},
+            "num_message_layers": {"values": [2, 3]},
             "learning_rate": {"values": [5.0e-4, 2.5e-4, 1.0e-4]},
             "model_lr_decay_rate": {"values": [1.0e-3, 5.0e-4]},
             "smooth_cutoff_width": {"values": [0.15, 0.2]},
@@ -233,8 +368,8 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
     if args.sweep_profile == "inverse-basin":
         parameters = {
             "carbon_count": {"values": [-1]},
-            "hidden_dim": {"values": [96, 128, 160]},
-            "num_message_layers": {"values": [3, 4, 5]},
+            "hidden_dim": {"values": [48, 64, 80]},
+            "num_message_layers": {"values": [2, 3]},
             "learning_rate": {"values": [5.0e-4, 2.5e-4]},
             "model_lr_decay_rate": {"values": [5.0e-3, 1.0e-3]},
             "smooth_cutoff_width": {"values": [0.15, 0.2]},
@@ -264,8 +399,8 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
     if args.sweep_profile == "plan-frontier":
         parameters = {
             "carbon_count": {"values": [-1]},
-            "hidden_dim": {"values": [96, 128, 160, 192]},
-            "num_message_layers": {"values": [3, 4, 5]},
+            "hidden_dim": {"values": [48, 64, 80]},
+            "num_message_layers": {"values": [2, 3]},
             "learning_rate": {"values": [5.0e-4, 2.5e-4]},
             "model_lr_decay_rate": {"values": [5.0e-3, 1.0e-3]},
             "smooth_cutoff_width": {"values": [0.15, 0.2]},
@@ -296,8 +431,8 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
         parameters = {
             "carbon_count": {"values": [-1]},
             "epochs": {"values": [15]},
-            "hidden_dim": {"values": [96, 128, 160]},
-            "num_message_layers": {"values": [3, 4, 5]},
+            "hidden_dim": {"values": [48, 64, 80]},
+            "num_message_layers": {"values": [2, 3]},
             "learning_rate": {"values": [5.0e-4, 2.5e-4]},
             "model_lr_decay_rate": {"values": [5.0e-3, 1.0e-3]},
             "smooth_cutoff_width": {"values": [0.15, 0.2]},
@@ -337,8 +472,8 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
                 ]
             },
             "carbon_count": {"values": [-1]},
-            "hidden_dim": {"values": [96, 128, 160]},
-            "num_message_layers": {"values": [2, 3, 4]},
+            "hidden_dim": {"values": [16, 24, 32]},
+            "num_message_layers": {"values": [1, 2, 3]},
             "learning_rate": {"values": [5.0e-4, 2.5e-4]},
             "model_lr_decay_rate": {"values": [5.0e-3, 1.0e-3]},
             "smooth_cutoff_width": {"values": [0.15, 0.2]},
@@ -368,7 +503,7 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
     parameters = add_ensemble_parameters(parameters)
     parameters = apply_epoch_hyperparameter(parameters)
     parameters = strip_deprecated_sweep_parameters(parameters)
-    return {
+    sweep_config = {
         "name": (
             f"multi-architecture-{args.sweep_profile}-carbon-sweep"
             if args.sweep_profile == "architecture-frontier"
@@ -378,6 +513,9 @@ def build_sweep_config(args: argparse.Namespace) -> dict:
         "metric": {"name": "inverse/final_rmsd", "goal": "minimize"},
         "parameters": parameters,
     }
+    if sweep_override:
+        sweep_config = deep_merge_dicts(sweep_config, sweep_override)
+    return sweep_config
 
 
 def resolve_existing_sweep(sweep_id: str, project: str | None = None) -> dict[str, str]:
@@ -732,6 +870,7 @@ def execute_run(config: dict, sweep_run: bool = False) -> dict:
             minimum_distance_scale=float(resolved_config["minimum_distance_scale"]),
             cell_violation_weight=float(resolved_config["cell_violation_weight"]),
             coordinate_clip_value=resolved_config["coordinate_clip_value"],
+            wrap_positions_to_cell=bool(resolved_config["wrap_positions_to_cell"]),
             rollout_stages=int(resolved_config["rollout_stages"]),
             rollout_epochs_per_stage=int(resolved_config["rollout_epochs_per_stage"]),
             rollout_step_stride=int(resolved_config["rollout_step_stride"]),
@@ -946,8 +1085,18 @@ def execute_run(config: dict, sweep_run: bool = False) -> dict:
         return metrics
 
 
-def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+def build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--config-yaml",
+        type=str,
+        default="",
+        help=(
+            "Optional YAML file with run defaults and/or sweep overrides. "
+            "Supports top-level keys, or nested 'config', plus optional "
+            "'sweep_config'/'sweep_parameters'."
+        ),
+    )
     parser.add_argument("--project", type=str, default=None)
     parser.add_argument("--architecture", type=str, default=DEFAULT_ARCHITECTURE)
     parser.add_argument("--variant-tags", type=str, default="baseline")
@@ -981,6 +1130,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--minimum-distance-scale", type=float, default=MINIMUM_DISTANCE_SCALE)
     parser.add_argument("--cell-violation-weight", type=float, default=CELL_VIOLATION_WEIGHT)
     parser.add_argument("--coordinate-clip-value", type=float, default=COORDINATE_CLIP_VALUE)
+    parser.add_argument(
+        "--wrap-positions-to-cell",
+        action="store_true",
+        dest="wrap_positions_to_cell",
+        default=WRAP_POSITIONS_TO_CELL,
+    )
+    parser.add_argument(
+        "--no-wrap-positions-to-cell",
+        action="store_false",
+        dest="wrap_positions_to_cell",
+    )
     parser.add_argument("--rollout-stages", type=int, default=ROLLOUT_STAGES)
     parser.add_argument(
         "--rollout-epochs-per-stage",
@@ -1076,13 +1236,36 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--sweep-count", type=int, default=8)
     parser.add_argument("--sweep-profile", type=str, default="broad")
+    return parser
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = build_argument_parser()
     return parser.parse_args(argv)
 
 
-def main() -> None:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> None:
+    parser = build_argument_parser()
+    args = parser.parse_args(argv)
+    explicit_cli_destinations = collect_explicit_cli_destinations(parser, argv)
+
+    yaml_run_config: dict = {}
+    yaml_sweep_override: dict | None = None
+    if args.config_yaml:
+        try:
+            yaml_run_config, yaml_sweep_override = load_external_wandb_config(
+                args.config_yaml
+            )
+            args = merge_yaml_config_into_args(
+                args=args,
+                yaml_config=yaml_run_config,
+                explicit_cli_destinations=explicit_cli_destinations,
+            )
+        except (OSError, ValueError, RuntimeError) as exc:
+            raise SystemExit(str(exc)) from exc
+
     if args.print_sweep_config:
-        print(json.dumps(build_sweep_config(args), indent=2))
+        print(json.dumps(build_sweep_config(args, sweep_override=yaml_sweep_override), indent=2))
         return
 
     config = vars(args).copy()
@@ -1111,7 +1294,7 @@ def main() -> None:
         return
 
     if args.launch_sweep:
-        sweep_config = build_sweep_config(args)
+        sweep_config = build_sweep_config(args, sweep_override=yaml_sweep_override)
         sweep_id = wandb.sweep(sweep=sweep_config, project=str(config["project"]))
         print(json.dumps({"project": config["project"], "sweep_id": sweep_id}, indent=2))
         launch_sweep_agent(

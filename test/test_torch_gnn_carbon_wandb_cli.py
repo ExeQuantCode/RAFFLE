@@ -53,6 +53,7 @@ class DummyAtoms:
 workflow_stub = types.ModuleType("torch_gnn_carbon_workflow_example")
 workflow_stub.CELL_VIOLATION_WEIGHT = 0.0
 workflow_stub.COORDINATE_CLIP_VALUE = None
+workflow_stub.WRAP_POSITIONS_TO_CELL = True
 workflow_stub.DEFAULT_MODEL_CONFIG = {
     "hidden_dim": 80,
     "num_message_layers": 2,

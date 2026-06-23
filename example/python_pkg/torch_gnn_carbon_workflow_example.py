@@ -81,6 +81,7 @@ REPULSION_WEIGHT = 10.0
 MINIMUM_DISTANCE_SCALE = 0.75
 CELL_VIOLATION_WEIGHT = 0.0
 COORDINATE_CLIP_VALUE = None
+WRAP_POSITIONS_TO_CELL = True
 ROLLOUT_STAGES = 1
 ROLLOUT_EPOCHS_PER_STAGE = 1
 ROLLOUT_STEP_STRIDE = 25
@@ -465,6 +466,7 @@ def build_inverse_design_options(
     minimum_distance_scale: float,
     cell_violation_weight: float,
     coordinate_clip_value: float | None,
+    wrap_positions_to_cell: bool = WRAP_POSITIONS_TO_CELL,
     inverse_restarts: int | None = None,
     inverse_restart_noise_scale: float | None = None,
 ) -> dict:
@@ -485,6 +487,7 @@ def build_inverse_design_options(
         "coordinate_clip_value": (
             None if coordinate_clip_value is None else float(coordinate_clip_value)
         ),
+        "wrap_positions_to_cell": bool(wrap_positions_to_cell),
     }
 
 
@@ -1148,9 +1151,17 @@ def sweep_epochs(
             "augmentation_variants_per_structure must be positive so training uses perturbed dataset structures only"
         )
     model = create_model(seed, model_config=model_config)
-    learnable_parameter_count = sum(
-        parameter.numel() for parameter in model.parameters() if parameter.requires_grad
-    )
+    if hasattr(model, "parameter_counts"):
+        parameter_counts = model.parameter_counts()
+        learnable_parameter_count = int(parameter_counts["trainable"])
+        total_parameter_count = int(parameter_counts["total"])
+        recommended_parameter_target = int(parameter_counts["recommended_target"])
+    else:
+        learnable_parameter_count = int(
+            sum(parameter.numel() for parameter in model.parameters() if parameter.requires_grad)
+        )
+        total_parameter_count = learnable_parameter_count
+        recommended_parameter_target = learnable_parameter_count
     target_fingerprint = model.compute_reference_fingerprint(original)
     replay_buffer = PrioritizedReplayBuffer(capacity=int(replay_buffer_capacity), seed=int(seed))
     training_augmentation_rng = np.random.default_rng(int(seed) + 1)
@@ -1167,8 +1178,24 @@ def sweep_epochs(
     }
 
     print(
-        f"[train] learnable_parameters={learnable_parameter_count:,}"
+        "[train] parameter_count_target="
+        f"{recommended_parameter_target:,} total_parameters={total_parameter_count:,} "
+        f"learnable_parameters={learnable_parameter_count:,}"
     )
+
+    if hasattr(model, "graph_statistics"):
+        target_graph_stats = model.graph_statistics(original)
+        input_graph_stats = model.graph_statistics(perturbed)
+        print(
+            "[graph] target num_2body="
+            f"{int(target_graph_stats['num_2body_edges'])} num_3body={int(target_graph_stats['num_3body_edges'])} "
+            f"num_4body={int(target_graph_stats['num_4body_edges'])}"
+        )
+        print(
+            "[graph] input  num_2body="
+            f"{int(input_graph_stats['num_2body_edges'])} num_3body={int(input_graph_stats['num_3body_edges'])} "
+            f"num_4body={int(input_graph_stats['num_4body_edges'])}"
+        )
 
     print(
         f"[train] epochs={requested_epoch} "
@@ -1201,7 +1228,9 @@ def sweep_epochs(
         epoch_results.append({"epochs": 0, "position_difference": position_difference})
         print(f"[train] epoch checkpoint 0/0: rmsd={position_difference:.6f} A")
 
+    print(f"[train] starting epoch sweep with model {model.__class__.__name__}")
     while trained_epochs < requested_epoch:
+        print(f"[train] epoch {trained_epochs + 1}/{requested_epoch} starting...")
         next_epoch = trained_epochs + 1
         if next_epoch in stage_schedule and int(rollout_epochs_per_stage) > 0:
             stage_index = stage_schedule[next_epoch]
@@ -1587,6 +1616,7 @@ def run_example(
     rollout_high_error_threshold: float,
     rollout_instability_threshold: float,
     seed: int,
+    wrap_positions_to_cell: bool = WRAP_POSITIONS_TO_CELL,
     inverse_restarts: int | None = None,
     inverse_restart_noise_scale: float | None = None,
     model_config: Optional[dict] = None,
@@ -1643,6 +1673,7 @@ def run_example(
         minimum_distance_scale=minimum_distance_scale,
         cell_violation_weight=cell_violation_weight,
         coordinate_clip_value=coordinate_clip_value,
+        wrap_positions_to_cell=wrap_positions_to_cell,
     )
 
     print(f"[workflow] training {int(num_epochs)} epochs")
@@ -1718,6 +1749,10 @@ def run_example(
                 repulsion_weight=kwargs.get('repulsion_weight', 10.0),
                 minimum_distance_scale=kwargs.get('minimum_distance_scale', 0.75),
                 cell_violation_weight=kwargs.get('cell_violation_weight', 0.0),
+                coordinate_clip_value=kwargs.get('coordinate_clip_value'),
+                wrap_positions_to_cell=bool(
+                    kwargs.get('wrap_positions_to_cell', WRAP_POSITIONS_TO_CELL)
+                ),
                 seed=int(np.random.randint(0, 2**31 - 1)),
                 step_observer=None,
             )
@@ -1998,6 +2033,7 @@ def run_example(
             "coordinate_clip_value": (
                 None if coordinate_clip_value is None else float(coordinate_clip_value)
             ),
+            "wrap_positions_to_cell": bool(wrap_positions_to_cell),
             "rollout_stages": int(rollout_stages),
             "rollout_epochs_per_stage": int(rollout_epochs_per_stage),
             "rollout_step_stride": int(rollout_step_stride),
@@ -2068,6 +2104,7 @@ def run_example(
             "coordinate_clip_value": (
                 None if coordinate_clip_value is None else float(coordinate_clip_value)
             ),
+            "wrap_positions_to_cell": bool(wrap_positions_to_cell),
             "rollout_stages": int(rollout_stages),
             "rollout_epochs_per_stage": int(rollout_epochs_per_stage),
             "rollout_step_stride": int(rollout_step_stride),
@@ -2162,6 +2199,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--minimum-distance-scale", type=float, default=MINIMUM_DISTANCE_SCALE)
     parser.add_argument("--cell-violation-weight", type=float, default=CELL_VIOLATION_WEIGHT)
     parser.add_argument("--coordinate-clip-value", type=float, default=COORDINATE_CLIP_VALUE)
+    parser.add_argument(
+        "--wrap-positions-to-cell",
+        action="store_true",
+        dest="wrap_positions_to_cell",
+        default=WRAP_POSITIONS_TO_CELL,
+    )
+    parser.add_argument(
+        "--no-wrap-positions-to-cell",
+        action="store_false",
+        dest="wrap_positions_to_cell",
+    )
     parser.add_argument("--rollout-stages", type=int, default=ROLLOUT_STAGES)
     parser.add_argument(
         "--rollout-epochs-per-stage",
@@ -2299,6 +2347,7 @@ def main() -> None:
         minimum_distance_scale=args.minimum_distance_scale,
         cell_violation_weight=args.cell_violation_weight,
         coordinate_clip_value=args.coordinate_clip_value,
+        wrap_positions_to_cell=args.wrap_positions_to_cell,
         rollout_stages=args.rollout_stages,
         rollout_epochs_per_stage=args.rollout_epochs_per_stage,
         rollout_step_stride=args.rollout_step_stride,

@@ -810,10 +810,7 @@ def load_model_from_checkpoint(
 
 
 def build_inverse_design_options(
-    target_atoms=None,
     fingerprint_loss_weight: float = 1.0,
-    target_vertex_weight: float = 0.0,
-    target_position_weight: float = 0.0,
     inverse_lr_decay_rate: float = 0.0,
     repulsion_weight: float = 10.0,
     minimum_distance_scale: float = 0.75,
@@ -824,15 +821,8 @@ def build_inverse_design_options(
 ) -> dict[str, Any]:
     del inverse_restarts
     del inverse_restart_noise_scale
-    if float(target_vertex_weight) != 0.0:
-        raise ValueError("target_vertex_weight must remain 0.0 for plan-compliant inverse design")
-    if float(target_position_weight) != 0.0:
-        raise ValueError("target_position_weight must remain 0.0 for plan-compliant inverse design")
     return {
-        "target_atoms": target_atoms,
         "fingerprint_loss_weight": float(fingerprint_loss_weight),
-        "target_vertex_weight": float(target_vertex_weight),
-        "target_position_weight": float(target_position_weight),
         "inverse_lr_decay_rate": float(inverse_lr_decay_rate),
         "repulsion_weight": float(repulsion_weight),
         "minimum_distance_scale": float(minimum_distance_scale),

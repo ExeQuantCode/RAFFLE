@@ -352,10 +352,7 @@ def main(argv: list[str] | None = None) -> None:
         step_observer = build_optimisation_step_observer(trajectory_frames, optimisation_history)
 
     inverse_design_options = build_inverse_design_options(
-        target_atoms=target_atoms,
         fingerprint_loss_weight=args.fingerprint_loss_weight,
-        target_vertex_weight=args.target_vertex_weight,
-        target_position_weight=args.target_position_weight,
         inverse_lr_decay_rate=args.inverse_lr_decay_rate,
         repulsion_weight=args.repulsion_weight,
         minimum_distance_scale=args.minimum_distance_scale,

@@ -34,6 +34,7 @@ shared_wandb_stub.summarise_final_validation_cases = mock.Mock(return_value=[])
 workflow_stub = types.ModuleType("torch_gnn_carbon_workflow_example")
 workflow_stub.CELL_VIOLATION_WEIGHT = 0.0
 workflow_stub.COORDINATE_CLIP_VALUE = None
+workflow_stub.WRAP_POSITIONS_TO_CELL = True
 workflow_stub.DEFAULT_MODEL_CONFIG = {
     "hidden_dim": 80,
     "num_message_layers": 2,
@@ -153,6 +154,117 @@ class TestTorchGNNEnsembleSweepCLI(unittest.TestCase):
         self.assertEqual(
             launch_sweep_agent.call_args.kwargs["project"],
             "script-project",
+        )
+
+    def test_main_launch_sweep_reads_project_from_yaml_config(self):
+        with mock.patch.object(ensemble_wandb, "launch_sweep_agent"):
+            with mock.patch.object(
+                ensemble_wandb,
+                "load_external_wandb_config",
+                return_value=({"project": "yaml-project"}, None),
+            ):
+                stdout = io.StringIO()
+                with mock.patch.object(
+                    sys,
+                    "argv",
+                    [
+                        "torch_gnn_carbon_ensemble_wandb.py",
+                        "--launch-sweep",
+                        "--config-yaml",
+                        "config.yaml",
+                    ],
+                ), mock.patch("sys.stdout", stdout):
+                    ensemble_wandb.main()
+
+        self.assertEqual(
+            ensemble_wandb.wandb.sweep.call_args.kwargs["project"],
+            "yaml-project",
+        )
+
+    def test_main_launch_sweep_cli_project_overrides_yaml(self):
+        with mock.patch.object(ensemble_wandb, "launch_sweep_agent"):
+            with mock.patch.object(
+                ensemble_wandb,
+                "load_external_wandb_config",
+                return_value=({"project": "yaml-project"}, None),
+            ):
+                stdout = io.StringIO()
+                with mock.patch.object(
+                    sys,
+                    "argv",
+                    [
+                        "torch_gnn_carbon_ensemble_wandb.py",
+                        "--launch-sweep",
+                        "--config-yaml",
+                        "config.yaml",
+                        "--project",
+                        "cli-project",
+                    ],
+                ), mock.patch("sys.stdout", stdout):
+                    ensemble_wandb.main()
+
+        self.assertEqual(
+            ensemble_wandb.wandb.sweep.call_args.kwargs["project"],
+            "cli-project",
+        )
+
+    def test_build_sweep_config_broad_uses_reduced_model_sizes(self):
+        args = ensemble_wandb.parse_args([])
+        args.sweep_profile = "broad"
+        sweep = ensemble_wandb.build_sweep_config(args)
+        self.assertEqual(
+            sweep["parameters"]["hidden_dim"]["values"],
+            [32, 48, 64, 80],
+        )
+        self.assertEqual(
+            sweep["parameters"]["num_message_layers"]["values"],
+            [1, 2, 3],
+        )
+
+    def test_build_sweep_config_architecture_frontier_uses_compact_ranges(self):
+        args = ensemble_wandb.parse_args([])
+        args.sweep_profile = "architecture-frontier"
+        sweep = ensemble_wandb.build_sweep_config(args)
+        self.assertEqual(
+            sweep["parameters"]["hidden_dim"]["values"],
+            [16, 24, 32],
+        )
+        self.assertEqual(
+            sweep["parameters"]["num_message_layers"]["values"],
+            [1, 2, 3],
+        )
+
+    def test_main_launch_sweep_applies_yaml_sweep_override(self):
+        override = {
+            "method": "grid",
+            "parameters": {
+                "hidden_dim": {"values": [24]},
+            },
+        }
+        with mock.patch.object(ensemble_wandb, "launch_sweep_agent"):
+            with mock.patch.object(
+                ensemble_wandb,
+                "load_external_wandb_config",
+                return_value=({}, override),
+            ):
+                stdout = io.StringIO()
+                with mock.patch.object(
+                    sys,
+                    "argv",
+                    [
+                        "torch_gnn_carbon_ensemble_wandb.py",
+                        "--launch-sweep",
+                        "--config-yaml",
+                        "config.yaml",
+                    ],
+                ), mock.patch("sys.stdout", stdout):
+                    ensemble_wandb.main()
+
+        sweep_payload = ensemble_wandb.wandb.sweep.call_args.kwargs["sweep"]
+        self.assertEqual(sweep_payload["method"], "grid")
+        self.assertEqual(
+            sweep_payload["parameters"]["hidden_dim"]["values"],
+            [24],
         )
 
 

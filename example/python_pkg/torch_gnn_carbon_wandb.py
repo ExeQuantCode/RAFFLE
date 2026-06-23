@@ -34,6 +34,7 @@ from torch_gnn_carbon_workflow_example import (
     ROLLOUT_STAGES,
     ROLLOUT_STEP_STRIDE,
     TARGET_VERTEX_WEIGHT,
+    WRAP_POSITIONS_TO_CELL,
     default_inverse_step_values,
     default_step_sizes,
     parse_category_weights,
@@ -230,6 +231,9 @@ def build_resolved_workflow_config(
         "coordinate_clip_value": _resolve_optional_float(
             config.get("coordinate_clip_value"),
             COORDINATE_CLIP_VALUE,
+        ),
+        "wrap_positions_to_cell": bool(
+            config.get("wrap_positions_to_cell", WRAP_POSITIONS_TO_CELL)
         ),
         "rollout_stages": int(config.get("rollout_stages", ROLLOUT_STAGES)),
         "rollout_epochs_per_stage": int(
@@ -981,6 +985,7 @@ def execute_run(config: dict, sweep_run: bool = False) -> dict:
             minimum_distance_scale=float(resolved_config["minimum_distance_scale"]),
             cell_violation_weight=float(resolved_config["cell_violation_weight"]),
             coordinate_clip_value=resolved_config["coordinate_clip_value"],
+            wrap_positions_to_cell=bool(resolved_config["wrap_positions_to_cell"]),
             rollout_stages=int(resolved_config["rollout_stages"]),
             rollout_epochs_per_stage=int(resolved_config["rollout_epochs_per_stage"]),
             rollout_step_stride=int(resolved_config["rollout_step_stride"]),
@@ -1163,6 +1168,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--minimum-distance-scale", type=float, default=MINIMUM_DISTANCE_SCALE)
     parser.add_argument("--cell-violation-weight", type=float, default=CELL_VIOLATION_WEIGHT)
     parser.add_argument("--coordinate-clip-value", type=float, default=COORDINATE_CLIP_VALUE)
+    parser.add_argument(
+        "--wrap-positions-to-cell",
+        action="store_true",
+        dest="wrap_positions_to_cell",
+        default=WRAP_POSITIONS_TO_CELL,
+    )
+    parser.add_argument(
+        "--no-wrap-positions-to-cell",
+        action="store_false",
+        dest="wrap_positions_to_cell",
+    )
     parser.add_argument("--rollout-stages", type=int, default=ROLLOUT_STAGES)
     parser.add_argument(
         "--rollout-epochs-per-stage",

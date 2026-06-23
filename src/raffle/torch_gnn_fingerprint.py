@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import itertools
 import math
 import random
@@ -109,14 +109,22 @@ class MultigraphTopology:
     species_index: np.ndarray
     atomic_numbers: np.ndarray
     covalent_radii: np.ndarray
+    pair_center_index: np.ndarray
+    pair_target_index: np.ndarray
+    pair_image_shift: np.ndarray
+    pair_target_species_index: np.ndarray
     pair_index: np.ndarray
     pair_type_index: np.ndarray
+    pair_cutoff_weight_3body: np.ndarray
+    pair_cutoff_weight_4body: np.ndarray
     angle_index: np.ndarray
-    angle_atoms: np.ndarray
+    angle_pair_ids: np.ndarray
     angle_species_index: np.ndarray
     triplet_index: np.ndarray
+    triplet_pair_ids: np.ndarray
+    triplet_center_index: np.ndarray
     dihedral_index: np.ndarray
-    dihedral_atoms: np.ndarray
+    dihedral_pair_id: np.ndarray
     dihedral_species_index: np.ndarray
 
 
@@ -129,6 +137,7 @@ class PreparedStructure:
     target_2body: Optional[np.ndarray] = None
     target_3body: Optional[np.ndarray] = None
     target_4body: Optional[np.ndarray] = None
+    graph_stats: dict[str, float] = field(default_factory=dict)
 
 
 def _zero_init_linear(linear: nn.Linear) -> None:
@@ -676,6 +685,7 @@ class TorchGNNFingerprint(nn.Module):
         self.sigma = (0.1, 0.1, 0.1)
         self.cutoff_min = (0.5, 0.0, 0.0)
         self.cutoff_max = (self.bond_cutoff, math.pi, math.pi)
+        self.radius_distance_tol = (1.5, 2.5, 3.0, 6.0)
         self.global_dim = 6
         self.component_weight = tuple(float(weight) for weight in component_weight)
         self.register_buffer(
@@ -815,11 +825,22 @@ class TorchGNNFingerprint(nn.Module):
     def _topology_key(self, symbols: Sequence[str]) -> Tuple[str, ...]:
         return tuple(str(symbol).strip() for symbol in symbols)
 
-    def _build_topology(self, symbols: Sequence[str]) -> MultigraphTopology:
-        key = self._topology_key(symbols)
-        if key in self._topology_cache:
-            return self._topology_cache[key]
+    def _fortran_shell_weight(self, distance: float, lower: float, upper: float) -> float:
+        if distance < lower or distance > upper:
+            return 0.0
+        smooth_upper = min(self.cutoff_max[0], upper)
+        span = max(smooth_upper - lower, 1.0e-8)
+        phase = (2.0 * math.pi) * (distance - lower) / span
+        return -0.5 * (math.cos(phase) - 1.0)
 
+    def _build_topology(
+        self,
+        symbols: Sequence[str],
+        positions: np.ndarray,
+        cell: np.ndarray,
+        pbc: np.ndarray,
+    ) -> MultigraphTopology:
+        key = self._topology_key(symbols)
         species_index = np.asarray(
             [self._species_to_index[str(symbol).strip()] for symbol in key],
             dtype=np.int64,
@@ -834,100 +855,192 @@ class TorchGNNFingerprint(nn.Module):
         )
 
         num_atoms = len(key)
-        pair_records = []
-        pair_type_records = []
-        for atom_i in range(num_atoms - 1):
-            for atom_j in range(atom_i + 1, num_atoms):
-                pair_records.append((atom_i, atom_j))
-                pair_species = tuple(sorted((species_index[atom_i], species_index[atom_j])))
-                pair_type_records.append(self._pair_to_index[pair_species])
-        pair_index = np.asarray(pair_records, dtype=np.int64)
-        pair_type_index = np.asarray(pair_type_records, dtype=np.int64)
+        image_shifts = self._periodic_image_shifts(
+            torch.as_tensor(cell, dtype=torch.float32),
+            torch.as_tensor(pbc, dtype=torch.bool),
+        ).detach().cpu().numpy().astype(np.int64)
+
+        pair_center_index = []
+        pair_target_index = []
+        pair_image_shift = []
+        pair_target_species_index = []
+        pair_index = []
+        pair_type_index = []
+        pair_cutoff_weight_3body = []
+        pair_cutoff_weight_4body = []
+        centre_species_neighbours: dict[tuple[int, int], list[int]] = {}
+
+        for center_atom in range(num_atoms):
+            center_species = int(species_index[center_atom])
+            for target_atom in range(num_atoms):
+                target_species = int(species_index[target_atom])
+                pair_species = tuple(sorted((center_species, target_species)))
+                pair_type = int(self._pair_to_index[pair_species])
+                pair_radius = 0.5 * (covalent_radii[center_atom] + covalent_radii[target_atom])
+                tol_3_low = max(self.cutoff_min[0], self.radius_distance_tol[0] * pair_radius)
+                tol_3_high = min(self.cutoff_max[0], self.radius_distance_tol[1] * pair_radius)
+                tol_4_low = max(self.cutoff_min[0], self.radius_distance_tol[2] * pair_radius)
+                tol_4_high = min(self.cutoff_max[0], self.radius_distance_tol[3] * pair_radius)
+
+                for shift in image_shifts:
+                    if center_atom == target_atom and int(shift[0]) == 0 and int(shift[1]) == 0 and int(shift[2]) == 0:
+                        continue
+                    shifted_target = positions[target_atom] + np.matmul(shift.astype(np.float32), cell)
+                    delta = shifted_target - positions[center_atom]
+                    distance = float(np.linalg.norm(delta))
+                    if distance < self.cutoff_min[0] or distance > self.cutoff_max[0]:
+                        continue
+
+                    record_id = len(pair_center_index)
+                    pair_center_index.append(center_atom)
+                    pair_target_index.append(target_atom)
+                    pair_image_shift.append((int(shift[0]), int(shift[1]), int(shift[2])))
+                    pair_target_species_index.append(target_species)
+                    pair_index.append((center_atom, target_atom))
+                    pair_type_index.append(pair_type)
+                    pair_cutoff_weight_3body.append(
+                        self._fortran_shell_weight(distance, tol_3_low, tol_3_high)
+                    )
+                    pair_cutoff_weight_4body.append(
+                        self._fortran_shell_weight(distance, tol_4_low, tol_4_high)
+                    )
+                    centre_species_neighbours.setdefault((center_atom, target_species), []).append(record_id)
 
         angle_index = []
-        angle_atoms = []
+        angle_pair_ids = []
         angle_species_index = []
-        if len(pair_records) >= 2:
-            for pair_i in range(len(pair_records) - 1):
-                atom_a = pair_records[pair_i]
-                for pair_j in range(pair_i + 1, len(pair_records)):
-                    atom_b = pair_records[pair_j]
-                    shared = sorted(set(atom_a).intersection(atom_b))
-                    if len(shared) != 1:
-                        continue
-                    shared_atom = shared[0]
-                    other_i = atom_a[1] if atom_a[0] == shared_atom else atom_a[0]
-                    other_j = atom_b[1] if atom_b[0] == shared_atom else atom_b[0]
-                    angle_index.append((pair_i, pair_j))
-                    angle_atoms.append((shared_atom, other_i, other_j))
-                    angle_species_index.append(species_index[shared_atom])
-
-        triplet_records = []
-        if len(pair_records) >= 2:
-            for atom_j in range(num_atoms):
-                incident = []
-                for pair_id, (atom_i, atom_k) in enumerate(pair_records):
-                    if atom_i == atom_j:
-                        incident.append((pair_id, atom_k))
-                    elif atom_k == atom_j:
-                        incident.append((pair_id, atom_i))
-                for _, atom_i in incident:
-                    for _, atom_k in incident:
-                        if atom_i == atom_k:
-                            continue
-                        triplet_records.append((atom_i, atom_j, atom_k))
-
+        triplet_index = []
+        triplet_pair_ids = []
+        triplet_center_index = []
         dihedral_index = []
-        dihedral_atoms = []
+        dihedral_pair_id = []
         dihedral_species_index = []
-        if len(triplet_records) >= 2:
-            for triplet_i, (atom_i, atom_j, atom_k) in enumerate(triplet_records):
-                for triplet_j, triplet_next in enumerate(triplet_records):
-                    if triplet_i == triplet_j:
-                        continue
-                    if atom_j != triplet_next[0] or atom_k != triplet_next[1]:
-                        continue
-                    atom_l = triplet_next[2]
-                    if atom_i == atom_l:
-                        continue
-                    dihedral_index.append((triplet_i, triplet_j))
-                    dihedral_atoms.append((atom_i, atom_j, atom_k, atom_l))
-                    dihedral_species_index.append(species_index[atom_j])
+        triplet_lookup: dict[tuple[int, int, int, int], int] = {}
 
-        topology = MultigraphTopology(
+        for center_atom in range(num_atoms):
+            center_species = int(species_index[center_atom])
+            for neighbour_species in range(self.num_species):
+                all_records = centre_species_neighbours.get((center_atom, neighbour_species), [])
+                if not all_records:
+                    continue
+                records_3body = [
+                    record_id
+                    for record_id in all_records
+                    if pair_cutoff_weight_3body[record_id] > 0.0
+                ]
+                records_4body = [
+                    record_id
+                    for record_id in all_records
+                    if pair_cutoff_weight_4body[record_id] > 0.0
+                ]
+
+                if len(records_3body) < 2:
+                    continue
+
+                for left_index in range(len(records_3body) - 1):
+                    for right_index in range(left_index + 1, len(records_3body)):
+                        pair_left = records_3body[left_index]
+                        pair_right = records_3body[right_index]
+                        angle_index.append((pair_left, pair_right))
+                        angle_pair_ids.append((pair_left, pair_right))
+                        angle_species_index.append(center_species)
+
+                        triplet_key = (center_atom, neighbour_species, pair_left, pair_right)
+                        triplet_id = triplet_lookup.get(triplet_key)
+                        if triplet_id is None:
+                            triplet_id = len(triplet_index)
+                            triplet_lookup[triplet_key] = triplet_id
+                            triplet_index.append((center_atom, neighbour_species, triplet_id))
+                            triplet_pair_ids.append((pair_left, pair_right))
+                            triplet_center_index.append(center_atom)
+
+                        for pair_l in records_4body:
+                            dihedral_index.append((triplet_id, triplet_id))
+                            dihedral_pair_id.append(pair_l)
+                            dihedral_species_index.append(center_species)
+
+        return MultigraphTopology(
             symbols=key,
             species_index=species_index,
             atomic_numbers=atomic_numbers,
             covalent_radii=covalent_radii,
+            pair_center_index=np.asarray(pair_center_index, dtype=np.int64),
+            pair_target_index=np.asarray(pair_target_index, dtype=np.int64),
+            pair_image_shift=np.asarray(pair_image_shift, dtype=np.int64).reshape(-1, 3),
+            pair_target_species_index=np.asarray(pair_target_species_index, dtype=np.int64),
             pair_index=np.asarray(pair_index, dtype=np.int64).reshape(-1, 2),
             pair_type_index=np.asarray(pair_type_index, dtype=np.int64),
+            pair_cutoff_weight_3body=np.asarray(pair_cutoff_weight_3body, dtype=np.float32),
+            pair_cutoff_weight_4body=np.asarray(pair_cutoff_weight_4body, dtype=np.float32),
             angle_index=np.asarray(angle_index, dtype=np.int64).reshape(-1, 2),
-            angle_atoms=np.asarray(angle_atoms, dtype=np.int64).reshape(-1, 3),
+            angle_pair_ids=np.asarray(angle_pair_ids, dtype=np.int64).reshape(-1, 2),
             angle_species_index=np.asarray(angle_species_index, dtype=np.int64),
-            triplet_index=np.asarray(triplet_records, dtype=np.int64).reshape(-1, 3),
+            triplet_index=np.asarray(triplet_index, dtype=np.int64).reshape(-1, 3),
+            triplet_pair_ids=np.asarray(triplet_pair_ids, dtype=np.int64).reshape(-1, 2),
+            triplet_center_index=np.asarray(triplet_center_index, dtype=np.int64),
             dihedral_index=np.asarray(dihedral_index, dtype=np.int64).reshape(-1, 2),
-            dihedral_atoms=np.asarray(dihedral_atoms, dtype=np.int64).reshape(-1, 4),
+            dihedral_pair_id=np.asarray(dihedral_pair_id, dtype=np.int64),
             dihedral_species_index=np.asarray(dihedral_species_index, dtype=np.int64),
         )
-        self._topology_cache[key] = topology
-        return topology
 
     def prepare_structure(self, atoms, include_targets: bool = True) -> PreparedStructure:
         symbols = tuple(str(symbol).strip() for symbol in atoms.get_chemical_symbols())
-        topology = self._build_topology(symbols)
+        positions = np.asarray(atoms.get_positions(), dtype=np.float32)
+        cell = np.asarray(atoms.cell.array, dtype=np.float32)
+        pbc = np.asarray(atoms.pbc, dtype=bool)
+        topology = self._build_topology(symbols, positions, cell, pbc)
         targets = (None, None, None)
         if include_targets:
             targets = self.reference_model.compute_fingerprint_components(atoms)
 
+        graph_stats = {
+            "num_atoms": float(len(symbols)),
+            "num_2body_edges": float(topology.pair_index.shape[0]),
+            "num_3body_edges": float(topology.angle_index.shape[0]),
+            "num_4body_edges": float(topology.dihedral_index.shape[0]),
+        }
+
         return PreparedStructure(
-            positions=np.asarray(atoms.get_positions(), dtype=np.float32),
-            cell=np.asarray(atoms.cell.array, dtype=np.float32),
-            pbc=np.asarray(atoms.pbc, dtype=bool),
+            positions=positions,
+            cell=cell,
+            pbc=pbc,
             topology=topology,
             target_2body=None if targets[0] is None else np.asarray(targets[0], dtype=np.float32),
             target_3body=None if targets[1] is None else np.asarray(targets[1], dtype=np.float32),
             target_4body=None if targets[2] is None else np.asarray(targets[2], dtype=np.float32),
+            graph_stats=graph_stats,
         )
+
+    def _update_prepared_structure(
+        self,
+        prepared: PreparedStructure,
+        positions: torch.Tensor,
+    ) -> PreparedStructure:
+        """
+        Update a PreparedStructure with new positions, rebuilding the topology.
+        This should be called after each optimization step.
+        """
+        # Convert positions back to numpy for topology building
+        positions_np = positions.detach().cpu().numpy().astype(np.float32)
+
+        # Rebuild topology with new positions
+        symbols = prepared.topology.symbols
+        cell = prepared.cell
+        pbc = prepared.pbc
+        new_topology = self._build_topology(symbols, positions_np, cell, pbc)
+
+        # Create new PreparedStructure with updated topology
+        return PreparedStructure(
+            positions=positions_np,
+            cell=cell,
+            pbc=pbc,
+            topology=new_topology,
+            target_2body=prepared.target_2body,
+            target_3body=prepared.target_3body,
+            target_4body=prepared.target_4body,
+            graph_stats=prepared.graph_stats,
+        )
+
 
     def prepare_dataset(self, structures: Iterable, include_targets: bool = True) -> list[PreparedStructure]:
         return [self.prepare_structure(atoms, include_targets=include_targets) for atoms in structures]
@@ -955,6 +1068,25 @@ class TorchGNNFingerprint(nn.Module):
         if pbc[2]:
             delta_frac[:, 2] = delta_frac[:, 2] - torch.round(delta_frac[:, 2])
         return delta_frac @ cell
+
+    def _wrap_positions_into_cell(
+        self,
+        positions: torch.Tensor,
+        cell: torch.Tensor,
+        pbc: torch.Tensor,
+    ) -> torch.Tensor:
+        if positions.numel() == 0 or not bool(pbc.any()):
+            return positions
+        inverse_cell = torch.linalg.inv(cell)
+        positions_frac = positions @ inverse_cell
+        wrapped_frac = positions_frac.clone()
+        if pbc[0]:
+            wrapped_frac[:, 0] = torch.remainder(wrapped_frac[:, 0], 1.0)
+        if pbc[1]:
+            wrapped_frac[:, 1] = torch.remainder(wrapped_frac[:, 1], 1.0)
+        if pbc[2]:
+            wrapped_frac[:, 2] = torch.remainder(wrapped_frac[:, 2], 1.0)
+        return wrapped_frac @ cell
 
     def _smooth_cutoff(self, distance: torch.Tensor) -> torch.Tensor:
         return torch.sigmoid((self.bond_cutoff - distance) / self.smooth_cutoff_width)
@@ -1195,62 +1327,56 @@ class TorchGNNFingerprint(nn.Module):
         pair_index = _long_tensor(topology.pair_index, device)
         atom_base = self._reference_style_2body_base(positions, cell, pbc, species_index)
         if pair_index.numel() > 0:
-            pair_left = pair_index[:, 0]
-            pair_right = pair_index[:, 1]
-            pair_delta = self._minimum_image_delta(cell, pbc, positions[pair_right] - positions[pair_left])
+            pair_left = _long_tensor(topology.pair_center_index, device)
+            pair_right = _long_tensor(topology.pair_target_index, device)
+            pair_shift = _float_tensor(topology.pair_image_shift, device)
+            pair_delta = positions[pair_right] + pair_shift @ cell - positions[pair_left]
             pair_distance = pair_delta.norm(dim=-1)
             pair_weight = self._smooth_cutoff(pair_distance)
-            pair_midpoint = 0.5 * (positions[pair_left] + positions[pair_right]) / self.bond_cutoff
+            pair_midpoint = 0.5 * (positions[pair_left] + positions[pair_right] + pair_shift @ cell) / self.bond_cutoff
             pair_unit = pair_delta / pair_distance.clamp_min(1.0e-8).unsqueeze(-1)
+            pair_target_species = _long_tensor(topology.pair_target_species_index, device)
             pair_node_features = torch.cat(
                 [
                     pair_midpoint,
                     pair_unit,
                     (pair_distance / self.bond_cutoff).unsqueeze(-1),
                     species_one_hot[pair_left],
-                    species_one_hot[pair_right],
+                    torch_functional.one_hot(pair_target_species, num_classes=self.num_species).to(torch.float32),
                 ],
                 dim=-1,
             )
-            pair_weight_matrix = torch.zeros((num_atoms, num_atoms), dtype=torch.float32, device=device)
-            pair_weight_matrix[pair_left, pair_right] = pair_weight
-            pair_weight_matrix[pair_right, pair_left] = pair_weight
 
-            atom_edge_index = torch.cat(
-                [pair_index, pair_index[:, [1, 0]]],
-                dim=0,
-            ).T
-            atom_edge_attr = torch.cat(
-                [
-                    (pair_distance / self.bond_cutoff).unsqueeze(-1),
-                    (pair_distance / self.bond_cutoff).unsqueeze(-1),
-                ],
-                dim=0,
-            )
-            atom_edge_weight = torch.cat([pair_weight, pair_weight], dim=0)
+            atom_edge_index = pair_index.T
+            atom_edge_attr = (pair_distance / self.bond_cutoff).unsqueeze(-1)
+            atom_edge_weight = pair_weight
         else:
             pair_node_features = torch.zeros(
                 (1, 7 + 2 * self.num_species),
                 dtype=torch.float32,
                 device=device,
             )
-            pair_weight_matrix = torch.zeros((num_atoms, num_atoms), dtype=torch.float32, device=device)
             atom_edge_index = torch.zeros((2, 0), dtype=torch.long, device=device)
             atom_edge_attr = torch.zeros((0, 1), dtype=torch.float32, device=device)
             atom_edge_weight = torch.zeros((0,), dtype=torch.float32, device=device)
 
         angle_index = _long_tensor(topology.angle_index, device)
-        angle_atoms = _long_tensor(topology.angle_atoms, device)
         if angle_index.numel() > 0:
-            shared = angle_atoms[:, 0]
-            other_i = angle_atoms[:, 1]
-            other_j = angle_atoms[:, 2]
-            angle_vec_i = self._minimum_image_delta(cell, pbc, positions[other_i] - positions[shared])
-            angle_vec_j = self._minimum_image_delta(cell, pbc, positions[other_j] - positions[shared])
+            pair_delta = positions[_long_tensor(topology.pair_target_index, device)] + _float_tensor(topology.pair_image_shift, device) @ cell - positions[_long_tensor(topology.pair_center_index, device)]
+            angle_pairs = _long_tensor(topology.angle_pair_ids, device)
+            left_pair_id = angle_pairs[:, 0]
+            right_pair_id = angle_pairs[:, 1]
+            angle_vec_i = pair_delta[left_pair_id]
+            angle_vec_j = pair_delta[right_pair_id]
             angle_value = self._angle(angle_vec_i, angle_vec_j)
+            weight_3body = _float_tensor(topology.pair_cutoff_weight_3body, device)
             angle_weight = (
-                pair_weight_matrix[shared, other_i]
-                * pair_weight_matrix[shared, other_j]
+                weight_3body[left_pair_id]
+                * weight_3body[right_pair_id]
+                / (
+                    angle_vec_i.norm(dim=-1).pow(2).clamp_min(1.0e-8)
+                    * angle_vec_j.norm(dim=-1).pow(2).clamp_min(1.0e-8)
+                )
             )
             pair_edge_index = torch.cat(
                 [angle_index, angle_index[:, [1, 0]]],
@@ -1276,9 +1402,8 @@ class TorchGNNFingerprint(nn.Module):
                 dtype=torch.float32,
                 device=device,
             )
-            pair_scale = max(pair_node_features.shape[0], 1) / 2.0
-            pair_base.index_add_(0, angle_index[:, 0], angle_vector * pair_scale)
-            pair_base.index_add_(0, angle_index[:, 1], angle_vector * pair_scale)
+            pair_base.index_add_(0, left_pair_id, angle_vector)
+            pair_base.index_add_(0, right_pair_id, angle_vector)
         else:
             pair_edge_index = torch.zeros((2, 0), dtype=torch.long, device=device)
             pair_edge_attr = torch.zeros((0, 1), dtype=torch.float32, device=device)
@@ -1291,26 +1416,32 @@ class TorchGNNFingerprint(nn.Module):
 
         triplet_index = _long_tensor(topology.triplet_index, device)
         if triplet_index.numel() > 0:
-            triplet_i = triplet_index[:, 0]
-            triplet_j = triplet_index[:, 1]
-            triplet_k = triplet_index[:, 2]
-            vector_ij = self._minimum_image_delta(cell, pbc, positions[triplet_i] - positions[triplet_j])
-            vector_jk = self._minimum_image_delta(cell, pbc, positions[triplet_k] - positions[triplet_j])
+            pair_delta = positions[_long_tensor(topology.pair_target_index, device)] + _float_tensor(topology.pair_image_shift, device) @ cell - positions[_long_tensor(topology.pair_center_index, device)]
+            triplet_pair_ids = _long_tensor(topology.triplet_pair_ids, device)
+            triplet_centers = _long_tensor(topology.triplet_center_index, device)
+            left_pair_id = triplet_pair_ids[:, 0]
+            right_pair_id = triplet_pair_ids[:, 1]
+            vector_ij = pair_delta[left_pair_id]
+            vector_jk = pair_delta[right_pair_id]
             distance_ij = vector_ij.norm(dim=-1)
             distance_jk = vector_jk.norm(dim=-1)
             triplet_angle = self._angle(vector_ij, vector_jk)
             triplet_centroid = (
-                positions[triplet_i] + positions[triplet_j] + positions[triplet_k]
+                positions[triplet_centers]
+                + positions[_long_tensor(topology.pair_target_index, device)][left_pair_id]
+                + positions[_long_tensor(topology.pair_target_index, device)][right_pair_id]
             ) / (3.0 * self.bond_cutoff)
+            left_species = _long_tensor(topology.pair_target_species_index, device)[left_pair_id]
+            right_species = _long_tensor(topology.pair_target_species_index, device)[right_pair_id]
             triplet_node_features = torch.cat(
                 [
                     triplet_centroid,
                     (distance_ij / self.bond_cutoff).unsqueeze(-1),
                     (distance_jk / self.bond_cutoff).unsqueeze(-1),
                     (triplet_angle / math.pi).unsqueeze(-1),
-                    species_one_hot[triplet_i],
-                    species_one_hot[triplet_j],
-                    species_one_hot[triplet_k],
+                    species_one_hot[triplet_centers],
+                    torch_functional.one_hot(left_species, num_classes=self.num_species).to(torch.float32),
+                    torch_functional.one_hot(right_species, num_classes=self.num_species).to(torch.float32),
                 ],
                 dim=-1,
             )
@@ -1322,20 +1453,28 @@ class TorchGNNFingerprint(nn.Module):
             )
 
         dihedral_index = _long_tensor(topology.dihedral_index, device)
-        dihedral_atoms = _long_tensor(topology.dihedral_atoms, device)
         if dihedral_index.numel() > 0:
-            atom_i = dihedral_atoms[:, 0]
-            atom_j = dihedral_atoms[:, 1]
-            atom_k = dihedral_atoms[:, 2]
-            atom_l = dihedral_atoms[:, 3]
-            vector_ij = self._minimum_image_delta(cell, pbc, positions[atom_i] - positions[atom_j])
-            vector_jk = self._minimum_image_delta(cell, pbc, positions[atom_k] - positions[atom_j])
-            vector_kl = self._minimum_image_delta(cell, pbc, positions[atom_l] - positions[atom_k])
+            pair_delta = positions[_long_tensor(topology.pair_target_index, device)] + _float_tensor(topology.pair_image_shift, device) @ cell - positions[_long_tensor(topology.pair_center_index, device)]
+            triplet_pair_ids = _long_tensor(topology.triplet_pair_ids, device)
+            pair_l = _long_tensor(topology.dihedral_pair_id, device)
+            triplet_ids = dihedral_index[:, 0]
+            pair_i = triplet_pair_ids[triplet_ids, 0]
+            pair_k = triplet_pair_ids[triplet_ids, 1]
+            vector_ij = pair_delta[pair_i]
+            vector_jk = pair_delta[pair_k]
+            vector_kl = pair_delta[pair_l]
             dihedral_value = self._improper_dihedral(vector_ij, vector_jk, vector_kl)
+            weight_3body = _float_tensor(topology.pair_cutoff_weight_3body, device)
+            weight_4body = _float_tensor(topology.pair_cutoff_weight_4body, device)
             dihedral_weight = (
-                pair_weight_matrix[atom_i, atom_j]
-                * pair_weight_matrix[atom_j, atom_k]
-                * pair_weight_matrix[atom_k, atom_l]
+                weight_3body[pair_i]
+                * weight_3body[pair_k]
+                * weight_4body[pair_l]
+                / (
+                    vector_ij.norm(dim=-1).pow(2).clamp_min(1.0e-8)
+                    * vector_jk.norm(dim=-1).pow(2).clamp_min(1.0e-8)
+                    * vector_kl.norm(dim=-1).pow(2).clamp_min(1.0e-8)
+                )
             )
             triplet_edge_index = torch.cat(
                 [dihedral_index, dihedral_index[:, [1, 0]]],
@@ -1361,9 +1500,8 @@ class TorchGNNFingerprint(nn.Module):
                 dtype=torch.float32,
                 device=device,
             )
-            triplet_scale = max(triplet_node_features.shape[0], 1) / 2.0
-            triplet_base.index_add_(0, dihedral_index[:, 0], dihedral_vector * triplet_scale)
-            triplet_base.index_add_(0, dihedral_index[:, 1], dihedral_vector * triplet_scale)
+            triplet_base.index_add_(0, dihedral_index[:, 0], dihedral_vector)
+            triplet_base.index_add_(0, dihedral_index[:, 1], dihedral_vector)
         else:
             triplet_edge_index = torch.zeros((2, 0), dtype=torch.long, device=device)
             triplet_edge_attr = torch.zeros((0, 1), dtype=torch.float32, device=device)
@@ -1512,6 +1650,60 @@ class TorchGNNFingerprint(nn.Module):
             + self._component_weight_tensor[2] * loss_4body
         )
 
+    def recommended_parameter_count_target(self) -> int:
+        # Keep model size proportional to descriptor dimensionality while
+        # avoiding unnecessary growth for small single-species systems.
+        descriptor_dim = max(int(self.fingerprint_dim), 1)
+        return int(max(25_000, min(400_000, round(24.0 * descriptor_dim))))
+
+    def parameter_counts(self) -> dict[str, int]:
+        total = int(sum(parameter.numel() for parameter in self.parameters()))
+        trainable = int(
+            sum(parameter.numel() for parameter in self.parameters() if parameter.requires_grad)
+        )
+        return {
+            "recommended_target": int(self.recommended_parameter_count_target()),
+            "total": total,
+            "trainable": trainable,
+        }
+
+    def graph_statistics(self, atoms) -> dict[str, float]:
+        prepared = self.prepare_structure(atoms, include_targets=False)
+        topology = prepared.topology
+        atom_count = max(float(len(prepared.positions)), 1.0)
+        return {
+            **prepared.graph_stats,
+            "mean_2body_edges_per_atom": float(topology.pair_index.shape[0]) / atom_count,
+            "mean_3body_edges_per_atom": float(topology.angle_index.shape[0]) / atom_count,
+            "mean_4body_edges_per_atom": float(topology.dihedral_index.shape[0]) / atom_count,
+        }
+
+    def descriptor_surrogate_agreement(self, atoms) -> dict[str, float]:
+        prepared = self.prepare_structure(atoms, include_targets=True)
+        graph = self._build_multigraph_tensors(prepared)
+        target_2body = _float_tensor(prepared.target_2body, self._device)
+        target_3body = _float_tensor(prepared.target_3body, self._device)
+        target_4body = _float_tensor(prepared.target_4body, self._device)
+
+        base_2body = graph["atom_base"].mean(dim=0)
+        base_3body = graph["pair_base"].mean(dim=0)
+        base_4body = graph["triplet_base"].mean(dim=0)
+
+        def _mae(prediction: torch.Tensor, target: torch.Tensor) -> float:
+            return float(torch.mean(torch.abs(prediction - target)).item())
+
+        def _rmse(prediction: torch.Tensor, target: torch.Tensor) -> float:
+            return float(torch.sqrt(torch.mean((prediction - target) ** 2)).item())
+
+        return {
+            "mae_2body": _mae(base_2body, target_2body),
+            "mae_3body": _mae(base_3body, target_3body),
+            "mae_4body": _mae(base_4body, target_4body),
+            "rmse_2body": _rmse(base_2body, target_2body),
+            "rmse_3body": _rmse(base_3body, target_3body),
+            "rmse_4body": _rmse(base_4body, target_4body),
+        }
+
     def _evaluate_entries(self, entries: Sequence[PreparedStructure]) -> float:
         self.eval()
         losses = []
@@ -1588,10 +1780,47 @@ class TorchGNNFingerprint(nn.Module):
         reset_optimiser: bool = False,
         recalibrate_base: Optional[bool] = None,
     ) -> list[float]:
+        """Train the surrogate model on reference RAFFLE fingerprints.
+
+        Procedure:
+        1. Build a training set from ``structures`` plus optional
+           ``augment_structures`` and precompute prepared graph entries.
+        2. Report parameter-count diagnostics.
+        3. Optionally recalibrate per-branch affine base corrections
+           (enabled by default on first fit).
+        4. Record an initial full-dataset loss before any gradient updates.
+        5. Create (or reuse) Adam + exponential LR scheduler.
+        6. Run shuffled mini-batch training for ``num_epochs`` with gradient
+           clipping and append a full-dataset evaluation loss after each epoch.
+
+        Args:
+            structures: Base structures used for supervised fitting.
+            num_epochs: Number of training epochs.
+            batch_size: Mini-batch size used in each epoch.
+            augment_structures: Optional additional structures concatenated to
+                ``structures`` before training.
+            verbose: Logging level. ``0`` prints parameter counts only,
+                values ``> 0`` also print periodic epoch losses.
+            reset_optimiser: If ``True``, recreate optimizer and scheduler even
+                if previous state exists.
+            recalibrate_base: Controls base-affine recalibration. If ``None``,
+                recalibration runs only when the model has not been fitted yet.
+
+        Returns:
+            Loss history where index ``0`` is the pre-training baseline and
+            each subsequent value is the post-epoch dataset loss.
+        """
         combined_structures = list(structures)
         if augment_structures:
             combined_structures.extend(list(augment_structures))
         entries = self.prepare_dataset(combined_structures, include_targets=True)
+        counts = self.parameter_counts()
+        if verbose >= 0:
+            print(
+                "[torch_gnn] parameter_count_target="
+                f"{counts['recommended_target']:,} total={counts['total']:,} "
+                f"trainable={counts['trainable']:,}"
+            )
         if recalibrate_base is None:
             recalibrate_base = not self._is_fitted
         if recalibrate_base:
@@ -1708,11 +1937,10 @@ class TorchGNNFingerprint(nn.Module):
         target_3body: torch.Tensor,
         target_4body: torch.Tensor,
         fixed_mask: Optional[torch.Tensor] = None,
-        fingerprint_loss_weight: float = 1.0,
-        repulsion_weight: float = 10.0,
         minimum_distance_scale: float = 0.75,
-        cell_violation_weight: float = 0.0,
-    ) -> Tuple[torch.Tensor, dict[str, torch.Tensor]]:
+        repulsion_max: float = 100.0,
+        repulsion_cutoff_scale: float = 1.0,
+    ) -> dict[str, torch.Tensor]:
         (
             (vertex_2body, vertex_3body, vertex_4body),
             (prediction_2body, prediction_3body, prediction_4body),
@@ -1729,10 +1957,14 @@ class TorchGNNFingerprint(nn.Module):
             target_3body,
             target_4body,
         )
-        total_loss = float(fingerprint_loss_weight) * fingerprint_loss
+        # # # Use log1p to compress large values
+        # # fingerprint_loss_compressed = torch.log1p(fingerprint_loss)
+        # # # Or use a smooth cap:
+        # fingerprint_loss_compressed = fingerprint_loss / (1.0 + fingerprint_loss / 1e3)  # saturates at 1e3
 
         topology = prepared.topology
         pair_index = _long_tensor(topology.pair_index, self._device)
+        pair_image_shift = _float_tensor(topology.pair_image_shift, self._device)   # NEW
         cell = _float_tensor(prepared.cell, self._device)
         pbc = torch.as_tensor(prepared.pbc, dtype=torch.bool, device=self._device)
         covalent_radii = _float_tensor(topology.covalent_radii, self._device)
@@ -1741,14 +1973,36 @@ class TorchGNNFingerprint(nn.Module):
         if pair_index.numel() > 0:
             pair_left = pair_index[:, 0]
             pair_right = pair_index[:, 1]
-            pair_delta = self._minimum_image_delta(cell, pbc, positions[pair_right] - positions[pair_left])
-            pair_distance = pair_delta.norm(dim=-1)
 
-            min_distance = float(minimum_distance_scale) * (covalent_radii[pair_left] + covalent_radii[pair_right])
-            overlap = torch.relu(min_distance - pair_distance) / min_distance.clamp_min(1.0e-6)
-            repulsion_loss = torch.mean(overlap ** 2)
+            # Exclude self-pairs (atoms with themselves)
+            is_self = (pair_left == pair_right)
+            if torch.all(is_self):
+                repulsion_loss = torch.zeros((), dtype=torch.float32, device=self._device)
+            else:
+                non_self_mask = ~is_self
+                pair_left = pair_left[non_self_mask]
+                pair_right = pair_right[non_self_mask]
+                pair_image_shift = pair_image_shift[non_self_mask]
 
-        total_loss = total_loss + float(repulsion_weight) * repulsion_loss
+                # Use the stored image shift to compute displacement
+                pair_delta = positions[pair_right] + pair_image_shift @ cell - positions[pair_left]
+                pair_distance = pair_delta.norm(dim=-1)
+
+                # print the minimum pair distance for debugging
+                min_distance = pair_distance.min().item()
+                if min_distance < 1e-3:
+                    print(f"[DEBUG] Minimum pair distance: {min_distance:.6e}")
+
+                covalent_sum = covalent_radii[pair_left] + covalent_radii[pair_right]
+                r_min = float(minimum_distance_scale) * covalent_sum
+                r_cutoff = float(repulsion_cutoff_scale) * covalent_sum
+
+                is_active = pair_distance < r_cutoff
+                r_ratio = r_min / pair_distance.clamp_min(1e-6)
+                repulsion_value = (r_ratio ** 2) * (1 - pair_distance / r_cutoff.clamp_min(1e-6)) ** 2
+                repulsion_value = torch.clamp(repulsion_value, max=float(repulsion_max))
+                repulsion_value = repulsion_value * is_active.float()
+                repulsion_loss = repulsion_value.mean()   # sum, not mean
 
         cell_violation_loss = torch.zeros((), dtype=torch.float32, device=self._device)
         if bool(np.all(prepared.pbc)):
@@ -1757,9 +2011,8 @@ class TorchGNNFingerprint(nn.Module):
             lower_violation = torch.relu(-fractional_positions)
             upper_violation = torch.relu(fractional_positions - 1.0)
             cell_violation_loss = torch.mean((lower_violation + upper_violation) ** 2)
-            total_loss = total_loss + float(cell_violation_weight) * cell_violation_loss
 
-        return total_loss, {
+        return {
             "fingerprint_loss": fingerprint_loss,
             "repulsion_loss": repulsion_loss,
             "cell_violation_loss": cell_violation_loss,
@@ -1773,10 +2026,7 @@ class TorchGNNFingerprint(nn.Module):
         num_steps: int = 200,
         step_size: float = 1.0e-2,
         verbose: int = 0,
-        target_atoms=None,
         fingerprint_loss_weight: float = 1.0,
-        target_vertex_weight: float = 0.0,
-        target_position_weight: float = 0.0,
         inverse_lr_decay_rate: Optional[float] = None,
         num_restarts: int = 1,
         restart_noise_scale: float = 0.0,
@@ -1784,19 +2034,22 @@ class TorchGNNFingerprint(nn.Module):
         minimum_distance_scale: float = 0.75,
         cell_violation_weight: float = 0.0,
         coordinate_clip_value: Optional[float] = None,
+        wrap_positions_to_cell: bool = True,
         step_observer: Optional[Callable[[dict[str, object]], None]] = None,
+        use_augmented_lagrangian: bool = True,
+        initial_multiplier: float = 0.0,
+        penalty_parameter: float = 1.0,
+        multiplier_increase_factor: float = 2.0,
+        max_multiplier: float = 1e6,
+        constraint_tolerance: float = 1e-6,
+        update_topology_every_n_steps: int = 10,  # NEW parameter
     ):
         self.eval()
-        if float(target_vertex_weight) != 0.0:
-            raise ValueError(
-                "target_vertex_weight is deprecated and no longer supported for inverse design"
-            )
-        if float(target_position_weight) != 0.0:
-            raise ValueError(
-                "target_position_weight is deprecated and no longer supported for inverse design"
-            )
-        prepared = self.prepare_structure(atoms, include_targets=False)
+        working_atoms = atoms.copy()
+        prepared = self.prepare_structure(working_atoms, include_targets=False)
         positions_initial = _float_tensor(prepared.positions, self._device)
+        cell = _float_tensor(prepared.cell, self._device)
+        pbc = torch.as_tensor(prepared.pbc, dtype=torch.bool, device=self._device)
         fixed_mask = torch.as_tensor(np.asarray(fixed_atoms, dtype=bool), dtype=torch.bool, device=self._device)
         movable_mask = ~fixed_mask
         target = self._project_fingerprint_targets(
@@ -1811,14 +2064,23 @@ class TorchGNNFingerprint(nn.Module):
         if inverse_lr_decay_rate is None:
             inverse_lr_decay_rate = self.lr_decay_rate
 
-        # target_atoms is retained only as an evaluation-side input. It no longer
-        # participates in inverse-design training and may differ in atom count.
-        del target_atoms
-
         num_restarts = max(int(num_restarts), 1)
         restart_noise_scale = max(float(restart_noise_scale), 0.0)
         best_positions = positions_initial.clone()
         best_loss = float("inf")
+
+        # Initialise augmented Lagrangian variables
+        if use_augmented_lagrangian:
+            lambda_mult = float(initial_multiplier)
+            mu = float(penalty_parameter)
+            effective_repulsion_weight = 0.0
+        else:
+            lambda_mult = 0.0
+            mu = 0.0
+            effective_repulsion_weight = repulsion_weight
+
+        update_topology_every_n_steps = max(int(update_topology_every_n_steps), 1)
+
         for restart_index in range(num_restarts):
             restart_positions = positions_initial.clone()
             if restart_index > 0 and restart_noise_scale > 0.0 and bool(movable_mask.any()):
@@ -1834,19 +2096,27 @@ class TorchGNNFingerprint(nn.Module):
 
             if step_observer is not None:
                 with torch.no_grad():
-                    initial_total_loss, initial_loss_components = self._positions_to_loss(
+                    initial_loss_components = self._positions_to_loss(
                         prepared,
                         restart_positions,
                         target_2body,
                         target_3body,
                         target_4body,
                         fixed_mask=fixed_mask,
-                        fingerprint_loss_weight=fingerprint_loss_weight,
-                        repulsion_weight=repulsion_weight,
                         minimum_distance_scale=minimum_distance_scale,
-                        cell_violation_weight=cell_violation_weight,
                     )
-                initial_atoms = atoms.copy()
+                initial_total_loss = self._compute_inverse_design_loss(
+                    initial_loss_components["fingerprint_loss"],
+                    initial_loss_components["repulsion_loss"],
+                    initial_loss_components["cell_violation_loss"],
+                    fingerprint_loss_weight=fingerprint_loss_weight,
+                    repulsion_weight=effective_repulsion_weight,
+                    cell_violation_weight=cell_violation_weight,
+                    use_augmented_lagrangian=use_augmented_lagrangian,
+                    lambda_mult=lambda_mult,
+                    mu=mu
+                )
+                initial_atoms = working_atoms.copy()
                 initial_atoms.set_positions(restart_positions.detach().cpu().numpy())
                 step_observer(
                     {
@@ -1866,6 +2136,8 @@ class TorchGNNFingerprint(nn.Module):
                         "cell_violation_loss": float(
                             initial_loss_components["cell_violation_loss"].item()
                         ),
+                        "lambda_multiplier": float(lambda_mult) if use_augmented_lagrangian else 0.0,
+                        "penalty_parameter": float(mu) if use_augmented_lagrangian else 0.0,
                     }
                 )
 
@@ -1879,24 +2151,56 @@ class TorchGNNFingerprint(nn.Module):
                 )
 
             for step in range(int(num_steps)):
+                # Update topology periodically based on current positions
+                if step % update_topology_every_n_steps == 0 and step > 0:
+                    # Use the current positions (including fixed atoms) to rebuild topology
+                    current_positions_for_topology = torch.where(
+                        fixed_mask.unsqueeze(-1),
+                        positions_initial,
+                        positions_parameter,
+                    )
+                    prepared = self._update_prepared_structure(
+                        prepared,
+                        current_positions_for_topology
+                    )
+                    # Note: cell, pbc, and targets remain the same
+                    # We need to update the cell tensor in case it changed
+                    cell = _float_tensor(prepared.cell, self._device)
+                    pbc = torch.as_tensor(prepared.pbc, dtype=torch.bool, device=self._device)
+
                 optimiser.zero_grad()
                 candidate_positions = torch.where(
                     fixed_mask.unsqueeze(-1),
                     positions_initial,
                     positions_parameter,
                 )
-                total_loss, loss_components = self._positions_to_loss(
+                # Get loss components
+                loss_components = self._positions_to_loss(
                     prepared,
                     candidate_positions,
                     target_2body,
                     target_3body,
                     target_4body,
                     fixed_mask=fixed_mask,
-                    fingerprint_loss_weight=fingerprint_loss_weight,
-                    repulsion_weight=repulsion_weight,
                     minimum_distance_scale=minimum_distance_scale,
-                    cell_violation_weight=cell_violation_weight,
                 )
+
+                fingerprint_loss = loss_components["fingerprint_loss"]
+                repulsion_loss = loss_components["repulsion_loss"]
+                cell_violation_loss = loss_components["cell_violation_loss"]
+
+                total_loss = self._compute_inverse_design_loss(
+                    fingerprint_loss,
+                    repulsion_loss,
+                    cell_violation_loss,
+                    fingerprint_loss_weight=fingerprint_loss_weight,
+                    repulsion_weight=effective_repulsion_weight,
+                    cell_violation_weight=cell_violation_weight,
+                    use_augmented_lagrangian=use_augmented_lagrangian,
+                    lambda_mult=lambda_mult,
+                    mu=mu,
+                )
+
                 total_loss.backward()
                 if positions_parameter.grad is not None:
                     positions_parameter.grad[fixed_mask] = 0.0
@@ -1904,37 +2208,88 @@ class TorchGNNFingerprint(nn.Module):
                 optimiser.step()
                 if scheduler is not None:
                     scheduler.step()
-                with torch.no_grad():
-                    positions_parameter.data[fixed_mask] = positions_initial[fixed_mask]
-                    if coordinate_clip_value is not None and bool(movable_mask.any()):
-                        max_delta = float(coordinate_clip_value)
-                        movable_delta = positions_parameter.data[movable_mask] - positions_initial[movable_mask]
-                        positions_parameter.data[movable_mask] = positions_initial[movable_mask] + movable_delta.clamp(
-                            min=-max_delta,
-                            max=max_delta,
-                        )
-                if step_observer is not None:
-                    observer_positions = torch.where(
-                        fixed_mask.unsqueeze(-1),
-                        positions_initial,
-                        positions_parameter,
-                    )
+
+                # Update augmented Lagrangian multipliers AFTER the step
+                if use_augmented_lagrangian:
                     with torch.no_grad():
-                        observed_total_loss, observed_loss_components = self._positions_to_loss(
+                        updated_components = self._positions_to_loss(
                             prepared,
-                            observer_positions,
+                            positions_parameter,
                             target_2body,
                             target_3body,
                             target_4body,
                             fixed_mask=fixed_mask,
-                            fingerprint_loss_weight=fingerprint_loss_weight,
-                            repulsion_weight=repulsion_weight,
                             minimum_distance_scale=minimum_distance_scale,
-                            cell_violation_weight=cell_violation_weight,
                         )
-                    observed_atoms = atoms.copy()
+                        rep_val = updated_components["repulsion_loss"].detach().item()
+
+                        if rep_val > 0.0:
+                            lambda_mult = max(0.0, lambda_mult + mu * rep_val)
+                            lambda_mult = min(lambda_mult, max_multiplier)
+                            if rep_val > constraint_tolerance:
+                                mu = min(mu * multiplier_increase_factor, 1e6)
+
+                with torch.no_grad():
+                    positions_parameter.data[fixed_mask] = positions_initial[fixed_mask]
+                    if bool(wrap_positions_to_cell) and bool(pbc.any()) and bool(movable_mask.any()):
+                        wrapped_positions = self._wrap_positions_into_cell(
+                            positions_parameter.data,
+                            cell,
+                            pbc,
+                        )
+                        positions_parameter.data[movable_mask] = wrapped_positions[movable_mask]
+                        positions_parameter.data[fixed_mask] = positions_initial[fixed_mask]
+                    if coordinate_clip_value is not None and bool(movable_mask.any()):
+                        max_delta = float(coordinate_clip_value)
+                        movable_delta = positions_parameter.data[movable_mask] - positions_initial[movable_mask]
+                        if bool(wrap_positions_to_cell) and bool(pbc.any()):
+                            movable_delta = self._minimum_image_delta(
+                                cell,
+                                pbc,
+                                movable_delta,
+                            )
+                        positions_parameter.data[movable_mask] = positions_initial[movable_mask] + movable_delta.clamp(
+                            min=-max_delta,
+                            max=max_delta,
+                        )
+                    if bool(wrap_positions_to_cell) and bool(pbc.any()) and bool(movable_mask.any()):
+                        wrapped_positions = self._wrap_positions_into_cell(
+                            positions_parameter.data,
+                            cell,
+                            pbc,
+                        )
+                        positions_parameter.data[movable_mask] = wrapped_positions[movable_mask]
+                        positions_parameter.data[fixed_mask] = positions_initial[fixed_mask]
+                    current_positions = torch.where(
+                        fixed_mask.unsqueeze(-1),
+                        positions_initial,
+                        positions_parameter,
+                    )
+                    current_loss_components = self._positions_to_loss(
+                        prepared,
+                        current_positions,
+                        target_2body,
+                        target_3body,
+                        target_4body,
+                        fixed_mask=fixed_mask,
+                        minimum_distance_scale=minimum_distance_scale,
+                    )
+                if step_observer is not None:
+                    observer_positions = current_positions
+                    observed_atoms = working_atoms.copy()
                     observed_atoms.set_positions(observer_positions.detach().cpu().numpy())
                     current_learning_rate = float(optimiser.param_groups[0]["lr"])
+                    current_total_loss = self._compute_inverse_design_loss(
+                        current_loss_components["fingerprint_loss"],
+                        current_loss_components["repulsion_loss"],
+                        current_loss_components["cell_violation_loss"],
+                        fingerprint_loss_weight=fingerprint_loss_weight,
+                        repulsion_weight=effective_repulsion_weight,
+                        cell_violation_weight=cell_violation_weight,
+                        use_augmented_lagrangian=use_augmented_lagrangian,
+                        lambda_mult=lambda_mult,
+                        mu=mu,
+                    )
                     step_observer(
                         {
                             "restart_index": int(restart_index),
@@ -1944,30 +2299,35 @@ class TorchGNNFingerprint(nn.Module):
                             "is_initial_state": False,
                             "atoms": observed_atoms,
                             "learning_rate": current_learning_rate,
-                            "total_loss": float(observed_total_loss.item()),
+                            "total_loss": float(current_total_loss.item()),
                             "fingerprint_loss": float(
-                                observed_loss_components["fingerprint_loss"].item()
+                                current_loss_components["fingerprint_loss"].item()
                             ),
                             "repulsion_loss": float(
-                                observed_loss_components["repulsion_loss"].item()
+                                current_loss_components["repulsion_loss"].item()
                             ),
                             "cell_violation_loss": float(
-                                observed_loss_components["cell_violation_loss"].item()
+                                current_loss_components["cell_violation_loss"].item()
                             ),
                             "minimum_distance_scale": float(minimum_distance_scale),
+                            "lambda_multiplier": float(lambda_mult) if use_augmented_lagrangian else 0.0,
+                            "penalty_parameter": float(mu) if use_augmented_lagrangian else 0.0,
                         }
                     )
-                current_loss = float(total_loss.item())
+                current_loss = float(current_total_loss.item())
                 if current_loss < best_loss:
                     best_loss = current_loss
-                    best_positions = candidate_positions.detach().clone()
+                    best_positions = current_positions.detach().clone()
                 if verbose > 0 and ((step + 1) % max(int(num_steps) // 10, 1) == 0 or step == 0):
+                    extra = ""
+                    if use_augmented_lagrangian:
+                        extra = f" λ={lambda_mult:.2e} μ={mu:.2e}"
                     print(
                         f"restart={restart_index + 1:2d}/{num_restarts:2d} "
                         f"step={step + 1:4d} total_loss={current_loss:.6e} "
-                        f"fingerprint_loss={float(loss_components['fingerprint_loss'].item()):.6e} "
-                        f"repulsion_loss={float(loss_components['repulsion_loss'].item()):.6e} "
-                        f"cell_violation_loss={float(loss_components['cell_violation_loss'].item()):.6e}"
+                        f"fingerprint_loss={float(current_loss_components['fingerprint_loss'].item()):.6e} "
+                        f"repulsion_loss={float(current_loss_components['repulsion_loss'].item()):.6e} "
+                        f"cell_violation_loss={float(current_loss_components['cell_violation_loss'].item()):.6e}{extra}"
                     )
 
             with torch.no_grad():
@@ -1976,23 +2336,59 @@ class TorchGNNFingerprint(nn.Module):
                     positions_initial,
                     positions_parameter,
                 )
-                final_total_loss, _ = self._positions_to_loss(
+                final_loss_components = self._positions_to_loss(
                     prepared,
                     final_positions,
                     target_2body,
                     target_3body,
                     target_4body,
                     fixed_mask=fixed_mask,
-                    fingerprint_loss_weight=fingerprint_loss_weight,
-                    repulsion_weight=repulsion_weight,
                     minimum_distance_scale=minimum_distance_scale,
+                )
+                final_total_loss = self._compute_inverse_design_loss(
+                    final_loss_components["fingerprint_loss"],
+                    final_loss_components["repulsion_loss"],
+                    final_loss_components["cell_violation_loss"],
+                    fingerprint_loss_weight=fingerprint_loss_weight,
+                    repulsion_weight=effective_repulsion_weight,
                     cell_violation_weight=cell_violation_weight,
+                    use_augmented_lagrangian=use_augmented_lagrangian,
+                    lambda_mult=lambda_mult,
+                    mu=mu,
                 )
                 final_loss = float(final_total_loss.item())
             if final_loss < best_loss:
                 best_loss = final_loss
                 best_positions = final_positions.detach().clone()
 
-        optimised = atoms.copy()
+        # Return optimised atoms
+        optimised = working_atoms.copy()
         optimised.set_positions(best_positions.detach().cpu().numpy())
-        return wrap_atoms_to_unit_cell(optimised)
+        return wrap_atoms_to_unit_cell(optimised) if bool(wrap_positions_to_cell) else optimised
+
+    def _compute_inverse_design_loss(
+        self,
+        fingerprint_loss: torch.Tensor,
+        repulsion_loss: torch.Tensor,
+        cell_violation_loss: torch.Tensor,
+        fingerprint_loss_weight: float,
+        repulsion_weight: float,
+        cell_violation_weight: float,
+        use_augmented_lagrangian: bool,
+        lambda_mult: float,
+        mu: float,
+    ) -> torch.Tensor:
+        """Combine loss components with optional augmented Lagrangian for repulsion."""
+        if use_augmented_lagrangian:
+            return (
+                fingerprint_loss_weight * fingerprint_loss
+                + lambda_mult * repulsion_loss
+                + 0.5 * mu * (repulsion_loss ** 2)
+                + cell_violation_weight * cell_violation_loss
+            )
+        else:
+            return (
+                fingerprint_loss_weight * fingerprint_loss
+                + repulsion_weight * repulsion_loss
+                + cell_violation_weight * cell_violation_loss
+            )

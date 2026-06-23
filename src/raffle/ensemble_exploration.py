@@ -409,6 +409,7 @@ class InferenceEnsemble:
         minimum_distance_scale: float = 0.75,
         cell_violation_weight: float = 0.0,
         coordinate_clip_value: Optional[float] = None,
+        wrap_positions_to_cell: bool = True,
         seed: int = 0,
         step_observer: Optional[Callable[[dict], None]] = None,
     ) -> Tuple[object, EnsembleStatistics]:
@@ -437,6 +438,9 @@ class InferenceEnsemble:
             Weight on the periodic-boundary violation penalty.
         coordinate_clip_value:
             If set, clip atom displacements from initial positions.
+        wrap_positions_to_cell:
+            If ``True``, remap movable atoms to the in-cell periodic image
+            after each optimisation step.
         seed:
             Base RNG seed (each trajectory gets ``seed + trajectory_id``).
         step_observer:
@@ -465,6 +469,7 @@ class InferenceEnsemble:
                 minimum_distance_scale=minimum_distance_scale,
                 cell_violation_weight=cell_violation_weight,
                 coordinate_clip_value=coordinate_clip_value,
+                wrap_positions_to_cell=wrap_positions_to_cell,
                 perturbation_scale=0.0,
                 langevin_scale=0.0,
                 base_seed=seed,
@@ -475,7 +480,11 @@ class InferenceEnsemble:
             )
             optimised = atoms.copy()
             optimised.set_positions(record.final_positions)
-            return wrap_atoms_to_unit_cell(optimised), stats
+            return (
+                wrap_atoms_to_unit_cell(optimised)
+                if bool(wrap_positions_to_cell)
+                else optimised
+            ), stats
 
         num_traj = max(int(cfg.num_trajectories), 1)
         records: List[TrajectoryRecord] = []
@@ -498,6 +507,7 @@ class InferenceEnsemble:
                         minimum_distance_scale=minimum_distance_scale,
                         cell_violation_weight=cell_violation_weight,
                         coordinate_clip_value=coordinate_clip_value,
+                        wrap_positions_to_cell=wrap_positions_to_cell,
                         perturbation_scale=self._current_perturbation_scale,
                         langevin_scale=float(cfg.langevin_noise_scale),
                         base_seed=seed + traj_id,
@@ -520,6 +530,7 @@ class InferenceEnsemble:
                     minimum_distance_scale=minimum_distance_scale,
                     cell_violation_weight=cell_violation_weight,
                     coordinate_clip_value=coordinate_clip_value,
+                    wrap_positions_to_cell=wrap_positions_to_cell,
                     perturbation_scale=self._current_perturbation_scale,
                     langevin_scale=float(cfg.langevin_noise_scale),
                     base_seed=seed + traj_id,
@@ -556,7 +567,11 @@ class InferenceEnsemble:
 
         optimised = atoms.copy()
         optimised.set_positions(stats.best_positions)
-        return wrap_atoms_to_unit_cell(optimised), stats
+        return (
+            wrap_atoms_to_unit_cell(optimised)
+            if bool(wrap_positions_to_cell)
+            else optimised
+        ), stats
 
     # ------------------------------------------------------------------
     # Perturbation helpers
@@ -625,9 +640,10 @@ class InferenceEnsemble:
         minimum_distance_scale: float,
         cell_violation_weight: float,
         coordinate_clip_value: Optional[float],
-        perturbation_scale: float,
-        langevin_scale: float,
-        base_seed: int,
+        wrap_positions_to_cell: bool = True,
+        perturbation_scale: float = 0.0,
+        langevin_scale: float = 0.0,
+        base_seed: int = 0,
     ) -> TrajectoryRecord:
         """Run one Langevin trajectory and return its record.
 
@@ -657,14 +673,16 @@ class InferenceEnsemble:
         device = model._device
 
         # Prepare structure topology (does not invoke Fortran backend)
-        prepared = model.prepare_structure(atoms, include_targets=False)
+        working_atoms = atoms.copy()
+        prepared = model.prepare_structure(working_atoms, include_targets=False)
+        prepared_positions = _as_float_tensor(prepared.positions, device)
 
         fixed_mask_np = np.asarray(fixed_atoms, dtype=bool)
         fixed_mask = torch.as_tensor(fixed_mask_np, dtype=torch.bool, device=device)
         movable_mask = ~fixed_mask
 
         # --- Initial position perturbation ---
-        positions_np = np.asarray(atoms.get_positions(), dtype=np.float32)
+        positions_np = np.asarray(working_atoms.get_positions(), dtype=np.float32)
         if cfg.perturb_positions and perturbation_scale > 0.0:
             positions_np = self._generate_perturbed_start(
                 positions_np, fixed_mask_np, perturbation_scale, rng
@@ -673,6 +691,8 @@ class InferenceEnsemble:
             prepared = self._apply_lattice_perturbation(prepared, perturbation_scale, rng)
 
         positions_initial = _as_float_tensor(positions_np, device)
+        cell = _as_float_tensor(prepared.cell, device)
+        pbc = torch.as_tensor(prepared.pbc, dtype=torch.bool, device=device)
 
         # --- Target fingerprint (optionally perturbed per trajectory) ---
         target_np = np.asarray(target_fingerprint, dtype=np.float32)
@@ -705,18 +725,33 @@ class InferenceEnsemble:
                 positions_initial,
                 positions_param,
             )
-            total_loss, _ = model._positions_to_loss(
-                prepared,
-                candidate_positions,
-                target_2body,
-                target_3body,
-                target_4body,
-                reference_positions=None,
-                fingerprint_loss_weight=fingerprint_loss_weight,
-                repulsion_weight=repulsion_weight,
-                minimum_distance_scale=minimum_distance_scale,
-                cell_violation_weight=cell_violation_weight,
-            )
+            loss_kwargs = {
+                "fingerprint_loss_weight": fingerprint_loss_weight,
+                "repulsion_weight": repulsion_weight,
+                "minimum_distance_scale": minimum_distance_scale,
+                "cell_violation_weight": cell_violation_weight,
+            }
+            try:
+                total_loss, _ = model._positions_to_loss(
+                    prepared,
+                    candidate_positions,
+                    target_2body,
+                    target_3body,
+                    target_4body,
+                    reference_positions=None,
+                    **loss_kwargs,
+                )
+            except TypeError as exc:
+                if "reference_positions" not in str(exc):
+                    raise
+                total_loss, _ = model._positions_to_loss(
+                    prepared,
+                    candidate_positions,
+                    target_2body,
+                    target_3body,
+                    target_4body,
+                    **loss_kwargs,
+                )
             total_loss.backward()
 
             # Zero gradients on model parameters to avoid accumulation
@@ -749,12 +784,34 @@ class InferenceEnsemble:
             # Enforce fixed atoms and optional clip
             with torch.no_grad():
                 positions_param.data[fixed_mask] = positions_initial[fixed_mask]
+                if bool(wrap_positions_to_cell) and bool(pbc.any()) and bool(movable_mask.any()):
+                    wrapped_positions = model._wrap_positions_into_cell(
+                        positions_param.data,
+                        cell,
+                        pbc,
+                    )
+                    positions_param.data[movable_mask] = wrapped_positions[movable_mask]
+                    positions_param.data[fixed_mask] = positions_initial[fixed_mask]
                 if coordinate_clip_value is not None and bool(movable_mask.any()):
                     max_d = float(coordinate_clip_value)
                     delta = positions_param.data[movable_mask] - positions_initial[movable_mask]
+                    if bool(wrap_positions_to_cell) and bool(pbc.any()):
+                        delta = model._minimum_image_delta(
+                            cell,
+                            pbc,
+                            delta,
+                        )
                     positions_param.data[movable_mask] = (
                         positions_initial[movable_mask] + delta.clamp(-max_d, max_d)
                     )
+                if bool(wrap_positions_to_cell) and bool(pbc.any()) and bool(movable_mask.any()):
+                    wrapped_positions = model._wrap_positions_into_cell(
+                        positions_param.data,
+                        cell,
+                        pbc,
+                    )
+                    positions_param.data[movable_mask] = wrapped_positions[movable_mask]
+                    positions_param.data[fixed_mask] = positions_initial[fixed_mask]
 
             step_loss = float(total_loss.item())
             loss_history.append(step_loss)

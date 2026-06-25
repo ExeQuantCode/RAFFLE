@@ -113,8 +113,6 @@ class MultigraphTopology:
     species_index: np.ndarray
     atomic_numbers: np.ndarray
     covalent_radii: np.ndarray
-    pair_center_index: np.ndarray
-    pair_target_index: np.ndarray
     pair_image_shift: np.ndarray
     pair_target_species_index: np.ndarray
     pair_index: np.ndarray
@@ -122,7 +120,6 @@ class MultigraphTopology:
     pair_cutoff_weight_3body: np.ndarray
     pair_cutoff_weight_4body: np.ndarray
     angle_index: np.ndarray
-    angle_pair_ids: np.ndarray
     angle_species_index: np.ndarray
     triplet_index: np.ndarray
     triplet_pair_ids: np.ndarray
@@ -614,8 +611,14 @@ class TorchGNNFingerprint(nn.Module):
         self,
         species_list: Sequence[str],
         bond_cutoff: float = 6.0,
-        hidden_dim: int = 128,
-        num_message_layers: int = 2,
+        hidden_dim: int = 128,  # Now used as default/fallback
+        hidden_dim_2body: Optional[int] = None,
+        hidden_dim_3body: Optional[int] = None,
+        hidden_dim_4body: Optional[int] = None,
+        num_message_layers: int = 2,  # Now used as default/fallback
+        num_message_layers_2body: Optional[int] = None,
+        num_message_layers_3body: Optional[int] = None,
+        num_message_layers_4body: Optional[int] = None,
         component_weight: Sequence[float] = (4.0, 1.0, 1.0),
         smooth_cutoff_width: float = 0.15,
         seed: int = 42,
@@ -706,12 +709,22 @@ class TorchGNNFingerprint(nn.Module):
             self._build_reference_2body_bin_weights(),
         )
 
+        # Set branch-specific parameters with fallback to defaults
+        hidden_dim_2body = hidden_dim_2body if hidden_dim_2body is not None else hidden_dim
+        hidden_dim_3body = hidden_dim_3body if hidden_dim_3body is not None else hidden_dim
+        hidden_dim_4body = hidden_dim_4body if hidden_dim_4body is not None else hidden_dim
+
+        num_message_layers_2body = num_message_layers_2body if num_message_layers_2body is not None else num_message_layers
+        num_message_layers_3body = num_message_layers_3body if num_message_layers_3body is not None else num_message_layers
+        num_message_layers_4body = num_message_layers_4body if num_message_layers_4body is not None else num_message_layers
+
+        # Create branches with independent parameters
         self.branch_2body = GraphBranch(
             node_dim=3 + self.num_species + 2,
             edge_dim=1,
             output_dim=self.fingerprint_dim_2body,
-            hidden_dim=int(hidden_dim),
-            num_message_layers=int(num_message_layers),
+            hidden_dim=hidden_dim_2body,
+            num_message_layers=num_message_layers_2body,
             global_dim=self.global_dim,
             message_layer_kind=self._message_layer_kind,
         )
@@ -719,8 +732,8 @@ class TorchGNNFingerprint(nn.Module):
             node_dim=7 + 2 * self.num_species,
             edge_dim=1,
             output_dim=self.fingerprint_dim_3body,
-            hidden_dim=int(hidden_dim),
-            num_message_layers=int(num_message_layers),
+            hidden_dim=hidden_dim_3body,
+            num_message_layers=num_message_layers_3body,
             global_dim=self.global_dim,
             message_layer_kind=self._message_layer_kind,
         )
@@ -728,11 +741,24 @@ class TorchGNNFingerprint(nn.Module):
             node_dim=6 + 3 * self.num_species,
             edge_dim=1,
             output_dim=self.fingerprint_dim_4body,
-            hidden_dim=int(hidden_dim),
-            num_message_layers=int(num_message_layers),
+            hidden_dim=hidden_dim_4body,
+            num_message_layers=num_message_layers_4body,
             global_dim=self.global_dim,
             message_layer_kind=self._message_layer_kind,
         )
+
+        # Store configurations for reference
+        self.hidden_dims = {
+            '2body': hidden_dim_2body,
+            '3body': hidden_dim_3body,
+            '4body': hidden_dim_4body,
+        }
+        self.num_message_layers = {
+            '2body': num_message_layers_2body,
+            '3body': num_message_layers_3body,
+            '4body': num_message_layers_4body,
+        }
+
         if self._use_component_coupling:
             context_input_dim = self.fingerprint_dim + self.global_dim
             self.component_context = nn.Sequential(
@@ -766,6 +792,10 @@ class TorchGNNFingerprint(nn.Module):
     @property
     def is_fitted(self) -> bool:
         return self._is_fitted
+
+    @is_fitted.setter
+    def is_fitted(self, value: bool) -> None:
+        self._is_fitted = value
 
     def _project_fingerprint_tensor(self, fingerprint: torch.Tensor) -> torch.Tensor:
         # Preserve calibrated positive outputs exactly while smoothly folding any
@@ -844,8 +874,6 @@ class TorchGNNFingerprint(nn.Module):
             torch.as_tensor(pbc, dtype=torch.bool),
         ).detach().cpu().numpy().astype(np.int64)
 
-        pair_center_index = []
-        pair_target_index = []
         pair_image_shift = []
         pair_target_species_index = []
         pair_index = []
@@ -875,9 +903,7 @@ class TorchGNNFingerprint(nn.Module):
                     if distance < self.cutoff_min[0] or distance > self.cutoff_max[0]:
                         continue
 
-                    record_id = len(pair_center_index)
-                    pair_center_index.append(center_atom)
-                    pair_target_index.append(target_atom)
+                    record_id = len(pair_index)
                     pair_image_shift.append((int(shift[0]), int(shift[1]), int(shift[2])))
                     pair_target_species_index.append(target_species)
                     pair_index.append((center_atom, target_atom))
@@ -891,7 +917,6 @@ class TorchGNNFingerprint(nn.Module):
                     centre_species_neighbours.setdefault((center_atom, target_species), []).append(record_id)
 
         angle_index = []
-        angle_pair_ids = []
         angle_species_index = []
         triplet_index = []
         triplet_pair_ids = []
@@ -901,33 +926,27 @@ class TorchGNNFingerprint(nn.Module):
         dihedral_species_index = []
         triplet_lookup: dict[tuple[int, int, int, int], int] = {}
 
+        # For each triplet (defined by center_atom and two neighbors)
+        # Find all other triplets with the same center atom and form dihedrals
         for center_atom in range(num_atoms):
             center_species = int(species_index[center_atom])
             for neighbour_species in range(self.num_species):
                 all_records = centre_species_neighbours.get((center_atom, neighbour_species), [])
                 if not all_records:
                     continue
-                records_3body = [
-                    record_id
-                    for record_id in all_records
-                    if pair_cutoff_weight_3body[record_id] > 0.0
-                ]
-                records_4body = [
-                    record_id
-                    for record_id in all_records
-                    if pair_cutoff_weight_4body[record_id] > 0.0
-                ]
+
+                records_3body = [r for r in all_records if pair_cutoff_weight_3body[r] > 0.0]
+                records_4body = [r for r in all_records if pair_cutoff_weight_4body[r] > 0.0]
 
                 if len(records_3body) < 2:
                     continue
 
-                for left_index in range(len(records_3body) - 1):
-                    for right_index in range(left_index + 1, len(records_3body)):
-                        pair_left = records_3body[left_index]
-                        pair_right = records_3body[right_index]
-                        angle_index.append((pair_left, pair_right))
-                        angle_pair_ids.append((pair_left, pair_right))
-                        angle_species_index.append(center_species)
+                # First, collect all triplets for this center atom
+                triplets_for_center = []
+                for left_idx in range(len(records_3body) - 1):
+                    for right_idx in range(left_idx + 1, len(records_3body)):
+                        pair_left = records_3body[left_idx]
+                        pair_right = records_3body[right_idx]
 
                         triplet_key = (center_atom, neighbour_species, pair_left, pair_right)
                         triplet_id = triplet_lookup.get(triplet_key)
@@ -938,18 +957,36 @@ class TorchGNNFingerprint(nn.Module):
                             triplet_pair_ids.append((pair_left, pair_right))
                             triplet_center_index.append(center_atom)
 
-                        for pair_l in records_4body:
-                            dihedral_index.append((triplet_id, triplet_id))
-                            dihedral_pair_id.append(pair_l)
-                            dihedral_species_index.append(center_species)
+                        triplets_for_center.append(triplet_id)
+
+                        # For angle indexing (3-body)
+                        angle_index.append((pair_left, pair_right))
+                        angle_species_index.append(center_species)
+
+                # Now generate 4-body (dihedral) interactions
+                # For each pair of triplets with the same center atom
+                if len(triplets_for_center) >= 2:
+                    for i in range(len(triplets_for_center) - 1):
+                        for j in range(i + 1, len(triplets_for_center)):
+                            triplet_1 = triplets_for_center[i]
+                            triplet_2 = triplets_for_center[j]
+
+                            # Each dihedral pairs two triplets
+                            # The 4-body vertex will be computed from these two triplets
+                            dihedral_index.append((triplet_1, triplet_2))
+
+                            # The additional pair for 4-body (could be any record from 4body list)
+                            # You might want to use the pair that defines the dihedral
+                            for pair_l in records_4body:
+                                dihedral_pair_id.append(pair_l)
+                                dihedral_species_index.append(center_species)
+                                break  # Only add one pair per dihedral? Or multiple?
 
         return MultigraphTopology(
             symbols=key,
             species_index=species_index,
             atomic_numbers=atomic_numbers,
             covalent_radii=covalent_radii,
-            pair_center_index=np.asarray(pair_center_index, dtype=np.int64),
-            pair_target_index=np.asarray(pair_target_index, dtype=np.int64),
             pair_image_shift=np.asarray(pair_image_shift, dtype=np.int64).reshape(-1, 3),
             pair_target_species_index=np.asarray(pair_target_species_index, dtype=np.int64),
             pair_index=np.asarray(pair_index, dtype=np.int64).reshape(-1, 2),
@@ -957,7 +994,6 @@ class TorchGNNFingerprint(nn.Module):
             pair_cutoff_weight_3body=np.asarray(pair_cutoff_weight_3body, dtype=np.float32),
             pair_cutoff_weight_4body=np.asarray(pair_cutoff_weight_4body, dtype=np.float32),
             angle_index=np.asarray(angle_index, dtype=np.int64).reshape(-1, 2),
-            angle_pair_ids=np.asarray(angle_pair_ids, dtype=np.int64).reshape(-1, 2),
             angle_species_index=np.asarray(angle_species_index, dtype=np.int64),
             triplet_index=np.asarray(triplet_index, dtype=np.int64).reshape(-1, 3),
             triplet_pair_ids=np.asarray(triplet_pair_ids, dtype=np.int64).reshape(-1, 2),
@@ -1382,8 +1418,8 @@ class TorchGNNFingerprint(nn.Module):
 
         # ---- 2-body graph (pair nodes) ----
         if pair_index.numel() > 0:
-            pair_left = _long_tensor(topology.pair_center_index, device)
-            pair_right = _long_tensor(topology.pair_target_index, device)
+            pair_left = _long_tensor(topology.pair_index[:, 0], device)
+            pair_right = _long_tensor(topology.pair_index[:, 1], device)
             pair_shift = _float_tensor(topology.pair_image_shift, device)
 
             # Pair displacement and distance (use original positions for PBC correctness)
@@ -1424,8 +1460,8 @@ class TorchGNNFingerprint(nn.Module):
         angle_index = _long_tensor(topology.angle_index, device)
         if angle_index.numel() > 0:
             # For angle features, we need pair_delta for all pair records
-            pair_delta_all = positions[_long_tensor(topology.pair_target_index, device)] + _float_tensor(topology.pair_image_shift, device) @ cell - positions[_long_tensor(topology.pair_center_index, device)]
-            angle_pairs = _long_tensor(topology.angle_pair_ids, device)
+            pair_delta_all = positions[_long_tensor(topology.pair_index[:,1], device)] + _float_tensor(topology.pair_image_shift, device) @ cell - positions[_long_tensor(topology.pair_index[:,0], device)]
+            angle_pairs = _long_tensor(topology.angle_index, device)
             left_pair_id = angle_pairs[:, 0]
             right_pair_id = angle_pairs[:, 1]
             angle_vec_i = pair_delta_all[left_pair_id]
@@ -1484,7 +1520,7 @@ class TorchGNNFingerprint(nn.Module):
         triplet_index = _long_tensor(topology.triplet_index, device)
         if triplet_index.numel() > 0:
             # Recompute pair_delta for all pairs (use cached if available)
-            pair_delta_all = positions[_long_tensor(topology.pair_target_index, device)] + _float_tensor(topology.pair_image_shift, device) @ cell - positions[_long_tensor(topology.pair_center_index, device)]
+            pair_delta_all = positions[_long_tensor(topology.pair_index[:,1], device)] + _float_tensor(topology.pair_image_shift, device) @ cell - positions[_long_tensor(topology.pair_index[:,0], device)]
             triplet_pair_ids = _long_tensor(topology.triplet_pair_ids, device)
             triplet_centers = _long_tensor(topology.triplet_center_index, device)
             left_pair_id = triplet_pair_ids[:, 0]
@@ -1498,8 +1534,8 @@ class TorchGNNFingerprint(nn.Module):
             # Triplet centroid: use centered positions
             triplet_centroid = (
                 positions_centered[triplet_centers]
-                + positions_centered[_long_tensor(topology.pair_target_index, device)][left_pair_id]
-                + positions_centered[_long_tensor(topology.pair_target_index, device)][right_pair_id]
+                + positions_centered[_long_tensor(topology.pair_index[:,1], device)][left_pair_id]
+                + positions_centered[_long_tensor(topology.pair_index[:,1], device)][right_pair_id]
             ) / (3.0 * self.bond_cutoff)
 
             # Get species for the three atoms in the triplet
@@ -1528,7 +1564,7 @@ class TorchGNNFingerprint(nn.Module):
         # ---- 4-body dihedral part (edges between triplets) ----
         dihedral_index = _long_tensor(topology.dihedral_index, device)
         if dihedral_index.numel() > 0:
-            pair_delta_all = positions[_long_tensor(topology.pair_target_index, device)] + _float_tensor(topology.pair_image_shift, device) @ cell - positions[_long_tensor(topology.pair_center_index, device)]
+            pair_delta_all = positions[_long_tensor(topology.pair_index[:,1], device)] + _float_tensor(topology.pair_image_shift, device) @ cell - positions[_long_tensor(topology.pair_index[:,0], device)]
             triplet_pair_ids = _long_tensor(topology.triplet_pair_ids, device)
             pair_l = _long_tensor(topology.dihedral_pair_id, device)
             triplet_ids = dihedral_index[:, 0]
@@ -2293,7 +2329,7 @@ class TorchGNNFingerprint(nn.Module):
                     gamma=float(math.exp(-float(inverse_lr_decay_rate))),
                 )
 
-            restart_trajectory = [] if return_trajectory else None
+            restart_trajectory = [working_atoms.copy()] if return_trajectory else None
 
             # --- Step loop ---
             for step in range(int(num_steps)):
@@ -2580,6 +2616,116 @@ class TorchGNNFingerprint(nn.Module):
         else:
             # Return final atoms from the best restart
             return best_restart_atoms
+
+    def compute_per_atom_loss(
+        self,
+        atoms: Atoms,
+        target_fingerprint: np.ndarray,
+        fingerprint_loss_weight: float = 1.0,
+    ) -> Dict[str, Union[float, np.ndarray]]:
+        """
+        Compute per-atom fingerprint loss for a given structure.
+        """
+        self.eval()
+
+        # Prepare structure
+        prepared = self.prepare_structure(atoms, include_targets=False)
+        positions = _float_tensor(prepared.positions, self._device)
+
+        # Project target
+        target = self._project_fingerprint_targets(
+            _float_tensor(target_fingerprint, self._device)
+        )
+
+        # Get fingerprints and vertex contributions
+        with torch.no_grad():
+            (
+                (vertex_2body, vertex_3body, vertex_4body),
+                (prediction_2body, prediction_3body, prediction_4body),
+            ) = self._forward_prepared(
+                prepared,
+                positions_override=positions,
+                return_vertices=True,
+            )
+
+        # Split target
+        target_2body = target[:self.fingerprint_dim_2body]
+        target_3body = target[self.fingerprint_dim_2body:self.fingerprint_dim_2body + self.fingerprint_dim_3body]
+        target_4body = target[self.fingerprint_dim_2body + self.fingerprint_dim_3body:]
+
+        # Per-vertex squared errors (mean over fingerprint dimensions)
+        per_vertex_2body = ((vertex_2body - target_2body) ** 2).mean(dim=1)  # (n_atoms,)
+        per_vertex_3body = ((vertex_3body - target_3body) ** 2).mean(dim=1)  # (n_angles,)
+        per_vertex_4body = ((vertex_4body - target_4body) ** 2).mean(dim=1)  # (n_triplets,)
+
+        n_atoms = len(atoms)
+
+        # --- 2-body: already per-atom ---
+        per_atom_2body = per_vertex_2body
+
+        # --- 3-body: Find center atom for each angle ---
+        # angle_index is (n_angles, 2) where each entry is a pair index
+        # The center atom is the common atom between the two pairs
+        angle_index = torch.as_tensor(prepared.topology.angle_index, device=self._device)
+        pair_index = torch.as_tensor(prepared.topology.pair_index, device=self._device)  # (n_pairs, 2)
+
+        # For each angle, find the center atom (the one shared by both pairs)
+        angle_center = torch.zeros(len(angle_index), dtype=torch.long, device=self._device)
+        for i, (pair1, pair2) in enumerate(angle_index):
+            # Get the two atoms in each pair
+            atoms1 = pair_index[pair1]  # [atom_a, atom_b]
+            atoms2 = pair_index[pair2]  # [atom_c, atom_d]
+            # Find the common atom
+            common = torch.where(atoms1.unsqueeze(1) == atoms2.unsqueeze(0))[0]
+            angle_center[i] = atoms1[common[0]] if len(common) > 0 else atoms1[0]
+
+        # --- 4-body: triplet_center_index directly gives center atom ---
+        triplet_center = torch.as_tensor(prepared.topology.triplet_center_index, device=self._device)
+
+        # Debug info
+        print(f"[DEBUG] n_atoms: {n_atoms}")
+        print(f"[DEBUG] per_vertex_2body shape: {per_vertex_2body.shape}")
+        print(f"[DEBUG] per_vertex_3body shape: {per_vertex_3body.shape}")
+        print(f"[DEBUG] per_vertex_4body shape: {per_vertex_4body.shape}")
+        print(f"[DEBUG] angle_center shape: {angle_center.shape}, min/max: {angle_center.min()}/{angle_center.max()}")
+        print(f"[DEBUG] triplet_center shape: {triplet_center.shape}, min/max: {triplet_center.min()}/{triplet_center.max()}")
+
+        # Ensure indices are valid
+        assert angle_center.max() < n_atoms, f"angle_center has index {angle_center.max()} >= {n_atoms}"
+        assert triplet_center.max() < n_atoms, f"triplet_center has index {triplet_center.max()} >= {n_atoms}"
+
+        # Accumulate errors per atom
+        per_atom_3body = torch.zeros(n_atoms, device=self._device)
+        per_atom_4body = torch.zeros(n_atoms, device=self._device)
+        count_3body = torch.zeros(n_atoms, device=self._device)
+        count_4body = torch.zeros(n_atoms, device=self._device)
+
+        # Accumulate 3-body errors
+        if len(angle_center) > 0:
+            per_atom_3body.scatter_add_(0, angle_center, per_vertex_3body)
+            count_3body.scatter_add_(0, angle_center, torch.ones_like(per_vertex_3body))
+
+        # Accumulate 4-body errors
+        if len(triplet_center) > 0:
+            per_atom_4body.scatter_add_(0, triplet_center, per_vertex_4body)
+            count_4body.scatter_add_(0, triplet_center, torch.ones_like(per_vertex_4body))
+
+        # Average (avoid division by zero)
+        per_atom_3body = per_atom_3body / count_3body.clamp_min(1.0)
+        per_atom_4body = per_atom_4body / count_4body.clamp_min(1.0)
+
+        # Total per-atom loss
+        per_atom_loss = fingerprint_loss_weight * (per_atom_2body + per_atom_3body + per_atom_4body)
+
+        return {
+            'total_loss': float(per_atom_loss.sum().item()),
+            'per_atom_loss': per_atom_loss.cpu().numpy(),
+            'per_atom_2body': per_atom_2body.cpu().numpy(),
+            'per_atom_3body': per_atom_3body.cpu().numpy(),
+            'per_atom_4body': per_atom_4body.cpu().numpy(),
+            'n_angles': len(per_vertex_3body),
+            'n_triplets': len(per_vertex_4body),
+        }
 
     def _compute_inverse_design_loss(
         self,

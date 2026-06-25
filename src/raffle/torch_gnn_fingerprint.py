@@ -2090,18 +2090,9 @@ class TorchGNNFingerprint(nn.Module):
                 repulsion_value = repulsion_value * is_active.float()
                 repulsion_loss = repulsion_value.sum()   # sum, not mean
 
-        cell_violation_loss = torch.zeros((), dtype=torch.float32, device=self._device)
-        if bool(np.all(prepared.pbc)):
-            inverse_cell = torch.linalg.inv(cell)
-            fractional_positions = positions @ inverse_cell
-            lower_violation = torch.relu(-fractional_positions)
-            upper_violation = torch.relu(fractional_positions - 1.0)
-            cell_violation_loss = torch.mean((lower_violation + upper_violation) ** 2)
-
         return {
             "fingerprint_loss": fingerprint_loss,
             "repulsion_loss": repulsion_loss,
-            "cell_violation_loss": cell_violation_loss,
         }
 
     def _discretize_species(
@@ -2157,7 +2148,6 @@ class TorchGNNFingerprint(nn.Module):
         restart_noise_scale: float = 0.0,
         repulsion_weight: float = 10.0,
         minimum_distance_scale: float = 0.75,
-        cell_violation_weight: float = 0.0,
         coordinate_clip_value: Optional[float] = None,
         wrap_positions_to_cell: bool = True,
         step_observer: Optional[Callable[[dict[str, object]], None]] = None,
@@ -2174,6 +2164,7 @@ class TorchGNNFingerprint(nn.Module):
         species_learning_rate: float = 1.0e-2,              # LR for species logits
         fixed_species: Optional[np.ndarray] = None,        # boolean mask for fixed species
         species_initial: Optional[np.ndarray] = None,      # initial species indices (optional)
+        return_trajectory: bool = False,
     ):
         # --- Prepare initial structure ---
         self.eval()
@@ -2222,8 +2213,10 @@ class TorchGNNFingerprint(nn.Module):
 
         num_restarts = max(int(num_restarts), 1)
         restart_noise_scale = max(float(restart_noise_scale), 0.0)
-        best_positions = positions_initial.clone()
-        best_loss = float("inf")
+
+        # Store best restart information (by final loss)
+        best_restart_loss = float("inf")
+        best_restart_trajectory = None
 
         # --- Initialise augmented Lagrangian ---
         if use_augmented_lagrangian:
@@ -2300,6 +2293,8 @@ class TorchGNNFingerprint(nn.Module):
                     gamma=float(math.exp(-float(inverse_lr_decay_rate))),
                 )
 
+            restart_trajectory = [] if return_trajectory else None
+
             # --- Step loop ---
             for step in range(int(num_steps)):
                 # Update topology periodically if positions or species have changed
@@ -2353,18 +2348,16 @@ class TorchGNNFingerprint(nn.Module):
 
                 fingerprint_loss = loss_components["fingerprint_loss"]
                 repulsion_loss = loss_components["repulsion_loss"]
-                cell_violation_loss = loss_components["cell_violation_loss"]
 
                 total_loss = self._compute_inverse_design_loss(
                     fingerprint_loss,
                     repulsion_loss,
-                    cell_violation_loss,
                     fingerprint_loss_weight,
                     effective_repulsion_weight,
-                    cell_violation_weight,
                     use_augmented_lagrangian,
                     lambda_mult,
                     mu,
+                    num_atoms=len(working_atoms)
                 )
 
                 total_loss.backward()
@@ -2456,13 +2449,12 @@ class TorchGNNFingerprint(nn.Module):
                     current_total_loss = self._compute_inverse_design_loss(
                         current_loss_components["fingerprint_loss"],
                         current_loss_components["repulsion_loss"],
-                        current_loss_components["cell_violation_loss"],
                         fingerprint_loss_weight=fingerprint_loss_weight,
                         repulsion_weight=effective_repulsion_weight,
-                        cell_violation_weight=cell_violation_weight,
                         use_augmented_lagrangian=use_augmented_lagrangian,
                         lambda_mult=lambda_mult,
                         mu=mu,
+                        num_atoms=len(working_atoms)
                     )
                 if step_observer is not None:
                     observer_positions = current_positions
@@ -2485,30 +2477,36 @@ class TorchGNNFingerprint(nn.Module):
                             "repulsion_loss": float(
                                 current_loss_components["repulsion_loss"].item()
                             ),
-                            "cell_violation_loss": float(
-                                current_loss_components["cell_violation_loss"].item()
-                            ),
                             "minimum_distance_scale": float(minimum_distance_scale),
                             "lambda_multiplier": float(lambda_mult) if use_augmented_lagrangian else 0.0,
                             "penalty_parameter": float(mu) if use_augmented_lagrangian else 0.0,
                         }
                     )
-                current_loss = float(current_total_loss.item())
-                if current_loss < best_loss:
-                    best_loss = current_loss
-                    best_positions = current_positions.detach().clone()
                 if verbose > 0 and ((step + 1) % max(int(num_steps) // 10, 1) == 0 or step == 0):
                     extra = ""
                     if use_augmented_lagrangian:
                         extra = f" λ={lambda_mult:.2e} μ={mu:.2e}"
                     print(
                         f"restart={restart_index + 1:2d}/{num_restarts:2d} "
-                        f"step={step + 1:4d} total_loss={current_loss:.6e} "
+                        f"step={step + 1:4d} total_loss={current_total_loss:.6e} "
                         f"fingerprint_loss={float(current_loss_components['fingerprint_loss'].item()):.6e} "
-                        f"repulsion_loss={float(current_loss_components['repulsion_loss'].item()):.6e} "
-                        f"cell_violation_loss={float(current_loss_components['cell_violation_loss'].item()):.6e}{extra}"
+                        f"repulsion_loss={float(current_loss_components['repulsion_loss'].item()):.6e}{extra}"
                     )
 
+                if return_trajectory:
+                    traj_atoms = working_atoms.copy()
+                    traj_atoms.set_positions(current_positions.detach().cpu().numpy())
+                    if optimize_species:
+                        # Get current species from probabilities
+                        current_probs = torch_functional.softmax(species_logits, dim=-1)
+                        current_species_idx = torch.argmax(current_probs, dim=-1)
+                        current_symbols = [self.species_list[int(idx)] for idx in current_species_idx.cpu().numpy()]
+                        traj_atoms.set_chemical_symbols(current_symbols)
+                    restart_trajectory.append(traj_atoms)
+
+            # --- End of step loop for this restart ---
+
+            # Get final structure for this restart
             with torch.no_grad():
                 final_positions = torch.where(
                     fixed_mask.unsqueeze(-1),
@@ -2528,74 +2526,125 @@ class TorchGNNFingerprint(nn.Module):
                 final_total_loss = self._compute_inverse_design_loss(
                     final_loss_components["fingerprint_loss"],
                     final_loss_components["repulsion_loss"],
-                    final_loss_components["cell_violation_loss"],
                     fingerprint_loss_weight=fingerprint_loss_weight,
                     repulsion_weight=effective_repulsion_weight,
-                    cell_violation_weight=cell_violation_weight,
                     use_augmented_lagrangian=use_augmented_lagrangian,
                     lambda_mult=lambda_mult,
                     mu=mu,
+                    num_atoms=len(working_atoms)
                 )
                 final_loss = float(final_total_loss.item())
-            if final_loss < best_loss:
-                best_loss = final_loss
-                best_positions = final_positions.detach().clone()
-                # also store best species probabilities if optimizing
+
+                # Store final species probabilities for this restart
                 if optimize_species:
-                    best_probs = probs.detach().clone()
+                    restart_final_probs = probs.detach().clone()
+
+                # Create final atoms object for this restart
+                restart_final_atoms = working_atoms.copy()
+
+                # Apply final species if optimizing
+                if optimize_species:
+                    if species_optimization_mode == 'argmax':
+                        species_idx = torch.argmax(restart_final_probs, dim=-1)
+                    elif species_optimization_mode == 'sample':
+                        dist = torch.distributions.Categorical(probs=restart_final_probs)
+                        species_idx = dist.sample()
+                    else:
+                        species_idx = torch.argmax(restart_final_probs, dim=-1)
+                    final_symbols = [self.species_list[int(idx)] for idx in species_idx.cpu().numpy()]
+                    restart_final_atoms.set_chemical_symbols(final_symbols)
+
+                # Set final positions (with wrapping if specified)
+                final_positions_np = final_positions.detach().cpu().numpy()
+                if wrap_positions_to_cell:
+                    restart_final_atoms.set_positions(final_positions_np)
+                    restart_final_atoms = wrap_atoms_to_unit_cell(restart_final_atoms)
+                else:
+                    restart_final_atoms.set_positions(final_positions_np)
+
+            # Track best restart by final loss
+            if final_loss < best_restart_loss:
+                best_restart_loss = final_loss
+                best_restart_atoms = restart_final_atoms
+                best_restart_trajectory = restart_trajectory
 
         # --- End of restarts ---
 
-        # --- Final discretisation of species ---
-        if optimize_species:
-            # Use best_probs if available, else current probs
-            if 'best_probs' in locals():
-                final_probs = best_probs
+        # Return results
+        if return_trajectory:
+            # Return trajectory from the best restart
+            if best_restart_trajectory is not None:
+                return best_restart_trajectory
             else:
-                # compute from current species_logits
-                final_probs = torch_functional.softmax(species_logits, dim=-1)
-            if species_optimization_mode == 'argmax':
-                species_idx = torch.argmax(final_probs, dim=-1)
-            elif species_optimization_mode == 'sample':
-                # sample from multinomial
-                dist = torch.distributions.Categorical(probs=final_probs)
-                species_idx = dist.sample()
-            else:
-                # fallback to argmax
-                species_idx = torch.argmax(final_probs, dim=-1)
-            # assign final symbols
-            final_symbols = [self.species_list[int(idx)] for idx in species_idx.cpu().numpy()]
-            optimised = working_atoms.copy()
-            optimised.set_chemical_symbols(final_symbols)
+                return []
         else:
-            optimised = working_atoms.copy()
-
-        optimised.set_positions(best_positions.detach().cpu().numpy())
-        return wrap_atoms_to_unit_cell(optimised) if bool(wrap_positions_to_cell) else optimised
+            # Return final atoms from the best restart
+            return best_restart_atoms
 
     def _compute_inverse_design_loss(
         self,
         fingerprint_loss: torch.Tensor,
         repulsion_loss: torch.Tensor,
-        cell_violation_loss: torch.Tensor,
         fingerprint_loss_weight: float,
         repulsion_weight: float,
-        cell_violation_weight: float,
         use_augmented_lagrangian: bool,
         lambda_mult: float,
         mu: float,
+        num_atoms: int,  # NEW: number of atoms in the system
+        # New parameters for dynamic repulsion scaling
+        repulsion_effect_threshold: float = 0.1,  # Repulsion starts having effect here
+        repulsion_only_threshold: float = 10.0,  # Only repulsion matters here
+        fingerprint_suppression_strength: float = 1.0,  # How much to suppress fingerprint (0-1)
     ) -> torch.Tensor:
-        """Combine loss components with optional augmented Lagrangian for repulsion."""
+        """
+        Combine loss components with dynamic scaling based on repulsion magnitude.
+
+        The repulsion loss is normalized by the number of atoms since it's a sum
+        rather than a mean. The scaling thresholds are adjusted accordingly.
+        """
+
+        # Normalize repulsion by number of atoms to make thresholds atom-count independent
+        # This converts sum-based repulsion to a per-atom average
+
+        with torch.no_grad():
+            norm_repulsion = repulsion_loss / num_atoms
+            rep_val = norm_repulsion.detach().item()
+            # print(f"[DEBUG] Normalized repulsion value: {rep_val:.6e}")
+
+            # --- Dynamic fingerprint suppression ---
+            # Suppress fingerprint loss when repulsion is high
+            if rep_val <= repulsion_effect_threshold:
+                # No suppression when repulsion is negligible
+                fingerprint_scale = 1.0
+            elif rep_val >= repulsion_only_threshold:
+                # Only repulsion matters (completely suppress fingerprint)
+                fingerprint_scale = 0.0
+            else:
+                # Sigmoid-like decay between effect_threshold and only_threshold
+                # Maps rep_val from [effect_threshold, only_threshold] to [1.0, 0.0]
+                t = (rep_val - repulsion_effect_threshold) / (repulsion_only_threshold - repulsion_effect_threshold)
+                # Use smooth sigmoid: scale = 1.0 / (1.0 + exp(5.0 * (t - 0.5)))
+                # This gives S-curve: stays near 1.0 until ~0.3, drops sharply, stays near 0.0 after ~0.7
+                sigmoid_t = 1.0 / (1.0 + torch.exp(torch.tensor(5.0 * (t - 0.5))))
+                fingerprint_scale = 1.0 - fingerprint_suppression_strength * (1.0 - sigmoid_t)
+                fingerprint_scale = float(fingerprint_scale)
+
+        # Apply scaling to fingerprint loss
+        scaled_fingerprint_weight = fingerprint_loss_weight * fingerprint_scale
+
+        # --- Augmented Lagrangian with normalized repulsion ---
         if use_augmented_lagrangian:
+            # Use normalized repulsion for the augmented Lagrangian terms
+            # This ensures consistent behavior regardless of system size
+
             return (
-                fingerprint_loss_weight * fingerprint_loss
+                scaled_fingerprint_weight * fingerprint_loss
                 + lambda_mult * repulsion_loss
                 + 0.5 * mu * (repulsion_loss ** 2)
-                + cell_violation_weight * cell_violation_loss
             )
         else:
+            # Fixed weighting (also normalized)
             return (
-                fingerprint_loss_weight * fingerprint_loss
+                scaled_fingerprint_weight * fingerprint_loss
                 + repulsion_weight * repulsion_loss
-                + cell_violation_weight * cell_violation_loss
             )

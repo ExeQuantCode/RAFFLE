@@ -611,6 +611,7 @@ class TorchGNNFingerprint(nn.Module):
         self,
         species_list: Sequence[str],
         bond_cutoff: float = 6.0,
+        bond_radii: dict[Tuple[str, str], float] = None,
         hidden_dim: int = 128,  # Now used as default/fallback
         hidden_dim_2body: Optional[int] = None,
         hidden_dim_3body: Optional[int] = None,
@@ -655,6 +656,11 @@ class TorchGNNFingerprint(nn.Module):
         self.reference_model = _generator_class.raffle_generator(
             seed=self.seed,
         )
+        if bond_radii is not None:
+            self.reference_model.distributions.bond_radii = bond_radii
+        else:
+            self.reference_model.distributions.set_default_bond_radii()
+        self.bond_radii = self.reference_model.distributions.get_bond_radii()
         self.nbins = self.reference_model.distributions.get_nbins()
 
         self.fingerprint_dim_2body = int(self.nbins[0] * self.num_pairs)

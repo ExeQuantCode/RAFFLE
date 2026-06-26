@@ -17,7 +17,8 @@ module raffle__distribs_container
   use raffle__element_utils, only: &
        element_type, element_bond_type, &
        element_database, element_bond_database
-  use raffle__distribs, only: distribs_base_type, distribs_type, get_distrib
+  use raffle__distribs, only: distribs_base_type, distribs_type, get_distrib, &
+       set_bond_radius_to_default
   use raffle__distribs_host, only: distribs_host_type
   implicit none
 
@@ -155,6 +156,8 @@ module raffle__distribs_container
      !! Update the bond information in the container.
      procedure, pass(this) :: set_bond_radius
      !! Set the radius of a bond in the container.
+     procedure, pass(this) :: set_default_bond_radii
+     !! Set the radii of all bonds in the container to the default values.
      procedure, pass(this) :: set_bond_radii
      !! Set the radii of multiple bonds in the container.
      procedure, pass(this) :: get_bond_radii
@@ -2213,6 +2216,49 @@ contains
     end do
 
   end subroutine set_bond_radii
+!###############################################################################
+
+
+!###############################################################################
+  subroutine set_default_bond_radii(this, elements)
+    !! Set the bond radii to the default values.
+    implicit none
+
+    ! Arguments
+    class(distribs_container_type), intent(inout) :: this
+    !! Parent of the procedure. Instance of distribution functions container.
+    character(len=3), dimension(:), intent(in) :: elements
+    !! Element names.
+
+    ! Local variables
+    integer :: i, j
+    !! Loop index.
+    character(len=3) :: element1, element2
+    !! Element names.
+
+    if(.not.allocated(element_bond_database))then
+      allocate(element_bond_database(0))
+    end if
+    do i = 1, size(elements)
+       element1 = strip_null(elements(i))
+       element2_loop: do j = i, size(elements)
+          element2 = strip_null(elements(j))
+          ! check if the pair is already in the database
+          do k = 1, size(element_bond_database)
+             if( ( &
+                  element_bond_database(k)%element(1) .eq. element1 .and. &
+                  element_bond_database(k)%element(2) .eq. element2 &
+             ) .or. ( &
+                  element_bond_database(k)%element(1) .eq. element2 .and. &
+                  element_bond_database(k)%element(2) .eq. element1 &
+             ) ) cycle element2_loop
+          end do
+          ! if not found, add to the database with default radius
+          call set_bond_radius_to_default( [ element1, element2 ] )
+       end do element2_loop
+    end do
+
+  end subroutine set_default_bond_radii
 !###############################################################################
 
 

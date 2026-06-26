@@ -883,6 +883,24 @@ subroutine f90wrap_raffle__dc__set_bond_radii__binding__dc_type( &
     call this_ptr%p%set_bond_radii(elements=elements, radii=radii)
 end subroutine f90wrap_raffle__dc__set_bond_radii__binding__dc_type
 
+subroutine f90wrap_raffle__dc__set_default_bond_radii__binding__dc_type( &
+     this, elements, n0, &
+)
+    use raffle__distribs_container, only: distribs_container_type
+    implicit none
+
+    type distribs_container_type_ptr_type
+        type(distribs_container_type), pointer :: p => NULL()
+    end type distribs_container_type_ptr_type
+    type(distribs_container_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    character(3), intent(in), dimension(n0) :: elements
+    integer :: n0
+    !f2py intent(hide), depend(elements) :: n0 = shape(elements,0)
+    this_ptr = transfer(this, this_ptr)
+    call this_ptr%p%set_default_bond_radii(elements=elements)
+end subroutine f90wrap_raffle__dc__set_default_bond_radii__binding__dc_type
+
 subroutine f90wrap_raffle__dc__get_bond_radii_staticmem__binding__dc_type( &
      this, elements, radii, n0 &
 )

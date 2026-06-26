@@ -1260,6 +1260,18 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             _raffle.f90wrap_raffle__dc__set_bond_radii__binding__dc_type(this=self._handle, \
                 elements=elements, radii=radii)
 
+        def set_default_bond_radii(self, elements):
+            """
+            Set the default bond radii for the distribution functions.
+
+            Parameters
+            ----------
+            elements : list
+                List of element symbols.
+            """
+            _raffle.f90wrap_raffle__dc__set_default_bond_radii__binding__dc_type(this=self._handle, \
+                elements=elements)
+
         def get_bond_radii(self):
             """
             Get the bond radii for the distribution functions.

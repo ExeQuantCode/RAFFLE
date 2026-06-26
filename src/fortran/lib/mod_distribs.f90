@@ -21,6 +21,7 @@ module raffle__distribs
   private
 
   public :: distribs_base_type, distribs_type, get_distrib
+  public :: set_bond_radius_to_default
 
 
   type :: distribs_base_type

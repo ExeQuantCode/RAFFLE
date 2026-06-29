@@ -288,32 +288,7 @@ subroutine f90wrap_topology_type__array__pair_cutoff_weight_4body(this, nd, dtyp
     end if
 end subroutine f90wrap_topology_type__array__pair_cutoff_weight_4body
 
-subroutine f90wrap_topology_type__array__angle_index(this, nd, dtype, dshape, dloc)
-    use raffle__graph_builder, only: topology_type
-    use, intrinsic :: iso_c_binding, only : c_int
-    implicit none
-    type topology_type_ptr_type
-        type(topology_type), pointer :: p => NULL()
-    end type topology_type_ptr_type
-    integer(c_int), intent(in) :: this(2)
-    type(topology_type_ptr_type) :: this_ptr
-    integer(c_int), intent(out) :: nd
-    integer(c_int), intent(out) :: dtype
-    integer(c_int), dimension(10), intent(out) :: dshape
-    integer*8, intent(out) :: dloc
-
-    nd = 2
-    dtype = 5
-    this_ptr = transfer(this, this_ptr)
-    if (allocated(this_ptr%p%angle_index)) then
-        dshape(1:2) = shape(this_ptr%p%angle_index)
-        dloc = loc(this_ptr%p%angle_index)
-    else
-        dloc = 0
-    end if
-end subroutine f90wrap_topology_type__array__angle_index
-
-subroutine f90wrap_topology_type__array__angle_species_index(this, nd, dtype, dshape, dloc)
+subroutine f90wrap_topology_type__array__triplet_species_index(this, nd, dtype, dshape, dloc)
     use raffle__graph_builder, only: topology_type
     use, intrinsic :: iso_c_binding, only : c_int
     implicit none
@@ -330,13 +305,13 @@ subroutine f90wrap_topology_type__array__angle_species_index(this, nd, dtype, ds
     nd = 1
     dtype = 5
     this_ptr = transfer(this, this_ptr)
-    if (allocated(this_ptr%p%angle_species_index)) then
-        dshape(1:1) = shape(this_ptr%p%angle_species_index)
-        dloc = loc(this_ptr%p%angle_species_index)
+    if (allocated(this_ptr%p%triplet_species_index)) then
+        dshape(1:1) = shape(this_ptr%p%triplet_species_index)
+        dloc = loc(this_ptr%p%triplet_species_index)
     else
         dloc = 0
     end if
-end subroutine f90wrap_topology_type__array__angle_species_index
+end subroutine f90wrap_topology_type__array__triplet_species_index
 
 subroutine f90wrap_topology_type__array__triplet_index(this, nd, dtype, dshape, dloc)
     use raffle__graph_builder, only: topology_type
@@ -519,34 +494,6 @@ subroutine f90wrap_topology_type__set__num_pairs(this, f90wrap_num_pairs)
     this_ptr%p%num_pairs = f90wrap_num_pairs
 end subroutine f90wrap_topology_type__set__num_pairs
 
-subroutine f90wrap_topology_type__get__num_angles(this, f90wrap_num_angles)
-    use raffle__graph_builder, only: topology_type
-    implicit none
-    type topology_type_ptr_type
-        type(topology_type), pointer :: p => NULL()
-    end type topology_type_ptr_type
-    integer, intent(in)   :: this(2)
-    type(topology_type_ptr_type) :: this_ptr
-    integer, intent(out) :: f90wrap_num_angles
-
-    this_ptr = transfer(this, this_ptr)
-    f90wrap_num_angles = this_ptr%p%num_angles
-end subroutine f90wrap_topology_type__get__num_angles
-
-subroutine f90wrap_topology_type__set__num_angles(this, f90wrap_num_angles)
-    use raffle__graph_builder, only: topology_type
-    implicit none
-    type topology_type_ptr_type
-        type(topology_type), pointer :: p => NULL()
-    end type topology_type_ptr_type
-    integer, intent(in)   :: this(2)
-    type(topology_type_ptr_type) :: this_ptr
-    integer, intent(in) :: f90wrap_num_angles
-
-    this_ptr = transfer(this, this_ptr)
-    this_ptr%p%num_angles = f90wrap_num_angles
-end subroutine f90wrap_topology_type__set__num_angles
-
 subroutine f90wrap_topology_type__get__num_triplets(this, f90wrap_num_triplets)
     use raffle__graph_builder, only: topology_type
     implicit none
@@ -629,7 +576,7 @@ subroutine f90wrap_raffle__graph_builder__topology_type_finalise(this)
     deallocate(this_ptr%p)
 end subroutine f90wrap_raffle__graph_builder__topology_type_finalise
 
-subroutine f90wrap_raffle__graph_builder__allocate_arrays__binding__toda88(this, num_atoms, num_pairs, num_angles, &
+subroutine f90wrap_raffle__graph_builder__allocate_arrays__binding__toda88(this, num_atoms, num_pairs, &
     num_triplets, num_quadruplets)
     use raffle__graph_builder, only: topology_type
     implicit none
@@ -641,11 +588,10 @@ subroutine f90wrap_raffle__graph_builder__allocate_arrays__binding__toda88(this,
     integer, intent(in), dimension(2) :: this
     integer, intent(in) :: num_atoms
     integer, intent(in) :: num_pairs
-    integer, intent(in) :: num_angles
     integer, intent(in) :: num_triplets
     integer, intent(in) :: num_quadruplets
     this_ptr = transfer(this, this_ptr)
-    call this_ptr%p%allocate_arrays(num_atoms=num_atoms, num_pairs=num_pairs, num_angles=num_angles, &
+    call this_ptr%p%allocate_arrays(num_atoms=num_atoms, num_pairs=num_pairs, &
         num_triplets=num_triplets, num_quadruplets=num_quadruplets)
 end subroutine f90wrap_raffle__graph_builder__allocate_arrays__binding__toda88
 
@@ -737,31 +683,6 @@ subroutine f90wrap_graph_tensors_type__array__pair_node_features(this, nd, dtype
     end if
 end subroutine f90wrap_graph_tensors_type__array__pair_node_features
 
-subroutine f90wrap_graph_tensors_type__array__triplet_node_features(this, nd, dtype, dshape, dloc)
-    use raffle__graph_builder, only: graph_tensors_type
-    use, intrinsic :: iso_c_binding, only : c_int
-    implicit none
-    type graph_tensors_type_ptr_type
-        type(graph_tensors_type), pointer :: p => NULL()
-    end type graph_tensors_type_ptr_type
-    integer(c_int), intent(in) :: this(2)
-    type(graph_tensors_type_ptr_type) :: this_ptr
-    integer(c_int), intent(out) :: nd
-    integer(c_int), intent(out) :: dtype
-    integer(c_int), dimension(10), intent(out) :: dshape
-    integer*8, intent(out) :: dloc
-
-    nd = 2
-    dtype = 11
-    this_ptr = transfer(this, this_ptr)
-    if (allocated(this_ptr%p%triplet_node_features)) then
-        dshape(1:2) = shape(this_ptr%p%triplet_node_features)
-        dloc = loc(this_ptr%p%triplet_node_features)
-    else
-        dloc = 0
-    end if
-end subroutine f90wrap_graph_tensors_type__array__triplet_node_features
-
 subroutine f90wrap_graph_tensors_type__array__atom_edge_index(this, nd, dtype, dshape, dloc)
     use raffle__graph_builder, only: graph_tensors_type
     use, intrinsic :: iso_c_binding, only : c_int
@@ -811,31 +732,6 @@ subroutine f90wrap_graph_tensors_type__array__pair_edge_index(this, nd, dtype, d
         dloc = 0
     end if
 end subroutine f90wrap_graph_tensors_type__array__pair_edge_index
-
-subroutine f90wrap_graph_tensors_type__array__triplet_edge_index(this, nd, dtype, dshape, dloc)
-    use raffle__graph_builder, only: graph_tensors_type
-    use, intrinsic :: iso_c_binding, only : c_int
-    implicit none
-    type graph_tensors_type_ptr_type
-        type(graph_tensors_type), pointer :: p => NULL()
-    end type graph_tensors_type_ptr_type
-    integer(c_int), intent(in) :: this(2)
-    type(graph_tensors_type_ptr_type) :: this_ptr
-    integer(c_int), intent(out) :: nd
-    integer(c_int), intent(out) :: dtype
-    integer(c_int), dimension(10), intent(out) :: dshape
-    integer*8, intent(out) :: dloc
-
-    nd = 2
-    dtype = 5
-    this_ptr = transfer(this, this_ptr)
-    if (allocated(this_ptr%p%triplet_edge_index)) then
-        dshape(1:2) = shape(this_ptr%p%triplet_edge_index)
-        dloc = loc(this_ptr%p%triplet_edge_index)
-    else
-        dloc = 0
-    end if
-end subroutine f90wrap_graph_tensors_type__array__triplet_edge_index
 
 subroutine f90wrap_graph_tensors_type__array__atom_edge_attr(this, nd, dtype, dshape, dloc)
     use raffle__graph_builder, only: graph_tensors_type
@@ -887,31 +783,6 @@ subroutine f90wrap_graph_tensors_type__array__pair_edge_attr(this, nd, dtype, ds
     end if
 end subroutine f90wrap_graph_tensors_type__array__pair_edge_attr
 
-subroutine f90wrap_graph_tensors_type__array__triplet_edge_attr(this, nd, dtype, dshape, dloc)
-    use raffle__graph_builder, only: graph_tensors_type
-    use, intrinsic :: iso_c_binding, only : c_int
-    implicit none
-    type graph_tensors_type_ptr_type
-        type(graph_tensors_type), pointer :: p => NULL()
-    end type graph_tensors_type_ptr_type
-    integer(c_int), intent(in) :: this(2)
-    type(graph_tensors_type_ptr_type) :: this_ptr
-    integer(c_int), intent(out) :: nd
-    integer(c_int), intent(out) :: dtype
-    integer(c_int), dimension(10), intent(out) :: dshape
-    integer*8, intent(out) :: dloc
-
-    nd = 2
-    dtype = 11
-    this_ptr = transfer(this, this_ptr)
-    if (allocated(this_ptr%p%triplet_edge_attr)) then
-        dshape(1:2) = shape(this_ptr%p%triplet_edge_attr)
-        dloc = loc(this_ptr%p%triplet_edge_attr)
-    else
-        dloc = 0
-    end if
-end subroutine f90wrap_graph_tensors_type__array__triplet_edge_attr
-
 subroutine f90wrap_graph_tensors_type__array__atom_edge_weight(this, nd, dtype, dshape, dloc)
     use raffle__graph_builder, only: graph_tensors_type
     use, intrinsic :: iso_c_binding, only : c_int
@@ -962,7 +833,32 @@ subroutine f90wrap_graph_tensors_type__array__pair_edge_weight(this, nd, dtype, 
     end if
 end subroutine f90wrap_graph_tensors_type__array__pair_edge_weight
 
-subroutine f90wrap_graph_tensors_type__array__triplet_edge_weight(this, nd, dtype, dshape, dloc)
+subroutine f90wrap_graph_tensors_type__array__hyperedge_index(this, nd, dtype, dshape, dloc)
+    use raffle__graph_builder, only: graph_tensors_type
+    use, intrinsic :: iso_c_binding, only : c_int
+    implicit none
+    type graph_tensors_type_ptr_type
+        type(graph_tensors_type), pointer :: p => NULL()
+    end type graph_tensors_type_ptr_type
+    integer(c_int), intent(in) :: this(2)
+    type(graph_tensors_type_ptr_type) :: this_ptr
+    integer(c_int), intent(out) :: nd
+    integer(c_int), intent(out) :: dtype
+    integer(c_int), dimension(10), intent(out) :: dshape
+    integer*8, intent(out) :: dloc
+
+    nd = 2
+    dtype = 5
+    this_ptr = transfer(this, this_ptr)
+    if (allocated(this_ptr%p%hyperedge_index)) then
+        dshape(1:2) = shape(this_ptr%p%hyperedge_index)
+        dloc = loc(this_ptr%p%hyperedge_index)
+    else
+        dloc = 0
+    end if
+end subroutine f90wrap_graph_tensors_type__array__hyperedge_index
+
+subroutine f90wrap_graph_tensors_type__array__hyperedge_weight(this, nd, dtype, dshape, dloc)
     use raffle__graph_builder, only: graph_tensors_type
     use, intrinsic :: iso_c_binding, only : c_int
     implicit none
@@ -979,40 +875,15 @@ subroutine f90wrap_graph_tensors_type__array__triplet_edge_weight(this, nd, dtyp
     nd = 1
     dtype = 11
     this_ptr = transfer(this, this_ptr)
-    if (allocated(this_ptr%p%triplet_edge_weight)) then
-        dshape(1:1) = shape(this_ptr%p%triplet_edge_weight)
-        dloc = loc(this_ptr%p%triplet_edge_weight)
+    if (allocated(this_ptr%p%hyperedge_weight)) then
+        dshape(1:1) = shape(this_ptr%p%hyperedge_weight)
+        dloc = loc(this_ptr%p%hyperedge_weight)
     else
         dloc = 0
     end if
-end subroutine f90wrap_graph_tensors_type__array__triplet_edge_weight
+end subroutine f90wrap_graph_tensors_type__array__hyperedge_weight
 
-subroutine f90wrap_graph_tensors_type__array__atom_base(this, nd, dtype, dshape, dloc)
-    use raffle__graph_builder, only: graph_tensors_type
-    use, intrinsic :: iso_c_binding, only : c_int
-    implicit none
-    type graph_tensors_type_ptr_type
-        type(graph_tensors_type), pointer :: p => NULL()
-    end type graph_tensors_type_ptr_type
-    integer(c_int), intent(in) :: this(2)
-    type(graph_tensors_type_ptr_type) :: this_ptr
-    integer(c_int), intent(out) :: nd
-    integer(c_int), intent(out) :: dtype
-    integer(c_int), dimension(10), intent(out) :: dshape
-    integer*8, intent(out) :: dloc
-
-    nd = 1
-    dtype = 11
-    this_ptr = transfer(this, this_ptr)
-    if (allocated(this_ptr%p%atom_base)) then
-        dshape(1:1) = shape(this_ptr%p%atom_base)
-        dloc = loc(this_ptr%p%atom_base)
-    else
-        dloc = 0
-    end if
-end subroutine f90wrap_graph_tensors_type__array__atom_base
-
-subroutine f90wrap_graph_tensors_type__array__pair_base(this, nd, dtype, dshape, dloc)
+subroutine f90wrap_graph_tensors_type__array__hyperedge_attr(this, nd, dtype, dshape, dloc)
     use raffle__graph_builder, only: graph_tensors_type
     use, intrinsic :: iso_c_binding, only : c_int
     implicit none
@@ -1029,38 +900,13 @@ subroutine f90wrap_graph_tensors_type__array__pair_base(this, nd, dtype, dshape,
     nd = 2
     dtype = 11
     this_ptr = transfer(this, this_ptr)
-    if (allocated(this_ptr%p%pair_base)) then
-        dshape(1:2) = shape(this_ptr%p%pair_base)
-        dloc = loc(this_ptr%p%pair_base)
+    if (allocated(this_ptr%p%hyperedge_attr)) then
+        dshape(1:2) = shape(this_ptr%p%hyperedge_attr)
+        dloc = loc(this_ptr%p%hyperedge_attr)
     else
         dloc = 0
     end if
-end subroutine f90wrap_graph_tensors_type__array__pair_base
-
-subroutine f90wrap_graph_tensors_type__array__triplet_base(this, nd, dtype, dshape, dloc)
-    use raffle__graph_builder, only: graph_tensors_type
-    use, intrinsic :: iso_c_binding, only : c_int
-    implicit none
-    type graph_tensors_type_ptr_type
-        type(graph_tensors_type), pointer :: p => NULL()
-    end type graph_tensors_type_ptr_type
-    integer(c_int), intent(in) :: this(2)
-    type(graph_tensors_type_ptr_type) :: this_ptr
-    integer(c_int), intent(out) :: nd
-    integer(c_int), intent(out) :: dtype
-    integer(c_int), dimension(10), intent(out) :: dshape
-    integer*8, intent(out) :: dloc
-
-    nd = 2
-    dtype = 11
-    this_ptr = transfer(this, this_ptr)
-    if (allocated(this_ptr%p%triplet_base)) then
-        dshape(1:2) = shape(this_ptr%p%triplet_base)
-        dloc = loc(this_ptr%p%triplet_base)
-    else
-        dloc = 0
-    end if
-end subroutine f90wrap_graph_tensors_type__array__triplet_base
+end subroutine f90wrap_graph_tensors_type__array__hyperedge_attr
 
 subroutine f90wrap_raffle__graph_builder__graph_tensors_type_initialise(this)
     use raffle__graph_builder, only: graph_tensors_type

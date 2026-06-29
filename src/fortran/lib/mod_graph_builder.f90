@@ -39,12 +39,6 @@ module raffle__graph_builder
      real(real32), dimension(:), allocatable :: pair_cutoff_weight_4body
      !! Cutoff weights for 4-body.
 
-     ! Angle data
-     integer, dimension(:,:), allocatable :: angle_index
-     !! Angle indices (pair_left, pair_right).
-     integer, dimension(:), allocatable :: angle_species_index
-     !! Species index for each angle.
-
      ! Triplet data
      integer, dimension(:,:), allocatable :: triplet_index
      !! Triplet indices (center_atom, species, triplet_id).
@@ -52,6 +46,8 @@ module raffle__graph_builder
      !! Pair IDs for each triplet.
      integer, dimension(:), allocatable :: triplet_center_index
      !! Center atom index for each triplet.
+     integer, dimension(:), allocatable :: triplet_species_index
+     !! Species index for each triplet.
 
      ! Quadruplet data
      integer, dimension(:,:), allocatable :: quadruplet_pair_ids
@@ -64,8 +60,6 @@ module raffle__graph_builder
      !! Number of atoms.
      integer :: num_pairs = 0
      !! Number of pairs.
-     integer :: num_angles = 0
-     !! Number of angles.
      integer :: num_triplets = 0
      !! Number of triplets.
      integer :: num_quadruplets = 0
@@ -74,12 +68,10 @@ module raffle__graph_builder
      procedure, pass(this) :: allocate_arrays
      procedure, pass(this) :: allocate_atoms
      procedure, pass(this) :: allocate_pairs
-     procedure, pass(this) :: allocate_angles
      procedure, pass(this) :: allocate_triplets
      procedure, pass(this) :: allocate_quadruplets
      procedure, pass(this) :: ensure_pair_capacity
      procedure, pass(this) :: resize_pairs
-     procedure, pass(this) :: resize_angles
      procedure, pass(this) :: resize_triplets
      procedure, pass(this) :: resize_quadruplets
      procedure, pass(this) :: trim_arrays   ! final trimming to actual counts
@@ -94,50 +86,38 @@ module raffle__graph_builder
      !! Atom node features.
      real(real32), dimension(:,:), allocatable :: pair_node_features
      !! Pair node features.
-     real(real32), dimension(:,:), allocatable :: triplet_node_features
-     !! Triplet node features.
 
      ! Edge data
      integer, dimension(:,:), allocatable :: atom_edge_index
      !! Atom edge indices.
      integer, dimension(:,:), allocatable :: pair_edge_index
      !! Pair edge indices.
-     integer, dimension(:,:), allocatable :: triplet_edge_index
-     !! Triplet edge indices.
 
      real(real32), dimension(:,:), allocatable :: atom_edge_attr
      !! Atom edge attributes.
      real(real32), dimension(:,:), allocatable :: pair_edge_attr
      !! Pair edge attributes.
-     real(real32), dimension(:,:), allocatable :: triplet_edge_attr
-     !! Triplet edge attributes.
 
      real(real32), dimension(:), allocatable :: atom_edge_weight
      !! Atom edge weights.
      real(real32), dimension(:), allocatable :: pair_edge_weight
      !! Pair edge weights.
-     real(real32), dimension(:), allocatable :: triplet_edge_weight
-     !! Triplet edge weights.
 
-     ! Base fingerprints
-     real(real32), dimension(:), allocatable :: atom_base
-     !! 2-body base fingerprint.
-     real(real32), dimension(:,:), allocatable :: pair_base
-     !! 3-body base fingerprint.
-     real(real32), dimension(:,:), allocatable :: triplet_base
-     !! 4-body base fingerprint.
+     integer, allocatable :: hyperedge_index(:,:)
+     real(real32), allocatable :: hyperedge_weight(:)
+     real(real32), allocatable :: hyperedge_attr(:,:)
   end type graph_tensors_type
 
 
 contains
 
 !###############################################################################
-  subroutine allocate_arrays(this, num_atoms, num_pairs, num_angles, &
+  subroutine allocate_arrays(this, num_atoms, num_pairs, &
        num_triplets, num_quadruplets)
     !! Allocate arrays for the topology type.
     implicit none
     class(topology_type), intent(inout) :: this
-    integer, intent(in), optional :: num_atoms, num_pairs, num_angles
+    integer, intent(in), optional :: num_atoms, num_pairs
     integer, intent(in), optional :: num_triplets, num_quadruplets
 
     if(present(num_atoms))then
@@ -146,10 +126,6 @@ contains
 
     if(present(num_pairs))then
        call this%allocate_pairs(num_pairs)
-    end if
-
-    if(present(num_angles))then
-       call this%allocate_angles(num_angles)
     end if
 
     if(present(num_triplets))then
@@ -186,15 +162,6 @@ contains
     allocate(this%pair_cutoff_weight_4body(num_pairs), source=0._real32)
   end subroutine allocate_pairs
 !-------------------------------------------------------------------------------
-  subroutine allocate_angles(this, num_angles)
-    implicit none
-    class(topology_type), intent(inout) :: this
-    integer, intent(in) :: num_angles
-    this%num_angles = num_angles
-    allocate(this%angle_index(num_angles, 2), source=0)
-    allocate(this%angle_species_index(num_angles), source=0)
-  end subroutine allocate_angles
-!-------------------------------------------------------------------------------
   subroutine allocate_triplets(this, num_triplets)
     implicit none
     class(topology_type), intent(inout) :: this
@@ -203,6 +170,7 @@ contains
     allocate(this%triplet_index(num_triplets, 3), source=0)
     allocate(this%triplet_pair_ids(num_triplets, 2), source=0)
     allocate(this%triplet_center_index(num_triplets), source=0)
+    allocate(this%triplet_species_index(num_triplets), source=0)
   end subroutine allocate_triplets
 !-------------------------------------------------------------------------------
   subroutine allocate_quadruplets(this, num_quadruplets)
@@ -340,42 +308,6 @@ contains
 
   end subroutine resize_pairs
 !-------------------------------------------------------------------------------
-  subroutine resize_angles(this, new_size)
-    implicit none
-    class(topology_type), intent(inout) :: this
-    integer, intent(in) :: new_size
-    integer :: old_size
-    integer, allocatable :: tmp_angle_index(:, :)
-    integer, allocatable :: tmp_angle_species_index(:)
-
-    if(allocated(this%angle_index)) then
-       old_size = size(this%angle_index, 1)
-       call move_alloc(this%angle_index, tmp_angle_index)
-       allocate(this%angle_index(new_size, 2))
-       if(old_size > 0) then
-          this%angle_index(1:min(old_size, new_size), :) = &
-               tmp_angle_index(1:min(old_size, new_size), :)
-       end if
-       deallocate(tmp_angle_index)
-    else
-       allocate(this%angle_index(new_size, 2))
-    end if
-
-    if(allocated(this%angle_species_index)) then
-       old_size = size(this%angle_species_index)
-       call move_alloc(this%angle_species_index, tmp_angle_species_index)
-       allocate(this%angle_species_index(new_size))
-       if(old_size > 0) then
-          this%angle_species_index(1:min(old_size, new_size)) = &
-               tmp_angle_species_index(1:min(old_size, new_size))
-       end if
-       deallocate(tmp_angle_species_index)
-    else
-       allocate(this%angle_species_index(new_size))
-    end if
-
-  end subroutine resize_angles
-!-------------------------------------------------------------------------------
   subroutine resize_triplets(this, new_size)
     implicit none
     class(topology_type), intent(inout) :: this
@@ -424,6 +356,19 @@ contains
        allocate(this%triplet_center_index(new_size))
     end if
 
+    if(allocated(this%triplet_species_index)) then
+       old_size = size(this%triplet_species_index)
+       call move_alloc(this%triplet_species_index, tmp_triplet_center_index)
+       allocate(this%triplet_species_index(new_size))
+       if(old_size > 0) then
+          this%triplet_species_index(1:min(old_size, new_size)) = &
+               tmp_triplet_center_index(1:min(old_size, new_size))
+       end if
+       deallocate(tmp_triplet_center_index)
+    else
+       allocate(this%triplet_species_index(new_size))
+    end if
+
   end subroutine resize_triplets
 !-------------------------------------------------------------------------------
   subroutine resize_quadruplets(this, new_size)
@@ -467,16 +412,13 @@ contains
 !###############################################################################
   subroutine trim_arrays(this)
     !! Trim **all** allocated arrays to the current `num_*` counters.
-    !! Assumes that `num_pairs`, `num_angles`, `num_triplets`, `num_quadruplets`
+    !! Assumes that `num_pairs`, `num_triplets`, `num_quadruplets`
     !! hold the exact used counts.
     implicit none
     class(topology_type), intent(inout) :: this
 
     if(this%num_pairs .gt. 0) then
        call this%resize_pairs(this%num_pairs)
-    end if
-    if(this%num_angles .gt. 0) then
-       call this%resize_angles(this%num_angles)
     end if
     if(this%num_triplets .gt. 0) then
        call this%resize_triplets(this%num_triplets)

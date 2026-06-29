@@ -1662,11 +1662,11 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
 
         def accumulate_gradients( \
                 self, topology, cell, positions, \
-                grad_atom_features, grad_pair_features, grad_triplet_features \
+                grad_atom_features, grad_pair_features \
         ):
             """
             accumulate_gradients(self, topology, cell, positions, species_one_hot, \
-                grad_atom_features, grad_pair_features, grad_triplet_features, \
+                grad_atom_features, grad_pair_features, \
                 grad_positions, grad_species)
 
             Parameters
@@ -1676,7 +1676,6 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             positions : float array
             grad_atom_features : float array
             grad_pair_features : float array
-            grad_triplet_features : float array
             grad_positions : float array
             grad_species : float array
 
@@ -1697,7 +1696,6 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
                     positions=positions, cell=cell, \
                     grad_atom_features=grad_atom_features, \
                     grad_pair_features=grad_pair_features, \
-                    grad_triplet_features=grad_triplet_features, \
                     grad_positions=grad_positions, \
                     grad_species=grad_species, \
                     ierr=ierr \

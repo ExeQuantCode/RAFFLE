@@ -1414,10 +1414,10 @@ end subroutine f90wrap_raffle__dc__build_graph_tensors
 
 subroutine f90wrap_raffle__dc__accumulate_graph_gradients( &
     this, topology, cell, positions, &
-    grad_atom_features, grad_pair_features, grad_triplet_features, &
+    grad_atom_features, grad_pair_features, &
     grad_positions, grad_species, &
     ierr, &
-    n0, n1, n2, n3, n4, n5, n6)
+    n0, n1, n2, n3, n4)
 
     use raffle__distribs_container, only: distribs_container_type
     use raffle__graph_builder, only: topology_type
@@ -1441,9 +1441,8 @@ subroutine f90wrap_raffle__dc__accumulate_graph_gradients( &
     real(4), intent(in), dimension(n0,3) :: positions
     real(4), intent(in), dimension(n0, n1) :: grad_atom_features
     real(4), intent(in), dimension(n2, n3) :: grad_pair_features
-    real(4), intent(in), dimension(n4, n5) :: grad_triplet_features
     real(4), intent(inout), dimension(n0,3) :: grad_positions
-    real(4), intent(inout), dimension(n0,n6) :: grad_species
+    real(4), intent(inout), dimension(n0,n4) :: grad_species
     integer, intent(inout) :: ierr
 
     ! Array dimensions (inferred from input arrays)
@@ -1456,11 +1455,7 @@ subroutine f90wrap_raffle__dc__accumulate_graph_gradients( &
     integer :: n3
     !f2py intent(hide), depend(grad_pair_features) :: n3 = shape(grad_pair_features,1)
     integer :: n4
-    !f2py intent(hide), depend(grad_triplet_features) :: n4 = shape(grad_triplet_features,0)
-    integer :: n5
-    !f2py intent(hide), depend(grad_triplet_features) :: n5 = shape(grad_triplet_features,1)
-    integer :: n6
-    !f2py intent(hide), depend(grad_species) :: n6 = shape(grad_species,1)
+    !f2py intent(hide), depend(grad_species) :: n4 = shape(grad_species,1)
 
     ! Local variables
     type(topology_type), pointer :: top_ptr
@@ -1476,7 +1471,6 @@ subroutine f90wrap_raffle__dc__accumulate_graph_gradients( &
         positions=positions, &
         grad_atom_features=grad_atom_features, &
         grad_pair_features=grad_pair_features, &
-        grad_triplet_features=grad_triplet_features, &
         grad_positions=grad_positions, &
         grad_species=grad_species, &
         ierr=ierr &

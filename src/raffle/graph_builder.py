@@ -45,10 +45,10 @@ class Graph_Builder(f90wrap.runtime.FortranModule):
             if self._alloc:
                 _raffle.f90wrap_raffle__graph_builder__topology_type_finalise(this=self._handle)
 
-        def allocate_arrays(self, num_atoms, num_pairs, num_angles, num_triplets, \
+        def allocate_arrays(self, num_atoms, num_pairs, num_triplets, \
             num_quadruplets):
             """
-            allocate_arrays__binding__topology_type(self, num_atoms, num_pairs, num_angles, \
+            allocate_arrays__binding__topology_type(self, num_atoms, num_pairs, \
                 num_triplets, num_quadruplets)
 
             Parameters
@@ -56,13 +56,12 @@ class Graph_Builder(f90wrap.runtime.FortranModule):
             this : Topology_Type
             num_atoms : int
             num_pairs : int
-            num_angles : int
             num_triplets : int
             num_quadruplets : int
 
             """
             _raffle.f90wrap_raffle__graph_builder__allocate_arrays__binding__toda88(this=self._handle, \
-                num_atoms=num_atoms, num_pairs=num_pairs, num_angles=num_angles, \
+                num_atoms=num_atoms, num_pairs=num_pairs, \
                 num_triplets=num_triplets, num_quadruplets=num_quadruplets)
 
         def finalize(self):
@@ -278,45 +277,25 @@ class Graph_Builder(f90wrap.runtime.FortranModule):
             self.pair_cutoff_weight_4body[...] = pair_cutoff_weight_4body
 
         @property
-        def angle_index(self):
+        def triplet_species_index(self):
             """
-            Element angle_index ftype=integer pytype=int
-            """
-            array_ndim, array_type, array_shape, array_handle = \
-                _raffle.f90wrap_topology_type__array__angle_index(self._handle)
-            if array_handle in self._arrays:
-                angle_index = self._arrays[array_handle]
-            else:
-                angle_index = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
-                                        self._handle,
-                                        _raffle.f90wrap_topology_type__array__angle_index)
-                self._arrays[array_handle] = angle_index
-            return angle_index
-
-        @angle_index.setter
-        def angle_index(self, angle_index):
-            self.angle_index[...] = angle_index
-
-        @property
-        def angle_species_index(self):
-            """
-            Element angle_species_index ftype=integer pytype=int
+            Element triplet_species_index ftype=integer pytype=int
             """
             array_ndim, array_type, array_shape, array_handle = \
-                _raffle.f90wrap_topology_type__array__angle_species_index(self._handle)
+                _raffle.f90wrap_topology_type__array__triplet_species_index(self._handle)
             if array_handle in self._arrays:
-                angle_species_index = self._arrays[array_handle]
+                triplet_species_index = self._arrays[array_handle]
             else:
-                angle_species_index = \
+                triplet_species_index = \
                     f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
                                         self._handle,
-                                        _raffle.f90wrap_topology_type__array__angle_species_index)
-                self._arrays[array_handle] = angle_species_index
-            return angle_species_index
+                                        _raffle.f90wrap_topology_type__array__triplet_species_index)
+                self._arrays[array_handle] = triplet_species_index
+            return triplet_species_index
 
-        @angle_species_index.setter
-        def angle_species_index(self, angle_species_index):
-            self.angle_species_index[...] = angle_species_index
+        @triplet_species_index.setter
+        def triplet_species_index(self, triplet_species_index):
+            self.triplet_species_index[...] = triplet_species_index
 
         @property
         def triplet_index(self):
@@ -448,19 +427,6 @@ class Graph_Builder(f90wrap.runtime.FortranModule):
                 num_pairs)
 
         @property
-        def num_angles(self):
-            """
-            Element num_angles ftype=integer  pytype=int
-            """
-            return \
-                _raffle.f90wrap_topology_type__get__num_angles(self._handle)
-
-        @num_angles.setter
-        def num_angles(self, num_angles):
-            _raffle.f90wrap_topology_type__set__num_angles(self._handle, \
-                num_angles)
-
-        @property
         def num_triplets(self):
             """
             Element num_triplets ftype=integer  pytype=int
@@ -508,10 +474,6 @@ class Graph_Builder(f90wrap.runtime.FortranModule):
             ret.append(repr(self.pair_cutoff_weight_3body))
             ret.append(',\n    pair_cutoff_weight_4body : ')
             ret.append(repr(self.pair_cutoff_weight_4body))
-            ret.append(',\n    angle_index : ')
-            ret.append(repr(self.angle_index))
-            ret.append(',\n    angle_species_index : ')
-            ret.append(repr(self.angle_species_index))
             ret.append(',\n    triplet_index : ')
             ret.append(repr(self.triplet_index))
             ret.append(',\n    triplet_pair_ids : ')
@@ -526,8 +488,6 @@ class Graph_Builder(f90wrap.runtime.FortranModule):
             ret.append(repr(self.num_atoms))
             ret.append(',\n    num_pairs : ')
             ret.append(repr(self.num_pairs))
-            ret.append(',\n    num_angles : ')
-            ret.append(repr(self.num_angles))
             ret.append(',\n    num_triplets : ')
             ret.append(repr(self.num_triplets))
             ret.append(',\n    num_quadruplets : ')
@@ -636,27 +596,6 @@ class Graph_Builder(f90wrap.runtime.FortranModule):
             self.pair_node_features[...] = pair_node_features
 
         @property
-        def triplet_node_features(self):
-            """
-            Element triplet_node_features ftype=real(real32) pytype=float
-            """
-            array_ndim, array_type, array_shape, array_handle = \
-                _raffle.f90wrap_graph_tensors_type__array__triplet_node_features(self._handle)
-            if array_handle in self._arrays:
-                triplet_node_features = self._arrays[array_handle]
-            else:
-                triplet_node_features = \
-                    f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
-                                        self._handle,
-                                        _raffle.f90wrap_graph_tensors_type__array__triplet_node_features)
-                self._arrays[array_handle] = triplet_node_features
-            return triplet_node_features
-
-        @triplet_node_features.setter
-        def triplet_node_features(self, triplet_node_features):
-            self.triplet_node_features[...] = triplet_node_features
-
-        @property
         def atom_edge_index(self):
             """
             Element atom_edge_index ftype=integer pytype=int
@@ -695,26 +634,6 @@ class Graph_Builder(f90wrap.runtime.FortranModule):
         @pair_edge_index.setter
         def pair_edge_index(self, pair_edge_index):
             self.pair_edge_index[...] = pair_edge_index
-
-        @property
-        def triplet_edge_index(self):
-            """
-            Element triplet_edge_index ftype=integer pytype=int
-            """
-            array_ndim, array_type, array_shape, array_handle = \
-                _raffle.f90wrap_graph_tensors_type__array__triplet_edge_index(self._handle)
-            if array_handle in self._arrays:
-                triplet_edge_index = self._arrays[array_handle]
-            else:
-                triplet_edge_index = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
-                                        self._handle,
-                                        _raffle.f90wrap_graph_tensors_type__array__triplet_edge_index)
-                self._arrays[array_handle] = triplet_edge_index
-            return triplet_edge_index
-
-        @triplet_edge_index.setter
-        def triplet_edge_index(self, triplet_edge_index):
-            self.triplet_edge_index[...] = triplet_edge_index
 
         @property
         def atom_edge_attr(self):
@@ -757,26 +676,6 @@ class Graph_Builder(f90wrap.runtime.FortranModule):
             self.pair_edge_attr[...] = pair_edge_attr
 
         @property
-        def triplet_edge_attr(self):
-            """
-            Element triplet_edge_attr ftype=real(real32) pytype=float
-            """
-            array_ndim, array_type, array_shape, array_handle = \
-                _raffle.f90wrap_graph_tensors_type__array__triplet_edge_attr(self._handle)
-            if array_handle in self._arrays:
-                triplet_edge_attr = self._arrays[array_handle]
-            else:
-                triplet_edge_attr = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
-                                        self._handle,
-                                        _raffle.f90wrap_graph_tensors_type__array__triplet_edge_attr)
-                self._arrays[array_handle] = triplet_edge_attr
-            return triplet_edge_attr
-
-        @triplet_edge_attr.setter
-        def triplet_edge_attr(self, triplet_edge_attr):
-            self.triplet_edge_attr[...] = triplet_edge_attr
-
-        @property
         def atom_edge_weight(self):
             """
             Element atom_edge_weight ftype=real(real32) pytype=float
@@ -817,85 +716,64 @@ class Graph_Builder(f90wrap.runtime.FortranModule):
             self.pair_edge_weight[...] = pair_edge_weight
 
         @property
-        def triplet_edge_weight(self):
+        def hyperedge_index(self):
             """
-            Element triplet_edge_weight ftype=real(real32) pytype=float
+            Element hyperedge_index ftype=integer pytype=int
             """
             array_ndim, array_type, array_shape, array_handle = \
-                _raffle.f90wrap_graph_tensors_type__array__triplet_edge_weight(self._handle)
+                _raffle.f90wrap_graph_tensors_type__array__hyperedge_index(self._handle)
             if array_handle in self._arrays:
-                triplet_edge_weight = self._arrays[array_handle]
+                hyperedge_index = self._arrays[array_handle]
             else:
-                triplet_edge_weight = \
-                    f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                hyperedge_index = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
                                         self._handle,
-                                        _raffle.f90wrap_graph_tensors_type__array__triplet_edge_weight)
-                self._arrays[array_handle] = triplet_edge_weight
-            return triplet_edge_weight
+                                        _raffle.f90wrap_graph_tensors_type__array__hyperedge_index)
+                self._arrays[array_handle] = hyperedge_index
+            return hyperedge_index
 
-        @triplet_edge_weight.setter
-        def triplet_edge_weight(self, triplet_edge_weight):
-            self.triplet_edge_weight[...] = triplet_edge_weight
+        @hyperedge_index.setter
+        def hyperedge_index(self, hyperedge_index):
+            self.hyperedge_index[...] = hyperedge_index
 
         @property
-        def atom_base(self):
+        def hyperedge_weight(self):
             """
-            Element atom_base ftype=real(real32) pytype=float
+            Element hyperedge_weight ftype=real(real32) pytype=float
             """
             array_ndim, array_type, array_shape, array_handle = \
-                _raffle.f90wrap_graph_tensors_type__array__atom_base(self._handle)
+                _raffle.f90wrap_graph_tensors_type__array__hyperedge_weight(self._handle)
             if array_handle in self._arrays:
-                atom_base = self._arrays[array_handle]
+                hyperedge_weight = self._arrays[array_handle]
             else:
-                atom_base = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                hyperedge_weight = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
                                         self._handle,
-                                        _raffle.f90wrap_graph_tensors_type__array__atom_base)
-                self._arrays[array_handle] = atom_base
-            return atom_base
+                                        _raffle.f90wrap_graph_tensors_type__array__hyperedge_weight)
+                self._arrays[array_handle] = hyperedge_weight
+            return hyperedge_weight
 
-        @atom_base.setter
-        def atom_base(self, atom_base):
-            self.atom_base[...] = atom_base
+        @hyperedge_weight.setter
+        def hyperedge_weight(self, hyperedge_weight):
+            self.hyperedge_weight[...] = hyperedge_weight
 
         @property
-        def pair_base(self):
+        def hyperedge_attr(self):
             """
-            Element pair_base ftype=real(real32) pytype=float
-            """
-            array_ndim, array_type, array_shape, array_handle = \
-                _raffle.f90wrap_graph_tensors_type__array__pair_base(self._handle)
-            if array_handle in self._arrays:
-                pair_base = self._arrays[array_handle]
-            else:
-                pair_base = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
-                                        self._handle,
-                                        _raffle.f90wrap_graph_tensors_type__array__pair_base)
-                self._arrays[array_handle] = pair_base
-            return pair_base
-
-        @pair_base.setter
-        def pair_base(self, pair_base):
-            self.pair_base[...] = pair_base
-
-        @property
-        def triplet_base(self):
-            """
-            Element triplet_base ftype=real(real32) pytype=float
+            Element hyperedge_attr ftype=real(real32) pytype=float
             """
             array_ndim, array_type, array_shape, array_handle = \
-                _raffle.f90wrap_graph_tensors_type__array__triplet_base(self._handle)
+                _raffle.f90wrap_graph_tensors_type__array__hyperedge_attr(self._handle)
             if array_handle in self._arrays:
-                triplet_base = self._arrays[array_handle]
+                hyperedge_attr = self._arrays[array_handle]
             else:
-                triplet_base = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                hyperedge_attr = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
                                         self._handle,
-                                        _raffle.f90wrap_graph_tensors_type__array__triplet_base)
-                self._arrays[array_handle] = triplet_base
-            return triplet_base
+                                        _raffle.f90wrap_graph_tensors_type__array__hyperedge_attr)
+                self._arrays[array_handle] = hyperedge_attr
+            return hyperedge_attr
 
-        @triplet_base.setter
-        def triplet_base(self, triplet_base):
-            self.triplet_base[...] = triplet_base
+        @hyperedge_attr.setter
+        def hyperedge_attr(self, hyperedge_attr):
+            self.hyperedge_attr[...] = hyperedge_attr
 
         def __str__(self):
             ret = ['<graph_tensors>{\n']
@@ -905,32 +783,24 @@ class Graph_Builder(f90wrap.runtime.FortranModule):
             ret.append(repr(self.atom_node_features))
             ret.append(',\n    pair_node_features : ')
             ret.append(repr(self.pair_node_features))
-            ret.append(',\n    triplet_node_features : ')
-            ret.append(repr(self.triplet_node_features))
             ret.append(',\n    atom_edge_index : ')
             ret.append(repr(self.atom_edge_index))
             ret.append(',\n    pair_edge_index : ')
             ret.append(repr(self.pair_edge_index))
-            ret.append(',\n    triplet_edge_index : ')
-            ret.append(repr(self.triplet_edge_index))
             ret.append(',\n    atom_edge_attr : ')
             ret.append(repr(self.atom_edge_attr))
             ret.append(',\n    pair_edge_attr : ')
             ret.append(repr(self.pair_edge_attr))
-            ret.append(',\n    triplet_edge_attr : ')
-            ret.append(repr(self.triplet_edge_attr))
             ret.append(',\n    atom_edge_weight : ')
             ret.append(repr(self.atom_edge_weight))
             ret.append(',\n    pair_edge_weight : ')
             ret.append(repr(self.pair_edge_weight))
-            ret.append(',\n    triplet_edge_weight : ')
-            ret.append(repr(self.triplet_edge_weight))
-            ret.append(',\n    atom_base : ')
-            ret.append(repr(self.atom_base))
-            ret.append(',\n    pair_base : ')
-            ret.append(repr(self.pair_base))
-            ret.append(',\n    triplet_base : ')
-            ret.append(repr(self.triplet_base))
+            ret.append(',\n    hyperedge_index : ')
+            ret.append(repr(self.hyperedge_index))
+            ret.append(',\n    hyperedge_weight : ')
+            ret.append(repr(self.hyperedge_weight))
+            ret.append(',\n    hyperedge_attr : ')
+            ret.append(repr(self.hyperedge_attr))
             ret.append('}')
             return ''.join(ret)
 

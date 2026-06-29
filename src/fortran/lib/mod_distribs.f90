@@ -21,7 +21,7 @@ module raffle__distribs
   private
 
   public :: distribs_base_type, distribs_type, get_distrib
-  public :: set_bond_radius_to_default
+  public :: set_bond_radius_to_default, get_shell_weight
 
 
   type :: distribs_base_type
@@ -128,6 +128,24 @@ contains
     )
 
   end subroutine set_bond_radius_to_default
+!###############################################################################
+
+
+!###############################################################################
+  function get_shell_weight(distance, tol_low, tol_high) result(weight)
+    !! Calculate the shell weight for a given distance and tolerances.
+    implicit none
+    real(real32), intent(in) :: distance, tol_low, tol_high
+    real(real32) :: weight
+
+    if(distance .lt. tol_low .or. distance .gt. tol_high) then
+       weight = 0._real32
+    else
+       weight = -0.5_real32 * &
+            ( cos(tau * (distance - tol_low) / (tol_high - tol_low)) - 1._real32 )
+    end if
+
+  end function get_shell_weight
 !###############################################################################
 
 
@@ -360,13 +378,7 @@ contains
                       ) = vector
                       neighbour_basis%spec(1)%atom( &
                            neighbour_basis%spec(1)%num,4 &
-                      ) = -0.5_real32 * ( &
-                           cos( tau * ( bondlength - tolerances(1) ) / &
-                                ( &
-                                     min(cutoff_max_(1), tolerances(2)) - &
-                                     tolerances(1) &
-                                ) &
-                           ) - 1._real32 )
+                      ) = get_shell_weight(bondlength, tolerances(1), tolerances(2))
                    end if
 
                    ! add 2-body bond to store if within tolerances for 4-body
@@ -382,13 +394,7 @@ contains
                       ) = vector
                       neighbour_basis%image_spec(1)%atom( &
                            neighbour_basis%image_spec(1)%num,4 &
-                      ) = -0.5_real32 * ( &
-                           cos( tau * ( bondlength - tolerances(3) ) / &
-                                ( &
-                                     min(cutoff_max_(1), tolerances(4)) - &
-                                     tolerances(3) &
-                                ) &
-                           ) - 1._real32 )
+                      ) = get_shell_weight(bondlength, tolerances(3), tolerances(4))
                    end if
 
                    !if(js.lt.js.or.(is.eq.js.and.ja.le.ia)) cycle
@@ -431,13 +437,7 @@ contains
                       ) = vector
                       neighbour_basis%spec(1)%atom( &
                            neighbour_basis%spec(1)%num,4 &
-                      ) = -0.5_real32 * ( &
-                           cos( tau * ( bondlength - tolerances(1) ) / &
-                                ( &
-                                     min(cutoff_max_(1), tolerances(2)) - &
-                                     tolerances(1) &
-                                ) &
-                           ) - 1._real32 )
+                      ) = get_shell_weight(bondlength, tolerances(1), tolerances(2))
                    end if
 
                    ! add 2-body bond to store if within tolerances for 4-body
@@ -453,13 +453,7 @@ contains
                       ) = vector
                       neighbour_basis%image_spec(1)%atom( &
                            neighbour_basis%image_spec(1)%num,4 &
-                      ) = -0.5_real32 * ( &
-                           cos( tau * ( bondlength - tolerances(3) ) / &
-                                ( &
-                                     min(cutoff_max_(1), tolerances(4)) - &
-                                     tolerances(3) &
-                                ) &
-                           ) - 1._real32 )
+                      ) = get_shell_weight(bondlength, tolerances(3), tolerances(4))
                    end if
 
                    itmp1 = itmp1 + 1

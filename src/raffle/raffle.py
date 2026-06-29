@@ -1292,8 +1292,6 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
 
             _raffle.f90wrap_raffle__dc__get_bond_radii_staticmem__binding__dc_type(this=self._handle, \
                 elements=elements, radii=radii)
-            # _raffle.f90wrap_raffle__dc__get_bond_radii_staticmem__binding__dc_type(this=self._handle, \
-            #     elements=elements, energies=energies)
 
             # convert the fortran array to a python dictionary
             bond_radii = {}
@@ -1598,6 +1596,117 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             output_3body = output_3body.flatten(order='F')
             output_4body = output_4body.flatten(order='F')
             return [output_2body, output_3body, output_4body]
+
+        def build_topology(self,
+                           symbols,
+                           positions: numpy.ndarray,
+                           cell: numpy.ndarray,
+                           pbc: list[bool] = [True, True, True]
+        ):
+            """
+            topology, bond_cutoff = build_topology(symbols, positions, cell, pbc)
+
+            Parameters
+            ----------
+            symbols : str array
+            positions : float array
+            cell : float array
+            pbc : bool array
+
+            Returns
+            -------
+            topology : Topology_Type
+            bond_cutoff : float
+
+            ---------------------------------------------------------------------------
+            Build pairs
+            ---------------------------------------------------------------------------
+            """
+            topology = \
+                _raffle.f90wrap_raffle__dc__build_topology(
+                    this=self._handle, \
+                    symbols=symbols, \
+                positions=positions, cell=cell, pbc=pbc)
+            topology = \
+                f90wrap.runtime.lookup_class("raffle.topology").from_handle(topology, \
+                alloc=True)
+            return topology
+
+        def build_graph_tensors(self, topology, positions, cell, pbc, species_probabilities: numpy.ndarray | None = None):
+            """
+            graph_tensors = build_graph_tensors(self, positions, cell, pbc, num_species, \
+                bond_cutoff, fp_dim_2body, fp_dim_3body, fp_dim_4body)
+
+            Parameters
+            ----------
+            topology : Topology_Type
+            positions : float array
+            cell : float array
+            pbc : bool array
+            species_probabilities : float array
+
+            Returns
+            -------
+            graph_tensors : Graph_Tensors_Type
+
+            """
+            graph_tensors = _raffle.f90wrap_raffle__dc__build_graph_tensors(
+                    this=self._handle, \
+                    topology=topology._handle, \
+                    positions=positions, cell=cell, pbc=pbc, species_probabilities=species_probabilities \
+            )
+            graph_tensors = \
+                f90wrap.runtime.lookup_class("raffle.graph_tensors").from_handle(graph_tensors, \
+                alloc=True)
+            return graph_tensors
+
+        def accumulate_gradients( \
+                self, topology, cell, positions, \
+                grad_atom_features, grad_pair_features, grad_triplet_features \
+        ):
+            """
+            accumulate_gradients(self, topology, cell, positions, species_one_hot, \
+                grad_atom_features, grad_pair_features, grad_triplet_features, \
+                grad_positions, grad_species)
+
+            Parameters
+            ----------
+            topology : Topology_Type
+            cell : float array
+            positions : float array
+            grad_atom_features : float array
+            grad_pair_features : float array
+            grad_triplet_features : float array
+            grad_positions : float array
+            grad_species : float array
+
+            Returns
+            -------
+
+            """
+            # set ierr as a scalar integer
+            ierr = numpy.zeros((1,), dtype=numpy.int32)
+            num_species = _raffle.f90wrap_raffle__dc__get_num_species__dc_type(this=self._handle)
+            num_atoms = positions.shape[0]
+            grad_positions = numpy.asfortranarray(numpy.zeros((num_atoms, 3), dtype=numpy.float32))
+            grad_species = numpy.asfortranarray(numpy.zeros((num_atoms, num_species), dtype=numpy.float32))
+
+            _raffle.f90wrap_raffle__dc__accumulate_graph_gradients(
+                    this=self._handle, \
+                    topology=topology._handle, \
+                    positions=positions, cell=cell, \
+                    grad_atom_features=grad_atom_features, \
+                    grad_pair_features=grad_pair_features, \
+                    grad_triplet_features=grad_triplet_features, \
+                    grad_positions=grad_positions, \
+                    grad_species=grad_species, \
+                    ierr=ierr \
+            )
+
+            return grad_positions, grad_species
+
+
+        _dt_array_initialisers = []
 
         @property
         def iteration(self):

@@ -92,6 +92,7 @@ set(LIB_FILES
 
 set(SPECIAL_LIB_FILES
 	mod_geom_rw.f90
+    mod_graph_builder.f90
 	mod_distribs_container.f90
 	mod_generator.f90
 )
@@ -401,6 +402,7 @@ if (BUILD_PYTHON)
 
     # Generate f90wrap signature file
     set(F90WRAP_FILE
+        ${CMAKE_CURRENT_LIST_DIR}/src/wrapper/f90wrap_mod_graph_builder.f90
         ${CMAKE_CURRENT_LIST_DIR}/src/wrapper/f90wrap_mod_distribs_container.f90
         ${CMAKE_CURRENT_LIST_DIR}/src/wrapper/f90wrap_mod_generator.f90
         ${CMAKE_CURRENT_LIST_DIR}/src/wrapper/f90wrap_mod_geom_rw.f90

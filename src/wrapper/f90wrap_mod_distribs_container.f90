@@ -884,7 +884,7 @@ subroutine f90wrap_raffle__dc__set_bond_radii__binding__dc_type( &
 end subroutine f90wrap_raffle__dc__set_bond_radii__binding__dc_type
 
 subroutine f90wrap_raffle__dc__set_default_bond_radii__binding__dc_type( &
-     this, elements, n0, &
+     this, elements, n0 &
 )
     use raffle__distribs_container, only: distribs_container_type
     implicit none
@@ -1336,6 +1336,152 @@ subroutine f90wrap_raffle__dc__get_num_pairs__dc_type( &
     this_ptr = transfer(this, this_ptr)
     ret_num_pairs = size(this_ptr%p%bond_info, dim = 1)
 end subroutine f90wrap_raffle__dc__get_num_pairs__dc_type
+!###############################################################################
+
+
+!###############################################################################
+! build topology and graph tensors
+!###############################################################################
+subroutine f90wrap_raffle__dc__build_topology(this, symbols, positions, cell, pbc, &
+    topology, n0)
+    use raffle__distribs_container, only: distribs_container_type
+    use raffle__graph_builder, only: topology_type
+    implicit none
+
+    type distribs_container_type_ptr_type
+        type(distribs_container_type), pointer :: p => NULL()
+    end type distribs_container_type_ptr_type
+    type topology_type_ptr_type
+        type(topology_type), pointer :: p => NULL()
+    end type topology_type_ptr_type
+    type(distribs_container_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    character(3), intent(in), dimension(n0) :: symbols
+    real(4), intent(in), dimension(n0,3) :: positions
+    real(4), intent(in), dimension(3,3) :: cell
+    logical, intent(in), dimension(3) :: pbc
+    type(topology_type_ptr_type) :: topology_ptr
+    integer, intent(out), dimension(2) :: topology
+    integer :: n0
+    !f2py intent(hide), depend(symbols) :: n0 = shape(symbols,0)
+    this_ptr = transfer(this, this_ptr)
+    allocate(topology_ptr%p)
+    call this_ptr%p%build_topology( &
+        symbols=symbols, positions=positions, cell=cell, pbc=pbc, &
+        topology=topology_ptr%p)
+    topology = transfer(topology_ptr, topology)
+end subroutine f90wrap_raffle__dc__build_topology
+
+subroutine f90wrap_raffle__dc__build_graph_tensors( &
+    this, topology, positions, cell, pbc, species_probabilities, &
+    graph_tensors, n0, n1)
+    use raffle__distribs_container, only: distribs_container_type
+    use raffle__graph_builder, only: topology_type, graph_tensors_type
+    implicit none
+
+    type distribs_container_type_ptr_type
+        type(distribs_container_type), pointer :: p => NULL()
+    end type distribs_container_type_ptr_type
+    type topology_type_ptr_type
+        type(topology_type), pointer :: p => NULL()
+    end type topology_type_ptr_type
+    type graph_tensors_type_ptr_type
+        type(graph_tensors_type), pointer :: p => NULL()
+    end type graph_tensors_type_ptr_type
+    type(distribs_container_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+    type(topology_type_ptr_type) :: topology_ptr
+    integer, intent(in), dimension(2) :: topology
+    real(4), intent(in), dimension(n0,3) :: positions
+    real(4), intent(in), dimension(3,3) :: cell
+    logical, intent(in), dimension(3) :: pbc
+    real(4), intent(in), dimension(n0, n1), optional :: species_probabilities
+    type(graph_tensors_type_ptr_type) :: graph_tensors_ptr
+    integer, intent(out), dimension(2) :: graph_tensors
+    integer :: n0
+    !f2py intent(hide), depend(positions) :: n0 = shape(positions,0)
+    integer :: n1
+    !f2py intent(hide), depend(species_probabilities) :: n1 = shape(species_probabilities,1)
+    this_ptr = transfer(this, this_ptr)
+    topology_ptr = transfer(topology, topology_ptr)
+    allocate(graph_tensors_ptr%p)
+    call this_ptr%p%build_graph_tensors( &
+        topology=topology_ptr%p, positions=positions, cell=cell, pbc=pbc, &
+        species_probabilities=species_probabilities, &
+        graph_tensors=graph_tensors_ptr%p)
+    graph_tensors = transfer(graph_tensors_ptr, graph_tensors)
+end subroutine f90wrap_raffle__dc__build_graph_tensors
+
+subroutine f90wrap_raffle__dc__accumulate_graph_gradients( &
+    this, topology, cell, positions, &
+    grad_atom_features, grad_pair_features, grad_triplet_features, &
+    grad_positions, grad_species, &
+    ierr, &
+    n0, n1, n2, n3, n4, n5, n6)
+
+    use raffle__distribs_container, only: distribs_container_type
+    use raffle__graph_builder, only: topology_type
+    implicit none
+
+    type distribs_container_type_ptr_type
+        type(distribs_container_type), pointer :: p => NULL()
+    end type distribs_container_type_ptr_type
+    type(distribs_container_type_ptr_type) :: this_ptr
+    integer, intent(in), dimension(2) :: this
+
+    ! Type definitions for pointers
+    type topology_type_ptr_type
+        type(topology_type), pointer :: p => NULL()
+    end type topology_type_ptr_type
+
+    ! Arguments
+    type(topology_type_ptr_type) :: topology_ptr
+    integer, intent(in), dimension(2) :: topology
+    real(4), intent(in), dimension(3,3) :: cell
+    real(4), intent(in), dimension(n0,3) :: positions
+    real(4), intent(in), dimension(n0, n1) :: grad_atom_features
+    real(4), intent(in), dimension(n2, n3) :: grad_pair_features
+    real(4), intent(in), dimension(n4, n5) :: grad_triplet_features
+    real(4), intent(inout), dimension(n0,3) :: grad_positions
+    real(4), intent(inout), dimension(n0,n6) :: grad_species
+    integer, intent(inout) :: ierr
+
+    ! Array dimensions (inferred from input arrays)
+    integer :: n0
+    !f2py intent(hide), depend(positions) :: n0 = shape(positions,0)
+    integer :: n1
+    !f2py intent(hide), depend(grad_atom_features) :: n1 = shape(grad_atom_features,1)
+    integer :: n2
+    !f2py intent(hide), depend(grad_pair_features) :: n2 = shape(grad_pair_features,0)
+    integer :: n3
+    !f2py intent(hide), depend(grad_pair_features) :: n3 = shape(grad_pair_features,1)
+    integer :: n4
+    !f2py intent(hide), depend(grad_triplet_features) :: n4 = shape(grad_triplet_features,0)
+    integer :: n5
+    !f2py intent(hide), depend(grad_triplet_features) :: n5 = shape(grad_triplet_features,1)
+    integer :: n6
+    !f2py intent(hide), depend(grad_species) :: n6 = shape(grad_species,1)
+
+    ! Local variables
+    type(topology_type), pointer :: top_ptr
+
+    ! Convert transfered pointer
+    topology_ptr = transfer(topology, topology_ptr)
+    top_ptr => topology_ptr%p
+    this_ptr = transfer(this, this_ptr)
+    ! Call the actual subroutine
+    call this_ptr%p%accumulate_graph_gradients( &
+        topology=top_ptr, &
+        cell=cell, &
+        positions=positions, &
+        grad_atom_features=grad_atom_features, &
+        grad_pair_features=grad_pair_features, &
+        grad_triplet_features=grad_triplet_features, &
+        grad_positions=grad_positions, &
+        grad_species=grad_species, &
+        ierr=ierr &
+    )
+end subroutine f90wrap_raffle__dc__accumulate_graph_gradients
 !###############################################################################
 
 ! End of module raffle__distribs_container defined in file ../src/lib/mod_distribs_container.f90

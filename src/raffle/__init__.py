@@ -13,6 +13,7 @@ except PackageNotFoundError:
 
 from .raffle import generator as _generator_class
 from .raffle import geom_rw as _geom_rw_class
+from .graph_builder import graph_builder as _graph_builder_class
 from .nn_fingerprint import NNFingerprint
 from .gnn_fingerprint import GNNFingerprint
 from .structure_metrics import (
@@ -37,6 +38,7 @@ except Exception:
 import types
 generator = types.ModuleType('generator')
 geom = types.ModuleType('geom')
+graph_builder = types.ModuleType('graph_builder')
 
 # Assign the respective class to the simulated 'generator' and 'geom' modules
 generator.raffle_generator = _generator_class.raffle_generator
@@ -46,12 +48,16 @@ generator.stoichiometry_array = _generator_class.stoichiometry_array
 geom.basis_array = _geom_rw_class.basis_array
 geom.basis = _geom_rw_class.basis
 
+# Assign the class to the simulated 'graph_builder' module
+graph_builder.topology = _graph_builder_class.topology
+graph_builder.graph_tensors = _graph_builder_class.graph_tensors
+
 
 # Add the simulated 'generator' and 'geom' module to the current package
 import sys
 sys.modules['raffle.generator'] = generator
 sys.modules['raffle.geom'] = geom
-
+sys.modules['raffle.graph_builder'] = graph_builder
 # Clean up internal imports (remove access to the direct classes)
 del _generator_class
 del _geom_rw_class
@@ -65,6 +71,7 @@ __all__ = [
     '__version__',
     'generator',
     'geom',
+    'graph_builder',
     'NNFingerprint',
     'GNNFingerprint',
     'TorchGNNFingerprint',
@@ -79,4 +86,6 @@ def __getattr__(name):
         return generator
     elif name == "geom":
         return geom
+    elif name == "graph_builder":
+        return graph_builder
     raise AttributeError(f"module {__name__} has no attribute {name}")

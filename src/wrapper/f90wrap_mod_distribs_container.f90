@@ -1413,14 +1413,14 @@ subroutine f90wrap_raffle__dc__build_graph_tensors( &
 end subroutine f90wrap_raffle__dc__build_graph_tensors
 
 subroutine f90wrap_raffle__dc__accumulate_graph_gradients( &
-    this, topology, cell, positions, &
+    this, graph_tensors, &
     grad_atom_features, grad_pair_features, &
     grad_positions, grad_species, &
     ierr, &
     n0, n1, n2, n3, n4)
 
     use raffle__distribs_container, only: distribs_container_type
-    use raffle__graph_builder, only: topology_type
+    use raffle__graph_builder, only: graph_tensors_type
     implicit none
 
     type distribs_container_type_ptr_type
@@ -1430,15 +1430,13 @@ subroutine f90wrap_raffle__dc__accumulate_graph_gradients( &
     integer, intent(in), dimension(2) :: this
 
     ! Type definitions for pointers
-    type topology_type_ptr_type
-        type(topology_type), pointer :: p => NULL()
-    end type topology_type_ptr_type
+    type graph_tensors_type_ptr_type
+        type(graph_tensors_type), pointer :: p => NULL()
+    end type graph_tensors_type_ptr_type
 
     ! Arguments
-    type(topology_type_ptr_type) :: topology_ptr
-    integer, intent(in), dimension(2) :: topology
-    real(4), intent(in), dimension(3,3) :: cell
-    real(4), intent(in), dimension(n0,3) :: positions
+    type(graph_tensors_type_ptr_type) :: graph_tensors_ptr
+    integer, intent(in), dimension(2) :: graph_tensors
     real(4), intent(in), dimension(n0, n1) :: grad_atom_features
     real(4), intent(in), dimension(n2, n3) :: grad_pair_features
     real(4), intent(inout), dimension(n0,3) :: grad_positions
@@ -1447,7 +1445,7 @@ subroutine f90wrap_raffle__dc__accumulate_graph_gradients( &
 
     ! Array dimensions (inferred from input arrays)
     integer :: n0
-    !f2py intent(hide), depend(positions) :: n0 = shape(positions,0)
+    !f2py intent(hide), depend(grad_atom_features) :: n0 = shape(grad_atom_features,0)
     integer :: n1
     !f2py intent(hide), depend(grad_atom_features) :: n1 = shape(grad_atom_features,1)
     integer :: n2
@@ -1457,18 +1455,12 @@ subroutine f90wrap_raffle__dc__accumulate_graph_gradients( &
     integer :: n4
     !f2py intent(hide), depend(grad_species) :: n4 = shape(grad_species,1)
 
-    ! Local variables
-    type(topology_type), pointer :: top_ptr
-
     ! Convert transfered pointer
-    topology_ptr = transfer(topology, topology_ptr)
-    top_ptr => topology_ptr%p
     this_ptr = transfer(this, this_ptr)
+    graph_tensors_ptr = transfer(graph_tensors, graph_tensors_ptr)
     ! Call the actual subroutine
     call this_ptr%p%accumulate_graph_gradients( &
-        topology=top_ptr, &
-        cell=cell, &
-        positions=positions, &
+        graph_tensors=graph_tensors_ptr%p, &
         grad_atom_features=grad_atom_features, &
         grad_pair_features=grad_pair_features, &
         grad_positions=grad_positions, &

@@ -103,9 +103,12 @@ module raffle__graph_builder
      real(real32), dimension(:), allocatable :: pair_edge_weight
      !! Pair edge weights.
 
-     integer, allocatable :: hyperedge_index(:,:)
-     real(real32), allocatable :: hyperedge_weight(:)
-     real(real32), allocatable :: hyperedge_attr(:,:)
+     ! Hyperedge data
+     integer, allocatable :: pair_hyperedge_index(:,:)
+     real(real32), allocatable :: pair_hyperedge_weight(:)
+     real(real32), allocatable :: pair_hyperedge_attr(:,:)
+     integer, dimension(:,:), allocatable :: pair_index
+     !! Pair indices (center, target).
   end type graph_tensors_type
 
 

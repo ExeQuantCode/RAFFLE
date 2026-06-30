@@ -107,7 +107,7 @@ class HypergraphMessageLayer(nn.Module):
         )
 
         # Update nodes from hyperedges
-        self.hyperedge_to_node = nn.Sequential(
+        self.pair_hyperedge_to_node = nn.Sequential(
             nn.Linear(hidden_dim + global_dim, hidden_dim),
             nn.SiLU(),
             nn.Linear(hidden_dim, hidden_dim),
@@ -118,27 +118,27 @@ class HypergraphMessageLayer(nn.Module):
     def forward(
         self,
         hidden: torch.Tensor,  # [num_nodes, hidden_dim]
-        hyperedge_index: torch.Tensor,  # [num_nodes_per_hyperedge, num_hyperedges]
-        hyperedge_attr: torch.Tensor,  # [num_hyperedges, edge_dim]
-        hyperedge_weight: torch.Tensor,  # [num_hyperedges]
+        pair_hyperedge_index: torch.Tensor,  # [num_nodes_per_hyperedge, num_hyperedges]
+        pair_hyperedge_attr: torch.Tensor,  # [num_hyperedges, edge_dim]
+        pair_hyperedge_weight: torch.Tensor,  # [num_hyperedges]
         global_features: torch.Tensor,  # [1, global_dim]
     ) -> torch.Tensor:
         """
         Vectorized hyperedge message passing.
         """
-        if hyperedge_index.numel() == 0 or hidden.numel() == 0:
+        if pair_hyperedge_index.numel() == 0 or hidden.numel() == 0:
             return hidden
 
         num_nodes = hidden.shape[0]
-        num_hyperedges = hyperedge_index.shape[1]
-        num_nodes_per_hyperedge = hyperedge_index.shape[0]
+        num_hyperedges = pair_hyperedge_index.shape[1]
+        num_nodes_per_hyperedge = pair_hyperedge_index.shape[0]
 
         # Expand global features
-        hyperedge_global = global_features.expand(num_hyperedges, -1)
+        pair_hyperedge_global = global_features.expand(num_hyperedges, -1)
 
         # Step 1: Vectorized node-to-hyperedge aggregation
         # Flatten the hyperedge index to gather all nodes at once
-        flat_indices = hyperedge_index.T.reshape(-1)  # [num_hyperedges * num_nodes_per_hyperedge]
+        flat_indices = pair_hyperedge_index.T.reshape(-1)  # [num_hyperedges * num_nodes_per_hyperedge]
 
         # Create mask for valid indices
         valid_mask = (flat_indices >= 0) & (flat_indices < num_nodes)
@@ -152,7 +152,7 @@ class HypergraphMessageLayer(nn.Module):
 
         # Create index for scattering back to hyperedges
         # Each hyperedge has num_nodes_per_hyperedge positions
-        hyperedge_ids = torch.repeat_interleave(
+        pair_hyperedge_ids = torch.repeat_interleave(
             torch.arange(num_hyperedges, device=hidden.device),
             num_nodes_per_hyperedge
         )[valid_mask]  # [num_valid]
@@ -162,42 +162,42 @@ class HypergraphMessageLayer(nn.Module):
         # We need to handle the case where some hyperedges have fewer valid nodes
 
         # Use scatter to sum features per hyperedge
-        hyperedge_hidden = torch.zeros(num_hyperedges, self.hidden_dim, device=hidden.device)
-        hyperedge_counts = torch.zeros(num_hyperedges, device=hidden.device)
+        pair_hyperedge_hidden = torch.zeros(num_hyperedges, self.hidden_dim, device=hidden.device)
+        pair_hyperedge_counts = torch.zeros(num_hyperedges, device=hidden.device)
 
         # Scatter add the gathered features
-        hyperedge_hidden.scatter_add_(0, hyperedge_ids.unsqueeze(-1).expand(-1, self.hidden_dim), gathered_features)
+        pair_hyperedge_hidden.scatter_add_(0, pair_hyperedge_ids.unsqueeze(-1).expand(-1, self.hidden_dim), gathered_features)
 
         # Count valid nodes per hyperedge
-        hyperedge_counts.scatter_add_(0, hyperedge_ids, torch.ones_like(hyperedge_ids, dtype=torch.float32))
+        pair_hyperedge_counts.scatter_add_(0, pair_hyperedge_ids, torch.ones_like(pair_hyperedge_ids, dtype=torch.float32))
 
         # Average features per hyperedge (avoid division by zero)
-        hyperedge_hidden = hyperedge_hidden / hyperedge_counts.clamp_min(1.0).unsqueeze(-1)
+        pair_hyperedge_hidden = pair_hyperedge_hidden / pair_hyperedge_counts.clamp_min(1.0).unsqueeze(-1)
 
         # Combine with hyperedge attributes and global features
-        hyperedge_input = torch.cat([hyperedge_hidden, hyperedge_attr, hyperedge_global], dim=-1)
-        hyperedge_hidden = self.node_to_hyperedge(hyperedge_input)
+        pair_hyperedge_input = torch.cat([pair_hyperedge_hidden, pair_hyperedge_attr, pair_hyperedge_global], dim=-1)
+        pair_hyperedge_hidden = self.node_to_hyperedge(pair_hyperedge_input)
 
         # Apply hyperedge weights
-        if hyperedge_weight.numel() > 0:
-            hyperedge_hidden = hyperedge_hidden * hyperedge_weight.unsqueeze(-1)
+        if pair_hyperedge_weight.numel() > 0:
+            pair_hyperedge_hidden = pair_hyperedge_hidden * pair_hyperedge_weight.unsqueeze(-1)
 
         # Step 2: Vectorized hyperedge-to-node aggregation
         # Now scatter back from hyperedges to nodes
         # We need to map each hyperedge feature back to its constituent nodes
 
         # Recreate the mapping from hyperedge to nodes
-        # Use the same flat_indices and hyperedge_ids but now for the reverse direction
+        # Use the same flat_indices and pair_hyperedge_ids but now for the reverse direction
         node_aggregated = torch.zeros(num_nodes, self.hidden_dim, device=hidden.device)
         node_counts = torch.zeros(num_nodes, device=hidden.device)
 
         # For each hyperedge, we need to add its feature to all its nodes
         # We'll use the valid_mask to determine which nodes to update
         # Get the hyperedge features for each valid node
-        hyperedge_features_for_nodes = hyperedge_hidden[hyperedge_ids]  # [num_valid, hidden_dim]
+        pair_hyperedge_features_for_nodes = pair_hyperedge_hidden[pair_hyperedge_ids]  # [num_valid, hidden_dim]
 
         # Scatter add to nodes
-        node_aggregated.scatter_add_(0, valid_indices.unsqueeze(-1).expand(-1, self.hidden_dim), hyperedge_features_for_nodes)
+        node_aggregated.scatter_add_(0, valid_indices.unsqueeze(-1).expand(-1, self.hidden_dim), pair_hyperedge_features_for_nodes)
         node_counts.scatter_add_(0, valid_indices, torch.ones_like(valid_indices, dtype=torch.float32))
 
         # Average features per node
@@ -206,7 +206,7 @@ class HypergraphMessageLayer(nn.Module):
         # Transform back to node space with global context
         global_on_nodes = global_features.expand(num_nodes, -1)
         node_input = torch.cat([node_aggregated, global_on_nodes], dim=-1)
-        candidate = self.hyperedge_to_node(node_input)
+        candidate = self.pair_hyperedge_to_node(node_input)
 
         # Update using GRU
         return self.update(candidate, hidden)
@@ -251,22 +251,22 @@ class HypergraphBranch(nn.Module):
     def forward(
         self,
         node_features: torch.Tensor,  # [num_nodes, node_dim]
-        hyperedge_index: torch.Tensor,  # [num_nodes_per_hyperedge, num_hyperedges]
-        hyperedge_attr: torch.Tensor,  # [num_hyperedges, edge_dim]
-        hyperedge_weight: torch.Tensor,  # [num_hyperedges]
+        pair_hyperedge_index: torch.Tensor,  # [num_nodes_per_hyperedge, num_hyperedges]
+        pair_hyperedge_attr: torch.Tensor,  # [num_hyperedges, edge_dim]
+        pair_hyperedge_weight: torch.Tensor,  # [num_hyperedges]
         global_features: torch.Tensor,  # [1, global_dim]
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         global_on_nodes = global_features.expand(node_features.shape[0], -1)
         hidden = self.encoder(torch.cat([node_features, global_on_nodes], dim=-1))
 
         # If no hyperedges, return zeros
-        if hyperedge_index.numel() == 0:
+        if pair_hyperedge_index.numel() == 0:
             vertex_fingerprint = self.head(torch.cat([hidden, global_on_nodes], dim=-1))
             graph_fingerprint = vertex_fingerprint.mean(dim=0)
             return vertex_fingerprint, graph_fingerprint
 
         for layer in self.layers:
-            hidden = layer(hidden, hyperedge_index, hyperedge_attr, hyperedge_weight, global_features)
+            hidden = layer(hidden, pair_hyperedge_index, pair_hyperedge_attr, pair_hyperedge_weight, global_features)
 
         vertex_fingerprint = self.head(torch.cat([hidden, global_on_nodes], dim=-1))
         graph_fingerprint = vertex_fingerprint.mean(dim=0)
@@ -288,27 +288,41 @@ class ResidualMessageLayer(nn.Module):
     def forward(
         self,
         hidden: torch.Tensor,
-        edge_index: torch.Tensor,
-        edge_attr: torch.Tensor,
-        edge_weight: torch.Tensor,
+        edge_index: torch.Tensor,   # [2, E] – each undirected edge ONCE
+        edge_attr: torch.Tensor,    # [E, edge_dim]
+        edge_weight: torch.Tensor,  # [E]  (or empty)
         global_features: torch.Tensor,
     ) -> torch.Tensor:
         if edge_index.numel() == 0:
             return hidden
 
+        # 1. Duplicate edges to handle both directions
         src = edge_index[0]
         dst = edge_index[1]
-        edge_global = global_features.expand(src.shape[0], -1)
-        message_input = torch.cat([hidden[src], edge_attr, edge_global], dim=-1)
-        message = self.message(message_input) * edge_weight.unsqueeze(-1)
 
+        # Create bidirectional indices and attributes
+        src_all = torch.cat([src, dst])          # [2E]
+        dst_all = torch.cat([dst, src])          # [2E]
+        edge_attr_all = torch.cat([edge_attr, edge_attr])          # [2E, edge_dim]
+        edge_weight_all = torch.cat([edge_weight, edge_weight])    # [2E]
+
+        # 2. Global features broadcast to all directed edges
+        edge_global = global_features.expand(src_all.shape[0], -1)
+
+        # 3. Compute messages (same as before, now on bidirectional edges)
+        message_input = torch.cat([hidden[src_all], edge_attr_all, edge_global], dim=-1)
+        message = self.message(message_input) * edge_weight_all.unsqueeze(-1)
+
+        # 4. Aggregate to destination nodes
         aggregated = torch.zeros_like(hidden)
-        aggregated.index_add_(0, dst, message)
+        aggregated.index_add_(0, dst_all, message)
 
+        # 5. Normalise by the sum of incoming edge weights
         normaliser = torch.zeros(hidden.shape[0], device=hidden.device, dtype=hidden.dtype)
-        normaliser.index_add_(0, dst, edge_weight)
-        aggregated = aggregated / normaliser.clamp_min(1.0e-6).unsqueeze(-1)
+        normaliser.index_add_(0, dst_all, edge_weight_all)
+        aggregated = aggregated / normaliser.clamp_min(1e-6).unsqueeze(-1)
 
+        # 6. Residual update
         return hidden + self.update(torch.cat([hidden, aggregated], dim=-1))
 
 
@@ -712,8 +726,9 @@ class TorchGNNFingerprint(nn.Module):
     def __init__(
         self,
         species_list: Sequence[str],
-        bond_cutoff: float = 6.0,
         bond_radii: dict[Tuple[str, str], float] = None,
+        cutoff_min: Sequence[float] = (0.5, 0.0, 0.0),
+        cutoff_max: Sequence[float] = (6.0, np.pi, np.pi),
         hidden_dim: int = 128,
         hidden_dim_2body: Optional[int] = None,
         hidden_dim_3body: Optional[int] = None,
@@ -723,7 +738,6 @@ class TorchGNNFingerprint(nn.Module):
         num_message_layers_3body: Optional[int] = None,
         num_message_layers_4body: Optional[int] = None,
         component_weight: Sequence[float] = (4.0, 1.0, 1.0),
-        smooth_cutoff_width: float = 0.15,
         seed: int = 42,
         architecture: str = "residual",
         device: Optional[str] = None,
@@ -732,14 +746,12 @@ class TorchGNNFingerprint(nn.Module):
         super().__init__()
         self.species_list = [str(symbol).strip() for symbol in species_list]
         self.num_species = len(self.species_list)
-        self.bond_cutoff = float(bond_cutoff)
-        self.smooth_cutoff_width = float(smooth_cutoff_width)
         self.seed = int(seed)
         self._rng = random.Random(seed)
         self._device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
         self.architecture = ARCHITECTURE_ALIASES.get(str(architecture).strip(), str(architecture).strip())
         self._coupled_message_layer_kind = COUPLED_ARCHITECTURES.get(self.architecture)
-        self._use_component_coupling = self._coupled_message_layer_kind is not None
+        self._use_component_coupling = True#self._coupled_message_layer_kind is not None
         self._message_layer_kind = self._coupled_message_layer_kind or self.architecture
         if dtype == "float16":
             self._torch_dtype = torch.float16
@@ -765,6 +777,10 @@ class TorchGNNFingerprint(nn.Module):
         self.reference_model = _generator_class.raffle_generator(
             seed=self.seed,
         )
+        if cutoff_min is not None:
+            self.reference_model.distributions.set_cutoff_min(cutoff_min)
+        if cutoff_max is not None:
+            self.reference_model.distributions.set_cutoff_max(cutoff_max)
         if bond_radii is not None:
             self.reference_model.distributions.set_bond_radii(bond_radii)
         self.reference_model.distributions.set_default_bond_radii(self.species_list)
@@ -786,6 +802,7 @@ class TorchGNNFingerprint(nn.Module):
         self.sigma = self.reference_model.distributions.sigma
         self.cutoff_min = self.reference_model.distributions.cutoff_min
         self.cutoff_max = self.reference_model.distributions.cutoff_max
+        print(f"Cutoff min: {self.cutoff_min}, Cutoff max: {self.cutoff_max}")
         self.radius_distance_tol = self.reference_model.distributions.radius_distance_tol
         self.global_dim = 6
         self.component_weight = tuple(float(weight) for weight in component_weight)
@@ -990,9 +1007,10 @@ class TorchGNNFingerprint(nn.Module):
             "pair_edge_index": torch.from_numpy(graph_tensors.pair_edge_index).to(device).long(),
             "pair_edge_attr": torch.from_numpy(graph_tensors.pair_edge_attr).to(device).float(),
             "pair_edge_weight": torch.from_numpy(graph_tensors.pair_edge_weight).to(device).float(),
-            "hyperedge_index": torch.from_numpy(graph_tensors.hyperedge_index).to(device).long(),
-            "hyperedge_attr": torch.from_numpy(graph_tensors.hyperedge_attr).to(device).float(),
-            "hyperedge_weight": torch.from_numpy(graph_tensors.hyperedge_weight).to(device).float(),
+            "pair_hyperedge_index": torch.from_numpy(graph_tensors.pair_hyperedge_index).to(device).long(),
+            "pair_hyperedge_attr": torch.from_numpy(graph_tensors.pair_hyperedge_attr).to(device).float(),
+            "pair_hyperedge_weight": torch.from_numpy(graph_tensors.pair_hyperedge_weight).to(device).float(),
+            "graph_tensors": graph_tensors,
         }
 
     def prepare_structure(self, atoms, include_targets: bool = True) -> PreparedStructure:
@@ -1089,10 +1107,6 @@ class TorchGNNFingerprint(nn.Module):
             species_probabilities=species_probabilities,
         )
 
-        # Cache device and dtype
-        device = self._device
-        dtype = torch.float32
-
         # Process branches
         vertex_2body, fingerprint_2body = self.branch_2body(
             graph["atom_node_features"],
@@ -1110,17 +1124,17 @@ class TorchGNNFingerprint(nn.Module):
         )
 
         # Handle hyperedges efficiently
-        hyperedge_index = graph["hyperedge_index"]
-        if hyperedge_index.numel() == 0:
+        pair_hyperedge_index = graph["pair_hyperedge_index"]
+        if pair_hyperedge_index.numel() == 0:
             num_pairs = graph["pair_node_features"].shape[0]
-            vertex_4body = torch.zeros(num_pairs, self.fingerprint_dim_4body, device=device)
+            vertex_4body = torch.zeros(num_pairs, self.fingerprint_dim_4body, device=self._device)
             fingerprint_4body = vertex_4body.mean(dim=0)
         else:
             vertex_4body, fingerprint_4body = self.branch_4body(
                 graph["pair_node_features"],
-                hyperedge_index,
-                graph["hyperedge_attr"],
-                graph["hyperedge_weight"],
+                pair_hyperedge_index,
+                graph["pair_hyperedge_attr"],
+                graph["pair_hyperedge_weight"],
                 graph["global_features"],
             )
 
@@ -1191,9 +1205,9 @@ class TorchGNNFingerprint(nn.Module):
         target_3body: torch.Tensor,
         target_4body: torch.Tensor,
     ) -> torch.Tensor:
-        target_2body = self._project_fingerprint_targets(target_2body)
-        target_3body = self._project_fingerprint_targets(target_3body)
-        target_4body = self._project_fingerprint_targets(target_4body)
+        # target_2body = self._project_fingerprint_targets(target_2body)
+        # target_3body = self._project_fingerprint_targets(target_3body)
+        # target_4body = self._project_fingerprint_targets(target_4body)
 
         def relative_component_mse(predicted: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
             target_energy = torch.mean(target ** 2).clamp_min(1.0e-8)
@@ -1426,16 +1440,16 @@ class TorchGNNFingerprint(nn.Module):
             graph["global_features"],
         )
 
-        if graph["hyperedge_index"].numel() == 0:
+        if graph["pair_hyperedge_index"].numel() == 0:
             num_pairs = graph["pair_node_features"].shape[0]
             vertex_4body = torch.zeros(num_pairs, self.fingerprint_dim_4body, device=self._device, dtype=self._torch_dtype)
             fingerprint_4body = vertex_4body.mean(dim=0)
         else:
             vertex_4body, fingerprint_4body = self.branch_4body(
                 graph["pair_node_features"],
-                graph["hyperedge_index"],
-                graph["hyperedge_attr"],
-                graph["hyperedge_weight"],
+                graph["pair_hyperedge_index"],
+                graph["pair_hyperedge_attr"],
+                graph["pair_hyperedge_weight"],
                 graph["global_features"],
             )
 
@@ -1522,7 +1536,7 @@ class TorchGNNFingerprint(nn.Module):
 
         # Get positions from atom features (columns 0:3)
         # positions_centered * inv_bond_cutoff, so we need to convert back
-        inv_bond_cutoff = 1.0 / self.bond_cutoff
+        inv_bond_cutoff = 1.0 / self.cutoff_max[0]
         positions_centered = atom_node_features[:, 0:3] / inv_bond_cutoff
 
         # We need absolute positions, not centered
@@ -1691,20 +1705,14 @@ class TorchGNNFingerprint(nn.Module):
 
     def _accumulate_gradients(
         self,
-        prepared: PreparedStructure,
-        positions: torch.Tensor,
+        graph: dict,
         grad_atom_features: torch.Tensor,
         grad_pair_features: torch.Tensor,
     ):
-        positions_np = positions.detach().cpu().numpy().astype(np.float32)
-        cell = prepared.cell
-        pbc = prepared.pbc
-        topology = prepared.topology
+        graph_tensors = graph["graph_tensors"]
 
         grad_positions, grad_species = self.reference_model.distributions.accumulate_gradients(
-            topology=topology,
-            positions=positions_np,
-            cell=cell,
+            graph_tensors=graph_tensors,
             grad_atom_features=grad_atom_features.detach().cpu().numpy().astype(np.float32),
             grad_pair_features=grad_pair_features.detach().cpu().numpy().astype(np.float32),
         )
@@ -1870,8 +1878,9 @@ class TorchGNNFingerprint(nn.Module):
                     positions_parameter,
                 )
                 if step > 0:
-                    pos_change = torch.norm(positions_parameter - prev_positions).item()
-                    if pos_change > 0.01 or step % update_topology_every_n_steps == 0:
+                    #pos_change = torch.norm(positions_parameter - prev_positions).item()
+                    #if pos_change > 0.01 or step % update_topology_every_n_steps == 0:
+                    if step % update_topology_every_n_steps == 0:
                         if optimize_species:
                             probs = torch_functional.softmax(species_logits, dim=-1)
                             species_idx = self._discretize_species(probs, mode='argmax')
@@ -1929,8 +1938,7 @@ class TorchGNNFingerprint(nn.Module):
                 grad_pair_features = graph['pair_node_features'].grad
 
                 grad_positions_fp, grad_species_fp = self._accumulate_gradients(
-                    prepared=prepared,
-                    positions=current_positions,
+                    graph=graph,
                     grad_atom_features=grad_atom_features,
                     grad_pair_features=grad_pair_features,
                 )
@@ -2253,10 +2261,10 @@ class TorchGNNFingerprint(nn.Module):
         # 4-body: Now using hyperedges directly - each hyperedge connects 3 pairs
         # The per_vertex_4body corresponds to each pair node, so we just need to
         # map these back to atoms through the pair centers
-        if hasattr(prepared.topology, 'hyperedge_index'):
-            hyperedge_index = prepared.topology.hyperedge_index
-            if hyperedge_index is not None and len(hyperedge_index) > 0:
-                # hyperedge_index is [3, num_hyperedges] - each column is a hyperedge
+        if hasattr(prepared.topology, 'pair_hyperedge_index'):
+            pair_hyperedge_index = prepared.topology.pair_hyperedge_index
+            if pair_hyperedge_index is not None and len(pair_hyperedge_index) > 0:
+                # pair_hyperedge_index is [3, num_hyperedges] - each column is a hyperedge
                 # connecting 3 pair nodes
                 pair_center_map = {}
                 for pair_idx in range(len(prepared.topology.pair_index)):
@@ -2269,8 +2277,8 @@ class TorchGNNFingerprint(nn.Module):
                 per_atom_4body = torch.zeros(n_atoms, device=device)
                 count_4body = torch.zeros(n_atoms, device=device)
 
-                for h_idx in range(hyperedge_index.shape[1]):
-                    pair_indices = hyperedge_index[:, h_idx]
+                for h_idx in range(pair_hyperedge_index.shape[1]):
+                    pair_indices = pair_hyperedge_index[:, h_idx]
                     # For each pair in this hyperedge, add its vertex loss to its atoms
                     for pair_idx in pair_indices:
                         pair_idx = pair_idx.item()

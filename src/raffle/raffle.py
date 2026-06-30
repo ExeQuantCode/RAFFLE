@@ -1661,19 +1661,17 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             return graph_tensors
 
         def accumulate_gradients( \
-                self, topology, cell, positions, \
+                self, graph_tensors, \
                 grad_atom_features, grad_pair_features \
         ):
             """
-            accumulate_gradients(self, topology, cell, positions, species_one_hot, \
+            accumulate_gradients(self, graph_tensors, \
                 grad_atom_features, grad_pair_features, \
                 grad_positions, grad_species)
 
             Parameters
             ----------
-            topology : Topology_Type
-            cell : float array
-            positions : float array
+            graph_tensors : Graph_Tensors_Type
             grad_atom_features : float array
             grad_pair_features : float array
             grad_positions : float array
@@ -1686,14 +1684,13 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             # set ierr as a scalar integer
             ierr = numpy.zeros((1,), dtype=numpy.int32)
             num_species = _raffle.f90wrap_raffle__dc__get_num_species__dc_type(this=self._handle)
-            num_atoms = positions.shape[0]
+            num_atoms = graph_tensors.atom_node_features.shape[0]
             grad_positions = numpy.asfortranarray(numpy.zeros((num_atoms, 3), dtype=numpy.float32))
             grad_species = numpy.asfortranarray(numpy.zeros((num_atoms, num_species), dtype=numpy.float32))
 
             _raffle.f90wrap_raffle__dc__accumulate_graph_gradients(
                     this=self._handle, \
-                    topology=topology._handle, \
-                    positions=positions, cell=cell, \
+                    graph_tensors=graph_tensors._handle, \
                     grad_atom_features=grad_atom_features, \
                     grad_pair_features=grad_pair_features, \
                     grad_positions=grad_positions, \

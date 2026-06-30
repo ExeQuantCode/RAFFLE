@@ -636,6 +636,26 @@ class Graph_Builder(f90wrap.runtime.FortranModule):
             self.pair_edge_index[...] = pair_edge_index
 
         @property
+        def pair_index(self):
+            """
+            Element pair_index ftype=integer pytype=int
+            """
+            array_ndim, array_type, array_shape, array_handle = \
+                _raffle.f90wrap_graph_tensors_type__array__pair_index(self._handle)
+            if array_handle in self._arrays:
+                pair_index = self._arrays[array_handle]
+            else:
+                pair_index = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                        self._handle,
+                                        _raffle.f90wrap_graph_tensors_type__array__pair_index)
+                self._arrays[array_handle] = pair_index
+            return pair_index
+
+        @pair_index.setter
+        def pair_index(self, pair_index):
+            self.pair_index[...] = pair_index
+
+        @property
         def atom_edge_attr(self):
             """
             Element atom_edge_attr ftype=real(real32) pytype=float
@@ -716,64 +736,64 @@ class Graph_Builder(f90wrap.runtime.FortranModule):
             self.pair_edge_weight[...] = pair_edge_weight
 
         @property
-        def hyperedge_index(self):
+        def pair_hyperedge_index(self):
             """
-            Element hyperedge_index ftype=integer pytype=int
+            Element pair_hyperedge_index ftype=integer pytype=int
             """
             array_ndim, array_type, array_shape, array_handle = \
-                _raffle.f90wrap_graph_tensors_type__array__hyperedge_index(self._handle)
+                _raffle.f90wrap_graph_tensors_type__array__pair_hyperedge_index(self._handle)
             if array_handle in self._arrays:
-                hyperedge_index = self._arrays[array_handle]
+                pair_hyperedge_index = self._arrays[array_handle]
             else:
-                hyperedge_index = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                pair_hyperedge_index = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
                                         self._handle,
-                                        _raffle.f90wrap_graph_tensors_type__array__hyperedge_index)
-                self._arrays[array_handle] = hyperedge_index
-            return hyperedge_index
+                                        _raffle.f90wrap_graph_tensors_type__array__pair_hyperedge_index)
+                self._arrays[array_handle] = pair_hyperedge_index
+            return pair_hyperedge_index
 
-        @hyperedge_index.setter
-        def hyperedge_index(self, hyperedge_index):
-            self.hyperedge_index[...] = hyperedge_index
+        @pair_hyperedge_index.setter
+        def pair_hyperedge_index(self, pair_hyperedge_index):
+            self.pair_hyperedge_index[...] = pair_hyperedge_index
 
         @property
-        def hyperedge_weight(self):
+        def pair_hyperedge_weight(self):
             """
-            Element hyperedge_weight ftype=real(real32) pytype=float
+            Element pair_hyperedge_weight ftype=real(real32) pytype=float
             """
             array_ndim, array_type, array_shape, array_handle = \
-                _raffle.f90wrap_graph_tensors_type__array__hyperedge_weight(self._handle)
+                _raffle.f90wrap_graph_tensors_type__array__pair_hyperedge_weight(self._handle)
             if array_handle in self._arrays:
-                hyperedge_weight = self._arrays[array_handle]
+                pair_hyperedge_weight = self._arrays[array_handle]
             else:
-                hyperedge_weight = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                pair_hyperedge_weight = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
                                         self._handle,
-                                        _raffle.f90wrap_graph_tensors_type__array__hyperedge_weight)
-                self._arrays[array_handle] = hyperedge_weight
-            return hyperedge_weight
+                                        _raffle.f90wrap_graph_tensors_type__array__pair_hyperedge_weight)
+                self._arrays[array_handle] = pair_hyperedge_weight
+            return pair_hyperedge_weight
 
-        @hyperedge_weight.setter
-        def hyperedge_weight(self, hyperedge_weight):
-            self.hyperedge_weight[...] = hyperedge_weight
+        @pair_hyperedge_weight.setter
+        def pair_hyperedge_weight(self, pair_hyperedge_weight):
+            self.pair_hyperedge_weight[...] = pair_hyperedge_weight
 
         @property
-        def hyperedge_attr(self):
+        def pair_hyperedge_attr(self):
             """
-            Element hyperedge_attr ftype=real(real32) pytype=float
+            Element pair_hyperedge_attr ftype=real(real32) pytype=float
             """
             array_ndim, array_type, array_shape, array_handle = \
-                _raffle.f90wrap_graph_tensors_type__array__hyperedge_attr(self._handle)
+                _raffle.f90wrap_graph_tensors_type__array__pair_hyperedge_attr(self._handle)
             if array_handle in self._arrays:
-                hyperedge_attr = self._arrays[array_handle]
+                pair_hyperedge_attr = self._arrays[array_handle]
             else:
-                hyperedge_attr = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                pair_hyperedge_attr = f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
                                         self._handle,
-                                        _raffle.f90wrap_graph_tensors_type__array__hyperedge_attr)
-                self._arrays[array_handle] = hyperedge_attr
-            return hyperedge_attr
+                                        _raffle.f90wrap_graph_tensors_type__array__pair_hyperedge_attr)
+                self._arrays[array_handle] = pair_hyperedge_attr
+            return pair_hyperedge_attr
 
-        @hyperedge_attr.setter
-        def hyperedge_attr(self, hyperedge_attr):
-            self.hyperedge_attr[...] = hyperedge_attr
+        @pair_hyperedge_attr.setter
+        def pair_hyperedge_attr(self, pair_hyperedge_attr):
+            self.pair_hyperedge_attr[...] = pair_hyperedge_attr
 
         def __str__(self):
             ret = ['<graph_tensors>{\n']
@@ -787,6 +807,8 @@ class Graph_Builder(f90wrap.runtime.FortranModule):
             ret.append(repr(self.atom_edge_index))
             ret.append(',\n    pair_edge_index : ')
             ret.append(repr(self.pair_edge_index))
+            ret.append(',\n    pair_index : ')
+            ret.append(repr(self.pair_index))
             ret.append(',\n    atom_edge_attr : ')
             ret.append(repr(self.atom_edge_attr))
             ret.append(',\n    pair_edge_attr : ')
@@ -795,12 +817,12 @@ class Graph_Builder(f90wrap.runtime.FortranModule):
             ret.append(repr(self.atom_edge_weight))
             ret.append(',\n    pair_edge_weight : ')
             ret.append(repr(self.pair_edge_weight))
-            ret.append(',\n    hyperedge_index : ')
-            ret.append(repr(self.hyperedge_index))
-            ret.append(',\n    hyperedge_weight : ')
-            ret.append(repr(self.hyperedge_weight))
-            ret.append(',\n    hyperedge_attr : ')
-            ret.append(repr(self.hyperedge_attr))
+            ret.append(',\n    pair_hyperedge_index : ')
+            ret.append(repr(self.pair_hyperedge_index))
+            ret.append(',\n    pair_hyperedge_weight : ')
+            ret.append(repr(self.pair_hyperedge_weight))
+            ret.append(',\n    pair_hyperedge_attr : ')
+            ret.append(repr(self.pair_hyperedge_attr))
             ret.append('}')
             return ''.join(ret)
 

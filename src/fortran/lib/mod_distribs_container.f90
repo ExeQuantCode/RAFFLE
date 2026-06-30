@@ -3027,7 +3027,8 @@ contains
     integer :: left_idx, right_idx
     integer :: pair_a, pair_b, pair_c
     integer :: triplet_id, num_pairs_est
-    real(real32) :: distance, amax, bmax, cmax
+    real(real32) :: distance
+    integer :: amax, bmax, cmax
     logical :: success
     real(real32), dimension(3) :: delta, shifted_pos
     integer, dimension(:,:), allocatable :: image_shift_indices
@@ -3324,12 +3325,9 @@ contains
     type(graph_tensors_type), intent(out) :: graph_tensors
 
     integer :: num_atoms, num_species, num_pairs, num_triplets, num_quadruplets
-    integer :: i, j, k, pt, num_3body_pairs, num_4body_hyperedges
-    integer :: atom1, atom2, atom3, atom4
-    integer :: left_idx, right_idx, pos
+    integer :: i, j, k, num_pairs_used
     integer :: pair_idx1, pair_idx2, pair_idx3
-    real(real32) :: d12, d13, d23, d14, d24, d34
-    real(real32) :: inv_bond_cutoff, sum_angle_weight
+    real(real32) :: inv_bond_cutoff
     real(real32) :: n_i, n_j
     real(real32), parameter :: EPS = 1.0e-8_real32
 
@@ -3340,15 +3338,9 @@ contains
     real(real32), allocatable :: pair_delta(:,:), pair_unit(:,:)
     real(real32), allocatable :: pair_distance(:), pair_weight(:)
     real(real32), allocatable :: pair_distance_norm(:)
-    integer,      allocatable :: pair_type_idx(:)
-    real(real32), allocatable :: angle_value(:), angle_weight(:)
-    integer,      allocatable :: pair_to_new(:), triplet_to_new(:)
-    logical,      allocatable :: used_triplet_mask(:), used_pair_mask(:)
-    integer,      allocatable :: mask(:)
+    logical,      allocatable :: used_pair_mask(:)
+    integer,      allocatable :: pair_map(:)
 
-    ! For hyperedge building
-    integer, allocatable :: hyperedge_list(:,:)
-    integer :: num_hyperedges
 
     num_atoms = topology%num_atoms
     num_pairs = topology%num_pairs
@@ -3364,7 +3356,7 @@ contains
     )
 
     ! ---- Species one‑hot ---------------------------------------------------
-    if(present(species_probabilities)) then
+    if(present(species_probabilities))then
        allocate(species_one_hot(num_atoms, num_species))
        if (size(species_probabilities, 1) .ne. num_atoms .or. &
             size(species_probabilities, 2) .ne. num_species)then
@@ -3395,7 +3387,7 @@ contains
     call lattice_features(cell, graph_tensors%global_features, this%cutoff_max(1))
 
     ! ---- Dummy allocations for zero‑pair case -----------------------------
-    if (num_pairs == 0) then
+    if(num_pairs .eq. 0) then
        allocate(graph_tensors%pair_node_features(1, 7+2*num_species))
        allocate(graph_tensors%atom_edge_index(2,0))
        allocate(graph_tensors%atom_edge_attr(0,1))
@@ -3403,9 +3395,10 @@ contains
        allocate(graph_tensors%pair_edge_index(2,0))
        allocate(graph_tensors%pair_edge_attr(0,1))
        allocate(graph_tensors%pair_edge_weight(0))
-       allocate(graph_tensors%hyperedge_index(3,0))
-       allocate(graph_tensors%hyperedge_weight(0))
-       graph_tensors%atom_node_features = 0.0; graph_tensors%pair_node_features = 0.0
+       allocate(graph_tensors%pair_hyperedge_index(3,0))
+       allocate(graph_tensors%pair_hyperedge_weight(0))
+       graph_tensors%atom_node_features = 0._real32
+       graph_tensors%pair_node_features = 0._real32
        deallocate(positions_centered, species_one_hot)
        return
     end if
@@ -3415,11 +3408,10 @@ contains
          pair_distance(num_pairs), &
          pair_weight(num_pairs))
     allocate(pair_unit(num_pairs,3), pair_distance_norm(num_pairs))
-    allocate(pair_type_idx(num_pairs))
     do i = 1, num_pairs
-       left_idx  = topology%pair_index(i,1) + 1
-       right_idx = topology%pair_index(i,2) + 1
-       pair_delta(i,:) = positions(right_idx,:) - positions(left_idx,:) + &
+       pair_idx1  = topology%pair_index(i,1) + 1
+       pair_idx2 = topology%pair_index(i,2) + 1
+       pair_delta(i,:) = positions(pair_idx2,:) - positions(pair_idx1,:) + &
             matmul(real(topology%pair_image_shift(i,:), real32), cell)
        pair_distance(i) = norm2(pair_delta(i,:))
        pair_weight(i) = smooth_cutoff(pair_distance(i), this%cutoff_max(1), 0.5)
@@ -3429,22 +3421,22 @@ contains
        else
           pair_unit(i,:) = 0.0
        end if
-       pair_type_idx(i) = topology%pair_type_index(i)
     end do
 
     ! ---- Pair node features (full) ---------------------------------------
     allocate(all_pair_node_features(num_pairs, 7+2*num_species))
     do i = 1, num_pairs
-       left_idx = topology%pair_index(i,1)+1
-       right_idx = topology%pair_index(i,2)+1
-       all_pair_node_features(i,1:3) = 0.5 * (positions_centered(left_idx,:) + &
-            positions_centered(right_idx,:) + pair_delta(i,:) - &
-            (positions(right_idx,:)-positions(left_idx,:))) * inv_bond_cutoff
+       pair_idx1 = topology%pair_index(i,1)+1
+       pair_idx2 = topology%pair_index(i,2)+1
+       all_pair_node_features(i,1:3) = 0.5 * ( &
+            positions_centered(pair_idx1,:) + positions_centered(pair_idx2,:) + &
+            topology%pair_image_shift(i,:) &
+       ) * inv_bond_cutoff
        all_pair_node_features(i,4:6) = pair_unit(i,:)
        all_pair_node_features(i,7)   = pair_distance_norm(i)
-       all_pair_node_features(i,8:7+num_species) = species_one_hot(left_idx,:)
+       all_pair_node_features(i,8:7+num_species) = species_one_hot(pair_idx1,:)
        all_pair_node_features(i,8+num_species:7+2*num_species) = &
-            species_one_hot(right_idx,:)
+            species_one_hot(pair_idx2,:)
     end do
 
     ! ---- 2‑body edge data ------------------------------------------------
@@ -3459,191 +3451,106 @@ contains
     end do
 
     ! ---- 3‑body graph (pair level) ---------------------------------------
-    if (num_triplets > 0) then
-       allocate(pair_to_new(num_pairs))
-       pair_to_new = -1
-       num_3body_pairs = 0
-       do i = 1, num_triplets
-          do j = 1, 2
-             k = topology%triplet_pair_ids(i,j) + 1
-             if (pair_to_new(k) .eq. -1) then
-                pair_to_new(k) = num_3body_pairs
-                num_3body_pairs = num_3body_pairs + 1
-             end if
-          end do
-       end do
 
-       allocate(graph_tensors%pair_node_features(num_3body_pairs, 7+2*num_species))
+    ! opt 1, store all pairs as nodes and just have some connected by edges
+    ! opt 2, store only pairs that are part of triplets and quadruplets as nodes, and have edges between them
+
+    ! implemented opt 2 for now
+    allocate(used_pair_mask(num_pairs), source=.false.)
+    if(num_triplets .gt. 0 .or. num_quadruplets .gt. 0) then
+       do i = 1, num_triplets
+          used_pair_mask(topology%triplet_pair_ids(i,1)+1) = .true.
+          used_pair_mask(topology%triplet_pair_ids(i,2)+1) = .true.
+       end do
+       do i = 1, num_quadruplets
+          used_pair_mask(topology%quadruplet_pair_ids(i,1)+1) = .true.
+          used_pair_mask(topology%quadruplet_pair_ids(i,2)+1) = .true.
+          used_pair_mask(topology%quadruplet_pair_ids(i,3)+1) = .true.
+       end do
+    end if
+
+    num_pairs_used = count(used_pair_mask)
+    if(num_pairs_used .gt. 0) then
+       ! ! directed
+       ! allocate(graph_tensors%pair_node_features(num_pairs_used, 7+2*num_species))
+       ! allocate(graph_tensors%pair_edge_index(2, 2*num_triplets))
+       ! allocate(graph_tensors%pair_edge_attr(2*num_triplets, 1))
+       ! allocate(graph_tensors%pair_edge_weight(2*num_triplets))
+       ! allocate(graph_tensors%pair_hyperedge_index(3, 2*num_quadruplets))
+       ! allocate(graph_tensors%pair_hyperedge_weight(2*num_quadruplets))
+       ! allocate(graph_tensors%pair_hyperedge_attr(2*num_quadruplets, 1))
+
+       ! undirected
+       allocate(graph_tensors%pair_node_features(num_pairs_used, 7+2*num_species))
+       allocate(graph_tensors%pair_index(num_pairs_used,2))
+       allocate(graph_tensors%pair_edge_index(2, num_triplets))
+       allocate(graph_tensors%pair_edge_attr(num_triplets, 1))
+       allocate(graph_tensors%pair_edge_weight(num_triplets))
+       allocate(graph_tensors%pair_hyperedge_index(3, num_quadruplets))
+       allocate(graph_tensors%pair_hyperedge_weight(num_quadruplets))
+       allocate(graph_tensors%pair_hyperedge_attr(num_quadruplets, 1))
+
+       j = 0
+       allocate(pair_map(num_pairs), source=0)
        do i = 1, num_pairs
-          if (pair_to_new(i) >= 0) &
-               graph_tensors%pair_node_features(pair_to_new(i)+1, :) = &
-                    all_pair_node_features(i,:)
-       end do
-
-       allocate(angle_value(num_triplets), angle_weight(num_triplets))
-       do i = 1, num_triplets
-          left_idx  = topology%triplet_pair_ids(i,1) + 1
-          right_idx = topology%triplet_pair_ids(i,2) + 1
-          angle_value(i) = get_angle(pair_delta(left_idx,:), pair_delta(right_idx,:))
-          n_i = norm2(pair_delta(left_idx,:))
-          n_j = norm2(pair_delta(right_idx,:))
-          if (n_i > EPS .and. n_j > EPS) then
-             angle_weight(i) = (topology%pair_cutoff_weight_3body(left_idx) * &
-                  topology%pair_cutoff_weight_3body(right_idx)) / (n_i**2 * n_j**2)
-          else
-             angle_weight(i) = 0.0
+          if(used_pair_mask(i)) then
+             j = j + 1
+             graph_tensors%pair_node_features(j, :) = all_pair_node_features(i,:)
+             graph_tensors%pair_index(j, :) = topology%pair_index(i, :)
+             pair_map(i) = j
           end if
        end do
 
-       allocate(graph_tensors%pair_edge_index(2, 2*num_triplets))
-       allocate(graph_tensors%pair_edge_attr(2*num_triplets, 1))
-       allocate(graph_tensors%pair_edge_weight(2*num_triplets))
        do i = 1, num_triplets
-          left_idx = pair_to_new(topology%triplet_pair_ids(i,1)+1)
-          right_idx = pair_to_new(topology%triplet_pair_ids(i,2)+1)
-          pos = 2*(i-1) + 1
-          graph_tensors%pair_edge_index(1,pos) = left_idx
-          graph_tensors%pair_edge_index(2,pos) = right_idx
-          graph_tensors%pair_edge_attr(pos,1)  = angle_value(i) / PI
-          graph_tensors%pair_edge_weight(pos)  = angle_weight(i)
-          graph_tensors%pair_edge_index(1,pos+1) = right_idx
-          graph_tensors%pair_edge_index(2,pos+1) = left_idx
-          graph_tensors%pair_edge_attr(pos+1,1)  = angle_value(i) / PI
-          graph_tensors%pair_edge_weight(pos+1)  = angle_weight(i)
+          pair_idx1 = topology%triplet_pair_ids(i,1) + 1
+          pair_idx2 = topology%triplet_pair_ids(i,2) + 1
+          graph_tensors%pair_edge_index(1,i) = pair_map(pair_idx1) - 1
+          graph_tensors%pair_edge_index(2,i) = pair_map(pair_idx2) - 1
+          graph_tensors%pair_edge_attr(i,1)  = get_angle(pair_delta(pair_idx1,:), pair_delta(pair_idx2,:)) / pi
+          n_i = norm2(pair_delta(pair_idx1,:))
+          n_j = norm2(pair_delta(pair_idx2,:))
+          if (n_i > EPS .and. n_j > EPS) then
+             graph_tensors%pair_edge_weight(i) = ( &
+                  topology%pair_cutoff_weight_3body(pair_idx1) * &
+                  topology%pair_cutoff_weight_3body(pair_idx2) &
+             ) / (n_i**2 * n_j**2)
+          else
+             graph_tensors%pair_edge_weight(i) = 0._real32
+          end if
        end do
+
+       do i = 1, num_quadruplets
+          pair_idx1 = topology%quadruplet_pair_ids(i,1) + 1
+          pair_idx2 = topology%quadruplet_pair_ids(i,2) + 1
+          pair_idx3 = topology%quadruplet_pair_ids(i,3) + 1
+          graph_tensors%pair_hyperedge_index(1, i) = pair_map(pair_idx1) - 1
+          graph_tensors%pair_hyperedge_index(2, i) = pair_map(pair_idx2) - 1
+          graph_tensors%pair_hyperedge_index(3, i) = pair_map(pair_idx3) - 1
+          graph_tensors%pair_hyperedge_attr(i, 1) = get_improper_dihedral_angle( &
+               pair_delta(pair_idx1,:), &
+               pair_delta(pair_idx2,:), &
+               pair_delta(pair_idx3,:) &
+          )
+          graph_tensors%pair_hyperedge_weight(i) = 1.0  ! Placeholder weight
+       end do
+       deallocate(pair_map)
+
     else
        allocate(graph_tensors%pair_node_features(1, 7+2*num_species))
        allocate(graph_tensors%pair_edge_index(2,0))
        allocate(graph_tensors%pair_edge_attr(0,1))
        allocate(graph_tensors%pair_edge_weight(0))
        graph_tensors%pair_node_features = 0.0
-    end if
 
-    ! ---- 4‑body GRAPH: Build HYPEREDGES connecting 3 pair nodes ----------
-    ! Instead of building a separate triplet graph, we create hyperedges
-    ! that connect the 3 pair nodes forming each quadruplet.
-    ! This preserves the higher-order 4-body interaction explicitly.
-
-    if (num_quadruplets > 0 .and. num_pairs > 0) then
-       ! Allocate hyperedge storage: each hyperedge connects 3 pairs
-       allocate(hyperedge_list(3, num_quadruplets))
-       num_hyperedges = 0
-
-       ! Track which pair nodes are used in hyperedges
-       allocate(used_pair_mask(num_pairs))
-       used_pair_mask = .false.
-
-       do i = 1, num_quadruplets
-          ! For each quadruplet, find the 3 pairs that form it
-          ! A quadruplet of atoms [a,b,c,d] is formed by pairs:
-          ! Pair1: (a,b) - from quadruplet_pair_ids(i,1)
-          ! Pair2: (c,d) - from quadruplet_pair_ids(i,2)
-          ! Pair3: (b,c) - the connecting pair between the two
-
-          ! Get the atoms for this quadruplet
-          atom1 = topology%pair_index(topology%quadruplet_pair_ids(i,1)+1, 1) + 1
-          atom2 = topology%pair_index(topology%quadruplet_pair_ids(i,1)+1, 2) + 1
-          atom3 = topology%pair_index(topology%quadruplet_pair_ids(i,2)+1, 1) + 1
-          atom4 = topology%pair_index(topology%quadruplet_pair_ids(i,2)+1, 2) + 1
-
-          ! The three pairs are:
-          ! Pair1: (atom1, atom2) - the first pair from quadruplet_pair_ids
-          ! Pair2: (atom3, atom4) - the second pair from quadruplet_pair_ids
-          ! Pair3: (atom2, atom3) - the connecting pair (or (atom1, atom4) depending on convention)
-
-          ! Find the connecting pair index
-          pair_idx1 = topology%quadruplet_pair_ids(i,1)  ! first pair (0-based)
-          pair_idx2 = topology%quadruplet_pair_ids(i,2)  ! second pair (0-based)
-
-          ! Find the connecting pair (atom2, atom3)
-          pair_idx3 = -1
-          do j = 1, num_pairs
-             left_idx = topology%pair_index(j,1) + 1
-             right_idx = topology%pair_index(j,2) + 1
-             if ((left_idx == atom2 .and. right_idx == atom3) .or. &
-                  (left_idx == atom3 .and. right_idx == atom2)) then
-                pair_idx3 = j - 1  ! 0-based
-                exit
-             end if
-          end do
-
-          ! If connecting pair not found, skip this quadruplet
-          if (pair_idx3 == -1) cycle
-
-          ! Store hyperedge: [pair1, pair2, pair3]
-          hyperedge_list(1, i) = pair_idx1
-          hyperedge_list(2, i) = pair_idx2
-          hyperedge_list(3, i) = pair_idx3
-
-          used_pair_mask(pair_idx1 + 1) = .true.
-          used_pair_mask(pair_idx2 + 1) = .true.
-          used_pair_mask(pair_idx3 + 1) = .true.
-
-          num_hyperedges = num_hyperedges + 1
-       end do
-
-       ! Store hyperedges in graph_tensors
-       if (num_hyperedges > 0) then
-          allocate(graph_tensors%hyperedge_index(3, num_hyperedges))
-          allocate(graph_tensors%hyperedge_weight(num_hyperedges))
-          allocate(graph_tensors%hyperedge_attr(num_hyperedges, 1))
-
-          ! Copy only the valid hyperedges
-          k = 0
-          do i = 1, num_quadruplets
-             if (hyperedge_list(1, i) >= 0 .and. &
-                  hyperedge_list(2, i) >= 0 .and. &
-                  hyperedge_list(3, i) >= 0) then
-                k = k + 1
-                graph_tensors%hyperedge_index(:, k) = hyperedge_list(:, i)
-                graph_tensors%hyperedge_attr(k, 1) = get_improper_dihedral_angle( &
-                     pair_delta(pair_idx1,:), &
-                     pair_delta(pair_idx2,:), &
-                     pair_delta(pair_idx3,:) &
-                )
-                graph_tensors%hyperedge_weight(k) = 1.0_real32
-             end if
-          end do
-
-          deallocate(hyperedge_list)
-       else
-          allocate(graph_tensors%hyperedge_index(3, 0))
-          allocate(graph_tensors%hyperedge_weight(0))
-          allocate(graph_tensors%hyperedge_attr(0, 1))
-       end if
-
-       deallocate(used_pair_mask)
-    else
-       allocate(graph_tensors%hyperedge_index(3, 0))
-       allocate(graph_tensors%hyperedge_weight(0))
-       allocate(graph_tensors%hyperedge_attr(0, 1))
+       allocate(graph_tensors%pair_hyperedge_index(3,0))
+       allocate(graph_tensors%pair_hyperedge_attr(0,1))
+       allocate(graph_tensors%pair_hyperedge_weight(0))
     end if
 
     ! ---- Clean up ---------------------------------------------------------
     deallocate(positions_centered, species_one_hot)
     deallocate(pair_delta, pair_distance, pair_weight, pair_unit, pair_distance_norm)
-    deallocate(all_pair_node_features, pair_type_idx)
-    if (allocated(pair_to_new)) deallocate(pair_to_new)
-    if (allocated(triplet_to_new)) deallocate(triplet_to_new)
-
-  contains
-
-    subroutine append(arr, val)
-      integer, allocatable, intent(inout) :: arr(:)
-      integer, intent(in) :: val
-      integer, allocatable :: tmp(:)
-      integer :: n
-      if (.not. allocated(arr)) then
-         allocate(arr(1))
-         arr(1) = val
-      else
-         n = size(arr)
-         allocate(tmp(n+1))
-         tmp(1:n) = arr
-         tmp(n+1) = val
-         call move_alloc(tmp, arr)
-      end if
-    end subroutine append
+    deallocate(all_pair_node_features)
 
   end subroutine build_graph_tensors
 !###############################################################################
@@ -3651,207 +3558,150 @@ contains
 
 !###############################################################################
   subroutine accumulate_graph_gradients( &
-       this, &
-       topology, cell, positions, &
+       this, graph_tensors, &
        grad_atom_features, grad_pair_features, &
        grad_positions, grad_species, ierr)
     implicit none
 
-    ! ---------- arguments ----------
+    ! Arguments
     class(distribs_container_type), intent(in) :: this
-    type(topology_type), intent(in) :: topology
-    real(real32), dimension(3,3), intent(in) :: cell
-    real(real32), dimension(:,:), intent(in) :: positions
-    real(real32), dimension(:,:), intent(in) :: grad_atom_features
-    real(real32), dimension(:,:), intent(in) :: grad_pair_features
-    real(real32), dimension(size(positions,1),3), intent(out) :: grad_positions
-    real(real32), dimension(size(positions,1),size(this%element_info)), &
-         intent(out) :: grad_species
-    integer, intent(out) :: ierr
+    type(graph_tensors_type), intent(in)      :: graph_tensors
+    real(real32), dimension(:,:), intent(in)  :: grad_atom_features
+    real(real32), dimension(:,:), intent(in)  :: grad_pair_features
+    real(real32), dimension(:,:), intent(out) :: grad_positions   ! (num_atoms, 3)
+    real(real32), dimension(:,:), intent(out) :: grad_species     ! (num_atoms, num_species)
+    integer,                      intent(out) :: ierr
 
-    ! ---------- local variables ----------
-    integer :: num_atoms, num_pairs, num_triplets, num_quadruplets
-    integer :: i, j, k, idx, left_idx, right_idx, center_idx
-    integer :: atom1, atom2, atom3, atom4
-    integer :: pair_idx, pair_idx1, pair_idx2, pair_idx3
-    integer :: num_species
-    real(real32) :: inv_bond_cutoff
-    real(real32) :: d12, d13, d23, d14, d24, d34
-    real(real32) :: angle_val, cos_angle, sin_angle
-    real(real32) :: dtheta_dpos(3,3,2)
-    real(real32) :: ddist_dpos(3,3)
-    real(real32) :: delta12(3), delta13(3), delta23(3)
-    real(real32) :: delta14(3), delta24(3), delta34(3)
-    real(real32) :: unit12(3), unit13(3), unit23(3)
-    real(real32) :: unit14(3), unit24(3), unit34(3)
+    integer :: num_atoms, num_species, n_pair_nodes
+    integer :: i, j, ipair, left_idx, right_idx
+    real(real32) :: inv_bond_cutoff, r, grad_u
+    real(real32), dimension(3) :: sum_g, g_total, g, e_j, u
     real(real32), parameter :: EPS = 1.0e-8_real32
-    real(real32) :: dunit_dleft(3), dunit_dright(3)
-
-    ! ---------- allocatable arrays ----------
-    real(real32), allocatable :: pair_delta(:,:), pair_distance(:)
-    real(real32), allocatable :: pair_unit(:,:)
-    integer, allocatable :: hyperedge_pairs(:,:)
-    real(real32), allocatable :: hyperedge_weight(:)
 
     ierr = 0
-    num_atoms = topology%num_atoms
-    num_pairs = topology%num_pairs
-    num_triplets = topology%num_triplets
-    num_quadruplets = topology%num_quadruplets
-    num_species = size(this%element_info,1)
+
+    num_atoms   = size(grad_positions, 1)
+    num_species = size(grad_species, 2)
     inv_bond_cutoff = 1.0_real32 / this%cutoff_max(1)
 
-    ! Check output array sizes
-    if (size(grad_positions,1) /= num_atoms .or. &
-         size(grad_positions,2) /= 3 .or. &
-         size(grad_species,1) /= num_atoms .or. &
-         size(grad_species,2) /= num_species) then
-       ierr = 1
-       return
+    ! Basic size sanity
+    if (size(grad_atom_features,1) /= num_atoms .or. &
+         size(grad_atom_features,2) /= 3 + num_species + 2) then
+       ierr = 1; return
     end if
 
-    ! Initialise gradients to zero
-    grad_positions = 0.0_real32
-    grad_species = 0.0_real32
+    grad_positions = 0._real32
+    grad_species   = 0._real32
 
     ! =========================================================================
-    ! PART 1: ACCUMULATE GRADIENTS FROM ATOM NODE FEATURES
-    ! =========================================================================
-    ! atom_node_features = [positions_centered * inv_bond_cutoff | species_one_hot | atomic_numbers | covalent_radii]
-    ! Columns 0:3   -> positions_centered * inv_bond_cutoff
-    ! Columns 3:3+num_species -> species_one_hot
-    ! Columns 3+num_species:end -> fixed (no gradients)
+    ! 1. Gradients from atom node features
+    !==========================================================================
+    ! Columns 1:3  : centred positions * inv_bond_cutoff
+    do i = 1, num_atoms
+       grad_positions(i,:) = grad_atom_features(i, 1:3) * inv_bond_cutoff
+    end do
+    ! Subtract the mean gradient (centring correction)
+    sum_g = sum(grad_atom_features(:, 1:3), dim=1) * inv_bond_cutoff / real(num_atoms, real32)
+    do i = 1, num_atoms
+       grad_positions(i,:) = grad_positions(i,:) - sum_g
+    end do
 
-    ! 1a: Gradients w.r.t. positions from atom features
-    if (size(grad_atom_features,1) >= num_atoms .and. &
-         size(grad_atom_features,2) >= 3) then
-       do i = 1, num_atoms
-          grad_positions(i,:) = grad_positions(i,:) + &
-               grad_atom_features(i, 1:3) * inv_bond_cutoff
-       end do
-    end if
-
-    ! 1b: Gradients w.r.t. species from atom features
-    if (size(grad_atom_features,1) >= num_atoms .and. &
-         size(grad_atom_features,2) >= 3 + num_species) then
-       do i = 1, num_atoms
-          grad_species(i,:) = grad_species(i,:) + &
-               grad_atom_features(i, 4:3+num_species)
-       end do
-    end if
+    ! Columns 4 : 3+num_species  : one‑hot species
+    do i = 1, num_atoms
+       grad_species(i,:) = grad_species(i,:) + grad_atom_features(i, 4:3+num_species)
+    end do
+    ! Columns 4+num_species and 5+num_species (atomic number, covalent radius)
+    ! do not depend on positions or species → no gradient.
 
     ! =========================================================================
-    ! PART 2: ACCUMULATE GRADIENTS FROM PAIR NODE FEATURES
-    ! =========================================================================
-    ! pair_node_features = [centroid_pos(3) | unit_vector(3) | distance_norm(1) |
-    !                       left_species(num_species) | right_species(num_species) | fixed]
-    ! Columns 0:3   -> centroid_pos = 0.5*(pos_left + pos_right) * inv_bond_cutoff
-    ! Columns 3:6   -> unit_vector = (pos_right - pos_left + image_shift) / distance
-    ! Column 6      -> distance_norm = distance * inv_bond_cutoff
-    ! Columns 7:7+num_species -> left_species
-    ! Columns 7+num_species:7+2*num_species -> right_species
+    ! 2. Gradients from pair node features
+    !==========================================================================
+    n_pair_nodes = size(graph_tensors%pair_index, 1)
+    if(n_pair_nodes .eq. 0) return
 
-    if (num_pairs > 0 .and. size(grad_pair_features,1) >= num_pairs) then
-       ! Pre-compute pair deltas and distances
-       allocate(pair_delta(num_pairs,3), pair_distance(num_pairs))
-       allocate(pair_unit(num_pairs,3))
+    ! ---- 2a: Centroid (columns 1:3) -----------------------------------------
+    ! forward: 0.5 * (pos_left + pos_right - 2*mean + img_shift) * inv
+    g_total = 0.0_real32
+    do ipair = 1, n_pair_nodes
+       g = 0.5_real32 * inv_bond_cutoff * grad_pair_features(ipair, 1:3)
+       g_total = g_total + g
+    end do
+    ! Global correction: -2/N * g_total applied to all atoms
+    do i = 1, num_atoms
+       grad_positions(i,:) = grad_positions(i,:) - (2.0_real32/real(num_atoms, real32)) * g_total
+    end do
+    ! Add contributions to left and right atoms of each pair node
+    do ipair = 1, n_pair_nodes
+       g = 0.5_real32 * inv_bond_cutoff * grad_pair_features(ipair, 1:3)
+       left_idx  = graph_tensors%pair_index(ipair, 1) + 1   ! 0‑based → 1‑based
+       right_idx = graph_tensors%pair_index(ipair, 2) + 1
+       grad_positions(left_idx,:)  = grad_positions(left_idx,:)  + g
+       grad_positions(right_idx,:) = grad_positions(right_idx,:) + g
+    end do
 
-       do i = 1, num_pairs
-          left_idx = topology%pair_index(i,1) + 1
-          right_idx = topology%pair_index(i,2) + 1
-          pair_delta(i,:) = positions(right_idx,:) - positions(left_idx,:) + &
-               matmul(real(topology%pair_image_shift(i,:), real32), cell)
-          pair_distance(i) = norm2(pair_delta(i,:))
-          if (pair_distance(i) > EPS) then
-             pair_unit(i,:) = pair_delta(i,:) / pair_distance(i)
-          else
-             pair_unit(i,:) = 0.0_real32
+    ! ---- 2b: Unit vector (columns 4:6) --------------------------------------
+    if (size(grad_pair_features, 2) >= 6) then
+       do ipair = 1, n_pair_nodes
+          left_idx  = graph_tensors%pair_index(ipair, 1) + 1
+          right_idx = graph_tensors%pair_index(ipair, 2) + 1
+          ! Recover raw distance from stored pair_distance_norm (column 7)
+          r = graph_tensors%pair_node_features(ipair, 7) / inv_bond_cutoff
+          if (r > EPS) then
+             u = graph_tensors%pair_node_features(ipair, 4:6)
+             do j = 1, 3
+                e_j = 0.0_real32;  e_j(j) = 1.0_real32
+                grad_u = grad_pair_features(ipair, 3 + j)   ! columns 4,5,6
+                ! ∂uⱼ/∂r_left  = -eⱼ/r + uⱼ * u / r
+                ! ∂uⱼ/∂r_right =  eⱼ/r - uⱼ * u / r
+                grad_positions(left_idx,:)  = grad_positions(left_idx,:)  &
+                     + grad_u * ( -e_j / r + u(j) * u / r )
+                grad_positions(right_idx,:) = grad_positions(right_idx,:) &
+                     + grad_u * (  e_j / r - u(j) * u / r )
+             end do
           end if
        end do
-
-       ! 2a: Gradients w.r.t. positions from centroid (columns 0:3)
-       do i = 1, num_pairs
-          left_idx = topology%pair_index(i,1) + 1
-          right_idx = topology%pair_index(i,2) + 1
-          if (size(grad_pair_features,2) >= 3) then
-             grad_positions(left_idx,:) = grad_positions(left_idx,:) + &
-                  0.5_real32 * inv_bond_cutoff * grad_pair_features(i, 1:3)
-             grad_positions(right_idx,:) = grad_positions(right_idx,:) + &
-                  0.5_real32 * inv_bond_cutoff * grad_pair_features(i, 1:3)
-          end if
-       end do
-
-       ! 2b: Gradients w.r.t. positions from unit vectors (columns 3:6)
-       if (size(grad_pair_features,2) >= 6) then
-          do i = 1, num_pairs
-             left_idx = topology%pair_index(i,1) + 1
-             right_idx = topology%pair_index(i,2) + 1
-             if (pair_distance(i) > EPS) then
-                do j = 1, 3
-                   dunit_dleft = &
-                        -pair_unit(i,j) * pair_delta(i,:) / pair_distance(i)**2 + &
-                        pair_delta(i,j) * pair_delta(i,:) / pair_distance(i)**3
-                   dunit_dright = &
-                        pair_unit(i,j) * pair_delta(i,:) / &pair_distance(i)**2 - &
-                        pair_delta(i,j) * pair_delta(i,:) / pair_distance(i)**3
-                   grad_positions(left_idx,:) = grad_positions(left_idx,:) + &
-                        grad_pair_features(i, 2+j) * dunit_dleft
-                   grad_positions(right_idx,:) = grad_positions(right_idx,:) + &
-                        grad_pair_features(i, 2+j) * dunit_dright
-                end do
-             end if
-          end do
-       end if
-
-       ! 2c: Gradients w.r.t. positions from distance_norm (column 6)
-       if (size(grad_pair_features,2) >= 7) then
-          do i = 1, num_pairs
-             left_idx = topology%pair_index(i,1) + 1
-             right_idx = topology%pair_index(i,2) + 1
-             if (pair_distance(i) > EPS) then
-                grad_positions(left_idx,:) = grad_positions(left_idx,:) - &
-                     grad_pair_features(i, 7) * inv_bond_cutoff * pair_unit(i,:)
-                grad_positions(right_idx,:) = grad_positions(right_idx,:) + &
-                     grad_pair_features(i, 7) * inv_bond_cutoff * pair_unit(i,:)
-             end if
-          end do
-       end if
-
-       ! 2d: Gradients w.r.t. species from left and right species (columns 7:7+2*num_species)
-       if (size(grad_pair_features,2) >= 7 + 2*num_species) then
-          do i = 1, num_pairs
-             left_idx = topology%pair_index(i,1) + 1
-             right_idx = topology%pair_index(i,2) + 1
-             grad_species(left_idx,:) = grad_species(left_idx,:) + &
-                  grad_pair_features(i, 8:7+num_species)
-             grad_species(right_idx,:) = grad_species(right_idx,:) + &
-                  grad_pair_features(i, 8+num_species:7+2*num_species)
-          end do
-       end if
-
-       deallocate(pair_delta, pair_distance, pair_unit)
     end if
 
-    ! =========================================================================
-    ! PART 4: CLEANUP AND RETURN
-    ! =========================================================================
-    ! Clean up any remaining allocated arrays
-    if (allocated(pair_delta)) deallocate(pair_delta)
-    if (allocated(pair_distance)) deallocate(pair_distance)
-    if (allocated(pair_unit)) deallocate(pair_unit)
+    ! ---- 2c: Distance norm (column 7) ---------------------------------------
+    if (size(grad_pair_features, 2) >= 7) then
+       do ipair = 1, n_pair_nodes
+          left_idx  = graph_tensors%pair_index(ipair, 1) + 1
+          right_idx = graph_tensors%pair_index(ipair, 2) + 1
+          r = graph_tensors%pair_node_features(ipair, 7) / inv_bond_cutoff
+          if (r > EPS) then
+             u = graph_tensors%pair_node_features(ipair, 4:6)
+             grad_positions(left_idx,:)  = grad_positions(left_idx,:)  &
+                  - grad_pair_features(ipair, 7) * inv_bond_cutoff * u
+             grad_positions(right_idx,:) = grad_positions(right_idx,:) &
+                  + grad_pair_features(ipair, 7) * inv_bond_cutoff * u
+          end if
+       end do
+    end if
 
-    ! Ensure gradients are finite
+    ! ---- 2d: Species (columns 8 : 7+2*num_species) --------------------------
+    if (size(grad_pair_features, 2) >= 7 + 2*num_species) then
+       do ipair = 1, n_pair_nodes
+          left_idx  = graph_tensors%pair_index(ipair, 1) + 1
+          right_idx = graph_tensors%pair_index(ipair, 2) + 1
+          grad_species(left_idx,:)  = grad_species(left_idx,:)  &
+               + grad_pair_features(ipair, 8 : 7+num_species)
+          grad_species(right_idx,:) = grad_species(right_idx,:) &
+               + grad_pair_features(ipair, 8+num_species : 7+2*num_species)
+       end do
+    end if
+
+    ! ---- Sanity checks (NaN / Inf clipping) ---------------------------------
     do i = 1, num_atoms
        do j = 1, 3
           if (.not. (grad_positions(i,j) >= -1.0e30_real32 .and. &
-               grad_positions(i,j) <= 1.0e30_real32)) then
+                     grad_positions(i,j) <=  1.0e30_real32)) then
              grad_positions(i,j) = 0.0_real32
              ierr = 2
           end if
        end do
        do j = 1, num_species
           if (.not. (grad_species(i,j) >= -1.0e30_real32 .and. &
-               grad_species(i,j) <= 1.0e30_real32)) then
+                     grad_species(i,j) <=  1.0e30_real32)) then
              grad_species(i,j) = 0.0_real32
              ierr = 3
           end if

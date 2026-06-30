@@ -733,6 +733,31 @@ subroutine f90wrap_graph_tensors_type__array__pair_edge_index(this, nd, dtype, d
     end if
 end subroutine f90wrap_graph_tensors_type__array__pair_edge_index
 
+subroutine f90wrap_graph_tensors_type__array__pair_index(this, nd, dtype, dshape, dloc)
+    use raffle__graph_builder, only: graph_tensors_type
+    use, intrinsic :: iso_c_binding, only : c_int
+    implicit none
+    type graph_tensors_type_ptr_type
+        type(graph_tensors_type), pointer :: p => NULL()
+    end type graph_tensors_type_ptr_type
+    integer(c_int), intent(in) :: this(2)
+    type(graph_tensors_type_ptr_type) :: this_ptr
+    integer(c_int), intent(out) :: nd
+    integer(c_int), intent(out) :: dtype
+    integer(c_int), dimension(10), intent(out) :: dshape
+    integer*8, intent(out) :: dloc
+
+    nd = 2
+    dtype = 5
+    this_ptr = transfer(this, this_ptr)
+    if (allocated(this_ptr%p%pair_index)) then
+        dshape(1:2) = shape(this_ptr%p%pair_index)
+        dloc = loc(this_ptr%p%pair_index)
+    else
+        dloc = 0
+    end if
+end subroutine f90wrap_graph_tensors_type__array__pair_index
+
 subroutine f90wrap_graph_tensors_type__array__atom_edge_attr(this, nd, dtype, dshape, dloc)
     use raffle__graph_builder, only: graph_tensors_type
     use, intrinsic :: iso_c_binding, only : c_int
@@ -833,7 +858,7 @@ subroutine f90wrap_graph_tensors_type__array__pair_edge_weight(this, nd, dtype, 
     end if
 end subroutine f90wrap_graph_tensors_type__array__pair_edge_weight
 
-subroutine f90wrap_graph_tensors_type__array__hyperedge_index(this, nd, dtype, dshape, dloc)
+subroutine f90wrap_graph_tensors_type__array__pair_hyperedge_index(this, nd, dtype, dshape, dloc)
     use raffle__graph_builder, only: graph_tensors_type
     use, intrinsic :: iso_c_binding, only : c_int
     implicit none
@@ -850,15 +875,15 @@ subroutine f90wrap_graph_tensors_type__array__hyperedge_index(this, nd, dtype, d
     nd = 2
     dtype = 5
     this_ptr = transfer(this, this_ptr)
-    if (allocated(this_ptr%p%hyperedge_index)) then
-        dshape(1:2) = shape(this_ptr%p%hyperedge_index)
-        dloc = loc(this_ptr%p%hyperedge_index)
+    if (allocated(this_ptr%p%pair_hyperedge_index)) then
+        dshape(1:2) = shape(this_ptr%p%pair_hyperedge_index)
+        dloc = loc(this_ptr%p%pair_hyperedge_index)
     else
         dloc = 0
     end if
-end subroutine f90wrap_graph_tensors_type__array__hyperedge_index
+end subroutine f90wrap_graph_tensors_type__array__pair_hyperedge_index
 
-subroutine f90wrap_graph_tensors_type__array__hyperedge_weight(this, nd, dtype, dshape, dloc)
+subroutine f90wrap_graph_tensors_type__array__pair_hyperedge_weight(this, nd, dtype, dshape, dloc)
     use raffle__graph_builder, only: graph_tensors_type
     use, intrinsic :: iso_c_binding, only : c_int
     implicit none
@@ -875,15 +900,15 @@ subroutine f90wrap_graph_tensors_type__array__hyperedge_weight(this, nd, dtype, 
     nd = 1
     dtype = 11
     this_ptr = transfer(this, this_ptr)
-    if (allocated(this_ptr%p%hyperedge_weight)) then
-        dshape(1:1) = shape(this_ptr%p%hyperedge_weight)
-        dloc = loc(this_ptr%p%hyperedge_weight)
+    if (allocated(this_ptr%p%pair_hyperedge_weight)) then
+        dshape(1:1) = shape(this_ptr%p%pair_hyperedge_weight)
+        dloc = loc(this_ptr%p%pair_hyperedge_weight)
     else
         dloc = 0
     end if
-end subroutine f90wrap_graph_tensors_type__array__hyperedge_weight
+end subroutine f90wrap_graph_tensors_type__array__pair_hyperedge_weight
 
-subroutine f90wrap_graph_tensors_type__array__hyperedge_attr(this, nd, dtype, dshape, dloc)
+subroutine f90wrap_graph_tensors_type__array__pair_hyperedge_attr(this, nd, dtype, dshape, dloc)
     use raffle__graph_builder, only: graph_tensors_type
     use, intrinsic :: iso_c_binding, only : c_int
     implicit none
@@ -900,13 +925,13 @@ subroutine f90wrap_graph_tensors_type__array__hyperedge_attr(this, nd, dtype, ds
     nd = 2
     dtype = 11
     this_ptr = transfer(this, this_ptr)
-    if (allocated(this_ptr%p%hyperedge_attr)) then
-        dshape(1:2) = shape(this_ptr%p%hyperedge_attr)
-        dloc = loc(this_ptr%p%hyperedge_attr)
+    if (allocated(this_ptr%p%pair_hyperedge_attr)) then
+        dshape(1:2) = shape(this_ptr%p%pair_hyperedge_attr)
+        dloc = loc(this_ptr%p%pair_hyperedge_attr)
     else
         dloc = 0
     end if
-end subroutine f90wrap_graph_tensors_type__array__hyperedge_attr
+end subroutine f90wrap_graph_tensors_type__array__pair_hyperedge_attr
 
 subroutine f90wrap_raffle__graph_builder__graph_tensors_type_initialise(this)
     use raffle__graph_builder, only: graph_tensors_type

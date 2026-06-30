@@ -69,6 +69,7 @@ FINGERPRINT_NEGATIVE_TAIL_BETA = 500.0
 @dataclass
 class PreparedStructure:
     positions: np.ndarray
+    species_indices: np.ndarray
     cell: np.ndarray
     pbc: np.ndarray
     topology: TopologyClass
@@ -76,6 +77,7 @@ class PreparedStructure:
     target_3body: Optional[np.ndarray] = None
     target_4body: Optional[np.ndarray] = None
     graph_stats: dict[str, float] = field(default_factory=dict)
+    graph_tensors: Optional[dict] = None  # ADD THIS FIELD
 
 
 def _zero_init_linear(linear: nn.Linear) -> None:
@@ -751,7 +753,7 @@ class TorchGNNFingerprint(nn.Module):
         self._device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
         self.architecture = ARCHITECTURE_ALIASES.get(str(architecture).strip(), str(architecture).strip())
         self._coupled_message_layer_kind = COUPLED_ARCHITECTURES.get(self.architecture)
-        self._use_component_coupling = True#self._coupled_message_layer_kind is not None
+        self._use_component_coupling = self._coupled_message_layer_kind is not None
         self._message_layer_kind = self._coupled_message_layer_kind or self.architecture
         if dtype == "float16":
             self._torch_dtype = torch.float16
@@ -824,20 +826,6 @@ class TorchGNNFingerprint(nn.Module):
             "_centers_4body",
             self.cutoff_min[2]
             + self.width[2] * torch.arange(self.nbins[2], dtype=self._torch_dtype),
-        )
-        self._two_body_eta = 1.0 / (2.0 * (self.sigma[0] ** 2))
-        pair_type_lookup = torch.full(
-            (self.num_species, self.num_species),
-            -1,
-            dtype=torch.long,
-        )
-        for (left, right), pair_index in self._pair_to_index.items():
-            pair_type_lookup[left, right] = pair_index
-            pair_type_lookup[right, left] = pair_index
-        self.register_buffer("_pair_type_lookup", pair_type_lookup)
-        self.register_buffer(
-            "_reference_2body_bin_weights",
-            self._build_reference_2body_bin_weights(),
         )
 
         hidden_dim_2body = hidden_dim_2body if hidden_dim_2body is not None else hidden_dim
@@ -960,6 +948,29 @@ class TorchGNNFingerprint(nn.Module):
             (projected_fingerprints[0], projected_fingerprints[1], projected_fingerprints[2]),
         )
 
+    def _pair_block_normalise(self, fingerprint: torch.Tensor) -> torch.Tensor:
+        if self.num_pairs <= 0 or self.nbins[0] <= 0:
+            return fingerprint
+        if fingerprint.ndim == 1:
+            blocks = fingerprint.reshape(self.num_pairs, self.nbins[0])
+            block_sum = blocks.sum(dim=-1, keepdim=True)
+            normalised = torch.where(
+                block_sum > 1.0e-8,
+                blocks / block_sum.clamp_min(1.0e-8),
+                blocks,
+            )
+            return normalised.reshape(-1)
+        if fingerprint.ndim == 2:
+            blocks = fingerprint.reshape(fingerprint.shape[0], self.num_pairs, self.nbins[0])
+            block_sum = blocks.sum(dim=-1, keepdim=True)
+            normalised = torch.where(
+                block_sum > 1.0e-8,
+                blocks / block_sum.clamp_min(1.0e-8),
+                blocks,
+            )
+            return normalised.reshape(fingerprint.shape[0], -1)
+        raise ValueError(f"Unsupported 2-body fingerprint rank: {fingerprint.ndim}")
+
     def _build_topology(
         self,
         symbols: Sequence[str],
@@ -977,7 +988,7 @@ class TorchGNNFingerprint(nn.Module):
         )
         return topology
 
-    def _build_multigraph_tensors(
+    def _build_graph_tensors(
         self,
         prepared: PreparedStructure,
         positions_override: Optional[torch.Tensor] = None,
@@ -1013,13 +1024,14 @@ class TorchGNNFingerprint(nn.Module):
             "graph_tensors": graph_tensors,
         }
 
-    def prepare_structure(self, atoms, include_targets: bool = True) -> PreparedStructure:
+    def prepare_structure(self, atoms, include_targets: bool = True, include_graph: bool = True, **kwargs) -> PreparedStructure:
         symbols = tuple(str(symbol).strip() for symbol in atoms.get_chemical_symbols())
         positions = np.asarray(atoms.get_positions(), dtype=self._np_dtype)
         cell = np.asarray(atoms.cell.array, dtype=self._np_dtype)
         pbc = np.asarray(atoms.pbc, dtype=bool)
 
         topology = self._build_topology(symbols, positions, cell, pbc)
+        species_indices = np.array([self._species_to_index[symbol] for symbol in symbols], dtype=np.int64)
 
         targets = (None, None, None)
         if include_targets:
@@ -1033,8 +1045,9 @@ class TorchGNNFingerprint(nn.Module):
             "num_hyperedges": float(getattr(topology, 'num_hyperedges', 0)),
         }
 
-        return PreparedStructure(
+        prepared = PreparedStructure(
             positions=positions,
+            species_indices=species_indices,
             cell=cell,
             pbc=pbc,
             topology=topology,
@@ -1042,56 +1055,14 @@ class TorchGNNFingerprint(nn.Module):
             target_3body=None if targets[1] is None else np.asarray(targets[1], dtype=self._np_dtype),
             target_4body=None if targets[2] is None else np.asarray(targets[2], dtype=self._np_dtype),
             graph_stats=graph_stats,
+            graph_tensors=None,
         )
 
-    def _build_reference_2body_bin_weights(self) -> torch.Tensor:
-        weights = torch.ones_like(self._centers_2body)
-        upper_start = self.cutoff_max[0] - 0.25
-        lower_end = self.cutoff_min[0] + 0.25
-        if upper_start < self.cutoff_max[0]:
-            upper_weight = 0.5 * (
-                1.0
-                + torch.cos(
-                    math.pi
-                    * (self._centers_2body - upper_start)
-                    / (self.cutoff_max[0] - upper_start)
-                )
-            )
-            weights = torch.where(self._centers_2body > upper_start, upper_weight, weights)
-        if lower_end > self.cutoff_min[0]:
-            lower_weight = 0.5 * (
-                1.0
-                + torch.cos(
-                    math.pi
-                    * (self._centers_2body - lower_end)
-                    / (lower_end - self.cutoff_min[0])
-                )
-            )
-            weights = torch.where(self._centers_2body < lower_end, lower_weight, weights)
-        return weights
+        if include_graph:
+            graph_tensors = self.get_graph(prepared, **kwargs)
+            prepared.graph_tensors = graph_tensors
 
-    def _pair_block_normalise(self, fingerprint: torch.Tensor) -> torch.Tensor:
-        if self.num_pairs <= 0 or self.nbins[0] <= 0:
-            return fingerprint
-        if fingerprint.ndim == 1:
-            blocks = fingerprint.reshape(self.num_pairs, self.nbins[0])
-            block_sum = blocks.sum(dim=-1, keepdim=True)
-            normalised = torch.where(
-                block_sum > 1.0e-8,
-                blocks / block_sum.clamp_min(1.0e-8),
-                blocks,
-            )
-            return normalised.reshape(-1)
-        if fingerprint.ndim == 2:
-            blocks = fingerprint.reshape(fingerprint.shape[0], self.num_pairs, self.nbins[0])
-            block_sum = blocks.sum(dim=-1, keepdim=True)
-            normalised = torch.where(
-                block_sum > 1.0e-8,
-                blocks / block_sum.clamp_min(1.0e-8),
-                blocks,
-            )
-            return normalised.reshape(fingerprint.shape[0], -1)
-        raise ValueError(f"Unsupported 2-body fingerprint rank: {fingerprint.ndim}")
+        return prepared
 
     def _forward_prepared(
         self,
@@ -1101,66 +1072,19 @@ class TorchGNNFingerprint(nn.Module):
         return_vertices: bool = False,
     ):
         """Optimized forward pass with reduced overhead."""
-        graph = self._build_multigraph_tensors(
-            prepared,
-            positions_override=positions_override,
-            species_probabilities=species_probabilities,
-        )
-
-        # Process branches
-        vertex_2body, fingerprint_2body = self.branch_2body(
-            graph["atom_node_features"],
-            graph["atom_edge_index"],
-            graph["atom_edge_attr"],
-            graph["atom_edge_weight"],
-            graph["global_features"],
-        )
-        vertex_3body, fingerprint_3body = self.branch_3body(
-            graph["pair_node_features"],
-            graph["pair_edge_index"],
-            graph["pair_edge_attr"],
-            graph["pair_edge_weight"],
-            graph["global_features"],
-        )
-
-        # Handle hyperedges efficiently
-        pair_hyperedge_index = graph["pair_hyperedge_index"]
-        if pair_hyperedge_index.numel() == 0:
-            num_pairs = graph["pair_node_features"].shape[0]
-            vertex_4body = torch.zeros(num_pairs, self.fingerprint_dim_4body, device=self._device)
-            fingerprint_4body = vertex_4body.mean(dim=0)
+        if prepared.graph_tensors is not None:
+            graph = prepared.graph_tensors
         else:
-            vertex_4body, fingerprint_4body = self.branch_4body(
-                graph["pair_node_features"],
-                pair_hyperedge_index,
-                graph["pair_hyperedge_attr"],
-                graph["pair_hyperedge_weight"],
-                graph["global_features"],
+            graph = self._build_graph_tensors(
+                prepared,
+                positions_override=positions_override,
+                species_probabilities=species_probabilities,
             )
 
-        if self._use_component_coupling:
-            (
-                (vertex_2body, vertex_3body, vertex_4body),
-                (fingerprint_2body, fingerprint_3body, fingerprint_4body),
-            ) = self._apply_component_coupling(
-                graph["global_features"],
-                (vertex_2body, vertex_3body, vertex_4body),
-                (fingerprint_2body, fingerprint_3body, fingerprint_4body),
-            )
-
-        (
-            (vertex_2body, vertex_3body, vertex_4body),
-            (fingerprint_2body, fingerprint_3body, fingerprint_4body),
-        ) = self._project_vertex_fingerprints(
-            (vertex_2body, vertex_3body, vertex_4body)
+        return self._forward_graph(
+            graph,
+            return_vertices=return_vertices,
         )
-
-        if return_vertices:
-            return (
-                (vertex_2body, vertex_3body, vertex_4body),
-                (fingerprint_2body, fingerprint_3body, fingerprint_4body),
-            )
-        return fingerprint_2body, fingerprint_3body, fingerprint_4body
 
     def _apply_component_coupling(
         self,
@@ -1196,7 +1120,7 @@ class TorchGNNFingerprint(nn.Module):
             (adjusted_fingerprints[0], adjusted_fingerprints[1], adjusted_fingerprints[2]),
         )
 
-    def _component_loss(
+    def _get_fingerprint_loss(
         self,
         predicted_2body: torch.Tensor,
         predicted_3body: torch.Tensor,
@@ -1283,7 +1207,7 @@ class TorchGNNFingerprint(nn.Module):
                 prediction = self._forward_prepared(entry)
                 losses.append(
                     float(
-                        self._component_loss(
+                        self._get_fingerprint_loss(
                             prediction[0],
                             prediction[1],
                             prediction[2],
@@ -1347,7 +1271,7 @@ class TorchGNNFingerprint(nn.Module):
                     target_3body = _float_tensor(entry.target_3body, self._device, self._torch_dtype)
                     target_4body = _float_tensor(entry.target_4body, self._device, self._torch_dtype)
                     prediction = self._forward_prepared(entry)
-                    loss = loss + self._component_loss(
+                    loss = loss + self._get_fingerprint_loss(
                         prediction[0],
                         prediction[1],
                         prediction[2],
@@ -1410,7 +1334,7 @@ class TorchGNNFingerprint(nn.Module):
         species_probabilities: Optional[torch.Tensor] = None,
         set_graph_node_features_as_parameters: bool = False,
     ) -> dict[str, torch.Tensor]:
-        graph = self._build_multigraph_tensors(
+        graph = self._build_graph_tensors(
             prepared,
             positions_override=positions_override,
             species_probabilities=species_probabilities,
@@ -1477,21 +1401,19 @@ class TorchGNNFingerprint(nn.Module):
             )
         return fingerprint_2body, fingerprint_3body, fingerprint_4body
 
-    def _graph_to_loss(
+    def _prepared_to_loss(
         self,
-        graph: dict[str, torch.Tensor],
+        prepared: PreparedStructure,
         target_2body: torch.Tensor,
         target_3body: torch.Tensor,
         target_4body: torch.Tensor,
+        **kwargs
     ) -> dict[str, torch.Tensor]:
-        (
-            (vertex_2body, vertex_3body, vertex_4body),
-            (prediction_2body, prediction_3body, prediction_4body),
-        ) = self._forward_graph(
-            graph,
-            return_vertices=True
+        prediction_2body, prediction_3body, prediction_4body = self._forward_graph(
+            prepared.graph_tensors,
+            return_vertices=False
         )
-        fingerprint_loss = self._component_loss(
+        fingerprint_loss = self._get_fingerprint_loss(
             prediction_2body,
             prediction_3body,
             prediction_4body,
@@ -1500,11 +1422,18 @@ class TorchGNNFingerprint(nn.Module):
             target_4body,
         )
 
-        return fingerprint_loss
+        repulsion_loss = self._get_repulsion_loss(
+            prepared,
+            **kwargs
+        )
+
+        return {
+            "fingerprint_loss": fingerprint_loss,
+            "repulsion_loss": repulsion_loss
+        }
 
     def _get_repulsion_loss(
         self,
-        graph: dict[str, torch.Tensor],
         prepared: PreparedStructure,
         minimum_distance_scale: float = 0.75,
         repulsion_max: float = 100.0,
@@ -1518,7 +1447,7 @@ class TorchGNNFingerprint(nn.Module):
         3+num_species   - atomic_numbers
         4+num_species   - covalent_radii
         """
-        atom_node_features = graph["atom_node_features"]
+        atom_node_features = prepared.graph_tensors["atom_node_features"]
 
         if atom_node_features.numel() == 0:
             return torch.zeros((), dtype=self._torch_dtype, device=self._device)
@@ -1612,7 +1541,7 @@ class TorchGNNFingerprint(nn.Module):
             species_probabilities=species_probabilities,
             return_vertices=False,
         )
-        fingerprint_loss = self._component_loss(
+        fingerprint_loss = self._get_fingerprint_loss(
             prediction_2body,
             prediction_3body,
             prediction_4body,
@@ -1670,19 +1599,24 @@ class TorchGNNFingerprint(nn.Module):
         else:
             raise ValueError(f"Unknown species discretization mode: {mode}")
 
-    def _rebuild_topology_with_species(
+    def _rebuild_topology_and_graph(
         self,
         prepared: PreparedStructure,
         positions: torch.Tensor,
-        species_indices: torch.Tensor,
+        species_probabilities: Optional[torch.Tensor] = None,
+        set_graph_node_features_as_parameters: bool = True,
     ) -> PreparedStructure:
         positions_np = positions.detach().cpu().numpy().astype(np.float32)
-        symbols = [self.species_list[int(idx)] for idx in species_indices.cpu().numpy()]
+        if species_probabilities is not None:
+            symbols = [self.species_list[int(idx)] for idx in self._discretize_species(species_probabilities, mode='argmax').cpu().numpy()]
+        else:
+            symbols = [self.species_list[int(idx)] for idx in prepared.species_indices]
         cell = prepared.cell
         pbc = prepared.pbc
         new_topology = self._build_topology(symbols, positions_np, cell, pbc)
-        return PreparedStructure(
+        new_prepared = PreparedStructure(
             positions=positions_np,
+            species_indices=np.array([self._species_to_index[symbol] for symbol in symbols], dtype=np.int64),
             cell=cell,
             pbc=pbc,
             topology=new_topology,
@@ -1690,7 +1624,16 @@ class TorchGNNFingerprint(nn.Module):
             target_3body=prepared.target_3body,
             target_4body=prepared.target_4body,
             graph_stats=prepared.graph_stats,
+            graph_tensors=None,
         )
+        if prepared.graph_tensors is not None:
+            new_prepared.graph_tensors = self.get_graph(
+                new_prepared,
+                positions_override=positions,
+                species_probabilities=species_probabilities,
+                set_graph_node_features_as_parameters=set_graph_node_features_as_parameters
+            )
+        return new_prepared
 
     def _get_current_atoms(self, atoms, current_positions, optimize_species, species_logits):
         current_atoms = atoms.copy()
@@ -1780,15 +1723,14 @@ class TorchGNNFingerprint(nn.Module):
             working_atoms.set_chemical_symbols(symbols)
 
 
-        prepared = self.prepare_structure(working_atoms, include_targets=False)
         device = self._device
 
         dim_2 = self.fingerprint_dim_2body
         dim_3 = self.fingerprint_dim_3body
         dim_4 = self.fingerprint_dim_4body
-        cell = torch.as_tensor(prepared.cell, device=device, dtype=self._torch_dtype)
-        pbc = torch.as_tensor(prepared.pbc, dtype=torch.bool, device=device)
-        positions_initial = torch.as_tensor(prepared.positions, device=device, dtype=self._torch_dtype)
+        cell = torch.as_tensor(working_atoms.cell, device=device, dtype=self._torch_dtype)
+        pbc = torch.as_tensor(working_atoms.pbc, dtype=torch.bool, device=device)
+        positions_initial = torch.as_tensor(working_atoms.get_positions(), device=device, dtype=self._torch_dtype)
 
         target = self._project_fingerprint_targets(
             _float_tensor(target_fingerprint, self._device, dtype=self._torch_dtype)
@@ -1869,30 +1811,20 @@ class TorchGNNFingerprint(nn.Module):
                 )
 
             restart_trajectory = [working_atoms.copy()] if return_trajectory else None
+            current_positions = torch.where(
+                fixed_mask.unsqueeze(-1),
+                positions_initial,
+                positions_parameter,
+            )
+            prepared = self.prepare_structure(
+                working_atoms,
+                include_targets=False,
+                include_graph=True,
+                set_graph_node_features_as_parameters=True,
+            )
 
             for step in range(int(num_steps)):
                 print(f"Step {step + 1}/{num_steps} of restart {restart_index + 1}/{num_restarts}", end='\r', flush=True)
-                current_positions = torch.where(
-                    fixed_mask.unsqueeze(-1),
-                    positions_initial,
-                    positions_parameter,
-                )
-                if step > 0:
-                    #pos_change = torch.norm(positions_parameter - prev_positions).item()
-                    #if pos_change > 0.01 or step % update_topology_every_n_steps == 0:
-                    if step % update_topology_every_n_steps == 0:
-                        if optimize_species:
-                            probs = torch_functional.softmax(species_logits, dim=-1)
-                            species_idx = self._discretize_species(probs, mode='argmax')
-                        else:
-                            species_idx = torch.tensor(prepared.topology.species_index, device=self._device)
-                        prepared = self._rebuild_topology_with_species(
-                            prepared,
-                            current_positions,
-                            species_idx
-                        )
-                        # cell = _float_tensor(prepared.cell, self._device, dtype=self._torch_dtype)
-                        # pbc = torch.as_tensor(prepared.pbc, dtype=torch.bool, device=self._device)
 
                 optimiser.zero_grad()
 
@@ -1901,28 +1833,17 @@ class TorchGNNFingerprint(nn.Module):
                 else:
                     probs = None
 
-                graph = self.get_graph(
+                loss_components = self._prepared_to_loss(
                     prepared,
-                    positions_override=current_positions,
-                    species_probabilities=probs,
-                    set_graph_node_features_as_parameters=True
-                )
-                fingerprint_loss = self._graph_to_loss(
-                    graph,
                     target_2body,
                     target_3body,
-                    target_4body
-                )
-
-                repulsion_loss = self._get_repulsion_loss(
-                    graph,
-                    prepared,
+                    target_4body,
                     minimum_distance_scale=minimum_distance_scale,
                 )
 
                 total_loss = self._compute_inverse_design_loss(
-                    fingerprint_loss,
-                    repulsion_loss,
+                    loss_components["fingerprint_loss"],
+                    loss_components["repulsion_loss"],
                     fingerprint_loss_weight,
                     effective_repulsion_weight,
                     use_augmented_lagrangian,
@@ -1934,11 +1855,11 @@ class TorchGNNFingerprint(nn.Module):
                 total_loss.backward()
 
                 # 1. Retrieve gradients w.r.t. graph node features
-                grad_atom_features = graph['atom_node_features'].grad
-                grad_pair_features = graph['pair_node_features'].grad
+                grad_atom_features = prepared.graph_tensors['atom_node_features'].grad
+                grad_pair_features = prepared.graph_tensors['pair_node_features'].grad
 
                 grad_positions_fp, grad_species_fp = self._accumulate_gradients(
-                    graph=graph,
+                    graph=prepared.graph_tensors,
                     grad_atom_features=grad_atom_features,
                     grad_pair_features=grad_pair_features,
                 )
@@ -1951,8 +1872,8 @@ class TorchGNNFingerprint(nn.Module):
 
                 # 4. Handle species logits gradient if optimizing species
                 if optimize_species:
-                    probs = torch_functional.softmax(species_logits, dim=-1)
-                    grad_logits = probs * (grad_species_fp - (probs * grad_species_fp).sum(dim=-1, keepdim=True))
+                    species_probs = torch_functional.softmax(species_logits, dim=-1)
+                    grad_logits = species_probs * (grad_species_fp - (species_probs * grad_species_fp).sum(dim=-1, keepdim=True))
                     if species_logits.grad is None:
                         species_logits.grad = torch.zeros_like(species_logits)
                     species_logits.grad += grad_logits
@@ -1975,11 +1896,11 @@ class TorchGNNFingerprint(nn.Module):
                             target_3body,
                             target_4body,
                             fixed_mask=fixed_mask,
-                            species_probabilities=probs,
+                            species_probabilities=species_probs,
                             minimum_distance_scale=minimum_distance_scale,
                         )
                         # Use already computed repulsion_loss
-                        rep_val = repulsion_loss.detach().item()
+                        rep_val = loss_components["repulsion_loss"].detach().item()
                         if rep_val > 0.0:
                             lambda_mult = min(max(0.0, lambda_mult + mu * rep_val), max_multiplier)
                             if rep_val > constraint_tolerance:
@@ -2016,38 +1937,20 @@ class TorchGNNFingerprint(nn.Module):
                         )
                         positions_parameter.data[movable_mask] = wrapped_positions[movable_mask]
                         positions_parameter.data[fixed_mask] = positions_initial[fixed_mask]
+
                     current_positions = torch.where(
                         fixed_mask.unsqueeze(-1),
                         positions_initial,
                         positions_parameter,
                     )
-                    # graph = self.get_graph(
-                    #     prepared,
-                    #     positions_override=current_positions,
-                    #     species_probabilities=probs,
-                    #     set_graph_node_features_as_parameters=True
-                    # )
-                    # fingerprint_loss = self._graph_to_loss(
-                    #     graph,
-                    #     target_2body,
-                    #     target_3body,
-                    #     target_4body
-                    # )
-                    # repulsion_loss = self._get_repulsion_loss(
-                    #     graph,
-                    #     prepared,
-                    #     minimum_distance_scale=minimum_distance_scale,
-                    # )
-                    # current_total_loss = self._compute_inverse_design_loss(
-                    #     fingerprint_loss,
-                    #     repulsion_loss,
-                    #     fingerprint_loss_weight=fingerprint_loss_weight,
-                    #     repulsion_weight=effective_repulsion_weight,
-                    #     use_augmented_lagrangian=use_augmented_lagrangian,
-                    #     lambda_mult=lambda_mult,
-                    #     mu=mu,
-                    #     num_atoms=len(working_atoms)
-                    # )
+
+                    prepared = self._rebuild_topology_and_graph(
+                        prepared=prepared,
+                        positions=current_positions,
+                        species_probabilities=species_probs,
+                        set_graph_node_features_as_parameters=True,
+                    )
+
 
                 # if step > 0 and step % per_atom_check_frequency == 0:
                 #     with torch.no_grad():
@@ -2100,10 +2003,10 @@ class TorchGNNFingerprint(nn.Module):
                             "learning_rate": current_learning_rate,
                             "total_loss": float(total_loss.item()),
                             "fingerprint_loss": float(
-                                fingerprint_loss.item()
+                                loss_components["fingerprint_loss"].item()
                             ),
                             "repulsion_loss": float(
-                                repulsion_loss.item()
+                                loss_components["repulsion_loss"].item()
                             ),
                             "minimum_distance_scale": float(minimum_distance_scale),
                             "lambda_multiplier": float(lambda_mult) if use_augmented_lagrangian else 0.0,
@@ -2117,8 +2020,8 @@ class TorchGNNFingerprint(nn.Module):
                     print(
                         f"restart={restart_index + 1:2d}/{num_restarts:2d} "
                         f"step={step + 1:4d} total_loss={total_loss:.6e} "
-                        f"fingerprint_loss={float(fingerprint_loss.item()):.6e} "
-                        f"repulsion_loss={float(repulsion_loss.item()):.6e}{extra}"
+                        f"fingerprint_loss={float(loss_components['fingerprint_loss'].item()):.6e} "
+                        f"repulsion_loss={float(loss_components['repulsion_loss'].item()):.6e}{extra}"
                     )
 
                 if return_trajectory:
@@ -2128,66 +2031,26 @@ class TorchGNNFingerprint(nn.Module):
                     restart_trajectory.append(traj_atoms)
 
             with torch.no_grad():
-                final_positions = torch.where(
-                    fixed_mask.unsqueeze(-1),
-                    positions_initial,
-                    positions_parameter,
-                )
-                final_graph = self.get_graph(
-                        prepared,
-                        positions_override=final_positions,
-                        species_probabilities=probs,
-                        set_graph_node_features_as_parameters=True
-                )
-                final_fingerprint_loss = self._graph_to_loss(
-                    final_graph,
-                    target_2body,
-                    target_3body,
-                    target_4body
-                )
-                final_repulsion_loss = self._get_repulsion_loss(
-                    final_graph,
-                    prepared,
-                    minimum_distance_scale=minimum_distance_scale,
-                )
-                final_total_loss = self._compute_inverse_design_loss(
-                    final_fingerprint_loss,
-                    final_repulsion_loss,
-                    fingerprint_loss_weight=fingerprint_loss_weight,
-                    repulsion_weight=effective_repulsion_weight,
-                    use_augmented_lagrangian=use_augmented_lagrangian,
-                    lambda_mult=lambda_mult,
-                    mu=mu,
-                    num_atoms=len(working_atoms)
-                )
-                final_loss = float(final_total_loss.item())
-
                 if optimize_species:
                     restart_final_probs = probs.detach().clone()
 
                 restart_final_atoms = atoms.copy()
-                restart_final_atoms.set_positions(final_positions.detach().cpu().numpy())
+                restart_final_atoms.set_positions(current_positions.detach().cpu().numpy())
 
                 if optimize_species:
-                    if species_optimization_mode == 'argmax':
-                        species_idx = torch.argmax(restart_final_probs, dim=-1)
-                    elif species_optimization_mode == 'sample':
-                        dist = torch.distributions.Categorical(probs=restart_final_probs)
-                        species_idx = dist.sample()
-                    else:
-                        species_idx = torch.argmax(restart_final_probs, dim=-1)
+                    species_idx = self._discretize_species(restart_final_probs, mode=species_optimization_mode)
                     final_symbols = [self.species_list[int(idx)] for idx in species_idx.cpu().numpy()]
                     restart_final_atoms.set_chemical_symbols(final_symbols)
 
-                final_positions_np = final_positions.detach().cpu().numpy()
+                final_positions_np = current_positions.detach().cpu().numpy()
                 if wrap_positions_to_cell:
                     restart_final_atoms.set_positions(final_positions_np)
                     restart_final_atoms = wrap_atoms_to_unit_cell(restart_final_atoms)
                 else:
                     restart_final_atoms.set_positions(final_positions_np)
 
-            if final_loss < best_restart_loss:
-                best_restart_loss = final_loss
+            if total_loss < best_restart_loss:
+                best_restart_loss = total_loss
                 best_restart_atoms = restart_final_atoms
                 best_restart_trajectory = restart_trajectory
 
@@ -2443,5 +2306,5 @@ class TorchGNNFingerprint(nn.Module):
             raise RuntimeError(f"Non-finite values detected in {label}.")
         return array
 
-    def prepare_dataset(self, structures: Iterable, include_targets: bool = True) -> list[PreparedStructure]:
-        return [self.prepare_structure(atoms, include_targets=include_targets) for atoms in structures]
+    def prepare_dataset(self, structures: Iterable, include_targets: bool = True, include_graph: bool = False) -> list[PreparedStructure]:
+        return [self.prepare_structure(atoms, include_targets=include_targets, include_graph=include_graph) for atoms in structures]

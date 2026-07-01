@@ -1128,6 +1128,7 @@ class TorchGNNFingerprint(nn.Module):
         target_2body: torch.Tensor,
         target_3body: torch.Tensor,
         target_4body: torch.Tensor,
+        return_components: bool = False
     ) -> torch.Tensor:
         # target_2body = self._project_fingerprint_targets(target_2body)
         # target_3body = self._project_fingerprint_targets(target_3body)
@@ -1140,6 +1141,12 @@ class TorchGNNFingerprint(nn.Module):
         loss_2body = relative_component_mse(predicted_2body, target_2body)
         loss_3body = relative_component_mse(predicted_3body, target_3body)
         loss_4body = relative_component_mse(predicted_4body, target_4body)
+        if return_components:
+            return {
+                "2body": loss_2body,
+                "3body": loss_3body,
+                "4body": loss_4body
+            }
         return (
             self._component_weight_tensor[0] * loss_2body
             + self._component_weight_tensor[1] * loss_3body
@@ -1229,6 +1236,10 @@ class TorchGNNFingerprint(nn.Module):
         augment_structures: Optional[Sequence] = None,
         verbose: int = 0,
         reset_optimiser: bool = False,
+        use_wandb: bool = False,
+        wandb_project: Optional[str] = None,
+        wandb_run_name: Optional[str] = None,
+        wandb_config: Optional[dict] = None,
     ) -> list[float]:
         combined_structures = list(structures)
         if augment_structures:
@@ -1242,6 +1253,18 @@ class TorchGNNFingerprint(nn.Module):
                 f"{counts['recommended_target']:,} total={counts['total']:,} "
                 f"trainable={counts['trainable']:,}"
             )
+
+        # Initialize wandb if requested
+        if use_wandb:
+            import wandb
+            wandb_config = wandb_config or {}
+            wandb_config.update({
+                "num_epochs": num_epochs,
+                "batch_size": batch_size,
+                "learning_rate": learning_rate,
+                "lr_decay_rate": lr_decay_rate,
+                "augment_structures": len(augment_structures) if augment_structures else 0,
+            })
 
         initial_loss = self._evaluate_entries(entries)
         history = [initial_loss]
@@ -1262,24 +1285,56 @@ class TorchGNNFingerprint(nn.Module):
             shuffled = list(entries)
             self._rng.shuffle(shuffled)
 
+            # Track epoch-level losses
+            epoch_loss_2body = 0.0
+            epoch_loss_3body = 0.0
+            epoch_loss_4body = 0.0
+            epoch_loss_total = 0.0
+            batch_count = 0
+
             for start in range(0, len(shuffled), max(int(batch_size), 1)):
                 batch = shuffled[start:start + max(int(batch_size), 1)]
                 optimiser.zero_grad()
                 loss = torch.zeros((), dtype=self._torch_dtype, device=self._device)
+                loss_2body = 0.0
+                loss_3body = 0.0
+                loss_4body = 0.0
+
                 for entry in batch:
                     target_2body = _float_tensor(entry.target_2body, self._device, self._torch_dtype)
                     target_3body = _float_tensor(entry.target_3body, self._device, self._torch_dtype)
                     target_4body = _float_tensor(entry.target_4body, self._device, self._torch_dtype)
                     prediction = self._forward_prepared(entry)
-                    loss = loss + self._get_fingerprint_loss(
+                    loss_components = self._get_fingerprint_loss(
                         prediction[0],
                         prediction[1],
                         prediction[2],
                         target_2body,
                         target_3body,
                         target_4body,
+                        return_components=True
                     )
+                    loss = loss + (
+                        self._component_weight_tensor[0] * loss_components["2body"]
+                        + self._component_weight_tensor[1] * loss_components["3body"]
+                        + self._component_weight_tensor[2] * loss_components["4body"]
+                    )
+                    loss_2body = loss_2body + loss_components["2body"].item()
+                    loss_3body = loss_3body + loss_components["3body"].item()
+                    loss_4body = loss_4body + loss_components["4body"].item()
+
                 loss = loss / max(len(batch), 1)
+                loss_2body = loss_2body / max(len(batch), 1)
+                loss_3body = loss_3body / max(len(batch), 1)
+                loss_4body = loss_4body / max(len(batch), 1)
+
+                # Accumulate epoch losses
+                epoch_loss_total += loss.item()
+                epoch_loss_2body += loss_2body
+                epoch_loss_3body += loss_3body
+                epoch_loss_4body += loss_4body
+                batch_count += 1
+
                 loss.backward()
                 torch.nn.utils.clip_grad_value_(self.parameters(), 1.0e-1)
                 torch.nn.utils.clip_grad_norm_(self.parameters(), 1.0e-1)
@@ -1288,6 +1343,30 @@ class TorchGNNFingerprint(nn.Module):
             scheduler.step()
             epoch_loss = self._evaluate_entries(entries)
             history.append(epoch_loss)
+
+            # Calculate average losses for the epoch
+            avg_loss_2body = ( epoch_loss_2body ) / batch_count if batch_count > 0 else 0.0
+            avg_loss_3body = ( epoch_loss_3body ) / batch_count if batch_count > 0 else 0.0
+            avg_loss_4body = ( epoch_loss_4body ) / batch_count if batch_count > 0 else 0.0
+
+            # if component_weight_tensor is none for any component, set the average loss for that component to 0.0
+            if self._component_weight_tensor[0] == 0.0:
+                avg_loss_2body = 0.0
+            if self._component_weight_tensor[1] == 0.0:
+                avg_loss_3body = 0.0
+            if self._component_weight_tensor[2] == 0.0:
+                avg_loss_4body = 0.0
+
+            # Log to wandb
+            if use_wandb:
+                wandb.log({
+                    "epoch": epoch + 1,
+                    "loss_total": epoch_loss,
+                    "loss_2body": avg_loss_2body,
+                    "loss_3body": avg_loss_3body,
+                    "loss_4body": avg_loss_4body,
+                    "learning_rate": scheduler.get_last_lr()[0],
+                })
 
             if verbose > 0 and ((epoch + 1) % max(int(num_epochs) // 10, 1) == 0 or epoch == 0):
                 print(f"epoch={epoch + 1:4d} loss={epoch_loss:.6e}")
@@ -1683,7 +1762,7 @@ class TorchGNNFingerprint(nn.Module):
         coordinate_clip_value: Optional[float] = None,
         wrap_positions_to_cell: bool = True,
         step_observer: Optional[Callable[[dict[str, object]], None]] = None,
-        use_augmented_lagrangian: bool = True,
+        use_augmented_lagrangian: bool = False,
         initial_multiplier: float = 0.0,
         penalty_parameter: float = 1.0,
         multiplier_increase_factor: float = 2.0,

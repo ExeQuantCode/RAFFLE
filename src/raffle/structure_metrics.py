@@ -180,9 +180,9 @@ def _build_local_environments(atoms, rcut: float) -> list[list[tuple[int, float]
     indices_i, indices_j, distances = neighbor_list("ijd", atoms, cutoff=float(rcut))
     environments: list[list[tuple[int, float]]] = [[] for _ in range(len(atoms))]
     for index_i, index_j, distance in zip(indices_i, indices_j, distances):
-        environments[index_i].append((int(atoms.numbers[index_j]), round(float(distance), 4)))
+        environments[index_i].append((int(atoms.numbers[index_j]), float(distance)))  # Removed rounding
     for environment in environments:
-        environment.sort()
+        environment.sort(key=lambda x: (x[0], x[1]))  # Sort by atomic number then distance
     return environments
 
 
@@ -203,7 +203,8 @@ def _environment_distance(
 
     row_ind, col_ind = linear_sum_assignment(cost)
     values = cost[row_ind, col_ind]
-    return float(np.sqrt(np.mean(values ** 2)))
+    # Use mean instead of sqrt(mean(squares)) for better sensitivity
+    return float(np.mean(values))
 
 
 def _solve_square_assignment(cost_matrix: np.ndarray, pad_cost: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -354,7 +355,13 @@ def _evaluate_alignment(reference, candidate, translation: np.ndarray) -> _Align
             delta = _minimum_image_delta(reference.cell.array, delta)
         displacements[row_index] = delta
 
-    rmsd = float(np.sqrt(np.mean(values ** 2))) if values.size else 0.0
+    # Use only valid displacements for RMSD calculation
+    valid_displacements = displacements[~np.isnan(displacements).any(axis=1)]
+    if len(valid_displacements) > 0:
+        rmsd = float(np.sqrt(np.mean(np.sum(valid_displacements ** 2, axis=1))))
+    else:
+        rmsd = float(np.sqrt(np.mean(values ** 2))) if values.size else 0.0
+
     return _AlignmentResult(
         displacements=displacements,
         translation_vector=translation_vector.reshape(3).copy(),
@@ -423,6 +430,7 @@ def structure_similarity_rmsd(
     return_translation: bool = False,
     allow_rotation: bool = True,
     symprec: float = 1.0e-5,
+    use_primitive_representation: bool = False,  # Changed default to False for better sensitivity
 ) -> float | tuple[float, np.ndarray]:
     result = _best_alignment_result(
         reference,
@@ -430,7 +438,7 @@ def structure_similarity_rmsd(
         allow_rotation=allow_rotation,
         rcut=rcut,
         symprec=symprec,
-        use_primitive_representation=True,
+        use_primitive_representation=use_primitive_representation,
     )
     if return_translation:
         return result.rmsd, result.translation_vector.copy()

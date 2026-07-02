@@ -65,3 +65,5 @@ example/python_pkg/torch_gnn/
 *.pt
 *.npy
 *.json
+plans_old/*
+*.pth

@@ -312,7 +312,8 @@ def train_and_evaluate(use_wandb=True, run_name=None, config=None):
     diamond = read(_diamond_path)
 
     # Create perturbed structure (replace one C with Si)
-    perturbed_diamond = diamond.copy()
+    _perturbed_path = os.path.join(_script_dir, "perturbed_diamond.xyz")
+    perturbed_diamond = read(_perturbed_path)
     for atom in perturbed_diamond:
         if atom.symbol == "C":
             atom.symbol = "Si"

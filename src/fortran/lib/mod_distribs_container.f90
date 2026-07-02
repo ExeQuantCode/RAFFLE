@@ -3506,7 +3506,8 @@ contains
           pair_idx2 = topology%triplet_pair_ids(i,2) + 1
           graph_tensors%pair_edge_index(1,i) = pair_map(pair_idx1) - 1
           graph_tensors%pair_edge_index(2,i) = pair_map(pair_idx2) - 1
-          graph_tensors%pair_edge_attr(i,1)  = get_angle(pair_delta(pair_idx1,:), pair_delta(pair_idx2,:)) / pi
+          graph_tensors%pair_edge_attr(i,1)  = &
+               get_angle(pair_delta(pair_idx1,:), pair_delta(pair_idx2,:)) / pi
           n_i = norm2(pair_delta(pair_idx1,:))
           n_j = norm2(pair_delta(pair_idx2,:))
           if (n_i > EPS .and. n_j > EPS) then
@@ -3537,6 +3538,7 @@ contains
 
     else
        allocate(graph_tensors%pair_node_features(1, 7+2*num_species))
+       allocate(graph_tensors%pair_index(0,2))
        allocate(graph_tensors%pair_edge_index(2,0))
        allocate(graph_tensors%pair_edge_attr(0,1))
        allocate(graph_tensors%pair_edge_weight(0))
@@ -3568,8 +3570,8 @@ contains
     type(graph_tensors_type), intent(in)      :: graph_tensors
     real(real32), dimension(:,:), intent(in)  :: grad_atom_features
     real(real32), dimension(:,:), intent(in)  :: grad_pair_features
-    real(real32), dimension(:,:), intent(out) :: grad_positions   ! (num_atoms, 3)
-    real(real32), dimension(:,:), intent(out) :: grad_species     ! (num_atoms, num_species)
+    real(real32), dimension(:,:), intent(out) :: grad_positions
+    real(real32), dimension(:,:), intent(out) :: grad_species
     integer,                      intent(out) :: ierr
 
     integer :: num_atoms, num_species, n_pair_nodes
@@ -3601,7 +3603,8 @@ contains
        grad_positions(i,:) = grad_atom_features(i, 1:3) * inv_bond_cutoff
     end do
     ! Subtract the mean gradient (centring correction)
-    sum_g = sum(grad_atom_features(:, 1:3), dim=1) * inv_bond_cutoff / real(num_atoms, real32)
+    sum_g = sum(grad_atom_features(:, 1:3), dim=1) * inv_bond_cutoff / &
+         real(num_atoms, real32)
     do i = 1, num_atoms
        grad_positions(i,:) = grad_positions(i,:) - sum_g
     end do
@@ -3628,7 +3631,8 @@ contains
     end do
     ! Global correction: -2/N * g_total applied to all atoms
     do i = 1, num_atoms
-       grad_positions(i,:) = grad_positions(i,:) - (2.0_real32/real(num_atoms, real32)) * g_total
+       grad_positions(i,:) = grad_positions(i,:) - &
+            (2.0_real32/real(num_atoms, real32)) * g_total
     end do
     ! Add contributions to left and right atoms of each pair node
     do ipair = 1, n_pair_nodes
@@ -3694,14 +3698,14 @@ contains
     do i = 1, num_atoms
        do j = 1, 3
           if (.not. (grad_positions(i,j) >= -1.0e30_real32 .and. &
-                     grad_positions(i,j) <=  1.0e30_real32)) then
+               grad_positions(i,j) <=  1.0e30_real32)) then
              grad_positions(i,j) = 0.0_real32
              ierr = 2
           end if
        end do
        do j = 1, num_species
           if (.not. (grad_species(i,j) >= -1.0e30_real32 .and. &
-                     grad_species(i,j) <=  1.0e30_real32)) then
+               grad_species(i,j) <=  1.0e30_real32)) then
              grad_species(i,j) = 0.0_real32
              ierr = 3
           end if

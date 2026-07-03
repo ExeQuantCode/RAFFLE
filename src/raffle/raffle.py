@@ -1939,6 +1939,69 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
         def radius_distance_tol(self, radius_distance_tol):
             self.radius_distance_tol[...] = radius_distance_tol
 
+        @property
+        def norm_2body(self):
+            """
+            The normalization factor for the 2-body distribution function.
+            """
+            array_ndim, array_type, array_shape, array_handle = \
+                _raffle.f90wrap_distribs_container_type__array__norm_2body(self._handle)
+            if array_handle in self._arrays:
+                norm_2body = self._arrays[array_handle]
+            else:
+                norm_2body = \
+                    f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                        self._handle,
+                                        _raffle.f90wrap_distribs_container_type__array__norm_2body)
+                self._arrays[array_handle] = norm_2body
+            return norm_2body
+
+        @norm_2body.setter
+        def norm_2body(self, norm_2body):
+            self.norm_2body[...] = norm_2body
+
+        @property
+        def norm_3body(self):
+            """
+            The normalization factor for the 3-body distribution function.
+            """
+            array_ndim, array_type, array_shape, array_handle = \
+                _raffle.f90wrap_distribs_container_type__array__norm_3body(self._handle)
+            if array_handle in self._arrays:
+                norm_3body = self._arrays[array_handle]
+            else:
+                norm_3body = \
+                    f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                        self._handle,
+                                        _raffle.f90wrap_distribs_container_type__array__norm_3body)
+                self._arrays[array_handle] = norm_3body
+            return norm_3body
+
+        @norm_3body.setter
+        def norm_3body(self, norm_3body):
+            self.norm_3body[...] = norm_3body
+
+        @property
+        def norm_4body(self):
+            """
+            The normalization factor for the 4-body distribution function.
+            """
+            array_ndim, array_type, array_shape, array_handle = \
+                _raffle.f90wrap_distribs_container_type__array__norm_4body(self._handle)
+            if array_handle in self._arrays:
+                norm_4body = self._arrays[array_handle]
+            else:
+                norm_4body = \
+                    f90wrap.runtime.get_array(f90wrap.runtime.sizeof_fortran_t,
+                                        self._handle,
+                                        _raffle.f90wrap_distribs_container_type__array__norm_4body)
+                self._arrays[array_handle] = norm_4body
+            return norm_4body
+
+        @norm_4body.setter
+        def norm_4body(self, norm_4body):
+            self.norm_4body[...] = norm_4body
+
         def __str__(self):
             ret = ['<distribs_container_type>{\n']
             ret.append('    num_evaluated : ')
@@ -1965,6 +2028,12 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             ret.append(repr(self.cutoff_max))
             ret.append(',\n    radius_distance_tol : ')
             ret.append(repr(self.radius_distance_tol))
+            ret.append(',\n    norm_2body : ')
+            ret.append(repr(self.norm_2body))
+            ret.append(',\n    norm_3body : ')
+            ret.append(repr(self.norm_3body))
+            ret.append(',\n    norm_4body : ')
+            ret.append(repr(self.norm_4body))
             ret.append('}')
             return ''.join(ret)
 

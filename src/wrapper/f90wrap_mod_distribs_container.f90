@@ -480,6 +480,80 @@ end subroutine f90wrap_distribs_container_type__array__radius_distance_tol
 
 
 !###############################################################################
+! distribution function normalisation factors
+!###############################################################################
+subroutine f90wrap_distribs_container_type__array__norm_2body( &
+     this, nd, dtype, dshape, dloc &
+)
+    use raffle__distribs_container, only: distribs_container_type
+    use, intrinsic :: iso_c_binding, only : c_int
+    implicit none
+    type distribs_container_type_ptr_type
+        type(distribs_container_type), pointer :: p => NULL()
+    end type distribs_container_type_ptr_type
+    integer(c_int), intent(in) :: this(2)
+    type(distribs_container_type_ptr_type) :: this_ptr
+    integer(c_int), intent(out) :: nd
+    integer(c_int), intent(out) :: dtype
+    integer(c_int), dimension(10), intent(out) :: dshape
+    integer*8, intent(out) :: dloc
+
+    nd = 1
+    dtype = 11
+    this_ptr = transfer(this, this_ptr)
+    dshape(1:1) = shape(this_ptr%p%norm_2body)
+    dloc = loc(this_ptr%p%norm_2body)
+end subroutine f90wrap_distribs_container_type__array__norm_2body
+
+subroutine f90wrap_distribs_container_type__array__norm_3body( &
+     this, nd, dtype, dshape, dloc &
+)
+    use raffle__distribs_container, only: distribs_container_type
+    use, intrinsic :: iso_c_binding, only : c_int
+    implicit none
+    type distribs_container_type_ptr_type
+        type(distribs_container_type), pointer :: p => NULL()
+    end type distribs_container_type_ptr_type
+    integer(c_int), intent(in) :: this(2)
+    type(distribs_container_type_ptr_type) :: this_ptr
+    integer(c_int), intent(out) :: nd
+    integer(c_int), intent(out) :: dtype
+    integer(c_int), dimension(10), intent(out) :: dshape
+    integer*8, intent(out) :: dloc
+
+    nd = 1
+    dtype = 11
+    this_ptr = transfer(this, this_ptr)
+    dshape(1:1) = shape(this_ptr%p%norm_3body)
+    dloc = loc(this_ptr%p%norm_3body)
+end subroutine f90wrap_distribs_container_type__array__norm_3body
+
+subroutine f90wrap_distribs_container_type__array__norm_4body( &
+     this, nd, dtype, dshape, dloc &
+)
+    use raffle__distribs_container, only: distribs_container_type
+    use, intrinsic :: iso_c_binding, only : c_int
+    implicit none
+    type distribs_container_type_ptr_type
+        type(distribs_container_type), pointer :: p => NULL()
+    end type distribs_container_type_ptr_type
+    integer(c_int), intent(in) :: this(2)
+    type(distribs_container_type_ptr_type) :: this_ptr
+    integer(c_int), intent(out) :: nd
+    integer(c_int), intent(out) :: dtype
+    integer(c_int), dimension(10), intent(out) :: dshape
+    integer*8, intent(out) :: dloc
+
+    nd = 1
+    dtype = 11
+    this_ptr = transfer(this, this_ptr)
+    dshape(1:1) = shape(this_ptr%p%norm_4body)
+    dloc = loc(this_ptr%p%norm_4body)
+end subroutine f90wrap_distribs_container_type__array__norm_4body
+!###############################################################################
+
+
+!###############################################################################
 ! distributions container type initialiser and finaliser
 !###############################################################################
 subroutine f90wrap_raffle__dc__dc_type_initialise(this)

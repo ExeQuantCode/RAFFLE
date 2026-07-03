@@ -885,12 +885,14 @@ contains
 
     integer :: i
     !! Loop index.
-    integer :: nspec
-    !! Number of species.
+    integer :: nspec, num_pairs
+    !! Number of species and number of element pairs.
     logical :: exist
     !! Boolean whether the file exists.
     character(256) :: buffer, buffer1
     !! Buffer for reading lines.
+    character(7), allocatable :: pair_buffer(:)
+    !! Buffer for reading element pairs.
 
     ! check if file exists
     inquire(file=file, exist=exist)
@@ -961,8 +963,20 @@ contains
        else if(index(buffer, "in_dataset_4body") .ne. 0) then
           read(buffer, *) buffer1, this%in_dataset_4body
        else if(index(buffer, "element_pairs") .ne. 0) then
-          read(buffer, *) buffer1, this%bond_info(:)%element(1)
-          read(buffer, *) buffer1, this%bond_info(:)%element(2)
+          num_pairs = icount(buffer(index(buffer,"element_pairs")+13:))
+          if(allocated(pair_buffer)) deallocate(pair_buffer)
+          allocate(pair_buffer(num_pairs))
+          read(buffer, *) buffer1, pair_buffer
+          if(num_pairs .ne. size(this%bond_info))then
+             write(0,*) "Number of element pairs does not match bond_info"
+             write(0,*) "num_pairs: ", num_pairs
+             write(0,*) "size(bond_info): ", size(this%bond_info)
+             cycle
+          end if
+          do i = 1, num_pairs
+             this%bond_info(i)%element(1) = trim(pair_buffer(i)(1:index(pair_buffer(i),"-")-1))
+             this%bond_info(i)%element(2) = trim(pair_buffer(i)(index(pair_buffer(i),"-")+1:))
+          end do
        else if(index(buffer, "radii") .ne. 0) then
           read(buffer, *) buffer1, this%bond_info(:)%radius_covalent
        else if(index(buffer, "best_energy_per_pair") .ne. 0) then

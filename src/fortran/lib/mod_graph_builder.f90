@@ -97,6 +97,7 @@ module raffle__graph_builder
      !! Atom edge attributes.
      real(real32), dimension(:,:), allocatable :: pair_edge_attr
      !! Pair edge attributes.
+     real(real32), dimension(:,:), allocatable :: atom_edge_unit
 
      real(real32), dimension(:), allocatable :: atom_edge_weight
      !! Atom edge weights.

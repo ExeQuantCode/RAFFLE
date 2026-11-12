@@ -1489,9 +1489,13 @@ end subroutine f90wrap_raffle__dc__build_graph_tensors
 subroutine f90wrap_raffle__dc__accumulate_graph_gradients( &
     this, graph_tensors, &
     grad_atom_features, grad_pair_features, &
+    grad_atom_edge_attr, grad_atom_edge_weight, &
+    grad_pair_edge_attr, grad_pair_edge_weight, &
+    grad_pair_hyperedge_attr, &
+    grad_pair_hyperedge_weight, &
     grad_positions, grad_species, &
     ierr, &
-    n0, n1, n2, n3, n4)
+    n0, n1, n2, n3, n4, n5, n6, n7)
 
     use raffle__distribs_container, only: distribs_container_type
     use raffle__graph_builder, only: graph_tensors_type
@@ -1513,8 +1517,14 @@ subroutine f90wrap_raffle__dc__accumulate_graph_gradients( &
     integer, intent(in), dimension(2) :: graph_tensors
     real(4), intent(in), dimension(n0, n1) :: grad_atom_features
     real(4), intent(in), dimension(n2, n3) :: grad_pair_features
+    real(4), intent(in), dimension(n4, 1) :: grad_atom_edge_attr
+    real(4), intent(in), dimension(n4, 1) :: grad_atom_edge_weight
+    real(4), intent(in), dimension(n5, 1) :: grad_pair_edge_attr
+    real(4), intent(in), dimension(n5, 1) :: grad_pair_edge_weight
+    real(4), intent(in), dimension(n6, 1) :: grad_pair_hyperedge_attr
+    real(4), intent(in), dimension(n6, 1) :: grad_pair_hyperedge_weight
     real(4), intent(inout), dimension(n0,3) :: grad_positions
-    real(4), intent(inout), dimension(n0,n4) :: grad_species
+    real(4), intent(inout), dimension(n0,n7) :: grad_species
     integer, intent(inout) :: ierr
 
     ! Array dimensions (inferred from input arrays)
@@ -1527,7 +1537,13 @@ subroutine f90wrap_raffle__dc__accumulate_graph_gradients( &
     integer :: n3
     !f2py intent(hide), depend(grad_pair_features) :: n3 = shape(grad_pair_features,1)
     integer :: n4
-    !f2py intent(hide), depend(grad_species) :: n4 = shape(grad_species,1)
+    !f2py intent(hide), depend(grad_atom_edge_attr) :: n4 = shape(grad_atom_edge_attr,0)
+    integer :: n5
+    !f2py intent(hide), depend(grad_pair_edge_attr) :: n5 = shape(grad_pair_edge_attr,0)
+    integer :: n6
+    !f2py intent(hide), depend(grad_pair_hyperedge_attr) :: n6 = shape(grad_pair_hyperedge_attr,0)
+    integer :: n7
+    !f2py intent(hide), depend(grad_species) :: n7 = shape(grad_species,1)
 
     ! Convert transfered pointer
     this_ptr = transfer(this, this_ptr)
@@ -1537,6 +1553,12 @@ subroutine f90wrap_raffle__dc__accumulate_graph_gradients( &
         graph_tensors=graph_tensors_ptr%p, &
         grad_atom_features=grad_atom_features, &
         grad_pair_features=grad_pair_features, &
+        grad_atom_edge_attr=grad_atom_edge_attr, &
+        grad_atom_edge_weight=grad_atom_edge_weight, &
+        grad_pair_edge_attr=grad_pair_edge_attr, &
+        grad_pair_edge_weight=grad_pair_edge_weight, &
+        grad_pair_hyperedge_attr=grad_pair_hyperedge_attr, &
+        grad_pair_hyperedge_weight=grad_pair_hyperedge_weight, &
         grad_positions=grad_positions, &
         grad_species=grad_species, &
         ierr=ierr &

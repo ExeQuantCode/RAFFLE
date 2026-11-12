@@ -3342,7 +3342,7 @@ contains
     integer :: i, j, k, num_pairs_used
     integer :: pair_idx1, pair_idx2, pair_idx3
     real(real32) :: inv_bond_cutoff
-    real(real32) :: n_i, n_j
+    real(real32) :: n_i, n_j, n_k
     real(real32), parameter :: EPS = 1.0e-8_real32
 
     ! --- Allocatable arrays ---
@@ -3406,6 +3406,7 @@ contains
        allocate(graph_tensors%atom_edge_index(2,0))
        allocate(graph_tensors%atom_edge_attr(0,1))
        allocate(graph_tensors%atom_edge_weight(0))
+       allocate(graph_tensors%atom_edge_unit(0,3))
        allocate(graph_tensors%pair_edge_index(2,0))
        allocate(graph_tensors%pair_edge_attr(0,1))
        allocate(graph_tensors%pair_edge_weight(0))
@@ -3457,11 +3458,13 @@ contains
     allocate(graph_tensors%atom_edge_index(2, num_pairs))
     allocate(graph_tensors%atom_edge_attr(num_pairs, 1))
     allocate(graph_tensors%atom_edge_weight(num_pairs))
+    allocate(graph_tensors%atom_edge_unit(num_pairs, 3))
     do i = 1, num_pairs
        graph_tensors%atom_edge_index(1,i) = topology%pair_index(i,1)
        graph_tensors%atom_edge_index(2,i) = topology%pair_index(i,2)
        graph_tensors%atom_edge_attr(i,1)  = pair_distance_norm(i)
        graph_tensors%atom_edge_weight(i)  = pair_weight(i)
+       graph_tensors%atom_edge_unit(i,:)  = pair_unit(i,:)
     end do
 
     ! ---- 3‑body graph (pair level) ---------------------------------------
@@ -3541,12 +3544,37 @@ contains
           graph_tensors%pair_hyperedge_index(1, i) = pair_map(pair_idx1) - 1
           graph_tensors%pair_hyperedge_index(2, i) = pair_map(pair_idx2) - 1
           graph_tensors%pair_hyperedge_index(3, i) = pair_map(pair_idx3) - 1
-          graph_tensors%pair_hyperedge_attr(i, 1) = get_improper_dihedral_angle( &
-               pair_delta(pair_idx1,:), &
-               pair_delta(pair_idx2,:), &
-               pair_delta(pair_idx3,:) &
-          )
-          graph_tensors%pair_hyperedge_weight(i) = 1.0  ! Placeholder weight
+
+          n_i = norm2(pair_delta(pair_idx1,:))
+          n_j = norm2(pair_delta(pair_idx2,:))
+          n_k = norm2(pair_delta(pair_idx3,:))
+
+          if (n_i > EPS .and. n_j > EPS .and. n_k > EPS) then
+             ! Compute the improper dihedral with degeneracy flag
+             block
+                logical :: degen
+                graph_tensors%pair_hyperedge_attr(i, 1) = &
+                     get_improper_dihedral_angle( &
+                          pair_delta(pair_idx1,:), &
+                          pair_delta(pair_idx2,:), &
+                          pair_delta(pair_idx3,:), &
+                          is_degenerate=degen &
+                     )
+                if (degen) then
+                   graph_tensors%pair_hyperedge_weight(i) = 0.0_real32
+                else
+                   graph_tensors%pair_hyperedge_weight(i) = ( &
+                        topology%pair_cutoff_weight_4body(pair_idx1) * &
+                        topology%pair_cutoff_weight_4body(pair_idx2) * &
+                        topology%pair_cutoff_weight_4body(pair_idx3) &
+                   ) / (n_i**2 * n_j**2 * n_k**2)
+                end if
+             end block
+          else
+             graph_tensors%pair_hyperedge_attr(i, 1) = 0.0_real32
+             graph_tensors%pair_hyperedge_weight(i)  = 0.0_real32
+          end if
+
        end do
        deallocate(pair_map)
 
@@ -3576,6 +3604,9 @@ contains
   subroutine accumulate_graph_gradients( &
        this, graph_tensors, &
        grad_atom_features, grad_pair_features, &
+       grad_atom_edge_attr, grad_atom_edge_weight, &
+       grad_pair_edge_attr, grad_pair_edge_weight, &
+       grad_pair_hyperedge_attr, grad_pair_hyperedge_weight, &
        grad_positions, grad_species, ierr)
     implicit none
 
@@ -3584,6 +3615,12 @@ contains
     type(graph_tensors_type), intent(in)      :: graph_tensors
     real(real32), dimension(:,:), intent(in)  :: grad_atom_features
     real(real32), dimension(:,:), intent(in)  :: grad_pair_features
+    real(real32), dimension(:,:), intent(in)  :: grad_atom_edge_attr
+    real(real32), dimension(:,:), intent(in)  :: grad_atom_edge_weight
+    real(real32), dimension(:,:), intent(in)  :: grad_pair_edge_attr
+    real(real32), dimension(:,:), intent(in)  :: grad_pair_edge_weight
+    real(real32), dimension(:,:), intent(in)  :: grad_pair_hyperedge_attr
+    real(real32), dimension(:,:), intent(in)  :: grad_pair_hyperedge_weight
     real(real32), dimension(:,:), intent(out) :: grad_positions
     real(real32), dimension(:,:), intent(out) :: grad_species
     integer,                      intent(out) :: ierr
@@ -3593,6 +3630,18 @@ contains
     real(real32) :: inv_bond_cutoff, r, grad_u
     real(real32), dimension(3) :: sum_g, g_total, g, e_j, u
     real(real32), parameter :: EPS = 1.0e-8_real32
+
+    real(real32), dimension(3) :: u_vec, v_vec, w_vec, du, dv, dw
+    real(real32) :: grad_attr
+    integer :: left1, right1, left2, right2, left3, right3
+    integer :: sub_ierr
+    integer :: pair_idx1, pair_idx2, pair_idx3
+    real(real32) :: pw, n_1, n_2, coef_1, coef_2, ds
+    real(real32), dimension(3) :: u_1, u_2
+    real(real32) :: r_plus, r_minus
+
+    real(real32) :: phw, n_3, coef_3
+    real(real32), dimension(3) :: u_3
 
     ierr = 0
 
@@ -3630,11 +3679,61 @@ contains
     ! Columns 4+num_species and 5+num_species (atomic number, covalent radius)
     ! do not depend on positions or species → no gradient.
 
+    ! ---- 1b: Atom edge attributes (pair_distance_norm) ----------------------
+    ! atom_edge_attr(e) = |r_e| * inv_bond_cutoff
+    ! ∂attr/∂pos_right = +inv_bond_cutoff * u_e
+    ! ∂attr/∂pos_left  = -inv_bond_cutoff * u_e
+    if (size(grad_atom_edge_attr, 1) > 0) then
+       do i = 1, size(graph_tensors%atom_edge_index, 2)
+          left_idx  = graph_tensors%atom_edge_index(1, i) + 1
+          right_idx = graph_tensors%atom_edge_index(2, i) + 1
+          u = graph_tensors%atom_edge_unit(i, :)
+
+          g = grad_atom_edge_attr(i, 1) * inv_bond_cutoff * u
+          grad_positions(left_idx,  :) = grad_positions(left_idx,  :) - g
+          grad_positions(right_idx, :) = grad_positions(right_idx, :) + g
+       end do
+    end if
+
+    ! ---- 1c: Atom edge weights (smooth_cutoff of distance) ------------------
+    ! atom_edge_weight(e) = smooth_cutoff(|r_e|, cutoff_max, 0.5)
+    ! ∂weight/∂pos_right = smooth_cutoff'(r) * u_e
+    ! ∂weight/∂pos_left  = -smooth_cutoff'(r) * u_e
+    if (size(grad_atom_edge_weight, 1) > 0) then
+       do i = 1, size(graph_tensors%atom_edge_index, 2)
+          left_idx  = graph_tensors%atom_edge_index(1, i) + 1
+          right_idx = graph_tensors%atom_edge_index(2, i) + 1
+          u = graph_tensors%atom_edge_unit(i, :)
+          r = graph_tensors%atom_edge_attr(i, 1) / inv_bond_cutoff
+
+          ! Numerical derivative of smooth_cutoff w.r.t. r
+          r_plus  = r + 1.0e-4_real32
+          r_minus = max(r - 1.0e-4_real32, 0.0_real32)
+          ds = ( smooth_cutoff(r_plus,  this%cutoff_max(1), 0.5_real32) &
+               - smooth_cutoff(r_minus, this%cutoff_max(1), 0.5_real32) ) / &
+                 (r_plus - r_minus)
+
+          g = grad_atom_edge_weight(i, 1) * ds * u
+          grad_positions(left_idx,  :) = grad_positions(left_idx,  :) - g
+          grad_positions(right_idx, :) = grad_positions(right_idx, :) + g
+       end do
+    end if
+
     ! =========================================================================
     ! 2. Gradients from pair node features
     !==========================================================================
     n_pair_nodes = size(graph_tensors%pair_index, 1)
     if(n_pair_nodes .eq. 0) return
+
+    if (size(grad_pair_features,1) /= n_pair_nodes .or. &
+       size(grad_pair_features,2) /= size(graph_tensors%pair_node_features, 2)) then
+       ierr = 4
+       write(0,*) "Error in accumulate_graph_gradients: mismatch in pair features"
+       write(0,*) "grad_pair_features size: ", size(grad_pair_features)
+       write(0,*) "graph_tensors%pair_node_features size: ", &
+            size(graph_tensors%pair_node_features)
+       return
+    end if
 
     ! ---- 2a: Centroid (columns 1:3) -----------------------------------------
     ! forward: 0.5 * (pos_left + pos_right - 2*mean + img_shift) * inv
@@ -3708,6 +3807,162 @@ contains
        end do
     end if
 
+    ! ---- 2e: Hyperedge attribute --------------------------------------------
+   if (size(grad_pair_hyperedge_attr, 1) .eq. size(graph_tensors%pair_hyperedge_index, 2) &
+      .and. size(grad_pair_hyperedge_attr, 1) .gt. 0) then
+
+
+      do i = 1, size(graph_tensors%pair_hyperedge_index, 2)
+         pair_idx1 = graph_tensors%pair_hyperedge_index(1, i) + 1
+         pair_idx2 = graph_tensors%pair_hyperedge_index(2, i) + 1
+         pair_idx3 = graph_tensors%pair_hyperedge_index(3, i) + 1
+
+         ! Reconstruct physical pair_delta = unit * |r|
+         !   pair_node_features(:,4:6) * pair_node_features(:,7) gives |r| * unit
+         !   in units of inv_bond_cutoff, so divide by inv_bond_cutoff.
+         u_vec = graph_tensors%pair_node_features(pair_idx1, 4:6) * &
+               graph_tensors%pair_node_features(pair_idx1, 7) / inv_bond_cutoff
+         v_vec = graph_tensors%pair_node_features(pair_idx2, 4:6) * &
+               graph_tensors%pair_node_features(pair_idx2, 7) / inv_bond_cutoff
+         w_vec = graph_tensors%pair_node_features(pair_idx3, 4:6) * &
+               graph_tensors%pair_node_features(pair_idx3, 7) / inv_bond_cutoff
+
+         call improper_dihedral_gradient(u_vec, v_vec, w_vec, du, dv, dw, sub_ierr)
+         if (sub_ierr .eq. 0) then
+            grad_attr = grad_pair_hyperedge_attr(i, 1)
+
+            left1  = graph_tensors%pair_index(pair_idx1, 1) + 1
+            right1 = graph_tensors%pair_index(pair_idx1, 2) + 1
+            left2  = graph_tensors%pair_index(pair_idx2, 1) + 1
+            right2 = graph_tensors%pair_index(pair_idx2, 2) + 1
+            left3  = graph_tensors%pair_index(pair_idx3, 1) + 1
+            right3 = graph_tensors%pair_index(pair_idx3, 2) + 1
+
+            ! ∂pair_delta/∂pos(left) = -I, ∂pair_delta/∂pos(right) = +I
+            grad_positions(left1,  :) = grad_positions(left1,  :) - grad_attr * du
+            grad_positions(right1, :) = grad_positions(right1, :) + grad_attr * du
+            grad_positions(left2,  :) = grad_positions(left2,  :) - grad_attr * dv
+            grad_positions(right2, :) = grad_positions(right2, :) + grad_attr * dv
+            grad_positions(left3,  :) = grad_positions(left3,  :) - grad_attr * dw
+            grad_positions(right3, :) = grad_positions(right3, :) + grad_attr * dw
+         end if
+      end do
+
+   end if
+
+    ! ---- 2f: Pair edge attributes (angle / pi) ------------------------------
+    ! pair_edge_attr(i) = angle(pair_delta(p1), pair_delta(p2)) / pi
+    ! ∂pair_edge_attr/∂pos_right(p1) = +(1/π) * ∂angle/∂pair_delta(p1)
+    ! ∂pair_edge_attr/∂pos_left(p1)  = -(1/π) * ∂angle/∂pair_delta(p1)
+    ! (similarly for p2)
+    if (size(grad_pair_edge_attr, 1) > 0) then
+       do i = 1, size(graph_tensors%pair_edge_index, 2)
+          pair_idx1 = graph_tensors%pair_edge_index(1, i) + 1
+          pair_idx2 = graph_tensors%pair_edge_index(2, i) + 1
+
+          ! Reconstruct physical pair_delta = unit * |r| / inv_bond_cutoff
+          u_vec = graph_tensors%pair_node_features(pair_idx1, 4:6) * &
+                  graph_tensors%pair_node_features(pair_idx1, 7) / inv_bond_cutoff
+          v_vec = graph_tensors%pair_node_features(pair_idx2, 4:6) * &
+                  graph_tensors%pair_node_features(pair_idx2, 7) / inv_bond_cutoff
+
+          call angle_gradient(u_vec, v_vec, du, dv, sub_ierr)
+          if (sub_ierr .eq. 0) then
+             grad_attr = grad_pair_edge_attr(i, 1) / pi
+
+             left1  = graph_tensors%pair_index(pair_idx1, 1) + 1
+             right1 = graph_tensors%pair_index(pair_idx1, 2) + 1
+             left2  = graph_tensors%pair_index(pair_idx2, 1) + 1
+             right2 = graph_tensors%pair_index(pair_idx2, 2) + 1
+
+             grad_positions(left1,  :) = grad_positions(left1,  :) - grad_attr * du
+             grad_positions(right1, :) = grad_positions(right1, :) + grad_attr * du
+             grad_positions(left2,  :) = grad_positions(left2,  :) - grad_attr * dv
+             grad_positions(right2, :) = grad_positions(right2, :) + grad_attr * dv
+          end if
+       end do
+    end if
+
+    ! ---- 2g: Pair edge weights ----------------------------------------------
+    ! pair_edge_weight(i) = w_1 * w_2 / (n_1² * n_2²)  (w_1, w_2 topology const)
+    ! ∂pw/∂n_1 = -2 * pw / n_1
+    ! ∂n_1/∂pos_right(p1) = +u_1, ∂n_1/∂pos_left(p1) = -u_1
+    ! (similarly for p2)
+    if (size(grad_pair_edge_weight, 1) > 0) then
+       do i = 1, size(graph_tensors%pair_edge_index, 2)
+          pair_idx1 = graph_tensors%pair_edge_index(1, i) + 1
+          pair_idx2 = graph_tensors%pair_edge_index(2, i) + 1
+
+          pw  = graph_tensors%pair_edge_weight(i)
+          n_1 = graph_tensors%pair_node_features(pair_idx1, 7) / inv_bond_cutoff
+          n_2 = graph_tensors%pair_node_features(pair_idx2, 7) / inv_bond_cutoff
+
+          if (n_1 > EPS .and. n_2 > EPS) then
+             u_1 = graph_tensors%pair_node_features(pair_idx1, 4:6)
+             u_2 = graph_tensors%pair_node_features(pair_idx2, 4:6)
+
+             left1  = graph_tensors%pair_index(pair_idx1, 1) + 1
+             right1 = graph_tensors%pair_index(pair_idx1, 2) + 1
+             left2  = graph_tensors%pair_index(pair_idx2, 1) + 1
+             right2 = graph_tensors%pair_index(pair_idx2, 2) + 1
+
+             coef_1 = grad_pair_edge_weight(i, 1) * (-2.0_real32 * pw / n_1)
+             grad_positions(right1, :) = grad_positions(right1, :) + coef_1 * u_1
+             grad_positions(left1,  :) = grad_positions(left1,  :) - coef_1 * u_1
+
+             coef_2 = grad_pair_edge_weight(i, 1) * (-2.0_real32 * pw / n_2)
+             grad_positions(right2, :) = grad_positions(right2, :) + coef_2 * u_2
+             grad_positions(left2,  :) = grad_positions(left2,  :) - coef_2 * u_2
+          end if
+       end do
+    end if
+
+    ! ---- 2h: Hyperedge weights ----------------------------------------------
+    ! pair_hyperedge_weight(i) = (w_1*w_2*w_3) / (n_1² * n_2² * n_3²)
+    ! where w_k = pair_cutoff_weight_4body(pair_idx_k) (topology const)
+    ! ∂phw/∂n_1 = -2 * phw / n_1
+    ! ∂n_1/∂pos_right(p1) = +u_1, ∂n_1/∂pos_left(p1) = -u_1
+    ! (similarly for p2, p3)
+    ! Note: for degenerate hyperedges, build_graph_tensors sets phw = 0,
+    ! so coef_k = 0 there and no spurious contribution.
+    if (size(grad_pair_hyperedge_weight, 1) > 0) then
+       do i = 1, size(graph_tensors%pair_hyperedge_index, 2)
+          pair_idx1 = graph_tensors%pair_hyperedge_index(1, i) + 1
+          pair_idx2 = graph_tensors%pair_hyperedge_index(2, i) + 1
+          pair_idx3 = graph_tensors%pair_hyperedge_index(3, i) + 1
+
+          phw = graph_tensors%pair_hyperedge_weight(i)
+          n_1 = graph_tensors%pair_node_features(pair_idx1, 7) / inv_bond_cutoff
+          n_2 = graph_tensors%pair_node_features(pair_idx2, 7) / inv_bond_cutoff
+          n_3 = graph_tensors%pair_node_features(pair_idx3, 7) / inv_bond_cutoff
+
+          if (n_1 > EPS .and. n_2 > EPS .and. n_3 > EPS) then
+             u_1 = graph_tensors%pair_node_features(pair_idx1, 4:6)
+             u_2 = graph_tensors%pair_node_features(pair_idx2, 4:6)
+             u_3 = graph_tensors%pair_node_features(pair_idx3, 4:6)
+
+             left1  = graph_tensors%pair_index(pair_idx1, 1) + 1
+             right1 = graph_tensors%pair_index(pair_idx1, 2) + 1
+             left2  = graph_tensors%pair_index(pair_idx2, 1) + 1
+             right2 = graph_tensors%pair_index(pair_idx2, 2) + 1
+             left3  = graph_tensors%pair_index(pair_idx3, 1) + 1
+             right3 = graph_tensors%pair_index(pair_idx3, 2) + 1
+
+             coef_1 = grad_pair_hyperedge_weight(i, 1) * (-2.0_real32 * phw / n_1)
+             grad_positions(right1, :) = grad_positions(right1, :) + coef_1 * u_1
+             grad_positions(left1,  :) = grad_positions(left1,  :) - coef_1 * u_1
+
+             coef_2 = grad_pair_hyperedge_weight(i, 1) * (-2.0_real32 * phw / n_2)
+             grad_positions(right2, :) = grad_positions(right2, :) + coef_2 * u_2
+             grad_positions(left2,  :) = grad_positions(left2,  :) - coef_2 * u_2
+
+             coef_3 = grad_pair_hyperedge_weight(i, 1) * (-2.0_real32 * phw / n_3)
+             grad_positions(right3, :) = grad_positions(right3, :) + coef_3 * u_3
+             grad_positions(left3,  :) = grad_positions(left3,  :) - coef_3 * u_3
+          end if
+       end do
+    end if
+
     ! ---- Sanity checks (NaN / Inf clipping) ---------------------------------
     do i = 1, num_atoms
        do j = 1, 3
@@ -3727,6 +3982,94 @@ contains
     end do
 
   end subroutine accumulate_graph_gradients
+
+subroutine angle_gradient(a, b, da, db, ierr)
+   use raffle__misc_linalg, only: cross
+   implicit none
+
+   real(real32), dimension(3), intent(in)  :: a, b
+   real(real32), dimension(3), intent(out) :: da, db
+   integer,                    intent(out) :: ierr
+
+   real(real32), dimension(3) :: cross_ab
+   real(real32) :: a_norm, b_norm, c, cross_norm
+
+   da = 0.0_real32
+   db = 0.0_real32
+   ierr = 0
+
+   a_norm = norm2(a)
+   b_norm = norm2(b)
+   if (a_norm < 1.0e-8_real32 .or. b_norm < 1.0e-8_real32) then
+      ierr = 1
+      return
+   end if
+
+   cross_ab = cross(a, b)
+   cross_norm = norm2(cross_ab)   ! = a·b·sin φ
+   if (cross_norm < 1.0e-8_real32) then
+      ierr = 2
+      return
+   end if
+
+   c = dot_product(a, b)
+
+   ! φ = arccos(c/(|a||b|))
+   ! ∂φ/∂a = (c·a/|a|² - b) / (|a||b| sin φ) = (c·a/|a|² - b) / cross_norm
+   da = (c * a / (a_norm * a_norm) - b) / cross_norm
+   db = (c * b / (b_norm * b_norm) - a) / cross_norm
+
+end subroutine angle_gradient
+
+  subroutine improper_dihedral_gradient(vector1, vector2, vector3, du, dv, dw, ierr)
+    use raffle__misc_linalg, only: cross
+    implicit none
+
+    real(real32), dimension(3), intent(in)  :: vector1, vector2, vector3
+    real(real32), dimension(3), intent(out) :: du, dv, dw
+    integer,                    intent(out) :: ierr
+
+    real(real32), dimension(3) :: n_a, n_b, g_a, g_b
+    real(real32) :: a, b, c, cross_norm
+
+    du = 0._real32
+    dv = 0._real32
+    dw = 0._real32
+    ierr = 0
+
+    n_a = cross(vector1, vector2)
+    n_b = cross(vector2, vector3)
+
+    a = norm2(n_a)
+    b = norm2(n_b)
+    if (a < 1.0e-8_real32 .or. b < 1.0e-8_real32) then
+        ierr = 1
+        return
+    end if
+
+    cross_norm = norm2(cross(n_a, n_b))
+    if (cross_norm < 1.0e-8_real32) then
+        ierr = 2
+        return
+    end if
+
+    c = dot_product(n_a, n_b)
+
+    ! ∂phi/∂n_a = (c·n_a/a² - n_b) / |n_a × n_b|
+    ! ∂phi/∂n_b = (c·n_b/b² - n_a) / |n_a × n_b|
+    ! (denominator = a·b·sin φ, well-conditioned everywhere except φ≈0,π)
+    g_a = (c * n_a / (a * a) - n_b) / cross_norm
+    g_b = (c * n_b / (b * b) - n_a) / cross_norm
+
+    ! Chain through n_a = v1 × v2, n_b = v2 × v3:
+    !   ∂phi/∂v1 = v2 × g_a
+    !   ∂phi/∂v2 = v3 × g_b  -  v1 × g_a
+    !   ∂phi/∂v3 = g_b × v2
+    du = cross(vector2, g_a)
+    dv = cross(vector3, g_b) - cross(vector1, g_a)
+    dw = cross(g_b, vector2)
+
+  end subroutine improper_dihedral_gradient
 !###############################################################################
 
 

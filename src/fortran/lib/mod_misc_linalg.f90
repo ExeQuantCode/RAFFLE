@@ -22,7 +22,8 @@ module raffle__misc_linalg
 
   interface get_improper_dihedral_angle
      procedure get_improper_dihedral_angle_from_points, &
-          get_improper_dihedral_angle_from_vectors
+          get_improper_dihedral_angle_from_vectors, &
+          get_improper_dihedral_angle_from_vectors_degen
   end interface get_improper_dihedral_angle
 
 contains
@@ -91,14 +92,32 @@ contains
     real(real32) :: angle
     !! Output angle.
 
-    angle =  dot_product(vector1,vector2) / &
-         ( norm2(vector1) * norm2(vector2) )
-    if(angle .ge. 1._real32)then
+    real(real32) :: a_norm, b_norm, cos_a
+    real(real32), parameter :: EPS = 1.0e-12_real32
+
+    a_norm = norm2(vector1)
+    b_norm = norm2(vector2)
+
+    ! Zero-length input: angle is undefined, return 0.
+    if (a_norm .lt. EPS .or. b_norm .lt. EPS) then
+       angle = 0.0_real32
+       return
+    end if
+
+    cos_a = dot_product(vector1, vector2) / (a_norm * b_norm)
+
+    ! Guard against NaN sneaking in (e.g. Inf * 0 elsewhere in the caller).
+    if (cos_a .ne. cos_a) then
+       angle = 0.0_real32
+       return
+    end if
+
+    if(cos_a .ge. 1._real32)then
        angle = 0._real32
-    elseif(angle .le. -1._real32)then
+    elseif(cos_a .le. -1._real32)then
        angle = pi
     else
-       angle = acos(angle)
+       angle = acos(cos_a)
     end if
   end function get_angle_from_vectors
 !###############################################################################
@@ -194,6 +213,52 @@ contains
 
 
   end function get_improper_dihedral_angle_from_vectors
+!-------------------------------------------------------------------------------
+  function get_improper_dihedral_angle_from_vectors_degen( &
+       vector1, vector2, vector3, is_degenerate &
+  ) result(angle)
+    !! Return the improper dihedral angle between two planes.
+    !!
+    !! The improper dihedral angle is the angle between two planes made by
+    !! three vectors.
+    !! i.e. ( vector1 x vector2 ) . ( vector2 x vector3 )
+    !! alt. angle between plane vector1vector2 and vector2vector3
+    implicit none
+    real(real32), dimension(3), intent(in) :: vector1, vector2, vector3
+    logical, intent(out) :: is_degenerate
+    real(real32) :: angle
+
+    real(real32), dimension(3) :: n_a, n_b
+    real(real32) :: a_norm, b_norm
+    real(real32), parameter :: EPS = 1.0e-8_real32
+
+    is_degenerate = .false.
+    n_a = cross(vector1, vector2)
+    n_b = cross(vector2, vector3)
+    a_norm = norm2(n_a)
+    b_norm = norm2(n_b)
+
+    if (a_norm .lt. EPS .or. b_norm .lt. EPS) then
+      angle = 0.0_real32
+      is_degenerate = .true.
+      return
+    end if
+
+    ! Also degenerate if the two planes are parallel (cross products collinear)
+    if (norm2(cross(n_a, n_b)) < EPS) then
+      angle = 0.0_real32
+      is_degenerate = .true.
+      return
+    end if
+
+    angle = get_angle_from_vectors(n_a, n_b)
+    if (angle .ne. angle) then   ! NaN guard
+      angle = 0.0_real32
+      is_degenerate = .true.
+    end if
+    if (angle .gt. pi) angle = 2.0_real32 * pi - angle
+
+  end function get_improper_dihedral_angle_from_vectors_degen
 !###############################################################################
 
 

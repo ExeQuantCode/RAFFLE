@@ -1662,7 +1662,10 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
 
         def accumulate_gradients( \
                 self, graph_tensors, \
-                grad_atom_features, grad_pair_features \
+                grad_atom_features, grad_pair_features, \
+                grad_atom_edge_attr, grad_atom_edge_weight, \
+                grad_pair_edge_attr, grad_pair_edge_weight, \
+                grad_pair_hyperedge_attr, grad_pair_hyperedge_weight \
         ):
             """
             accumulate_gradients(self, graph_tensors, \
@@ -1674,6 +1677,12 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
             graph_tensors : Graph_Tensors_Type
             grad_atom_features : float array
             grad_pair_features : float array
+            grad_atom_edge_attr : float array
+            grad_atom_edge_weight : float array
+            grad_pair_edge_attr : float array
+            grad_pair_edge_weight : float array
+            grad_pair_hyperedge_attr : float array
+            grad_pair_hyperedge_weight : float array
             grad_positions : float array
             grad_species : float array
 
@@ -1693,10 +1702,18 @@ class Raffle__Distribs_Container(f90wrap.runtime.FortranModule):
                     graph_tensors=graph_tensors._handle, \
                     grad_atom_features=grad_atom_features, \
                     grad_pair_features=grad_pair_features, \
+                    grad_atom_edge_attr=grad_atom_edge_attr, \
+                    grad_atom_edge_weight=grad_atom_edge_weight, \
+                    grad_pair_edge_attr=grad_pair_edge_attr, \
+                    grad_pair_edge_weight=grad_pair_edge_weight, \
+                    grad_pair_hyperedge_attr=grad_pair_hyperedge_attr, \
+                    grad_pair_hyperedge_weight=grad_pair_hyperedge_weight, \
                     grad_positions=grad_positions, \
                     grad_species=grad_species, \
                     ierr=ierr \
             )
+            if int(ierr[0]) != 0:
+                print(f"[accumulate_gradients] ierr = {int(ierr[0])}")
 
             return grad_positions, grad_species
 

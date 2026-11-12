@@ -128,6 +128,20 @@ class HypergraphMessageLayer(nn.Module):
         """
         Vectorized hyperedge message passing.
         """
+        # in HypergraphMessageLayer.forward, right at the top (once)
+        if not hasattr(self, '_printed_shapes'):
+            self._printed_shapes = True
+            print(f"[hypergraph] hidden.shape={hidden.shape}, "
+                f"hyperedge_index.shape={pair_hyperedge_index.shape}, "
+                f"index min={pair_hyperedge_index.min().item()}, "
+                f"index max={pair_hyperedge_index.max().item()}, "
+                f"num_negative={(pair_hyperedge_index < 0).sum().item()}, "
+                f"attr.shape={pair_hyperedge_attr.shape}, "
+                f"weight.shape={pair_hyperedge_weight.shape}, "
+                f"weight min={pair_hyperedge_weight.min().item():.3e} "
+                f"max={pair_hyperedge_weight.max().item():.3e}, "
+                f"attr finite={torch.isfinite(pair_hyperedge_attr).all().item()}")
+
         if pair_hyperedge_index.numel() == 0 or hidden.numel() == 0:
             return hidden
 
@@ -936,7 +950,7 @@ class TorchGNNFingerprint(nn.Module):
         Tuple[torch.Tensor, torch.Tensor, torch.Tensor],
     ]:
         projected_vertices = (
-            self._pair_block_normalise(self._project_fingerprint_tensor(vertices[0])),
+            self._project_fingerprint_tensor(vertices[0]),
             self._project_fingerprint_tensor(vertices[1]),
             self._project_fingerprint_tensor(vertices[2]),
         )
@@ -948,28 +962,39 @@ class TorchGNNFingerprint(nn.Module):
             (projected_fingerprints[0], projected_fingerprints[1], projected_fingerprints[2]),
         )
 
-    def _pair_block_normalise(self, fingerprint: torch.Tensor) -> torch.Tensor:
+    # def _pair_block_normalise(self, fingerprint: torch.Tensor) -> torch.Tensor:
+    #     if self.num_pairs <= 0 or self.nbins[0] <= 0:
+    #         return fingerprint
+    #     if fingerprint.ndim == 1:
+    #         blocks = fingerprint.reshape(self.num_pairs, self.nbins[0])
+    #         block_sum = blocks.sum(dim=-1, keepdim=True)
+    #         normalised = torch.where(
+    #             block_sum > 1.0e-8,
+    #             blocks / block_sum.clamp_min(1.0e-8),
+    #             blocks,
+    #         )
+    #         return normalised.reshape(-1)
+    #     if fingerprint.ndim == 2:
+    #         blocks = fingerprint.reshape(fingerprint.shape[0], self.num_pairs, self.nbins[0])
+    #         block_sum = blocks.sum(dim=-1, keepdim=True)
+    #         normalised = torch.where(
+    #             block_sum > 1.0e-8,
+    #             blocks / block_sum.clamp_min(1.0e-8),
+    #             blocks,
+    #         )
+    #         return normalised.reshape(fingerprint.shape[0], -1)
+    #     raise ValueError(f"Unsupported 2-body fingerprint rank: {fingerprint.ndim}")
+
+    def _pair_block_normalise(self, fingerprint):
         if self.num_pairs <= 0 or self.nbins[0] <= 0:
             return fingerprint
-        if fingerprint.ndim == 1:
-            blocks = fingerprint.reshape(self.num_pairs, self.nbins[0])
-            block_sum = blocks.sum(dim=-1, keepdim=True)
-            normalised = torch.where(
-                block_sum > 1.0e-8,
-                blocks / block_sum.clamp_min(1.0e-8),
-                blocks,
-            )
-            return normalised.reshape(-1)
-        if fingerprint.ndim == 2:
-            blocks = fingerprint.reshape(fingerprint.shape[0], self.num_pairs, self.nbins[0])
-            block_sum = blocks.sum(dim=-1, keepdim=True)
-            normalised = torch.where(
-                block_sum > 1.0e-8,
-                blocks / block_sum.clamp_min(1.0e-8),
-                blocks,
-            )
-            return normalised.reshape(fingerprint.shape[0], -1)
-        raise ValueError(f"Unsupported 2-body fingerprint rank: {fingerprint.ndim}")
+        shape = fingerprint.shape
+        blocks = fingerprint.reshape(*shape[:-1], self.num_pairs, self.nbins[0])
+        block_sum = blocks.sum(dim=-1, keepdim=True)
+        safe = block_sum > 1e-8
+        scaled = blocks / torch.where(safe, block_sum, torch.ones_like(block_sum))
+        normalised = torch.where(safe, scaled, blocks)
+        return normalised.reshape(shape)
 
     def _build_topology(
         self,
@@ -1008,19 +1033,31 @@ class TorchGNNFingerprint(nn.Module):
             topology, positions_f, cell_f, pbc_f, species_probabilities_np,
         )
 
+        def _safe_float(arr, device, name=""):
+            """Cast numpy array to float32 and clamp/replace non-finite values."""
+            t = torch.from_numpy(arr).to(device)
+            if torch.is_floating_point(t):
+                if not torch.isfinite(t).all():
+                    n_bad = int((~torch.isfinite(t)).sum())
+                    print(f"[build_graph] {name}: {n_bad} non-finite -> nan_to_num")
+                t = torch.nan_to_num(t.float(), nan=0.0, posinf=1e3, neginf=-1e3)
+            else:
+                t = t.float()
+            return t
+
         return {
-            "global_features": torch.from_numpy(graph_tensors.global_features).to(device).float(),
-            "atom_node_features": torch.from_numpy(graph_tensors.atom_node_features).to(device).float(),
+            "global_features": _safe_float(graph_tensors.global_features, device, "global_features"),
+            "atom_node_features": _safe_float(graph_tensors.atom_node_features, device, "atom_node_features"),
             "atom_edge_index": torch.from_numpy(graph_tensors.atom_edge_index).to(device).long(),
-            "atom_edge_attr": torch.from_numpy(graph_tensors.atom_edge_attr).to(device).float(),
-            "atom_edge_weight": torch.from_numpy(graph_tensors.atom_edge_weight).to(device).float(),
-            "pair_node_features": torch.from_numpy(graph_tensors.pair_node_features).to(device).float(),
+            "atom_edge_attr": _safe_float(graph_tensors.atom_edge_attr, device, "atom_edge_attr"),
+            "atom_edge_weight": _safe_float(graph_tensors.atom_edge_weight, device, "atom_edge_weight"),
+            "pair_node_features": _safe_float(graph_tensors.pair_node_features, device, "pair_node_features"),
             "pair_edge_index": torch.from_numpy(graph_tensors.pair_edge_index).to(device).long(),
-            "pair_edge_attr": torch.from_numpy(graph_tensors.pair_edge_attr).to(device).float(),
-            "pair_edge_weight": torch.from_numpy(graph_tensors.pair_edge_weight).to(device).float(),
+            "pair_edge_attr": _safe_float(graph_tensors.pair_edge_attr, device, "pair_edge_attr"),
+            "pair_edge_weight": _safe_float(graph_tensors.pair_edge_weight, device, "pair_edge_weight"),
             "pair_hyperedge_index": torch.from_numpy(graph_tensors.pair_hyperedge_index).to(device).long(),
-            "pair_hyperedge_attr": torch.from_numpy(graph_tensors.pair_hyperedge_attr).to(device).float(),
-            "pair_hyperedge_weight": torch.from_numpy(graph_tensors.pair_hyperedge_weight).to(device).float(),
+            "pair_hyperedge_attr": _safe_float(graph_tensors.pair_hyperedge_attr, device, "pair_hyperedge_attr"),
+            "pair_hyperedge_weight": _safe_float(graph_tensors.pair_hyperedge_weight, device, "pair_hyperedge_weight"),
             "graph_tensors": graph_tensors,
         }
 
@@ -1130,22 +1167,38 @@ class TorchGNNFingerprint(nn.Module):
         target_4body: torch.Tensor,
         return_components: bool = False
     ) -> torch.Tensor:
-        # target_2body = self._project_fingerprint_targets(target_2body)
-        # target_3body = self._project_fingerprint_targets(target_3body)
-        # target_4body = self._project_fingerprint_targets(target_4body)
+        # --- 2-body: log-compressed MSE (target is sparse/peaky) ---
+        def log_compressed_mse(predicted: torch.Tensor, target: torch.Tensor,
+                            eps: float = 1e-6) -> torch.Tensor:
+            # Clamp both to a safe non-negative range, then compare in log space.
+            # Non-negativity is guaranteed by _project_fingerprint_tensor upstream,
+            # but clamp anyway for numerical safety.
+            p = torch.log10(predicted.clamp_min(0.0) + eps)
+            t = torch.log10(target.clamp_min(0.0) + eps)
+            return torch.mean((p - t) ** 2)
 
-        def relative_component_mse(predicted: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-            target_energy = torch.mean(target ** 2).clamp_min(1.0e-8)
-            return torch.mean((predicted - target) ** 2) / target_energy
+        # --- 3-body, 4-body: relative MSE (targets are smoother) ---
+        def relative_component_mse(predicted: torch.Tensor, target: torch.Tensor,
+                                floor: float = 1e-6) -> torch.Tensor:
+            predicted = predicted.clamp(-1e3, 1e3)
+            target = target.clamp(-1e3, 1e3)
+            target_energy = torch.mean(target ** 2)
+            pred_energy = torch.mean(predicted ** 2)
+            scale = torch.maximum(
+                torch.maximum(target_energy, pred_energy).detach(),
+                torch.tensor(floor, device=predicted.device, dtype=predicted.dtype),
+            )
+            return torch.mean((predicted - target) ** 2) / scale
 
-        loss_2body = relative_component_mse(predicted_2body, target_2body)
+        loss_2body = log_compressed_mse(predicted_2body, target_2body)
         loss_3body = relative_component_mse(predicted_3body, target_3body)
         loss_4body = relative_component_mse(predicted_4body, target_4body)
+
         if return_components:
             return {
                 "2body": loss_2body,
                 "3body": loss_3body,
-                "4body": loss_4body
+                "4body": loss_4body,
             }
         return (
             self._component_weight_tensor[0] * loss_2body
@@ -1336,8 +1389,9 @@ class TorchGNNFingerprint(nn.Module):
                 batch_count += 1
 
                 loss.backward()
-                torch.nn.utils.clip_grad_value_(self.parameters(), 1.0e-1)
-                torch.nn.utils.clip_grad_norm_(self.parameters(), 1.0e-1)
+                torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=1.0)
+                # torch.nn.utils.clip_grad_value_(self.parameters(), 1.0e-1)
+                # torch.nn.utils.clip_grad_norm_(self.parameters(), 1.0e-1)
                 optimiser.step()
 
             scheduler.step()
@@ -1348,6 +1402,8 @@ class TorchGNNFingerprint(nn.Module):
             avg_loss_2body = ( epoch_loss_2body ) / batch_count if batch_count > 0 else 0.0
             avg_loss_3body = ( epoch_loss_3body ) / batch_count if batch_count > 0 else 0.0
             avg_loss_4body = ( epoch_loss_4body ) / batch_count if batch_count > 0 else 0.0
+            # inside fit(), after `epoch_loss = self._evaluate_entries(entries)`
+            print(f"  components: 2b={avg_loss_2body:.4e} 3b={avg_loss_3body:.4e} 4b={avg_loss_4body:.4e}")
 
             # if component_weight_tensor is none for any component, set the average loss for that component to 0.0
             if self._component_weight_tensor[0] == 0.0:
@@ -1419,8 +1475,18 @@ class TorchGNNFingerprint(nn.Module):
             species_probabilities=species_probabilities,
         )
         if set_graph_node_features_as_parameters:
-            graph["atom_node_features"] = torch.nn.Parameter(graph["atom_node_features"])
-            graph["pair_node_features"] = torch.nn.Parameter(graph["pair_node_features"])
+            for key in (
+                "atom_node_features",
+                "atom_edge_attr",
+                "atom_edge_weight",
+                "pair_node_features",
+                "pair_edge_attr",
+                "pair_edge_weight",
+                "pair_hyperedge_attr",
+            ):
+                t = graph.get(key)
+                if t is not None and t.numel() > 0:
+                    graph[key] = torch.nn.Parameter(t)
         return graph
 
     def _forward_graph(
@@ -1488,27 +1554,33 @@ class TorchGNNFingerprint(nn.Module):
         target_4body: torch.Tensor,
         **kwargs
     ) -> dict[str, torch.Tensor]:
-        prediction_2body, prediction_3body, prediction_4body = self._forward_graph(
-            prepared.graph_tensors,
-            return_vertices=False
-        )
-        fingerprint_loss = self._get_fingerprint_loss(
-            prediction_2body,
-            prediction_3body,
-            prediction_4body,
-            target_2body,
-            target_3body,
-            target_4body,
-        )
+        # prediction_2body, prediction_3body, prediction_4body = self._forward_graph(
+        #     prepared.graph_tensors,
+        #     return_vertices=False
+        # )
+        # fingerprint_loss = self._get_fingerprint_loss(
+        #     prediction_2body,
+        #     prediction_3body,
+        #     prediction_4body,
+        #     target_2body,
+        #     target_3body,
+        #     target_4body,
+        # )
 
-        repulsion_loss = self._get_repulsion_loss(
-            prepared,
-            **kwargs
-        )
+        # repulsion_loss = self._get_repulsion_loss(
+        #     prepared,
+        #     **kwargs
+        # )
 
+        # return {
+        #     "fingerprint_loss": fingerprint_loss,
+        #     "repulsion_loss": repulsion_loss
+        # }
+        positions = _float_tensor(prepared.positions, self._device, self._torch_dtype)
+        result = self._positions_to_loss(prepared, positions, target_2body, target_3body, target_4body, **kwargs)
         return {
-            "fingerprint_loss": fingerprint_loss,
-            "repulsion_loss": repulsion_loss
+            "fingerprint_loss": result["fingerprint_loss"],
+            "repulsion_loss": result["repulsion_loss"],
         }
 
     def _get_repulsion_loss(
@@ -1569,10 +1641,14 @@ class TorchGNNFingerprint(nn.Module):
 
         # Compute pair distances using positions from atom features
         # Since positions are centered, we can compute differences directly
-        pair_delta = positions_centered[pair_right] - positions_centered[pair_left]
-        # Add periodic image shifts if needed
+        pair_delta = (positions_centered[pair_right] - positions_centered[pair_left]) / inv_bond_cutoff
         if pair_image_shift.numel() > 0:
             pair_delta = pair_delta + pair_image_shift @ cell
+
+        # pair_delta = positions_centered[pair_right] - positions_centered[pair_left]
+        # # Add periodic image shifts if needed
+        # if pair_image_shift.numel() > 0:
+        #     pair_delta = pair_delta + pair_image_shift @ cell
 
         pair_distance = torch.norm(pair_delta, dim=-1)
 
@@ -1730,20 +1806,35 @@ class TorchGNNFingerprint(nn.Module):
         graph: dict,
         grad_atom_features: torch.Tensor,
         grad_pair_features: torch.Tensor,
+        grad_atom_edge_attr: torch.Tensor,
+        grad_atom_edge_weight: torch.Tensor,
+        grad_pair_edge_attr: torch.Tensor,
+        grad_pair_edge_weight: torch.Tensor,
+        grad_pair_hyperedge_attr: torch.Tensor,
+        grad_pair_hyperedge_weight: torch.Tensor
     ):
         graph_tensors = graph["graph_tensors"]
 
+        def _z(t, key):
+            if t is not None:
+                return t.detach().cpu().numpy().astype(np.float32)
+            return np.zeros_like(graph[key].detach().cpu().numpy()).astype(np.float32)
+
         grad_positions, grad_species = self.reference_model.distributions.accumulate_gradients(
             graph_tensors=graph_tensors,
-            grad_atom_features=grad_atom_features.detach().cpu().numpy().astype(np.float32),
-            grad_pair_features=grad_pair_features.detach().cpu().numpy().astype(np.float32),
+            grad_atom_features=_z(grad_atom_features, "atom_node_features"),
+            grad_pair_features=_z(grad_pair_features, "pair_node_features"),
+            grad_atom_edge_attr=_z(grad_atom_edge_attr, "atom_edge_attr"),
+            grad_atom_edge_weight=_z(grad_atom_edge_weight, "atom_edge_weight"),
+            grad_pair_edge_attr=_z(grad_pair_edge_attr, "pair_edge_attr"),
+            grad_pair_edge_weight=_z(grad_pair_edge_weight, "pair_edge_weight"),
+            grad_pair_hyperedge_attr=_z(grad_pair_hyperedge_attr, "pair_hyperedge_attr"),
+            grad_pair_hyperedge_weight=_z(grad_pair_hyperedge_weight, "pair_hyperedge_weight")
         )
-
-
-        grad_positions_tensor = torch.as_tensor(grad_positions, device=self._device, dtype=self._torch_dtype)
-        grad_species_tensor = torch.as_tensor(grad_species, device=self._device, dtype=self._torch_dtype)
-
-        return grad_positions_tensor, grad_species_tensor
+        return (
+            torch.as_tensor(grad_positions, device=self._device, dtype=self._torch_dtype),
+            torch.as_tensor(grad_species, device=self._device, dtype=self._torch_dtype),
+        )
 
     def inverse_design(
         self,
@@ -1934,13 +2025,17 @@ class TorchGNNFingerprint(nn.Module):
                 total_loss.backward()
 
                 # 1. Retrieve gradients w.r.t. graph node features
-                grad_atom_features = prepared.graph_tensors['atom_node_features'].grad
-                grad_pair_features = prepared.graph_tensors['pair_node_features'].grad
-
+                g = prepared.graph_tensors
                 grad_positions_fp, grad_species_fp = self._accumulate_gradients(
-                    graph=prepared.graph_tensors,
-                    grad_atom_features=grad_atom_features,
-                    grad_pair_features=grad_pair_features,
+                    graph=g,
+                    grad_atom_features=g['atom_node_features'].grad,
+                    grad_pair_features=g['pair_node_features'].grad,
+                    grad_atom_edge_attr=g['atom_edge_attr'].grad,
+                    grad_atom_edge_weight=g['atom_edge_weight'].grad,
+                    grad_pair_edge_attr=g['pair_edge_attr'].grad,
+                    grad_pair_edge_weight=g['pair_edge_weight'].grad,
+                    grad_pair_hyperedge_attr=g['pair_hyperedge_attr'].grad,
+                    grad_pair_hyperedge_weight=g['pair_hyperedge_weight'].grad
                 )
 
                 # 3. Add fingerprint gradient to positions_parameter.grad (which already has repulsion gradient)

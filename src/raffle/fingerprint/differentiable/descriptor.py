@@ -26,6 +26,7 @@ class FingerprintResult:
     grids: dict[str, torch.Tensor]
     elements: tuple[str, ...]
     composition: dict[str, int] | None = None
+    body_orders: tuple[int, ...] = (2, 3, 4)
 
     @property
     def df_2body(self) -> torch.Tensor:
@@ -141,6 +142,7 @@ class DifferentiableFingerprint:
         *,
         bond_radii: Mapping[tuple[str, str], float] | None = None,
         skin: float = 0.5,
+        body_orders: Sequence[int] = (2, 3, 4),
     ):
         normalized_elements = tuple(sorted({str(element).strip() for element in elements}))
         if not normalized_elements or any(
@@ -149,6 +151,9 @@ class DifferentiableFingerprint:
         ):
             raise ValueError("elements must contain valid chemical element symbols")
         self.elements = normalized_elements
+        self.body_orders = tuple(sorted(set(body_orders)))
+        if not self.body_orders or any(order not in (2, 3, 4) for order in self.body_orders):
+            raise ValueError("body_orders must contain one or more of 2, 3 and 4")
         self.width = self._parameter(parameters, "width", [0.025, math.pi / 64, math.pi / 64])
         self.sigma = self._parameter(parameters, "sigma", [0.1, 0.1, 0.1])
         self.cutoff_min = self._parameter(parameters, "cutoff_min", [0.5, 0.0, 0.0])
@@ -318,14 +323,15 @@ class DifferentiableFingerprint:
         center, neighbor, shifts = self._topology.pairs(positions, cell, pbc)
         vectors = positions[neighbor] - positions[center] + shifts.to(dtype) @ cell
         distances = torch.linalg.vector_norm(vectors, dim=1)
-        image_mask = shifts.ne(0).any(dim=1)
         by_center = [torch.nonzero(center == atom, as_tuple=False).flatten() for atom in range(n_atoms)]
         rmin, rmax = self.cutoff_min[0], self.cutoff_max[0]
         radial = (distances >= rmin) & (distances <= rmax) & (distances > 1e-10)
         grids2 = grids["two_body"]
         eta2 = 1.0 / (2.0 * self.sigma[0] ** 2)
 
-        for pair_channel, (alpha, beta) in enumerate(pair_indices):
+        for pair_channel, (alpha, beta) in (
+            enumerate(pair_indices) if 2 in self.body_orders else ()
+        ):
             for central_element, neighbor_element in (
                 ((alpha, beta),) if alpha == beta else ((alpha, beta), (beta, alpha))
             ):
@@ -372,11 +378,12 @@ class DifferentiableFingerprint:
         norm2 = self._normalise(raw2)
 
         grids3 = grids["three_body"]
-        for atom in range(n_atoms):
-            ids = by_center[atom]
-            if ids.numel() < 2:
+        for atom in (range(n_atoms) if 3 in self.body_orders else ()):
+            center_ids = by_center[atom]
+            if center_ids.numel() < 2:
                 continue
             for alpha in range(n_elements):
+                ids = center_ids
                 d = distances[ids]
                 pair_radii = radii[alpha]
                 lower3 = torch.maximum(
@@ -436,12 +443,13 @@ class DifferentiableFingerprint:
         norm3 = self._normalise(raw3)
 
         grids4 = grids["four_body"]
-        for atom in range(n_atoms):
-            ids = by_center[atom]
-            image_ids = ids[image_mask[ids]]
-            if ids.numel() < 2 or image_ids.numel() == 0:
+        for atom in (range(n_atoms) if 4 in self.body_orders else ()):
+            center_ids = by_center[atom]
+            if center_ids.numel() < 2:
                 continue
             for alpha in range(n_elements):
+                ids = center_ids
+                fourth_ids = center_ids
                 d = distances[ids]
                 pair_radii = radii[alpha]
                 lower3 = torch.maximum(
@@ -469,29 +477,28 @@ class DifferentiableFingerprint:
                 if ids.numel() < 2:
                     continue
 
-                image_d = distances[image_ids]
+                fourth_d = distances[fourth_ids]
                 lower4 = torch.maximum(
-                    image_d.new_full((n_elements,), self.cutoff_min[0]),
+                    fourth_d.new_full((n_elements,), self.cutoff_min[0]),
                     pair_radii * self.radius_distance_tol[2],
                 )
                 upper4 = torch.minimum(
-                    image_d.new_full((n_elements,), self.cutoff_max[0]),
+                    fourth_d.new_full((n_elements,), self.cutoff_max[0]),
                     pair_radii * self.radius_distance_tol[3],
                 )
                 win4_by_species, valid4_by_species = self._cosine_window(
-                    image_d, lower4, upper4
+                    fourth_d, lower4, upper4
                 )
-                image_probabilities = probabilities[neighbor[image_ids]]
-                win4 = (win4_by_species * image_probabilities).sum(dim=1)
-                valid4 = (valid4_by_species * image_probabilities).sum(dim=1)
+                fourth_probabilities = probabilities[neighbor[fourth_ids]]
+                win4 = (win4_by_species * fourth_probabilities).sum(dim=1)
+                valid4 = (valid4_by_species * fourth_probabilities).sum(dim=1)
                 possible4 = valid4_by_species.any(dim=1)
-                image_ids = image_ids[possible4]
-                image_d = image_d[possible4]
+                fourth_ids = fourth_ids[possible4]
+                fourth_d = fourth_d[possible4]
                 win4 = win4[possible4]
                 valid4 = valid4[possible4]
                 win4_by_species = win4_by_species[possible4]
-                image_probabilities = image_probabilities[possible4]
-                if image_ids.numel() == 0:
+                if fourth_ids.numel() == 0:
                     continue
 
                 left, right = torch.triu_indices(ids.numel(), ids.numel(), offset=1, device=device)
@@ -501,7 +508,7 @@ class DifferentiableFingerprint:
                     continue
                 # Enumerate only local triplets, never a dense N^4 tensor.
                 chunk = 4096
-                n_combinations = left.numel() * image_ids.numel()
+                n_combinations = left.numel() * fourth_ids.numel()
                 angle_epsilon = max(torch.finfo(dtype).eps * 10.0, 1e-12)
                 for beta in range(n_elements):
                     for gamma in range(n_elements):
@@ -509,13 +516,13 @@ class DifferentiableFingerprint:
                             flat_index = torch.arange(
                                 start, min(start + chunk, n_combinations), device=device
                             )
-                            pair_index = flat_index // image_ids.numel()
+                            pair_index = flat_index // fourth_ids.numel()
                             j, k = left[pair_index], right[pair_index]
-                            l = flat_index % image_ids.numel()
+                            l = flat_index % fourth_ids.numel()
                             vj = vectors[ids[j]]
                             vk = vectors[ids[k]]
                             first, second = (vk, vj) if beta > gamma else (vj, vk)
-                            vl = vectors[image_ids[l]]
+                            vl = vectors[fourth_ids[l]]
                             normal_a = torch.linalg.cross(first, second, dim=1)
                             normal_b = torch.linalg.cross(second, vl, dim=1)
                             norm_a = torch.linalg.vector_norm(normal_a, dim=1)
@@ -538,7 +545,7 @@ class DifferentiableFingerprint:
                                 / (
                                     d[j].square()
                                     * d[k].square()
-                                    * image_d[l].square()
+                                    * fourth_d[l].square()
                                 ).clamp_min(1e-24)
                             )
                             raw4[:, alpha] = raw4[:, alpha] + self._project(
@@ -563,6 +570,7 @@ class DifferentiableFingerprint:
             grids,
             self.elements,
             composition,
+            self.body_orders,
         )
 
     def generate(self, atoms: Atoms) -> FingerprintResult:
@@ -594,30 +602,51 @@ def _fingerprint_loss(
     target: FingerprintResult,
     weights: Sequence[float] = (1.0, 1.0, 1.0),
     radial_smoothing: float = 0.0,
+    angular_smoothing: float = 0.0,
+    loss_reduction: str = "mean",
 ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
     if len(weights) != 3 or any(
         not math.isfinite(float(weight)) or weight < 0 for weight in weights
     ):
         raise ValueError("loss_weights must contain three finite non-negative values")
-    radial_difference = current.two_body - target.two_body.to(current.two_body)
-    if radial_smoothing:
-        grid = current.grids["two_body"]
-        if grid.numel() < 2:
-            raise ValueError("radial smoothing requires at least two radial bins")
-        width = float((grid[1] - grid[0]).detach())
-        radius = math.ceil(4.0 * radial_smoothing / width)
-        offsets = torch.arange(
-            -radius, radius + 1, dtype=grid.dtype, device=grid.device
-        ) * width
-        kernel = torch.exp(-0.5 * (offsets / radial_smoothing).square())
-        kernel = (kernel / kernel.sum()).reshape(1, 1, -1)
-        radial_difference = torch.nn.functional.conv1d(
-            radial_difference.T.unsqueeze(1), kernel, padding=radius
-        ).squeeze(1).T
+    if loss_reduction not in ("mean", "density"):
+        raise ValueError('loss_reduction must be "mean" or "density"')
+    for order, weight in zip((2, 3, 4), weights):
+        if weight and (order not in current.body_orders or order not in target.body_orders):
+            raise ValueError(f"{order}-body loss requires that body order in both fingerprints")
+
+    def component_loss(name: str, actual: torch.Tensor, expected: torch.Tensor,
+                       smoothing: float) -> torch.Tensor:
+        difference = actual - expected.to(actual)
+        grid = current.grids[name]
+        if smoothing or loss_reduction == "density":
+            if grid.numel() < 2:
+                raise ValueError("smoothing and density loss require at least two bins")
+            width = float((grid[1] - grid[0]).detach())
+        if smoothing:
+            radius = math.ceil(4.0 * smoothing / width)
+            offsets = torch.arange(
+                -radius, radius + 1, dtype=grid.dtype, device=grid.device
+            ) * width
+            kernel = torch.exp(-0.5 * (offsets / smoothing).square())
+            kernel = (kernel / kernel.sum()).reshape(1, 1, -1)
+            difference = torch.nn.functional.conv1d(
+                difference.T.unsqueeze(1), kernel, padding=radius
+            ).squeeze(1).T
+        if loss_reduction == "density":
+            return difference.square().sum(dim=0).mean() / width
+        return difference.square().mean()
+
     losses = {
-        "two_body": radial_difference.square().mean(),
-        "three_body": (current.three_body - target.three_body.to(current.three_body)).square().mean(),
-        "four_body": (current.four_body - target.four_body.to(current.four_body)).square().mean(),
+        "two_body": component_loss(
+            "two_body", current.two_body, target.two_body, radial_smoothing
+        ),
+        "three_body": component_loss(
+            "three_body", current.three_body, target.three_body, angular_smoothing
+        ),
+        "four_body": component_loss(
+            "four_body", current.four_body, target.four_body, angular_smoothing
+        ),
     }
     total = sum(weight * loss for weight, loss in zip(weights, losses.values()))
     return total, losses
@@ -702,6 +731,8 @@ class FingerprintRelaxation:
         entropy_weight: float = 0.0,
         repulsion_weight: float = 0.0,
         radial_smoothing: float = 0.0,
+        angular_smoothing: float = 0.0,
+        loss_reduction: str = "mean",
     ):
         if isinstance(composition_constraint, str):
             if composition_constraint.lower() != "exact":
@@ -733,6 +764,12 @@ class FingerprintRelaxation:
         self.radial_smoothing = float(radial_smoothing)
         if not math.isfinite(self.radial_smoothing) or self.radial_smoothing < 0:
             raise ValueError("radial_smoothing must be finite and non-negative")
+        self.angular_smoothing = float(angular_smoothing)
+        if not math.isfinite(self.angular_smoothing) or self.angular_smoothing < 0:
+            raise ValueError("angular_smoothing must be finite and non-negative")
+        if loss_reduction not in ("mean", "density"):
+            raise ValueError('loss_reduction must be "mean" or "density"')
+        self.loss_reduction = loss_reduction
         if min(self.position_learning_rate, self.species_learning_rate) <= 0:
             raise ValueError("learning rates must be positive")
         if min(self.temperature, self.final_temperature) <= 0:
@@ -771,15 +808,23 @@ class FingerprintRelaxation:
         target = counts[active]
         log_target = target.log()
         column_scale = torch.zeros_like(log_target)
-        for _ in range(100):
+        for iteration in range(1000):
             row_scale = -torch.logsumexp(log_kernel + column_scale[None, :], dim=1)
             column_scale = log_target - torch.logsumexp(
                 log_kernel + row_scale[:, None], dim=0
             )
+            if iteration % 10 == 9:
+                active_probabilities = (log_kernel + column_scale[None, :]).softmax(dim=1)
+                column_error = (active_probabilities.sum(dim=0) - target).abs().max()
+                if float(column_error.detach()) < 1e-5:
+                    break
+        else:
+            raise RuntimeError(
+                "Sinkhorn composition constraint did not converge; "
+                "try a higher temperature or lower species learning rate"
+            )
         probabilities = torch.zeros_like(logits)
-        probabilities[:, active] = torch.exp(
-            log_kernel + row_scale[:, None] + column_scale[None, :]
-        )
+        probabilities[:, active] = active_probabilities
         return probabilities
 
     def _probabilities(
@@ -933,7 +978,8 @@ class FingerprintRelaxation:
                 atoms.pbc,
             )
             total, components = _fingerprint_loss(
-                current, self.target, self.loss_weights, self.radial_smoothing
+                current, self.target, self.loss_weights, self.radial_smoothing,
+                self.angular_smoothing, self.loss_reduction,
             )
             if self.composition_constraint > 0 and not math.isinf(self.composition_constraint):
                 predicted = probabilities.sum(dim=0) / n_atoms
@@ -1037,7 +1083,8 @@ class FingerprintRelaxation:
                 atoms.pbc,
             )
             final_loss, _ = _fingerprint_loss(
-                final_fp, self.target, self.loss_weights, self.radial_smoothing
+                final_fp, self.target, self.loss_weights, self.radial_smoothing,
+                self.angular_smoothing, self.loss_reduction,
             )
             loss_value = float(final_loss.detach())
             if loss_value < best_loss:
@@ -1062,7 +1109,8 @@ class FingerprintRelaxation:
             atoms.pbc,
         )
         final_loss, _ = _fingerprint_loss(
-            final_fp, self.target, self.loss_weights, self.radial_smoothing
+            final_fp, self.target, self.loss_weights, self.radial_smoothing,
+            self.angular_smoothing, self.loss_reduction,
         )
         if float(final_loss.detach()) > best_loss:
             with torch.no_grad():
@@ -1074,7 +1122,8 @@ class FingerprintRelaxation:
                 atoms.pbc,
             )
             final_loss, _ = _fingerprint_loss(
-                final_fp, self.target, self.loss_weights, self.radial_smoothing
+                final_fp, self.target, self.loss_weights, self.radial_smoothing,
+                self.angular_smoothing, self.loss_reduction,
             )
         atoms.set_positions(refine_positions.detach().cpu().numpy())
         composition = {

@@ -13,13 +13,14 @@ from raffle.raffle import Raffle__Distribs_Container
 
 
 def plot_fingerprints(reference, actual, grids, elements, reference_label, actual_label,
-                      output, show=False):
+                      output, show=False, body_orders=(2, 3, 4)):
     series = (
         ("2-body", "two_body", reference[0], actual[0],
          ["-".join(pair) for pair in combinations_with_replacement(elements, 2)], r"Distance ($\AA$)"),
         ("3-body", "three_body", reference[1], actual[1], elements, "Angle (rad)"),
         ("4-body", "four_body", reference[2], actual[2], elements, "Angle (rad)"),
     )
+    series = tuple(item for order, item in zip((2, 3, 4), series) if order in body_orders)
     nrows = sum(len(labels) for _, _, _, _, labels, _ in series)
     figure, axes = plt.subplots(nrows, 2, figsize=(12, 2.8 * nrows), squeeze=False)
     row = 0
@@ -49,6 +50,27 @@ def plot_fingerprints(reference, actual, grids, elements, reference_label, actua
     if show:
         plt.show()
     plt.close(figure)
+
+
+def plot_fingerprint_results(target, actual, output):
+    if target.elements != actual.elements or target.body_orders != actual.body_orders:
+        raise ValueError("fingerprints must have matching elements and body orders")
+    for name in target.grids:
+        if not np.array_equal(
+            target.grids[name].detach().cpu().numpy(),
+            actual.grids[name].detach().cpu().numpy(),
+        ):
+            raise ValueError(f"{name} fingerprint grids do not match")
+    plot_fingerprints(
+        [value.detach().cpu().numpy() for value in (target.two_body, target.three_body, target.four_body)],
+        [value.detach().cpu().numpy() for value in (actual.two_body, actual.three_body, actual.four_body)],
+        {name: grid.detach().cpu().numpy() for name, grid in target.grids.items()},
+        target.elements,
+        "Target",
+        "Final",
+        output,
+        body_orders=target.body_orders,
+    )
 
 
 def main():

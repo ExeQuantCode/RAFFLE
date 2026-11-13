@@ -35,6 +35,7 @@ fort.*
 *.xyz
 .coverage
 *CAR
+!example/python_pkg/differentiable_fingerprint/CaTi4(CuO4)3.poscar
 *.pckl
 .DS_Store
 fortranobject.c*

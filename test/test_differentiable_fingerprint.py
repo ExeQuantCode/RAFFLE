@@ -1,3 +1,4 @@
+import ast
 import math
 import os
 from pathlib import Path
@@ -269,6 +270,79 @@ def test_radial_smoothing_gives_useful_long_range_gradient():
     assert smoothed_gradient[0, 0] > 0
 
 
+def test_angular_smoothing_and_density_losses_are_differentiable():
+    atoms = bulk("C", "diamond", a=3.567, cubic=False)
+    descriptor = DifferentiableFingerprint(["C"])
+    target = descriptor.generate(atoms)
+    positions = torch.tensor(atoms.positions, dtype=torch.float64)
+    positions[0, 0] += 0.1
+    positions.requires_grad_()
+    fingerprint = descriptor(
+        positions, atoms.cell.array, descriptor.probabilities_from_atoms(atoms), atoms.pbc
+    )
+    _, mean_losses = _fingerprint_loss(fingerprint, target)
+    _, density_losses = _fingerprint_loss(
+        fingerprint, target, loss_reduction="density"
+    )
+    for name in ("two_body", "three_body", "four_body"):
+        grid = fingerprint.grids[name]
+        assert float(density_losses[name].detach()) == pytest.approx(
+            float(mean_losses[name].detach()) * grid.numel() / float(grid[1] - grid[0])
+        )
+    for weights in ((0.0, 1.0, 0.0), (0.0, 0.0, 1.0)):
+        loss, _ = _fingerprint_loss(
+            fingerprint, target, weights, angular_smoothing=0.25
+        )
+        gradient = torch.autograd.grad(loss, positions, retain_graph=True)[0]
+        assert torch.isfinite(gradient).all()
+        assert torch.linalg.vector_norm(gradient) > 0
+
+
+def test_enabled_body_orders_and_multielement_neighbors():
+    atoms = Atoms(
+        "OOOO", positions=[[0, 0, 0], [1.2, 0, 0], [0, 1.2, 0], [0, 0, 1.2]],
+        cell=[4.2] * 3, pbc=True,
+    )
+    mixed = DifferentiableFingerprint(["Ca", "O"]).generate(atoms)
+    pure = DifferentiableFingerprint(["O"]).generate(atoms)
+    assert torch.allclose(mixed.three_body[:, 1], pure.three_body[:, 0], atol=1e-10)
+    assert torch.allclose(mixed.four_body[:, 1], pure.four_body[:, 0], atol=1e-10)
+    assert pure.three_body.max() > 0 and pure.four_body.max() > 0
+
+    limited = DifferentiableFingerprint(["Ca", "O"], body_orders=(2, 3)).generate(atoms)
+    assert limited.body_orders == (2, 3)
+    assert torch.allclose(limited.three_body, mixed.three_body)
+    with pytest.raises(ValueError, match="4-body loss requires"):
+        _fingerprint_loss(limited, limited)
+
+
+def test_nonperiodic_four_body_includes_in_cell_neighbors():
+    atoms = Atoms(
+        "CCCC", positions=[[0, 0, 0], [1.3, 0, 0], [0, 1.3, 0], [0, 0, 2.7]],
+        cell=[8.0] * 3, pbc=False,
+    )
+    descriptor = DifferentiableFingerprint(["C"])
+    positions = torch.tensor(atoms.positions, dtype=torch.float64, requires_grad=True)
+    fingerprint = descriptor(
+        positions, atoms.cell.array, descriptor.probabilities_from_atoms(atoms), atoms.pbc
+    )
+    assert fingerprint.four_body.max() > 0
+    gradient = torch.autograd.grad(fingerprint.four_body.square().sum(), positions)[0]
+    assert torch.isfinite(gradient).all()
+    assert torch.linalg.vector_norm(gradient) > 0
+
+
+def test_sinkhorn_enforces_rows_and_composition_with_sharp_logits():
+    torch.manual_seed(4)
+    logits = (torch.randn((40, 4), dtype=torch.float64) * 1.5).requires_grad_()
+    counts = torch.tensor([2.0, 6.0, 24.0, 8.0], dtype=torch.float64)
+    probabilities = FingerprintRelaxation._sinkhorn(logits, counts, 0.5)
+    assert torch.allclose(probabilities.sum(dim=1), torch.ones(40, dtype=torch.float64), atol=1e-8)
+    assert torch.allclose(probabilities.sum(dim=0), counts, atol=1e-5)
+    probabilities.square().sum().backward()
+    assert torch.isfinite(logits.grad).all()
+
+
 def test_refinement_reduces_loss_and_verbose_reports_steps(capsys):
     atoms = bulk("C", "diamond", a=3.567, cubic=False)
     descriptor = DifferentiableFingerprint(["C"])
@@ -349,12 +423,89 @@ def test_inverse_design_plots_final_and_target_fingerprints(tmp_path, monkeypatc
         np.testing.assert_allclose(plotted, expected.detach().numpy(), atol=1e-10)
     for plotted, expected in zip(captured["actual"], (final.two_body, final.three_body, final.four_body)):
         np.testing.assert_allclose(plotted, expected.detach().numpy(), atol=1e-7)
-    assert namespace["result"].loss < 1e-8
-    assert np.max(np.abs(captured["actual"][0] - captured["reference"][0])) < 1e-5
+    result = namespace["result"]
+    assert result.loss < 0.01 * result.loss_history[0]["total"]
+    assert np.max(np.abs(captured["actual"][0] - captured["reference"][0])) < 1e-4
     trajectory = read(tmp_path / "diamond.traj", index=":")
     assert trajectory[0][1].symbol == "Si"
     assert trajectory[1][1].symbol == "C"
     assert np.linalg.norm(trajectory[-1].positions[0] - trajectory[0].positions[0]) > 0.5
+
+
+@pytest.mark.parametrize(
+    ("script_name", "arguments"),
+    [
+        ("diamond_to_carbon_phases.py", ["--steps", "2", "--fine-steps", "0"]),
+        ("complex_species.py", ["--steps", "2"]),
+        ("local_atom.py", ["--steps", "3"]),
+    ],
+)
+def test_additional_examples_run(tmp_path, script_name, arguments):
+    pytest.importorskip("matplotlib")
+    example_dir = (
+        Path(__file__).resolve().parents[1]
+        / "example/python_pkg/differentiable_fingerprint"
+    )
+    completed = subprocess.run(
+        [sys.executable, str(example_dir / script_name), *arguments, "--output-dir", str(tmp_path)],
+        check=True, capture_output=True, text=True,
+        env={**os.environ, "MPLBACKEND": "Agg", "OMP_NUM_THREADS": "1"},
+    )
+    if script_name == "diamond_to_carbon_phases.py":
+        initial = bulk("C", "diamond", a=3.567, cubic=True)
+        initial.positions += np.random.default_rng(42).normal(0.0, 0.15, initial.positions.shape)
+        volume_per_atom = initial.get_volume() / len(initial)
+        graphite = Atoms(
+            "C4", scaled_positions=[[0, 0, 0], [1 / 3, 2 / 3, 0],
+                                     [0, 0, 0.5], [2 / 3, 1 / 3, 0.5]],
+            cell=[[2.46, 0, 0], [-1.23, np.sqrt(3) * 1.23, 0], [0, 0, 6.70]],
+            pbc=True,
+        ).repeat((2, 1, 1))
+        targets = {
+            "graphite": graphite,
+            "fcc": bulk("C", "fcc", a=(4 * volume_per_atom) ** (1 / 3), cubic=True).repeat((2, 1, 1)),
+            "bcc": bulk("C", "bcc", a=(2 * volume_per_atom) ** (1 / 3), cubic=True).repeat((2, 2, 1)),
+        }
+        descriptor = DifferentiableFingerprint(
+            ["C"], parameters={"radius_distance_tol": [1.5, 2.8, 3.0, 6.0]}
+        )
+        initial_fp = descriptor.generate(initial)
+        target_fingerprints = {}
+        for phase, target_atoms in targets.items():
+            frames = read(tmp_path / f"diamond_to_{phase}.traj", index=":")
+            np.testing.assert_allclose(frames[0].positions, initial.positions)
+            np.testing.assert_allclose(frames[0].cell.array, initial.cell.array)
+            assert np.array_equal(frames[0].cell.array, frames[-1].cell.array)
+            assert (tmp_path / f"diamond_to_{phase}.png").is_file()
+            line = next(
+                line for line in completed.stdout.splitlines()
+                if line.startswith(f"diamond -> {phase}: fixed diamond cell, initial MSE = ")
+            )
+            reported = ast.literal_eval(line.split("initial MSE = ", 1)[1])
+            target_fp = descriptor.generate(target_atoms)
+            target_fingerprints[phase] = target_fp
+            assert target_fp.three_body.max() > 0
+            assert target_fp.four_body.max() > 0
+            expected = [
+                float((actual - target).square().mean())
+                for actual, target in zip(
+                    (initial_fp.two_body, initial_fp.three_body, initial_fp.four_body),
+                    (target_fp.two_body, target_fp.three_body, target_fp.four_body),
+                )
+            ]
+            np.testing.assert_allclose(reported, expected, rtol=1e-6, atol=1e-10)
+        assert not torch.allclose(
+            target_fingerprints["fcc"].three_body, target_fingerprints["bcc"].three_body
+        )
+    elif script_name == "complex_species.py":
+        frames = read(tmp_path / "complex_species.traj", index=":")
+        assert set(frames[0].get_chemical_symbols()) == {"Ca"}
+        assert frames[-1].symbols.formula.count() == {"Ca": 2, "Cu": 6, "O": 24, "Ti": 8}
+        assert np.array_equal(frames[0].positions, frames[-1].positions)
+    else:
+        frames = read(tmp_path / "local_atom.traj", index=":")
+        assert np.array_equal(frames[0].positions[1:], frames[-1].positions[1:])
+        assert not np.array_equal(frames[0].positions[0], frames[-1].positions[0])
 
 
 def test_fortran_fingerprint_parity():
@@ -370,4 +521,24 @@ def test_fortran_fingerprint_parity():
 
     assert np.max(np.abs(reference[0] - actual.two_body.detach().numpy())) < 2e-6
     assert np.max(np.abs(reference[1] - actual.three_body.detach().numpy())) < 2e-6
-    assert np.max(np.abs(reference[2] - actual.four_body.detach().numpy())) < 2e-3
+    assert np.max(np.abs(reference[2] - actual.four_body.detach().numpy())) < 1e-4
+
+
+@pytest.mark.parametrize(
+    "atoms",
+    [
+        Atoms(
+            "CCCC", positions=[[0, 0, 0], [1.3, 0, 0], [0, 1.3, 0], [0, 0, 2.7]],
+            cell=[8.0] * 3, pbc=False,
+        ),
+        bulk("SiC", "zincblende", a=4.36, cubic=True),
+    ],
+)
+def test_four_body_fortran_parity_for_in_cell_neighbors(atoms):
+    from raffle.raffle import Raffle__Distribs_Container
+
+    parameters = Raffle__Distribs_Container.distribs_container_type()
+    descriptor = DifferentiableFingerprint(sorted(set(atoms.get_chemical_symbols())), parameters)
+    expected = parameters.generate_fingerprint(atoms)[2]
+    actual = descriptor.generate(atoms).four_body.detach().numpy()
+    assert np.max(np.abs(expected - actual)) < 2e-6

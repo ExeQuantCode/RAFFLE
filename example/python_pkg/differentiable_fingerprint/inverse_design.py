@@ -27,7 +27,8 @@ coarse_relaxation = FingerprintRelaxation(
     target,
     target_composition={"C": len(target_atoms), "Si": 0},
     composition_constraint="exact",
-    loss_weights=(1000.0, 0.0, 0.0),
+    loss_weights=(1.0, 0.0, 0.0),
+    loss_reduction="density",
     radial_smoothing=0.5,
     position_learning_rate=0.02,
 )

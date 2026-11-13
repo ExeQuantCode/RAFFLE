@@ -139,6 +139,192 @@ def test_cached_neighbor_groups_match_fresh_descriptor_after_topology_changes():
             torch.testing.assert_close(getattr(actual, name), getattr(expected, name))
 
 
+@pytest.mark.parametrize(
+    "device",
+    ["cpu"] + (["mps"] if torch.backends.mps.is_available() else [])
+    + (["cuda"] if torch.cuda.is_available() else []),
+)
+def test_periodic_wrap_reuses_topology_and_matches_fresh_gradients(device):
+    cell = np.array([[4.0, 0.0, 0.0], [1.3, 4.2, 0.0], [0.3, 0.8, 10.0]])
+    atoms = Atoms(
+        "CSiCC", scaled_positions=[[0.98, 0.15, 0.2], [0.1, 0.4, 0.2],
+                                   [0.3, 0.15, 0.22], [0.65, 0.65, 0.24]],
+        cell=cell, pbc=[True, True, False],
+    )
+    descriptor = DifferentiableFingerprint(["C", "Si"], skin=0.8)
+    dtype = torch.float64 if device == "cpu" else torch.float32
+    logits_data = torch.tensor(
+        [[0.4, -0.1], [0.2, 0.3], [0.1, 0.5], [0.5, 0.1]],
+        dtype=dtype, device=device,
+    )
+    descriptor(
+        torch.tensor(atoms.positions, dtype=dtype, device=device),
+        cell, logits_data.softmax(dim=1), atoms.pbc,
+    )
+    reference_positions = descriptor._topology.reference_positions
+
+    def evaluate(current):
+        positions = torch.tensor(atoms.positions, dtype=dtype, device=device, requires_grad=True)
+        logits = logits_data.clone().requires_grad_()
+        probabilities = logits.softmax(dim=1)
+        fp = current(positions, cell, probabilities, atoms.pbc)
+        values = (fp.two_body, fp.three_body, fp.four_body)
+        loss = sum(value.square().sum() for value in values)
+        return values, torch.autograd.grad(loss, (positions, probabilities, logits))
+
+    for move in (0.04 * cell[0] - cell[0], 0.01 * cell[0], cell[0]):
+        atoms.positions[0] += move
+        actual, actual_gradients = evaluate(descriptor)
+        expected, expected_gradients = evaluate(DifferentiableFingerprint(["C", "Si"], skin=0.8))
+        assert descriptor._topology.reference_positions is reference_positions
+        for lhs, rhs in zip((*actual, *actual_gradients), (*expected, *expected_gradients)):
+            torch.testing.assert_close(
+                lhs, rhs, rtol=1e-7 if device == "cpu" else 1e-4,
+                atol=1e-9 if device == "cpu" else 3e-6,
+            )
+    center, neighbor, shifts = descriptor._topology.pairs(
+        torch.tensor(atoms.positions), torch.tensor(cell), atoms.pbc
+    )
+    assert not ((center == neighbor) & ~shifts.ne(0).any(dim=1)).any()
+    assert ((center == neighbor) & shifts.ne(0).any(dim=1)).any()
+    assert ((center == 0) & (neighbor == 0)).sum() > 1
+
+
+def test_neighbor_skin_covers_cutoff_crossings_and_invalidates_configuration():
+    atoms = Atoms("CC", positions=[[0, 0, 0], [6.2, 0, 0]], cell=[20.0] * 3, pbc=False)
+    descriptor = DifferentiableFingerprint(["C"], skin=0.5, body_orders=(2,))
+    assert descriptor.generate(atoms).two_body.sum() == 0
+    reference_positions = descriptor._topology.reference_positions
+    atoms.positions[1, 0] = 5.97
+    cached = descriptor.generate(atoms)
+    assert descriptor._topology.reference_positions is reference_positions
+    fresh = DifferentiableFingerprint(["C"], skin=0.5, body_orders=(2,)).generate(atoms)
+    torch.testing.assert_close(cached.two_body, fresh.two_body)
+    assert cached.two_body.sum() > 0
+    atoms.positions[1, 0] = 6.1
+    leaving = descriptor.generate(atoms)
+    assert descriptor._topology.reference_positions is reference_positions
+    assert leaving.two_body.sum() == 0
+    atoms.positions[1, 0] = 5.9
+    descriptor.generate(atoms)
+    assert descriptor._topology.reference_positions is not reference_positions
+
+    atoms.positions[1, 0] = 6.8
+    descriptor.generate(atoms)
+    reference_positions = descriptor._topology.reference_positions
+    descriptor.cutoff_max[0] = 8.0
+    changed = descriptor.generate(atoms)
+    expected = DifferentiableFingerprint(
+        ["C"], parameters={"cutoff_max": [8.0, math.pi, math.pi]},
+        skin=0.5, body_orders=(2,),
+    ).generate(atoms)
+    assert descriptor._topology.reference_positions is not reference_positions
+    torch.testing.assert_close(changed.two_body, expected.two_body)
+    assert changed.two_body.sum() > 0
+
+
+@pytest.mark.parametrize("change", ["cell", "pbc", "atom_count", "skin"])
+def test_topology_rebuilds_when_structure_metadata_changes(change):
+    atoms = Atoms(
+        "CC", positions=[[0, 0, 0], [1.4, 0.1, 0]], cell=[8.0] * 3, pbc=False
+    )
+    descriptor = DifferentiableFingerprint(["C"], skin=0.5, body_orders=(2,))
+    descriptor.generate(atoms)
+    old_reference = descriptor._topology.reference_positions
+    if change == "cell":
+        atoms.cell[0, 0] += 1e-13
+    elif change == "pbc":
+        atoms.pbc[0] = True
+    elif change == "atom_count":
+        atoms += Atoms("C", positions=[[0, 1.4, 0]])
+    else:
+        descriptor._topology.skin = 0.8
+    actual = descriptor.generate(atoms)
+    expected = DifferentiableFingerprint(["C"], skin=0.5, body_orders=(2,)).generate(atoms)
+    assert descriptor._topology.reference_positions is not old_reference
+    torch.testing.assert_close(actual.two_body, expected.two_body)
+
+
+@pytest.mark.parametrize("sigma", [0.1, 2.0])
+def test_radial_projection_matches_dense_reference_at_grid_edges(sigma):
+    descriptor = DifferentiableFingerprint(
+        ["C", "Si"], parameters={"sigma": [sigma, 0.1, 0.1]}, body_orders=(2,)
+    )
+    positions = torch.tensor(
+        [[0., 0., 0.], [0.52, 0., 0.], [5.9, 0.12, 0.]],
+        dtype=torch.float64, requires_grad=True,
+    )
+    logits = torch.tensor(
+        [[0.2, -0.3], [0.4, 0.1], [-0.2, 0.3]],
+        dtype=torch.float64, requires_grad=True,
+    )
+    probabilities = logits.softmax(dim=1)
+    fp = descriptor(positions, np.diag([20.] * 3), probabilities, [False] * 3)
+    center = torch.tensor([0, 0, 1, 1, 2, 2])
+    neighbor = torch.tensor([1, 2, 0, 2, 0, 1])
+    distances = torch.linalg.vector_norm(positions[neighbor] - positions[center], dim=1)
+    denominator = probabilities.new_zeros((3, 2)).index_add(0, center, probabilities[neighbor])
+    first, second = probabilities[center], probabilities[neighbor]
+    weights = torch.stack(
+        (first[:, 0] * second[:, 0] / denominator[center, 0],
+         first[:, 0] * second[:, 1] / denominator[center, 1]
+         + first[:, 1] * second[:, 0] / denominator[center, 0],
+         first[:, 1] * second[:, 1] / denominator[center, 1]),
+        dim=1,
+    )
+    grid = fp.grids["two_body"]
+    eta = 1.0 / (2.0 * sigma ** 2)
+    support_radius = math.ceil(math.sqrt(16.0 / eta) / descriptor.width[0])
+    nearest = torch.floor((distances - descriptor.cutoff_min[0]) / descriptor.width[0] + 0.5)
+    support = (torch.arange(grid.numel())[None, :] - nearest[:, None]).abs() <= support_radius
+    projected = torch.exp(-eta * (distances[:, None] - grid[None, :]).square()) * support
+    taper = torch.ones_like(grid)
+    taper = torch.where(
+        grid > descriptor.cutoff_max[0] - 0.25,
+        0.5 * (1 + torch.cos(math.pi * (grid - descriptor.cutoff_max[0] + 0.25) / 0.25)),
+        taper,
+    )
+    taper = torch.where(
+        grid < descriptor.cutoff_min[0] + 0.25,
+        0.5 * (1 + torch.cos(math.pi * (grid - descriptor.cutoff_min[0] - 0.25) / 0.25)),
+        taper,
+    )
+    expected = (
+        projected.T @ weights * math.sqrt(eta / math.pi) * taper[:, None]
+        / grid[:, None].square()
+    )
+    actual = fp.unnormalized["two_body"]
+    torch.testing.assert_close(actual, expected, rtol=1e-12, atol=1e-12)
+    factors = torch.linspace(0.1, 1.0, grid.numel(), dtype=grid.dtype)[:, None]
+    actual_grad = torch.autograd.grad(
+        (actual * factors).sum(), (positions, logits), retain_graph=True
+    )
+    expected_grad = torch.autograd.grad((expected * factors).sum(), (positions, logits))
+    for lhs, rhs in zip(actual_grad, expected_grad):
+        torch.testing.assert_close(lhs, rhs, rtol=1e-11, atol=1e-11)
+
+
+def test_candidate_topology_covers_larger_allowed_species_radii():
+    atoms = Atoms(
+        "CCCC", positions=[[0, 0, 0], [2.6, 0, 0], [0, 2.6, 0], [0, 0, 4.4]],
+        cell=[20.0] * 3, pbc=False,
+    )
+    descriptor = DifferentiableFingerprint(
+        ["C", "Si"],
+        bond_radii={("C", "C"): 0.7, ("C", "Si"): 1.4, ("Si", "Si"): 1.4},
+    )
+    positions = torch.tensor(atoms.positions, dtype=torch.float64, requires_grad=True)
+    logits = torch.tensor([[0.5, 0.1]] * len(atoms), dtype=torch.float64, requires_grad=True)
+    fp = descriptor(positions, atoms.cell.array, logits.softmax(dim=1), atoms.pbc)
+    assert fp.three_body.sum() > 0
+    assert fp.four_body.sum() > 0
+    gradients = torch.autograd.grad(
+        fp.three_body.square().sum() + fp.four_body.square().sum(), (positions, logits)
+    )
+    assert all(torch.isfinite(gradient).all() for gradient in gradients)
+    assert all(torch.linalg.vector_norm(gradient) > 0 for gradient in gradients)
+
+
 def test_repulsion_excludes_isolated_atom_self_pair():
     atoms = Atoms("C", positions=[[0, 0, 0]], cell=[10.0] * 3, pbc=False)
     descriptor = DifferentiableFingerprint(["C", "Si"], body_orders=(2,))

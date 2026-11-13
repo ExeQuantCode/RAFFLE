@@ -18,6 +18,7 @@ import torch
 from ase import Atoms
 from ase.calculators.calculator import Calculator, all_changes
 from ase.data import atomic_numbers, covalent_radii
+from ase.geometry import complete_cell, find_mic
 from ase.neighborlist import primitive_neighbor_list
 
 
@@ -84,6 +85,7 @@ class _NeighborTopology:
     an atom moves more than half the skin since the last rebuild. Pair
     membership and image shifts are discrete; displacement vectors and
     distances are recomputed from PyTorch positions for every evaluation.
+    Crossing a periodic boundary adjusts cached image shifts without rebuilding.
     """
 
     def __init__(self, cutoff: float, skin: float = 0.5):
@@ -98,6 +100,12 @@ class _NeighborTopology:
         self.j = np.empty(0, dtype=np.int64)
         self.shifts = np.empty((0, 3), dtype=np.int64)
         self.counts: tuple[int, ...] = ()
+        self.reference_cutoff: float | None = None
+        self.reference_skin: float | None = None
+        self.wraps = np.empty((0, 3), dtype=np.int64)
+        self._device_pairs: dict[
+            torch.device, tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+        ] = {}
 
     def pairs(
         self,
@@ -113,13 +121,32 @@ class _NeighborTopology:
             rebuild = (
                 self.reference_positions.shape != pos.shape
                 or not np.array_equal(self.reference_pbc, pbc_np)
-                or not np.allclose(self.reference_cell, cell_np, rtol=0.0, atol=1e-12)
+                or not np.array_equal(self.reference_cell, cell_np)
+                or self.reference_cutoff != self.cutoff
+                or self.reference_skin != self.skin
             )
         if not rebuild:
-            displacement = np.linalg.norm(pos - self.reference_positions, axis=1).max(
-                initial=0.0
-            )
-            rebuild = displacement > self.skin / 2.0 if self.skin else displacement > 0.0
+            delta = pos - self.reference_positions
+            displacement = np.linalg.norm(delta, axis=1).max(initial=0.0)
+            wraps = np.zeros_like(delta, dtype=np.int64)
+            if pbc_np.any() and displacement > self.skin / 2.0:
+                delta_mic, lengths = find_mic(delta, cell_np, pbc=pbc_np)
+                displacement = lengths.max(initial=0.0)
+                wraps = np.rint(
+                    np.linalg.solve(complete_cell(cell_np).T, (delta - delta_mic).T).T
+                ).astype(np.int64)
+                wraps[:, ~pbc_np] = 0
+            rebuild = displacement > self.skin / 2.0
+            if not rebuild and not np.array_equal(wraps, self.wraps):
+                wrap_delta = wraps - self.wraps
+                self.shifts = self.shifts + wrap_delta[self.i] - wrap_delta[self.j]
+                order = np.lexsort(
+                    (self.shifts[:, 2], self.shifts[:, 1], self.shifts[:, 0],
+                     self.j, np.any(self.shifts != 0, axis=1), self.i)
+                )
+                self.i, self.j, self.shifts = self.i[order], self.j[order], self.shifts[order]
+                self.wraps = wraps
+                self._device_pairs.clear()
         if rebuild:
             self.i, self.j, self.shifts = primitive_neighbor_list(
                 "ijS",
@@ -127,7 +154,7 @@ class _NeighborTopology:
                 cell_np,
                 pos,
                 self.cutoff + self.skin,
-                self_interaction=True,
+                self_interaction=False,
             )
             order = np.lexsort(
                 (
@@ -147,12 +174,18 @@ class _NeighborTopology:
             self.reference_positions = pos.copy()
             self.reference_cell = cell_np.copy()
             self.reference_pbc = pbc_np.copy()
+            self.reference_cutoff = self.cutoff
+            self.reference_skin = self.skin
+            self.wraps = np.zeros_like(pos, dtype=np.int64)
+            self._device_pairs.clear()
         device = positions.device
-        return (
-            torch.as_tensor(self.i, dtype=torch.long, device=device),
-            torch.as_tensor(self.j, dtype=torch.long, device=device),
-            torch.as_tensor(self.shifts, dtype=torch.long, device=device),
-        )
+        if device not in self._device_pairs:
+            self._device_pairs[device] = (
+                torch.as_tensor(self.i, dtype=torch.long, device=device),
+                torch.as_tensor(self.j, dtype=torch.long, device=device),
+                torch.as_tensor(self.shifts, dtype=torch.long, device=device),
+            )
+        return self._device_pairs[device]
 
 
 class DifferentiableFingerprint:
@@ -379,6 +412,7 @@ class DifferentiableFingerprint:
         raw3 = positions.new_zeros((grids["three_body"].numel(), n_elements))
         raw4 = positions.new_zeros((grids["four_body"].numel(), n_elements))
 
+        self._topology.cutoff = max(self.cutoff_max[0], 1e-4)
         center, neighbor, shifts = self._topology.pairs(positions, cell, pbc)
         vectors = positions[neighbor] - positions[center] + shifts.to(dtype) @ cell
         distances = torch.linalg.vector_norm(vectors, dim=1)
@@ -405,17 +439,20 @@ class DifferentiableFingerprint:
             ).clamp_min(torch.finfo(dtype).tiny)
             bins = torch.arange(grids2.numel(), dtype=dtype, device=device)
             support_radius = math.ceil(math.sqrt(16.0 / eta2) / self.width[0])
-            for start in range(0, radial_ids.numel(), 2048):
-                ids = radial_ids[start:start + 2048]
-                centers = radial_centers[start:start + 2048]
+            sparse_projection = 2 * support_radius + 1 < grids2.numel()
+            if sparse_projection:
+                offsets = torch.arange(-support_radius, support_radius + 1, device=device)
+                chunk = min(2048, max(1, 524288 // (offsets.numel() * len(pair_indices))))
+            else:
+                chunk = 2048
+            for start in range(0, radial_ids.numel(), chunk):
+                ids = radial_ids[start:start + chunk]
+                centers = radial_centers[start:start + chunk]
                 p_center = probabilities[centers]
-                p_neighbor = neighbor_probabilities[start:start + 2048]
+                p_neighbor = neighbor_probabilities[start:start + chunk]
                 denominator = denominators[centers]
                 r = distances[ids]
                 nearest = torch.floor((r - rmin) / self.width[0] + 0.5)
-                support = (bins[None, :] - nearest[:, None]).abs() <= support_radius
-                gaussian = torch.exp(-eta2 * (r[:, None] - grids2[None, :]).square())
-                projected = gaussian * support.to(dtype)
                 channel_weights = []
                 for alpha, beta in pair_indices:
                     weights = p_center[:, alpha] * p_neighbor[:, beta] / denominator[:, beta]
@@ -424,9 +461,24 @@ class DifferentiableFingerprint:
                             p_center[:, beta] * p_neighbor[:, alpha] / denominator[:, alpha]
                         )
                     channel_weights.append(weights)
-                raw2 = raw2 + projected.T @ torch.stack(channel_weights, dim=1) * math.sqrt(
-                    eta2 / math.pi
-                )
+                channel_weights = torch.stack(channel_weights, dim=1)
+                if sparse_projection:
+                    bin_indices = nearest.to(torch.long)[:, None] + offsets[None, :]
+                    valid_bins = (bin_indices >= 0) & (bin_indices < grids2.numel())
+                    safe_indices = bin_indices.clamp(0, grids2.numel() - 1)
+                    gaussian = torch.exp(-eta2 * (r[:, None] - grids2[safe_indices]).square())
+                    projected = gaussian * valid_bins.to(dtype)
+                    contributions = (
+                        projected[:, :, None] * channel_weights[:, None, :]
+                    ).reshape(-1, len(pair_indices))
+                    raw2 = raw2.index_add(
+                        0, safe_indices.reshape(-1), contributions * math.sqrt(eta2 / math.pi)
+                    )
+                else:
+                    support = (bins[None, :] - nearest[:, None]).abs() <= support_radius
+                    gaussian = torch.exp(-eta2 * (r[:, None] - grids2[None, :]).square())
+                    projected = gaussian * support.to(dtype)
+                    raw2 = raw2 + projected.T @ channel_weights * math.sqrt(eta2 / math.pi)
 
         raw2 = raw2 / grids2[:, None].square()
         taper_max = self.cutoff_max[0] - 0.25
@@ -448,6 +500,10 @@ class DifferentiableFingerprint:
         norm2 = self._normalise(raw2)
 
         grids3 = grids["three_body"]
+        near_cache: list[list[tuple[torch.Tensor, ...] | None]] | None = (
+            [[None for _ in range(n_elements)] for _ in range(n_atoms)]
+            if 3 in self.body_orders and 4 in self.body_orders else None
+        )
         # Form unordered neighbor pairs around each center; distance windows
         # are averaged over the neighbors' continuous species probabilities.
         for atom in (range(n_atoms) if 3 in self.body_orders else ()):
@@ -486,6 +542,11 @@ class DifferentiableFingerprint:
                 denominator = pair_count_weights.sum()
                 if denominator.detach().item() == 0.0:
                     continue
+                if near_cache is not None:
+                    near_cache[atom][alpha] = (
+                        ids, d, win3_by_species[possible], neighbor_probabilities[possible],
+                        left, right, denominator,
+                    )
                 bond_weights = (
                     win3[left] * win3[right]
                     / (d[left].square() * d[right].square()).clamp_min(1e-20)
@@ -524,33 +585,42 @@ class DifferentiableFingerprint:
             if center_ids.numel() < 2:
                 continue
             for alpha in range(n_elements):
-                ids = center_ids
                 fourth_ids = center_ids
-                d = distances[ids]
                 pair_radii = radii[alpha]
-                lower3 = torch.maximum(
-                    d.new_full((n_elements,), self.cutoff_min[0]),
-                    pair_radii * self.radius_distance_tol[0],
-                )
-                upper3 = torch.minimum(
-                    d.new_full((n_elements,), self.cutoff_max[0]),
-                    pair_radii * self.radius_distance_tol[1],
-                )
-                win3_by_species, valid3_by_species = self._cosine_window(
-                    d, lower3, upper3
-                )
-                neighbor_probabilities = probabilities[neighbor[ids]]
-                win3 = (win3_by_species * neighbor_probabilities).sum(dim=1)
-                valid3 = (valid3_by_species * neighbor_probabilities).sum(dim=1)
-                possible3 = valid3_by_species.any(dim=1)
-                ids = ids[possible3]
-                d = d[possible3]
-                win3 = win3[possible3]
-                valid3 = valid3[possible3]
-                win3_by_species = win3_by_species[possible3]
-                neighbor_probabilities = neighbor_probabilities[possible3]
-                if ids.numel() < 2:
-                    continue
+                if near_cache is not None:
+                    cached = near_cache[atom][alpha]
+                    if cached is None:
+                        continue
+                    (ids, d, win3_by_species, neighbor_probabilities,
+                     left, right, near_denominator) = cached
+                else:
+                    ids = center_ids
+                    d = distances[ids]
+                    lower3 = torch.maximum(
+                        d.new_full((n_elements,), self.cutoff_min[0]),
+                        pair_radii * self.radius_distance_tol[0],
+                    )
+                    upper3 = torch.minimum(
+                        d.new_full((n_elements,), self.cutoff_max[0]),
+                        pair_radii * self.radius_distance_tol[1],
+                    )
+                    win3_by_species, valid3_by_species = self._cosine_window(
+                        d, lower3, upper3
+                    )
+                    neighbor_probabilities = probabilities[neighbor[ids]]
+                    valid3 = (valid3_by_species * neighbor_probabilities).sum(dim=1)
+                    possible3 = valid3_by_species.any(dim=1)
+                    ids = ids[possible3]
+                    d = d[possible3]
+                    valid3 = valid3[possible3]
+                    win3_by_species = win3_by_species[possible3]
+                    neighbor_probabilities = neighbor_probabilities[possible3]
+                    if ids.numel() < 2:
+                        continue
+                    left, right = torch.triu_indices(
+                        ids.numel(), ids.numel(), offset=1, device=device
+                    )
+                    near_denominator = (valid3[left] * valid3[right]).sum()
 
                 fourth_d = distances[fourth_ids]
                 lower4 = torch.maximum(
@@ -575,9 +645,7 @@ class DifferentiableFingerprint:
                 if fourth_ids.numel() == 0:
                     continue
 
-                left, right = torch.triu_indices(ids.numel(), ids.numel(), offset=1, device=device)
-                pair_count_weights = valid3[left] * valid3[right]
-                denominator = pair_count_weights.sum() * valid4.sum()
+                denominator = near_denominator * valid4.sum()
                 if denominator.detach().item() == 0.0:
                     continue
                 # Enumerate only local triplets, never a dense N^4 tensor.

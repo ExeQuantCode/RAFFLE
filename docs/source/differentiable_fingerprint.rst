@@ -39,6 +39,25 @@ For expensive systems, pass ``body_orders=(2, 3)`` to the descriptor to skip
 ``FingerprintResult.body_orders``; requesting a nonzero loss weight for a
 disabled order raises an error.
 
+Neighbor topology is built with ASE out to the maximum radial cutoff plus
+``skin`` (default 0.5 Angstrom). This global cutoff also bounds the
+species-dependent angular windows, so the candidate list covers every allowed
+species. The descriptor reuses the list until an atom moves more than half
+the skin, or the cell, periodicity, atom count, cutoff or skin changes.
+Displacements are checked using the minimum image for periodic directions;
+when coordinates wrap across a boundary, cached integer image shifts are
+adjusted. Skew cells, partial periodicity and distinct periodic images of the
+same atom are supported. Only the zero-image self-pair is excluded.
+
+Neighbor indices and image shifts are cached on each device, but vectors,
+distances and their autograd graphs are recomputed on every call. Sparse
+2-body Gaussian projections accumulate only bins in the existing finite
+support; very broad Gaussians use the dense projection instead. The 3- and
+4-body calculations share near-neighbor geometry during a call when both are
+enabled. Higher-order indices are not cached across calls: local neighbor
+pairs are formed as needed, and four-body combinations are processed in
+chunks to avoid a potentially large ``N*k**3`` topology allocation.
+
 At fixed element and bin counts, the 2-, 3- and 4-body histogram calculations
 scale approximately as ``N*k``, ``N*k**2`` and ``N*k**3``, respectively, for
 ``N`` atoms and roughly ``k`` neighbors per atom. Sorted neighbor groups are

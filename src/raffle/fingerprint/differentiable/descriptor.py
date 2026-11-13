@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 import math
 from typing import Any, Mapping, Sequence
 
@@ -592,13 +593,29 @@ def _fingerprint_loss(
     current: FingerprintResult,
     target: FingerprintResult,
     weights: Sequence[float] = (1.0, 1.0, 1.0),
+    radial_smoothing: float = 0.0,
 ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
     if len(weights) != 3 or any(
         not math.isfinite(float(weight)) or weight < 0 for weight in weights
     ):
         raise ValueError("loss_weights must contain three finite non-negative values")
+    radial_difference = current.two_body - target.two_body.to(current.two_body)
+    if radial_smoothing:
+        grid = current.grids["two_body"]
+        if grid.numel() < 2:
+            raise ValueError("radial smoothing requires at least two radial bins")
+        width = float((grid[1] - grid[0]).detach())
+        radius = math.ceil(4.0 * radial_smoothing / width)
+        offsets = torch.arange(
+            -radius, radius + 1, dtype=grid.dtype, device=grid.device
+        ) * width
+        kernel = torch.exp(-0.5 * (offsets / radial_smoothing).square())
+        kernel = (kernel / kernel.sum()).reshape(1, 1, -1)
+        radial_difference = torch.nn.functional.conv1d(
+            radial_difference.T.unsqueeze(1), kernel, padding=radius
+        ).squeeze(1).T
     losses = {
-        "two_body": (current.two_body - target.two_body.to(current.two_body)).square().mean(),
+        "two_body": radial_difference.square().mean(),
         "three_body": (current.three_body - target.three_body.to(current.three_body)).square().mean(),
         "four_body": (current.four_body - target.four_body.to(current.four_body)).square().mean(),
     }
@@ -684,6 +701,7 @@ class FingerprintRelaxation:
         final_temperature: float = 0.2,
         entropy_weight: float = 0.0,
         repulsion_weight: float = 0.0,
+        radial_smoothing: float = 0.0,
     ):
         if isinstance(composition_constraint, str):
             if composition_constraint.lower() != "exact":
@@ -712,6 +730,9 @@ class FingerprintRelaxation:
         self.final_temperature = float(final_temperature)
         self.entropy_weight = float(entropy_weight)
         self.repulsion_weight = float(repulsion_weight)
+        self.radial_smoothing = float(radial_smoothing)
+        if not math.isfinite(self.radial_smoothing) or self.radial_smoothing < 0:
+            raise ValueError("radial_smoothing must be finite and non-negative")
         if min(self.position_learning_rate, self.species_learning_rate) <= 0:
             raise ValueError("learning rates must be positive")
         if min(self.temperature, self.final_temperature) <= 0:
@@ -821,6 +842,7 @@ class FingerprintRelaxation:
         final_refine_steps: int = 20,
         tolerance: float = 1e-8,
         callback: Any = None,
+        verbose: bool = False,
     ) -> RelaxationResult:
         if len(initial_atoms) == 0:
             raise ValueError("cannot relax an empty structure")
@@ -867,6 +889,31 @@ class FingerprintRelaxation:
         history: list[dict[str, float]] = []
         prior_positions = position_parameter.detach().clone()
         converged = False
+        stable_steps = 0
+
+        def log_step(phase: str, step: int, loss: float, gradient: torch.Tensor | None,
+                     species_gradient: torch.Tensor | None, displacement: torch.Tensor) -> None:
+            if not verbose:
+                return
+            fmax = 0.0 if gradient is None else float(
+                torch.linalg.vector_norm(gradient, dim=1).max()
+            )
+            species_max = 0.0 if species_gradient is None else float(
+                torch.linalg.vector_norm(species_gradient, dim=1).max()
+            )
+            max_step = float(torch.linalg.vector_norm(displacement, dim=1).max())
+            print(
+                f"{phase:>6} {step:5d} {datetime.now():%H:%M:%S} "
+                f"{loss:12.6e} {fmax:12.6e} {species_max:12.6e} {max_step:10.4e}",
+                flush=True,
+            )
+
+        if verbose:
+            print(
+                f"{'Phase':>6} {'Step':>5} {'Time':>8} {'Loss':>12} "
+                f"{'Fmax':>12} {'SpeciesGrad':>12} {'MaxStep':>10}",
+                flush=True,
+            )
 
         for step in range(max_steps):
             fraction = step / max(1, max_steps - 1)
@@ -885,7 +932,9 @@ class FingerprintRelaxation:
                 probabilities,
                 atoms.pbc,
             )
-            total, components = _fingerprint_loss(current, self.target, self.loss_weights)
+            total, components = _fingerprint_loss(
+                current, self.target, self.loss_weights, self.radial_smoothing
+            )
             if self.composition_constraint > 0 and not math.isinf(self.composition_constraint):
                 predicted = probabilities.sum(dim=0) / n_atoms
                 desired = self._composition_counts(atoms).to(predicted) / n_atoms
@@ -921,26 +970,45 @@ class FingerprintRelaxation:
                 position_parameter.grad[fixed_positions] = 0.0
             if not optimise_species:
                 logits.grad = None
+            previous_positions = position_parameter.detach().clone() if verbose else None
             optimizer.step()
             with torch.no_grad():
                 position_parameter[fixed_positions] = prior_positions[fixed_positions]
             record = {key: float(value.detach()) for key, value in components.items()}
             record["total"] = float(total.detach())
             history.append(record)
-            if callback is not None:
+            if verbose:
+                log_step(
+                    "Joint", step, record["total"], position_parameter.grad,
+                    logits.grad, position_parameter.detach() - previous_positions,
+                )
+            save_frame = step % trajectory_interval == 0 or step == max_steps - 1
+            if callback is not None or save_frame:
                 frame = atoms.copy()
                 frame.positions = evaluated_positions.detach().cpu().numpy()
-                callback(step, frame, probabilities.detach().clone(), record)
-            if step % trajectory_interval == 0 or step == max_steps - 1:
-                frame = atoms.copy()
-                frame.positions = torch.where(
-                    fixed_positions[:, None], prior_positions, position_parameter.detach()
-                ).cpu().numpy()
+                frame_probabilities = probabilities.detach().clone()
+                assignment = self._assign_species(
+                    frame_probabilities, fixed_species, atoms, exact_counts
+                )
+                frame.set_chemical_symbols(
+                    [self.descriptor.elements[index] for index in assignment]
+                )
+            if callback is not None:
+                callback(step, frame.copy(), frame_probabilities.clone(), record)
+            if save_frame:
                 trajectory.append(frame)
-                probability_history.append(probabilities.detach().clone())
-            if len(history) > 1 and abs(history[-2]["total"] - history[-1]["total"]) < tolerance:
-                converged = True
-                break
+                probability_history.append(frame_probabilities)
+            if len(history) > 1 and tolerance > 0:
+                previous_loss, current_loss = history[-2]["total"], history[-1]["total"]
+                scale = max(abs(previous_loss), abs(current_loss), torch.finfo(torch.float64).tiny)
+                stable_steps = (
+                    stable_steps + 1
+                    if abs(previous_loss - current_loss) <= tolerance * scale
+                    else 0
+                )
+                if stable_steps >= 5:
+                    converged = True
+                    break
 
         with torch.no_grad():
             probabilities = self._probabilities(
@@ -956,33 +1024,59 @@ class FingerprintRelaxation:
             torch.as_tensor(assignment), num_classes=n_elements
         ).to(torch.float64)
 
-        for _ in range(max(0, final_refine_steps)):
-            refine_positions = torch.tensor(
-                atoms.positions, dtype=torch.float64, requires_grad=True
-            )
+        refine_positions = torch.nn.Parameter(torch.tensor(atoms.positions, dtype=torch.float64))
+        refine_optimizer = torch.optim.Adam([refine_positions], lr=self.position_learning_rate)
+        best_positions = refine_positions.detach().clone()
+        best_loss = math.inf
+        for refine_step in range(final_refine_steps if optimise_positions else 0):
+            refine_optimizer.zero_grad(set_to_none=True)
             final_fp = self.descriptor(
                 refine_positions,
                 torch.as_tensor(np.asarray(atoms.cell), dtype=torch.float64),
                 final_probabilities,
                 atoms.pbc,
             )
-            final_loss, _ = _fingerprint_loss(final_fp, self.target, self.loss_weights)
-            gradient = torch.autograd.grad(final_loss, refine_positions)[0]
+            final_loss, _ = _fingerprint_loss(
+                final_fp, self.target, self.loss_weights, self.radial_smoothing
+            )
+            loss_value = float(final_loss.detach())
+            if loss_value < best_loss:
+                best_loss = loss_value
+                best_positions = refine_positions.detach().clone()
+            final_loss.backward()
+            refine_positions.grad[fixed_positions] = 0.0
+            previous_positions = refine_positions.detach().clone() if verbose else None
+            refine_optimizer.step()
             with torch.no_grad():
-                refine_positions = refine_positions - self.position_learning_rate * gradient
                 refine_positions[fixed_positions] = prior_positions[fixed_positions]
-                atoms.set_positions(refine_positions.cpu().numpy())
+            if verbose:
+                log_step(
+                    "Refine", refine_step, loss_value, refine_positions.grad, None,
+                    refine_positions.detach() - previous_positions,
+                )
 
-        final_positions_tensor = torch.tensor(
-            atoms.positions, dtype=torch.float64, requires_grad=True
-        )
         final_fp = self.descriptor(
-            final_positions_tensor,
+            refine_positions,
             torch.as_tensor(np.asarray(atoms.cell), dtype=torch.float64),
             final_probabilities,
             atoms.pbc,
         )
-        final_loss, _ = _fingerprint_loss(final_fp, self.target, self.loss_weights)
+        final_loss, _ = _fingerprint_loss(
+            final_fp, self.target, self.loss_weights, self.radial_smoothing
+        )
+        if float(final_loss.detach()) > best_loss:
+            with torch.no_grad():
+                refine_positions.copy_(best_positions)
+            final_fp = self.descriptor(
+                refine_positions,
+                torch.as_tensor(np.asarray(atoms.cell), dtype=torch.float64),
+                final_probabilities,
+                atoms.pbc,
+            )
+            final_loss, _ = _fingerprint_loss(
+                final_fp, self.target, self.loss_weights, self.radial_smoothing
+            )
+        atoms.set_positions(refine_positions.detach().cpu().numpy())
         composition = {
             element: atoms.get_chemical_symbols().count(element)
             for element in self.descriptor.elements

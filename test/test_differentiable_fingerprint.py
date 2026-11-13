@@ -1,16 +1,23 @@
 import math
+import os
+from pathlib import Path
+import runpy
+import subprocess
+import sys
 
 import numpy as np
 import pytest
 import torch
 from ase import Atoms
 from ase.build import bulk
+from ase.io import read, write
 
 from raffle.fingerprint.differentiable import (
     DifferentiableFingerprint,
     FingerprintCalculator,
     FingerprintRelaxation,
 )
+from raffle.fingerprint.differentiable.descriptor import _fingerprint_loss
 from raffle.raffle import Geom_Rw
 
 
@@ -152,6 +159,46 @@ def test_exact_composition_and_fixed_atoms_are_preserved():
     )
 
 
+def test_trajectory_and_callback_reflect_evaluated_species_and_positions():
+    atoms = bulk("C", "diamond", a=3.567, cubic=False)
+    initial = atoms.copy()
+    initial[1].symbol = "Si"
+    initial.positions[0, 0] += 0.08
+    descriptor = DifferentiableFingerprint(["C", "Si"])
+    target = descriptor.generate(atoms)
+    relaxation = FingerprintRelaxation(
+        descriptor,
+        target,
+        target_composition={"C": 2, "Si": 0},
+        composition_constraint="exact",
+    )
+    callbacks = []
+    result = relaxation.run(
+        initial, max_steps=3, final_refine_steps=0,
+        callback=lambda step, frame, probabilities, record: callbacks.append(
+            (frame, probabilities, record)
+        ),
+    )
+
+    assert result.trajectory[0][1].symbol == "Si"
+    for (frame, probabilities, record), saved, saved_probabilities in zip(
+        callbacks, result.trajectory[1:-1], result.species_probabilities_history[1:-1]
+    ):
+        assert frame.get_chemical_symbols() == ["C", "C"]
+        assert saved.get_chemical_symbols() == frame.get_chemical_symbols()
+        assert np.array_equal(saved.positions, frame.positions)
+        assert torch.equal(probabilities, saved_probabilities)
+        fingerprint = descriptor(frame.positions, frame.cell.array, probabilities, frame.pbc)
+        loss = sum(
+            (actual - expected).square().mean()
+            for actual, expected in zip(
+                (fingerprint.two_body, fingerprint.three_body, fingerprint.four_body),
+                (target.two_body, target.three_body, target.four_body),
+            )
+        )
+        assert float(loss) == pytest.approx(record["total"], abs=1e-12)
+
+
 def test_invalid_exact_composition_is_rejected():
     atoms = bulk("C", "diamond", a=3.567, cubic=False)
     descriptor = DifferentiableFingerprint(["C", "Si"])
@@ -179,6 +226,135 @@ def test_non_integer_exact_composition_is_rejected():
 
     with pytest.raises(ValueError, match="non-negative integers"):
         relaxation.run(atoms, max_steps=1, final_refine_steps=0)
+
+
+def test_joint_relaxation_does_not_stop_on_small_absolute_loss_changes():
+    atoms = bulk("C", "diamond", a=3.567, cubic=True)
+    descriptor = DifferentiableFingerprint(["C", "Si"])
+    target = descriptor.generate(atoms)
+    initial = atoms.copy()
+    initial.positions[0, 0] += 1.2
+    initial[1].symbol = "Si"
+    relaxation = FingerprintRelaxation(
+        descriptor,
+        target,
+        target_composition={"C": 8, "Si": 0},
+        composition_constraint="exact",
+        position_learning_rate=0.01,
+    )
+
+    result = relaxation.run(initial, max_steps=40, final_refine_steps=0)
+
+    assert result.n_steps == 40
+    assert result.loss < 0.8 * result.loss_history[0]["total"]
+    assert np.linalg.norm(result.structure.positions[0] - initial.positions[0]) > 0.1
+
+
+def test_radial_smoothing_gives_useful_long_range_gradient():
+    atoms = bulk("C", "diamond", a=3.567, cubic=True)
+    descriptor = DifferentiableFingerprint(["C", "Si"])
+    target = descriptor.generate(atoms)
+    positions = torch.tensor(atoms.positions, dtype=torch.float64)
+    positions[0, 0] += 1.2
+    positions.requires_grad_()
+    fingerprint = descriptor(
+        positions, atoms.cell.array, descriptor.probabilities_from_atoms(atoms), atoms.pbc
+    )
+    unsmoothed, _ = _fingerprint_loss(fingerprint, target, (1.0, 0.0, 0.0))
+    smoothed, _ = _fingerprint_loss(fingerprint, target, (1.0, 0.0, 0.0), 0.5)
+    unsmoothed_gradient = torch.autograd.grad(unsmoothed, positions, retain_graph=True)[0]
+    smoothed_gradient = torch.autograd.grad(smoothed, positions)[0]
+
+    assert unsmoothed_gradient[0, 0] < 0
+    assert smoothed_gradient[0, 0] > 0
+
+
+def test_refinement_reduces_loss_and_verbose_reports_steps(capsys):
+    atoms = bulk("C", "diamond", a=3.567, cubic=False)
+    descriptor = DifferentiableFingerprint(["C"])
+    target = descriptor.generate(atoms)
+    initial = atoms.copy()
+    initial.positions[0, 0] += 0.18
+    relaxation = FingerprintRelaxation(
+        descriptor, target, fixed_position_mask=[False, True], position_learning_rate=0.01
+    )
+    before = relaxation.run(
+        initial, optimise_species=False, max_steps=1, final_refine_steps=0
+    )
+    assert capsys.readouterr().out == ""
+    after = relaxation.run(
+        initial, optimise_species=False, max_steps=1, final_refine_steps=20, verbose=True
+    )
+    output = capsys.readouterr().out
+
+    assert "Phase" in output and "Fmax" in output and "SpeciesGrad" in output
+    assert "Joint" in output and "Refine" in output and "MaxStep" in output
+    assert after.loss < before.loss * 0.2
+    assert np.linalg.norm(after.structure.positions[0] - before.structure.positions[0]) > 0.01
+    assert np.array_equal(after.structure.positions[1], initial.positions[1])
+
+
+@pytest.mark.parametrize("multielement", [False, True])
+def test_plot_comparison_script_writes_image(tmp_path, multielement):
+    pytest.importorskip("matplotlib")
+    script = (
+        Path(__file__).resolve().parents[1]
+        / "example/python_pkg/differentiable_fingerprint/plot_comparison.py"
+    )
+    output = tmp_path / "comparison.png"
+    structure_args = []
+    if multielement:
+        structure = tmp_path / "structure.extxyz"
+        write(structure, bulk("SiC", "zincblende", a=4.36, cubic=True))
+        structure_args = [str(structure)]
+    subprocess.run(
+        [sys.executable, str(script), *structure_args, "--output", str(output)],
+        check=True,
+        capture_output=True,
+        text=True,
+        env={**os.environ, "MPLBACKEND": "Agg"},
+    )
+    assert output.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+
+
+def test_inverse_design_plots_final_and_target_fingerprints(tmp_path, monkeypatch):
+    pytest.importorskip("matplotlib")
+    example_dir = (
+        Path(__file__).resolve().parents[1]
+        / "example/python_pkg/differentiable_fingerprint"
+    )
+    monkeypatch.setenv("MPLBACKEND", "Agg")
+    monkeypatch.syspath_prepend(str(example_dir))
+    monkeypatch.chdir(tmp_path)
+    import plot_comparison
+
+    original_plot = plot_comparison.plot_fingerprints
+    captured = {}
+
+    def capture_plot(reference, actual, grids, elements, reference_label, actual_label, output):
+        captured.update(reference=reference, actual=actual, labels=(reference_label, actual_label))
+        original_plot(reference, actual, grids, elements, reference_label, actual_label, output)
+
+    monkeypatch.setattr(plot_comparison, "plot_fingerprints", capture_plot)
+    namespace = runpy.run_path(str(example_dir / "inverse_design.py"), run_name="__main__")
+
+    assert (tmp_path / "diamond_fingerprint_comparison.png").read_bytes().startswith(
+        b"\x89PNG\r\n\x1a\n"
+    )
+    assert captured["labels"] == ("Target", "Final")
+    descriptor = DifferentiableFingerprint(["C", "Si"])
+    target = descriptor.generate(bulk("C", "diamond", a=3.567, cubic=True))
+    final = descriptor.generate(read(tmp_path / "diamond_inverse_design.extxyz"))
+    for plotted, expected in zip(captured["reference"], (target.two_body, target.three_body, target.four_body)):
+        np.testing.assert_allclose(plotted, expected.detach().numpy(), atol=1e-10)
+    for plotted, expected in zip(captured["actual"], (final.two_body, final.three_body, final.four_body)):
+        np.testing.assert_allclose(plotted, expected.detach().numpy(), atol=1e-7)
+    assert namespace["result"].loss < 1e-8
+    assert np.max(np.abs(captured["actual"][0] - captured["reference"][0])) < 1e-5
+    trajectory = read(tmp_path / "diamond.traj", index=":")
+    assert trajectory[0][1].symbol == "Si"
+    assert trajectory[1][1].symbol == "C"
+    assert np.linalg.norm(trajectory[-1].positions[0] - trajectory[0].positions[0]) > 0.5
 
 
 def test_fortran_fingerprint_parity():

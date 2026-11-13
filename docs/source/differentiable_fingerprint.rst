@@ -65,6 +65,44 @@ minimum-cost species assignment before optional final positional refinement.
 ``fixed_position_mask`` and ``fixed_species_mask`` are independent Boolean
 arrays of length ``n_atoms``.
 
+The initial trajectory frame retains the input species. Subsequent joint frames
+and callbacks show a discrete assignment projected from the probabilities used
+to evaluate that frame; exact mode enforces the requested composition in that
+projection. The corresponding continuous probabilities are available in
+``species_probabilities_history``. For example, an exact all-carbon target
+forces every unfixed atom to carbon from the first evaluation, so its species
+gradient is zero even if the input structure contained silicon.
+
+Set ``verbose=True`` in ``run`` to print the joint and final-refinement steps,
+including the objective, maximum position-gradient norm (``Fmax``), maximum
+species-logit gradient norm, and maximum atomic step in Angstrom. Gradients
+are in objective units, not physical forces. The loss is measured before the
+displayed step. For example:
+
+.. code-block:: python
+
+   result = relaxation.run(initial_atoms, max_steps=500, verbose=True)
+
+The joint loop stops after five consecutive relative loss changes at or below
+``tolerance`` (default ``1e-8``); set ``tolerance=0`` to run all ``max_steps``.
+This avoids premature stopping when the absolute fingerprint loss is small.
+Position and species step sizes can be adjusted independently using
+``position_learning_rate`` and ``species_learning_rate``. The final
+``final_refine_steps`` position-only steps use Adam after species assignment,
+and return the lowest-loss positions encountered. ``converged`` and ``n_steps``
+refer to the joint loop.
+
+The fingerprint objective is non-convex: small gradients and a low loss do not
+guarantee the target structure or fingerprint has been recovered. For larger
+position perturbations, ``radial_smoothing`` optionally smooths the 2-body
+fingerprint difference with a Gaussian of the given standard deviation in
+Angstrom. Its default is zero, leaving the original objective unchanged. A
+coarse radial-only run can use this smoother objective, followed by a run with
+``radial_smoothing=0`` against the original fingerprint. Because smoothing
+changes the loss scale, coarse and fine losses are not directly comparable.
+This can help escape narrow radial peaks but does not guarantee a global
+minimum. ``inverse_design.py`` demonstrates this two-stage approach.
+
 ``composition_constraint`` has three modes:
 
 * ``0.0``: unrestricted composition, with no composition penalty.
@@ -79,7 +117,22 @@ exact constraint is applied, and infeasible requests raise ``ValueError``.
 
 Runnable examples are in
 ``example/python_pkg/differentiable_fingerprint/``. They compare against the
-Fortran wrapper and demonstrate joint diamond inverse design.
+Fortran wrapper and demonstrate joint diamond inverse design. The
+``inverse_design.py`` example writes ``diamond_fingerprint_comparison.png``,
+which overlays the final and target fingerprints and plots their differences
+for every element channel. The plotting examples require Matplotlib.
+
+To plot the Fortran and PyTorch fingerprints and their difference, install
+Matplotlib and run:
+
+.. code-block:: bash
+
+   python example/python_pkg/differentiable_fingerprint/plot_comparison.py
+   python example/python_pkg/differentiable_fingerprint/plot_comparison.py structure.cif --output comparison.png --show
+
+Without a structure argument the script uses cubic diamond. It writes
+``fingerprint_comparison.png`` by default; ``--show`` also opens the plot.
+The structure can be any ASE-readable file.
 
 The current comparison on conventional cubic diamond agrees with the Fortran
 2- and 3-body fingerprints to below ``2e-6`` maximum absolute error. The

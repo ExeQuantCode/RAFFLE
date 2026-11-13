@@ -1,4 +1,10 @@
-"""PyTorch implementation of RAFFLE's 2-, 3-, and 4-body fingerprints."""
+"""Differentiable RAFFLE fingerprints and fixed-cell inverse design.
+
+The descriptor produces normalized, species-resolved distance and angle
+histograms. The calculator exposes fingerprint mismatch to ASE, while the
+relaxation class jointly optimizes positions and continuous species
+probabilities. Neither objective is a physical energy or force field.
+"""
 
 from __future__ import annotations
 
@@ -17,7 +23,14 @@ from ase.neighborlist import primitive_neighbor_list
 
 @dataclass
 class FingerprintResult:
-    """Fingerprint distributions and their pre-normalisation contributions."""
+    """Species-resolved, bin-by-channel fingerprint tensors.
+
+    Two-body channels are unordered element pairs in alphabetical order;
+    three- and four-body channels correspond to the central element. ``grids``
+    and ``unnormalized`` use the keys ``two_body``, ``three_body`` and
+    ``four_body``. Disabled orders have zero arrays and are identified by
+    ``body_orders``. ``composition`` is populated only when generated from ASE.
+    """
 
     two_body: torch.Tensor
     three_body: torch.Tensor
@@ -43,7 +56,14 @@ class FingerprintResult:
 
 @dataclass
 class RelaxationResult:
-    """Output from a coupled position/species relaxation."""
+    """Output from a coupled position/species relaxation.
+
+    ``fingerprint`` and ``loss`` describe the final *discrete* structure;
+    ``species_probabilities`` contains the final soft probabilities before
+    assignment. ``loss_history`` describes joint, pre-update evaluations, not
+    the final refinement. Trajectory and probability histories contain the
+    initial state, saved joint states, and final discrete state.
+    """
 
     structure: Atoms
     fingerprint: FingerprintResult
@@ -58,7 +78,13 @@ class RelaxationResult:
 
 
 class _NeighborTopology:
-    """Cached periodic candidate pairs; only topology construction uses NumPy."""
+    """Cache cutoff-plus-skin candidate pairs, sorted by central atom.
+
+    The cache is rebuilt when the cell, periodicity or atom count changes, or
+    an atom moves more than half the skin since the last rebuild. Pair
+    membership and image shifts are discrete; displacement vectors and
+    distances are recomputed from PyTorch positions for every evaluation.
+    """
 
     def __init__(self, cutoff: float, skin: float = 0.5):
         if cutoff <= 0.0 or skin < 0.0:
@@ -71,6 +97,7 @@ class _NeighborTopology:
         self.i = np.empty(0, dtype=np.int64)
         self.j = np.empty(0, dtype=np.int64)
         self.shifts = np.empty((0, 3), dtype=np.int64)
+        self.counts: tuple[int, ...] = ()
 
     def pairs(
         self,
@@ -115,6 +142,8 @@ class _NeighborTopology:
             self.i = self.i[order]
             self.j = self.j[order]
             self.shifts = self.shifts[order]
+            # Sorted centers let each atom's pairs be sliced without N scans.
+            self.counts = tuple(np.bincount(self.i, minlength=len(pos)).tolist())
             self.reference_positions = pos.copy()
             self.reference_cell = cell_np.copy()
             self.reference_pbc = pbc_np.copy()
@@ -127,12 +156,34 @@ class _NeighborTopology:
 
 
 class DifferentiableFingerprint:
-    """Direct differentiable implementation of the RAFFLE structure descriptor.
+    """Compute differentiable 2-, 3- and 4-body RAFFLE-style histograms.
 
-    Parameters may be a ``Raffle__Distribs_Container`` or a mapping containing
-    ``width``, ``sigma``, ``cutoff_min``, ``cutoff_max``,
-    ``radius_distance_tol``, and optionally ``bond_radii``.  The default
-    parameters are the distribution-container defaults used by RAFFLE.
+    ``elements`` supplies the possible species, sorted alphabetically for
+    channel ordering. ``parameters`` may be a RAFFLE distribution container
+    or a mapping of ``width``, ``sigma``, ``cutoff_min``, ``cutoff_max``,
+    ``radius_distance_tol`` and optionally ``bond_radii``. Explicit
+    ``bond_radii`` override those in the parameters; missing pairs use the
+    mean of ASE covalent radii. The four distance tolerances define the
+    lower/upper radial windows for the first two neighbours and for the
+    fourth-body neighbour, respectively.
+
+    ``skin`` controls the cached neighbor-list margin in Angstrom.
+    ``body_orders`` selects which histograms to compute; disabled orders
+    retain correctly shaped zero tensors.
+
+    Two-body channels histogram distances, with per-center species-weighted
+    neighbor normalization, inverse-square radial weighting and an edge taper.
+    Three-body channels histogram angles between neighbor vectors; four-body
+    channels histogram angles between the normals of two neighbor planes.
+    Angular contributions use distance windows and inverse-square weights.
+    Channels with contributions above the normalization threshold are
+    normalized independently.
+
+    Positions and species probabilities participate in autograd, but
+    neighbor membership, bin support and angular validity masks are discrete.
+    Gradients are therefore piecewise differentiable, not smooth across every
+    cutoff or degeneracy. Exact agreement with Fortran is not guaranteed for
+    every geometry.
     """
 
     def __init__(
@@ -247,6 +298,7 @@ class DifferentiableFingerprint:
         width: float,
         cutoff_min: float,
     ) -> torch.Tensor:
+        """Project weighted values onto Gaussian bins within truncated support."""
         eta = 1.0 / (2.0 * sigma * sigma)
         if values.numel() == 0:
             return grid.new_zeros(grid.shape)
@@ -286,6 +338,13 @@ class DifferentiableFingerprint:
         species_probabilities: torch.Tensor | np.ndarray,
         pbc: Sequence[bool] = (True, True, True),
     ) -> FingerprintResult:
+        """Evaluate the descriptor without discarding position/species gradients.
+
+        ``positions`` has shape ``(N, 3)`` in Angstrom, ``cell`` is the ASE
+        3-by-3 cell in Angstrom, and ``species_probabilities`` has shape
+        ``(N, S)`` with nonnegative rows summing to one. Periodic image shifts
+        follow ``pbc``. Returned histograms have one row per grid bin.
+        """
         positions = torch.as_tensor(positions)
         if not positions.is_floating_point():
             positions = positions.to(torch.float64)
@@ -323,40 +382,51 @@ class DifferentiableFingerprint:
         center, neighbor, shifts = self._topology.pairs(positions, cell, pbc)
         vectors = positions[neighbor] - positions[center] + shifts.to(dtype) @ cell
         distances = torch.linalg.vector_norm(vectors, dim=1)
-        by_center = [torch.nonzero(center == atom, as_tuple=False).flatten() for atom in range(n_atoms)]
+        by_center = (
+            torch.arange(center.numel(), device=device).split(self._topology.counts)
+            if 3 in self.body_orders or 4 in self.body_orders else ()
+        )
         rmin, rmax = self.cutoff_min[0], self.cutoff_max[0]
         radial = (distances >= rmin) & (distances <= rmax) & (distances > 1e-10)
         grids2 = grids["two_body"]
         eta2 = 1.0 / (2.0 * self.sigma[0] ** 2)
 
-        for pair_channel, (alpha, beta) in (
-            enumerate(pair_indices) if 2 in self.body_orders else ()
-        ):
-            for central_element, neighbor_element in (
-                ((alpha, beta),) if alpha == beta else ((alpha, beta), (beta, alpha))
-            ):
-                for atom in range(n_atoms):
-                    ids = by_center[atom]
-                    if ids.numel() == 0:
-                        continue
-                    valid_ids = ids[radial[ids]]
-                    if valid_ids.numel() == 0:
-                        continue
-                    r = distances[valid_ids]
-                    p_neighbor = probabilities[neighbor[valid_ids], neighbor_element]
-                    denominator = p_neighbor.sum()
-                    weights = probabilities[atom, central_element] * p_neighbor
-                    gaussian = torch.exp(-eta2 * (r[:, None] - grids2[None, :]).square())
-                    nearest = torch.floor((r - rmin) / self.width[0] + 0.5)
-                    bins = torch.arange(grids2.numel(), dtype=dtype, device=device)
-                    support = (bins[None, :] - nearest[:, None]).abs() <= math.ceil(
-                        math.sqrt(16.0 / eta2) / self.width[0]
-                    )
-                    raw2[:, pair_channel] = raw2[:, pair_channel] + (
-                        gaussian * support.to(dtype) * weights[:, None]
-                    ).sum(dim=0) * math.sqrt(eta2 / math.pi) / denominator.clamp_min(
-                        torch.finfo(dtype).tiny
-                    )
+        if 2 in self.body_orders:
+            # Reuse each radial Gaussian across all species-pair channels.
+            # Denominators must still be computed separately for each center.
+            radial_ids = torch.nonzero(radial, as_tuple=False).flatten()
+            radial_centers = center[radial_ids]
+            radial_neighbors = neighbor[radial_ids]
+            neighbor_probabilities = probabilities[radial_neighbors]
+            # Each center's denominator is the sum of its neighbors'
+            # probabilities for the neighbor element in that channel.
+            denominators = probabilities.new_zeros((n_atoms, n_elements)).index_add(
+                0, radial_centers, neighbor_probabilities
+            ).clamp_min(torch.finfo(dtype).tiny)
+            bins = torch.arange(grids2.numel(), dtype=dtype, device=device)
+            support_radius = math.ceil(math.sqrt(16.0 / eta2) / self.width[0])
+            for start in range(0, radial_ids.numel(), 2048):
+                ids = radial_ids[start:start + 2048]
+                centers = radial_centers[start:start + 2048]
+                p_center = probabilities[centers]
+                p_neighbor = neighbor_probabilities[start:start + 2048]
+                denominator = denominators[centers]
+                r = distances[ids]
+                nearest = torch.floor((r - rmin) / self.width[0] + 0.5)
+                support = (bins[None, :] - nearest[:, None]).abs() <= support_radius
+                gaussian = torch.exp(-eta2 * (r[:, None] - grids2[None, :]).square())
+                projected = gaussian * support.to(dtype)
+                channel_weights = []
+                for alpha, beta in pair_indices:
+                    weights = p_center[:, alpha] * p_neighbor[:, beta] / denominator[:, beta]
+                    if alpha != beta:
+                        weights = weights + (
+                            p_center[:, beta] * p_neighbor[:, alpha] / denominator[:, alpha]
+                        )
+                    channel_weights.append(weights)
+                raw2 = raw2 + projected.T @ torch.stack(channel_weights, dim=1) * math.sqrt(
+                    eta2 / math.pi
+                )
 
         raw2 = raw2 / grids2[:, None].square()
         taper_max = self.cutoff_max[0] - 0.25
@@ -378,6 +448,8 @@ class DifferentiableFingerprint:
         norm2 = self._normalise(raw2)
 
         grids3 = grids["three_body"]
+        # Form unordered neighbor pairs around each center; distance windows
+        # are averaged over the neighbors' continuous species probabilities.
         for atom in (range(n_atoms) if 3 in self.body_orders else ()):
             center_ids = by_center[atom]
             if center_ids.numel() < 2:
@@ -400,6 +472,8 @@ class DifferentiableFingerprint:
                 neighbor_probabilities = probabilities[neighbor[ids]]
                 win3 = (win3_by_species * neighbor_probabilities).sum(dim=1)
                 valid3 = (valid3_by_species * neighbor_probabilities).sum(dim=1)
+                # Filter by geometric possibility, not the current species
+                # probability, to retain potential species gradients.
                 possible = valid3_by_species.any(dim=1)
                 ids = ids[possible]
                 d = d[possible]
@@ -443,6 +517,8 @@ class DifferentiableFingerprint:
         norm3 = self._normalise(raw3)
 
         grids4 = grids["four_body"]
+        # Combine each near-neighbor pair with a fourth-body neighbor and
+        # project the angle between the resulting plane normals.
         for atom in (range(n_atoms) if 4 in self.body_orders else ()):
             center_ids = by_center[atom]
             if center_ids.numel() < 2:
@@ -472,7 +548,6 @@ class DifferentiableFingerprint:
                 win3 = win3[possible3]
                 valid3 = valid3[possible3]
                 win3_by_species = win3_by_species[possible3]
-                valid3_by_species = valid3_by_species[possible3]
                 neighbor_probabilities = neighbor_probabilities[possible3]
                 if ids.numel() < 2:
                     continue
@@ -497,7 +572,6 @@ class DifferentiableFingerprint:
                 fourth_d = fourth_d[possible4]
                 win4 = win4[possible4]
                 valid4 = valid4[possible4]
-                win4_by_species = win4_by_species[possible4]
                 if fourth_ids.numel() == 0:
                     continue
 
@@ -510,55 +584,65 @@ class DifferentiableFingerprint:
                 chunk = 4096
                 n_combinations = left.numel() * fourth_ids.numel()
                 angle_epsilon = max(torch.finfo(dtype).eps * 10.0, 1e-12)
-                for beta in range(n_elements):
-                    for gamma in range(n_elements):
-                        for start in range(0, n_combinations, chunk):
-                            flat_index = torch.arange(
-                                start, min(start + chunk, n_combinations), device=device
-                            )
-                            pair_index = flat_index // fourth_ids.numel()
-                            j, k = left[pair_index], right[pair_index]
-                            l = flat_index % fourth_ids.numel()
-                            vj = vectors[ids[j]]
-                            vk = vectors[ids[k]]
-                            first, second = (vk, vj) if beta > gamma else (vj, vk)
-                            vl = vectors[fourth_ids[l]]
-                            normal_a = torch.linalg.cross(first, second, dim=1)
-                            normal_b = torch.linalg.cross(second, vl, dim=1)
-                            norm_a = torch.linalg.vector_norm(normal_a, dim=1)
-                            norm_b = torch.linalg.vector_norm(normal_b, dim=1)
-                            valid_angle = (norm_a > 1e-12) & (norm_b > 1e-12)
-                            cosine = (normal_a * normal_b).sum(dim=1) / (
-                                norm_a * norm_b
-                            ).clamp_min(1e-24)
-                            angles = torch.acos(
-                                cosine.clamp(
-                                    -1.0 + angle_epsilon, 1.0 - angle_epsilon
-                                )
-                            )
-                            weights = (
-                                win3_by_species[j, beta]
-                                * neighbor_probabilities[j, beta]
-                                * win3_by_species[k, gamma]
-                                * neighbor_probabilities[k, gamma]
-                                * win4[l]
-                                / (
-                                    d[j].square()
-                                    * d[k].square()
-                                    * fourth_d[l].square()
-                                ).clamp_min(1e-24)
-                            )
-                            raw4[:, alpha] = raw4[:, alpha] + self._project(
-                                angles,
-                                weights
-                                * valid_angle.to(dtype)
-                                * probabilities[atom, alpha],
-                                denominator,
-                                grids4,
-                                self.sigma[2],
-                                self.width[2],
-                                self.cutoff_min[2],
-                            )
+                species_weights = win3_by_species * neighbor_probabilities
+                # All beta <= gamma share one plane orientation; beta > gamma
+                # share the reverse. Prefix sums combine their weights before
+                # projection, avoiding a separate histogram for each pair.
+                if n_elements > 1:
+                    upper_weights = species_weights.flip(1).cumsum(1).flip(1)
+                    lower_weights = torch.cat(
+                        (torch.zeros_like(species_weights[:, :1]),
+                         species_weights.cumsum(1)[:, :-1]),
+                        dim=1,
+                    )
+                else:
+                    upper_weights = lower_weights = species_weights
+                for start in range(0, n_combinations, chunk):
+                    flat_index = torch.arange(
+                        start, min(start + chunk, n_combinations), device=device
+                    )
+                    pair_index = flat_index // fourth_ids.numel()
+                    j, k = left[pair_index], right[pair_index]
+                    l = flat_index % fourth_ids.numel()
+                    vj = vectors[ids[j]]
+                    vk = vectors[ids[k]]
+                    vl = vectors[fourth_ids[l]]
+                    common_weights = (
+                        win4[l] * probabilities[atom, alpha]
+                        / (
+                            d[j].square()
+                            * d[k].square()
+                            * fourth_d[l].square()
+                        ).clamp_min(1e-24)
+                    )
+                    for reversed_order in range(2 if n_elements > 1 else 1):
+                        first, second = (vk, vj) if reversed_order else (vj, vk)
+                        normal_a = torch.linalg.cross(first, second, dim=1)
+                        normal_b = torch.linalg.cross(second, vl, dim=1)
+                        norm_a = torch.linalg.vector_norm(normal_a, dim=1)
+                        norm_b = torch.linalg.vector_norm(normal_b, dim=1)
+                        valid_angle = (norm_a > 1e-12) & (norm_b > 1e-12)
+                        cosine = (normal_a * normal_b).sum(dim=1) / (
+                            norm_a * norm_b
+                        ).clamp_min(1e-24)
+                        angles = torch.acos(
+                            cosine.clamp(-1.0 + angle_epsilon, 1.0 - angle_epsilon)
+                        )
+                        right_weights = lower_weights if reversed_order else upper_weights
+                        weights = (
+                            (species_weights[j] * right_weights[k]).sum(dim=1)
+                            * common_weights
+                            * valid_angle.to(dtype)
+                        )
+                        raw4[:, alpha] = raw4[:, alpha] + self._project(
+                            angles,
+                            weights,
+                            denominator,
+                            grids4,
+                            self.sigma[2],
+                            self.width[2],
+                            self.cutoff_min[2],
+                        )
 
         norm4 = self._normalise(raw4)
         composition = None
@@ -712,7 +796,36 @@ class FingerprintCalculator(Calculator):
 
 
 class FingerprintRelaxation:
-    """Jointly optimise ASE positions and continuous element assignments."""
+    """Optimize positions and species against a target fingerprint with Adam.
+
+    The target supplies histograms, grids and optionally composition, not
+    target coordinates. The candidate's cell and periodicity stay fixed.
+    ``fixed_position_mask`` and ``fixed_species_mask`` independently select
+    atoms that must not move or change species. Generate the target with the
+    same elements and grids as the descriptor: matching grid values and
+    element identities are not validated by the loss.
+
+    ``loss_weights`` weights the 2-, 3- and 4-body squared differences.
+    ``loss_reduction="mean"`` averages over bins and channels; ``"density"``
+    sums over bins, divides by bin width and averages over channels.
+    ``radial_smoothing`` (Angstrom) and ``angular_smoothing`` (radians) apply
+    Gaussian convolutions to fingerprint differences, not to the structures.
+
+    ``composition_constraint`` is zero for no constraint, a finite positive
+    penalty strength, or ``"exact"``/infinity for Sinkhorn-constrained soft
+    probabilities and an integer assignment with exact counts. The counts
+    come from ``target_composition`` or target metadata. Entropy and
+    short-range repulsion are optional joint-loop penalties; both default to
+    zero. The current repulsion uses 0.7 times the descriptor's pair radius
+    as its onset, includes zero-shift self-pairs, and is not included in the
+    final position-only refinement. Thus it is not a hard minimum-distance
+    guarantee and can bias species optimization even for isolated atoms.
+
+    ``temperature`` and ``final_temperature`` control geometric annealing of
+    the soft species probabilities. Position and species learning rates are
+    independent; neither the objective nor its gradients are physical energies
+    or forces.
+    """
 
     def __init__(
         self,
@@ -799,6 +912,12 @@ class FingerprintRelaxation:
 
     @staticmethod
     def _sinkhorn(logits: torch.Tensor, counts: torch.Tensor, temperature: float) -> torch.Tensor:
+        """Balance soft assignment rows and element counts in log space.
+
+        Columns with zero requested count stay zero. Iteration stops when the
+        maximum count error is below 1e-5, or fails explicitly after 1000
+        iterations. The scaling iterations remain part of the autograd graph.
+        """
         if logits.shape[0] == 0:
             return logits
         active = counts > 0
@@ -814,9 +933,10 @@ class FingerprintRelaxation:
                 log_kernel + row_scale[:, None], dim=0
             )
             if iteration % 10 == 9:
-                active_probabilities = (log_kernel + column_scale[None, :]).softmax(dim=1)
-                column_error = (active_probabilities.sum(dim=0) - target).abs().max()
-                if float(column_error.detach()) < 1e-5:
+                with torch.no_grad():
+                    active_probabilities = (log_kernel + column_scale[None, :]).softmax(dim=1)
+                    column_error = (active_probabilities.sum(dim=0) - target).abs().max()
+                if float(column_error) < 1e-5:
                     break
         else:
             raise RuntimeError(
@@ -824,19 +944,19 @@ class FingerprintRelaxation:
                 "try a higher temperature or lower species learning rate"
             )
         probabilities = torch.zeros_like(logits)
-        probabilities[:, active] = active_probabilities
+        probabilities[:, active] = (log_kernel + column_scale[None, :]).softmax(dim=1)
         return probabilities
 
     def _probabilities(
         self,
-        atoms: Atoms,
+        initial_probabilities: torch.Tensor,
         logits: torch.Tensor,
         fixed_species: torch.Tensor,
         temperature: float,
         exact_counts: torch.Tensor | None,
     ) -> torch.Tensor:
-        n_atoms = len(atoms)
-        fixed = self.descriptor.probabilities_from_atoms(atoms).to(logits)
+        n_atoms = len(initial_probabilities)
+        fixed = initial_probabilities.to(logits)
         variable = ~fixed_species
         if exact_counts is None:
             probabilities = logits.softmax(dim=-1)
@@ -853,15 +973,17 @@ class FingerprintRelaxation:
         return probabilities
 
     def _assign_species(
-        self, probabilities: torch.Tensor, fixed_species: torch.Tensor, atoms: Atoms,
+        self, probabilities: torch.Tensor, fixed_species: torch.Tensor,
+        initial_probabilities: torch.Tensor,
         exact_counts: torch.Tensor | None,
     ) -> np.ndarray:
-        from scipy.optimize import linear_sum_assignment
-
+        """Round probabilities, honoring fixed species and exact counts."""
         assignment = probabilities.argmax(dim=1).cpu().numpy()
         if exact_counts is None:
             return assignment
-        fixed = self.descriptor.probabilities_from_atoms(atoms).to(probabilities)
+        from scipy.optimize import linear_sum_assignment
+
+        fixed = initial_probabilities.to(probabilities)
         remaining = exact_counts.to(probabilities) - fixed[fixed_species].sum(dim=0)
         variable_indices = torch.nonzero(~fixed_species, as_tuple=False).flatten().cpu().numpy()
         slots = np.repeat(
@@ -889,6 +1011,41 @@ class FingerprintRelaxation:
         callback: Any = None,
         verbose: bool = False,
     ) -> RelaxationResult:
+        """Run joint Adam updates, discretise species, and refine positions.
+
+        ``optimise_positions`` and ``optimise_species`` can freeze all atoms
+        in either variable; configured per-atom masks also remain in force.
+        The input ASE object is copied, and its cell is never optimized.
+
+        At each joint step, logits become species probabilities by softmax or
+        Sinkhorn balancing at the annealed temperature. The descriptor and
+        weighted loss are evaluated, optional composition/entropy/repulsion
+        terms are added, and Adam updates positions and logits. Fixed values
+        are restored after each update. Five consecutive relative loss
+        changes no larger than ``tolerance`` stop the joint loop; zero
+        tolerance disables early stopping.
+
+        ``callback(step, frame, probabilities, record)`` receives the
+        pre-update evaluated state and unweighted component losses plus the
+        weighted total. Joint trajectory frames are saved at
+        ``trajectory_interval`` and use the same evaluated state. The first
+        frame preserves the input species, and the final frame contains the
+        assigned discrete species and final positions.
+
+        After the joint loop, soft probabilities at ``final_temperature`` are
+        converted to discrete species. Exact composition uses a minimum-cost
+        assignment; otherwise each atom takes its most probable species.
+        Up to ``final_refine_steps`` further Adam updates optimize positions
+        with those species fixed, retaining the best fingerprint loss
+        encountered. This refinement uses the same smoothing and body weights,
+        but not the joint composition, entropy or repulsion penalties.
+
+        The returned ``loss`` and ``fingerprint`` describe the final discrete
+        structure; ``loss_history`` describes joint pre-update states, and
+        ``species_probabilities`` is the final soft state before rounding.
+        ``n_steps`` and ``converged`` refer only to the joint loop. Verbose
+        gradients are objective gradients, not physical forces.
+        """
         if len(initial_atoms) == 0:
             raise ValueError("cannot relax an empty structure")
         if max_steps < 1 or trajectory_interval < 1:
@@ -917,6 +1074,13 @@ class FingerprintRelaxation:
             else None
         )
         start_probabilities = self.descriptor.probabilities_from_atoms(atoms)
+        cell = torch.as_tensor(np.asarray(atoms.cell), dtype=torch.float64)
+        target_fractions = (
+            self._composition_counts(atoms) / n_atoms
+            if 0 < self.composition_constraint < math.inf else None
+        )
+        # Initial labels are favored, but remain soft unless fixed or forced by
+        # an exact composition constraint.
         logits = torch.nn.Parameter(
             torch.where(start_probabilities > 0, 2.0, 0.0).to(torch.float64)
         )
@@ -960,20 +1124,21 @@ class FingerprintRelaxation:
                 flush=True,
             )
 
+        # Joint phase: the descriptor sees soft species and the current geometry.
         for step in range(max_steps):
             fraction = step / max(1, max_steps - 1)
             temp = self.temperature * (self.final_temperature / self.temperature) ** fraction
             optimizer.zero_grad(set_to_none=True)
             position_parameter.grad = None
             probabilities = self._probabilities(
-                atoms, logits, fixed_species, temp, exact_counts
+                start_probabilities, logits, fixed_species, temp, exact_counts
             )
             evaluated_positions = torch.where(
                 fixed_positions[:, None], prior_positions, position_parameter
             )
             current = self.descriptor(
                 evaluated_positions,
-                torch.as_tensor(np.asarray(atoms.cell), dtype=torch.float64),
+                cell,
                 probabilities,
                 atoms.pbc,
             )
@@ -981,9 +1146,9 @@ class FingerprintRelaxation:
                 current, self.target, self.loss_weights, self.radial_smoothing,
                 self.angular_smoothing, self.loss_reduction,
             )
-            if self.composition_constraint > 0 and not math.isinf(self.composition_constraint):
+            if target_fractions is not None:
                 predicted = probabilities.sum(dim=0) / n_atoms
-                desired = self._composition_counts(atoms).to(predicted) / n_atoms
+                desired = target_fractions.to(predicted)
                 composition_loss = (predicted - desired).square().sum()
                 total = total + self.composition_constraint * composition_loss
                 components["composition"] = composition_loss
@@ -994,12 +1159,12 @@ class FingerprintRelaxation:
             if self.repulsion_weight:
                 ids_i, ids_j, shifts = self.descriptor._topology.pairs(
                     evaluated_positions,
-                    torch.as_tensor(np.asarray(atoms.cell), dtype=torch.float64),
+                    cell,
                     atoms.pbc,
                 )
                 vectors = evaluated_positions[ids_j] - evaluated_positions[ids_i] + shifts.to(
                     evaluated_positions.dtype
-                ) @ torch.as_tensor(np.asarray(atoms.cell), dtype=torch.float64)
+                ) @ cell
                 distances = torch.linalg.vector_norm(vectors, dim=1)
                 radii = self.descriptor._radii.to(probabilities)
                 minimum = 0.7 * (
@@ -1018,6 +1183,8 @@ class FingerprintRelaxation:
                 logits.grad = None
             previous_positions = position_parameter.detach().clone() if verbose else None
             optimizer.step()
+            # Project the final soft species onto a discrete, possibly constrained,
+            # assignment before position-only refinement.
             with torch.no_grad():
                 position_parameter[fixed_positions] = prior_positions[fixed_positions]
             record = {key: float(value.detach()) for key, value in components.items()}
@@ -1030,11 +1197,13 @@ class FingerprintRelaxation:
                 )
             save_frame = step % trajectory_interval == 0 or step == max_steps - 1
             if callback is not None or save_frame:
+                # Keep frame positions and probabilities from the same
+                # pre-update descriptor evaluation as the recorded loss.
                 frame = atoms.copy()
                 frame.positions = evaluated_positions.detach().cpu().numpy()
                 frame_probabilities = probabilities.detach().clone()
                 assignment = self._assign_species(
-                    frame_probabilities, fixed_species, atoms, exact_counts
+                    frame_probabilities, fixed_species, start_probabilities, exact_counts
                 )
                 frame.set_chemical_symbols(
                     [self.descriptor.elements[index] for index in assignment]
@@ -1058,12 +1227,14 @@ class FingerprintRelaxation:
 
         with torch.no_grad():
             probabilities = self._probabilities(
-                atoms, logits, fixed_species, self.final_temperature, exact_counts
+                start_probabilities, logits, fixed_species, self.final_temperature, exact_counts
             )
             final_positions = torch.where(
                 fixed_positions[:, None], prior_positions, position_parameter
             )
-            assignment = self._assign_species(probabilities, fixed_species, atoms, exact_counts)
+            assignment = self._assign_species(
+                probabilities, fixed_species, start_probabilities, exact_counts
+            )
         atoms.set_positions(final_positions.detach().cpu().numpy())
         atoms.set_chemical_symbols([self.descriptor.elements[index] for index in assignment])
         final_probabilities = torch.nn.functional.one_hot(
@@ -1074,11 +1245,13 @@ class FingerprintRelaxation:
         refine_optimizer = torch.optim.Adam([refine_positions], lr=self.position_learning_rate)
         best_positions = refine_positions.detach().clone()
         best_loss = math.inf
+        # Species are fixed here; retain the best evaluated positions because
+        # Adam's final update can increase the fingerprint loss.
         for refine_step in range(final_refine_steps if optimise_positions else 0):
             refine_optimizer.zero_grad(set_to_none=True)
             final_fp = self.descriptor(
                 refine_positions,
-                torch.as_tensor(np.asarray(atoms.cell), dtype=torch.float64),
+                cell,
                 final_probabilities,
                 atoms.pbc,
             )
@@ -1104,7 +1277,7 @@ class FingerprintRelaxation:
 
         final_fp = self.descriptor(
             refine_positions,
-            torch.as_tensor(np.asarray(atoms.cell), dtype=torch.float64),
+            cell,
             final_probabilities,
             atoms.pbc,
         )
@@ -1117,7 +1290,7 @@ class FingerprintRelaxation:
                 refine_positions.copy_(best_positions)
             final_fp = self.descriptor(
                 refine_positions,
-                torch.as_tensor(np.asarray(atoms.cell), dtype=torch.float64),
+                cell,
                 final_probabilities,
                 atoms.pbc,
             )

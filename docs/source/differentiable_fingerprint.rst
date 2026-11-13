@@ -39,6 +39,15 @@ For expensive systems, pass ``body_orders=(2, 3)`` to the descriptor to skip
 ``FingerprintResult.body_orders``; requesting a nonzero loss weight for a
 disabled order raises an error.
 
+At fixed element and bin counts, the 2-, 3- and 4-body histogram calculations
+scale approximately as ``N*k``, ``N*k**2`` and ``N*k**3``, respectively, for
+``N`` atoms and roughly ``k`` neighbors per atom. Sorted neighbor groups are
+cached until the topology is rebuilt. The worst case can still be fourth-order
+in ``N`` when all atoms are neighbors. Autograd retains intermediate
+calculations for the backward pass, and storing trajectory and probability
+history consumes memory proportional to the number of saved frames. Exact
+species assignment can also be costly for large systems.
+
 ASE position-only calculator
 ----------------------------
 
@@ -68,6 +77,8 @@ an Adam loop for positions and species logits, and performs a global
 minimum-cost species assignment before optional final positional refinement.
 ``fixed_position_mask`` and ``fixed_species_mask`` are independent Boolean
 arrays of length ``n_atoms``.
+Generate target and candidate fingerprints with matching elements and grids;
+the loss does not verify their element identities or grid values.
 
 The initial trajectory frame retains the input species. Subsequent joint frames
 and callbacks show a discrete assignment projected from the probabilities used
@@ -95,6 +106,15 @@ Position and species step sizes can be adjusted independently using
 ``final_refine_steps`` position-only steps use Adam after species assignment,
 and return the lowest-loss positions encountered. ``converged`` and ``n_steps``
 refer to the joint loop.
+
+The optional ``repulsion_weight`` defaults to zero. Its current joint-loop
+penalty uses 0.7 times the descriptor's pair radius as its onset and includes
+zero-shift self-pairs; it can therefore bias species probabilities even for an
+isolated atom. For default carbon radii, its onset is about 0.532 Angstrom.
+The final position-only refinement does not include this penalty. It is not
+a physical potential or a reliable hard minimum-distance constraint.
+``result.loss`` is the final discrete fingerprint loss and excludes the
+joint-loop penalties; compare it with joint ``loss_history`` accordingly.
 
 The fingerprint objective is non-convex: small gradients and a low loss do not
 guarantee the target structure or fingerprint has been recovered. For larger

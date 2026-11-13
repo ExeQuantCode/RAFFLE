@@ -84,6 +84,31 @@ def test_position_and_species_logit_gradcheck():
     )
 
 
+def test_four_body_position_and_multispecies_logit_gradcheck():
+    atoms = Atoms(
+        "CSiOC",
+        positions=[[0, 0, 0], [1.35, 0.1, 0.1], [0.2, 1.4, 0.3], [0.1, 0.3, 2.8]],
+        cell=[12.0] * 3, pbc=False,
+    )
+    descriptor = DifferentiableFingerprint(["C", "O", "Si"], body_orders=(4,))
+    positions = torch.tensor(atoms.positions, dtype=torch.float64, requires_grad=True)
+    logits = torch.tensor(
+        [[0.2, 0.1, -0.3], [-0.3, 0.4, 0.2], [0.1, -0.2, 0.3], [0.2, 0.3, -0.1]],
+        dtype=torch.float64, requires_grad=True,
+    )
+
+    def objective(position_values, species_logits):
+        fingerprint = descriptor(
+            position_values, atoms.cell.array, species_logits.softmax(dim=-1), atoms.pbc
+        )
+        return fingerprint.four_body.square().sum()
+
+    assert float(objective(positions, logits).detach()) > 0
+    assert torch.autograd.gradcheck(
+        objective, (positions, logits), eps=1e-6, atol=5e-4, rtol=5e-3
+    )
+
+
 def test_zero_skin_rebuilds_neighbor_topology_after_position_change():
     atoms = Atoms("CC", positions=[[0.0, 0.0, 0.0], [7.0, 0.0, 0.0]], cell=[20.0] * 3, pbc=False)
     descriptor = DifferentiableFingerprint(["C"], skin=0.0)
@@ -93,6 +118,24 @@ def test_zero_skin_rebuilds_neighbor_topology_after_position_change():
 
     assert first.unnormalized["two_body"].sum() == 0.0
     assert second.unnormalized["two_body"].sum() > 0.0
+
+
+def test_cached_neighbor_groups_match_fresh_descriptor_after_topology_changes():
+    atoms = Atoms(
+        "CCCCC", positions=[[9, 9, 9], [0, 0, 0], [1.3, 0.1, 0], [0.2, 1.3, 0.1], [0, 0.1, 2.7]],
+        cell=[20.0] * 3, pbc=False,
+    )
+    cached = DifferentiableFingerprint(["C"], skin=0.2)
+    for action in ("initial", "moved", "periodic"):
+        if action == "moved":
+            atoms.positions[0] = [1.1, 1.1, 1.1]
+        elif action == "periodic":
+            atoms.set_cell([6.0] * 3)
+            atoms.pbc = True
+        actual = cached.generate(atoms)
+        expected = DifferentiableFingerprint(["C"], skin=0.2).generate(atoms)
+        for name in ("two_body", "three_body", "four_body"):
+            torch.testing.assert_close(getattr(actual, name), getattr(expected, name))
 
 
 def test_calculator_returns_negative_position_gradient_and_resets_species():

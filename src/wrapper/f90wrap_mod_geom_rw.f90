@@ -681,7 +681,7 @@ subroutine f90wrap_geom_rw__allocate_species__binding__basis_type( &
     character(3), intent(in), optional, dimension(n0) :: species_symbols
     integer, intent(in), optional, dimension(n1) :: species_count
     real(4), intent(in), optional, dimension(n2,n3) :: atoms
-    integer, intent(in), optional, dimension(n2) :: atom_idx_list
+    integer, intent(in), optional, dimension(n3) :: atom_idx_list
     integer :: n0
     !f2py intent(hide), depend(species_symbols) :: n0 = shape(species_symbols,0)
     integer :: n1

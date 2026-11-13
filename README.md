@@ -172,6 +172,13 @@ The `example/python_pkg` directory contains a set of subdirectories `MATERIAL_le
 These examples are the recommended ones to run.
 To successfully run them, follow the above installation instructions for Python, then go to the `example/python_pkg` directory and run one of the scripts.
 
+An optional PyTorch implementation of differentiable structure fingerprints and
+joint position/species inverse design is available from
+`raffle.fingerprint.differentiable`. Install it with
+`pip install "raffle[differentiable]"`; see
+`docs/source/differentiable_fingerprint.rst` and the runnable examples under
+`example/python_pkg/differentiable_fingerprint/`.
+
 
 API documentation
 -----------------

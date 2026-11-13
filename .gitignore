@@ -60,3 +60,9 @@ meta.json
 context.json
 options.json
 procedure.py
+wandb/*
+example/python_pkg/wandb/*
+torch_gnn*
+*.npy
+info.json
+wpd.json

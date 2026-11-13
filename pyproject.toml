@@ -62,6 +62,9 @@ Repository = "https://github.com/ExeQuantCode/raffle"
 Issues = "https://github.com/ExeQuantCode/raffle/issues"
 
 [project.optional-dependencies]
+differentiable = [
+    "torch>=2.0",
+]
 tests = [
     "pytest",
     "pytest-cov",

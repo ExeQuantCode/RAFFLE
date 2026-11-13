@@ -147,7 +147,7 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
 
                 # Convert to proper float type but check for corruption first
                 try:
-                    atom = atom.view(numpy.float32).reshape(shape, order='A')
+                    atom = atom.view(numpy.float32).reshape(shape, order='A').T.copy()
 
                     # Validate the array - should be 2D float array with at least 3 columns
                     if atom.ndim != 2:
@@ -301,9 +301,15 @@ class Geom_Rw(f90wrap.runtime.FortranModule):
             atom_idx_list : list[int]
                 List of atomic indices
             """
+            atoms = None
+            if positions is not None:
+                positions = numpy.asarray(positions, dtype=numpy.float32)
+                if positions.ndim != 2 or positions.shape[1] < 3:
+                    raise ValueError("positions must have shape (n_atoms, at least 3)")
+                atoms = numpy.asfortranarray(positions[:, :3].T)
             _raffle.f90wrap_geom_rw__allocate_species__binding__basis_type(this=self._handle, \
                 num_species=num_species, species_symbols=species_symbols, species_count=species_count, \
-                atoms=positions, atom_idx_list=atom_idx_list)
+                atoms=atoms, atom_idx_list=atom_idx_list)
 
         def _init_array_spec(self):
             """

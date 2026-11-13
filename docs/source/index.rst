@@ -65,6 +65,7 @@ An example
    about
    install
    tutorials/index
+   differentiable_fingerprint
    faq
    Python API <modules>
 

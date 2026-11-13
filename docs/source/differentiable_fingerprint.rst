@@ -108,9 +108,9 @@ and return the lowest-loss positions encountered. ``converged`` and ``n_steps``
 refer to the joint loop.
 
 The optional ``repulsion_weight`` defaults to zero. Its current joint-loop
-penalty uses 0.7 times the descriptor's pair radius as its onset and includes
-zero-shift self-pairs; it can therefore bias species probabilities even for an
-isolated atom. For default carbon radii, its onset is about 0.532 Angstrom.
+penalty uses 0.7 times the descriptor's pair radius as its onset. It excludes
+zero-shift self-pairs but includes periodic images of the same atom. For default
+carbon radii, its onset is about 0.532 Angstrom.
 The final position-only refinement does not include this penalty. It is not
 a physical potential or a reliable hard minimum-distance constraint.
 ``result.loss`` is the final discrete fingerprint loss and excludes the

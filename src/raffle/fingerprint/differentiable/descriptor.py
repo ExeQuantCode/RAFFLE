@@ -817,9 +817,9 @@ class FingerprintRelaxation:
     come from ``target_composition`` or target metadata. Entropy and
     short-range repulsion are optional joint-loop penalties; both default to
     zero. The current repulsion uses 0.7 times the descriptor's pair radius
-    as its onset, includes zero-shift self-pairs, and is not included in the
-    final position-only refinement. Thus it is not a hard minimum-distance
-    guarantee and can bias species optimization even for isolated atoms.
+    as its onset, excludes zero-shift self-pairs, and is not included in the
+    final position-only refinement. Periodic self-images are included. The
+    soft penalty is not a hard minimum-distance guarantee.
 
     ``temperature`` and ``final_temperature`` control geometric annealing of
     the soft species probabilities. Position and species learning rates are
@@ -1162,6 +1162,8 @@ class FingerprintRelaxation:
                     cell,
                     atoms.pbc,
                 )
+                interacting = (ids_i != ids_j) | shifts.ne(0).any(dim=1)
+                ids_i, ids_j, shifts = ids_i[interacting], ids_j[interacting], shifts[interacting]
                 vectors = evaluated_positions[ids_j] - evaluated_positions[ids_i] + shifts.to(
                     evaluated_positions.dtype
                 ) @ cell
@@ -1171,7 +1173,8 @@ class FingerprintRelaxation:
                     probabilities[ids_i]
                     * (probabilities[ids_j] @ radii.T)
                 ).sum(dim=1)
-                repulsion = torch.relu(minimum - distances).square().mean()
+                penalties = torch.relu(minimum - distances).square()
+                repulsion = penalties.mean() if penalties.numel() else penalties.sum()
                 total = total + self.repulsion_weight * repulsion
                 components["repulsion"] = repulsion
             total.backward()
@@ -1183,8 +1186,6 @@ class FingerprintRelaxation:
                 logits.grad = None
             previous_positions = position_parameter.detach().clone() if verbose else None
             optimizer.step()
-            # Project the final soft species onto a discrete, possibly constrained,
-            # assignment before position-only refinement.
             with torch.no_grad():
                 position_parameter[fixed_positions] = prior_positions[fixed_positions]
             record = {key: float(value.detach()) for key, value in components.items()}
@@ -1225,6 +1226,8 @@ class FingerprintRelaxation:
                     converged = True
                     break
 
+        # Project the final soft species onto a discrete, possibly constrained,
+        # assignment before position-only refinement.
         with torch.no_grad():
             probabilities = self._probabilities(
                 start_probabilities, logits, fixed_species, self.final_temperature, exact_counts

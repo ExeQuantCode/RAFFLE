@@ -12,6 +12,7 @@ import torch
 from ase import Atoms
 from ase.build import bulk
 from ase.io import read, write
+from ase.neighborlist import neighbor_list
 
 from raffle.fingerprint.differentiable import (
     DifferentiableFingerprint,
@@ -136,6 +137,58 @@ def test_cached_neighbor_groups_match_fresh_descriptor_after_topology_changes():
         expected = DifferentiableFingerprint(["C"], skin=0.2).generate(atoms)
         for name in ("two_body", "three_body", "four_body"):
             torch.testing.assert_close(getattr(actual, name), getattr(expected, name))
+
+
+def test_repulsion_excludes_isolated_atom_self_pair():
+    atoms = Atoms("C", positions=[[0, 0, 0]], cell=[10.0] * 3, pbc=False)
+    descriptor = DifferentiableFingerprint(["C", "Si"], body_orders=(2,))
+    relaxation = FingerprintRelaxation(
+        descriptor, descriptor.generate(atoms), loss_weights=(1.0, 0.0, 0.0),
+        repulsion_weight=1.0,
+    )
+    result = relaxation.run(atoms, max_steps=1, final_refine_steps=0)
+
+    assert result.loss_history[0]["repulsion"] == 0.0
+    assert np.isfinite(result.loss)
+    assert torch.isfinite(result.species_probabilities).all()
+    np.testing.assert_array_equal(result.structure.positions, atoms.positions)
+
+
+def test_repulsion_keeps_distinct_atom_interactions():
+    atoms = Atoms("CC", positions=[[0, 0, 0], [0.4, 0, 0]], cell=[10.0] * 3, pbc=False)
+    descriptor = DifferentiableFingerprint(
+        ["C"], body_orders=(2,), bond_radii={("C", "C"): 1.0}
+    )
+    relaxation = FingerprintRelaxation(
+        descriptor, descriptor.generate(atoms), loss_weights=(1.0, 0.0, 0.0),
+        repulsion_weight=1.0,
+    )
+    result = relaxation.run(
+        atoms, optimise_species=False, max_steps=1, final_refine_steps=0
+    )
+
+    assert result.loss_history[0]["repulsion"] == pytest.approx((0.7 - 0.4) ** 2)
+    assert result.structure.get_distance(0, 1) > atoms.get_distance(0, 1)
+
+
+def test_repulsion_keeps_periodic_self_images():
+    atoms = Atoms("C", positions=[[0, 0, 0]], cell=[0.4, 10.0, 10.0], pbc=[True, False, False])
+    descriptor = DifferentiableFingerprint(
+        ["C"], body_orders=(2,), bond_radii={("C", "C"): 1.0}
+    )
+    relaxation = FingerprintRelaxation(
+        descriptor, descriptor.generate(atoms), loss_weights=(1.0, 0.0, 0.0),
+        repulsion_weight=1.0,
+    )
+    result = relaxation.run(
+        atoms, optimise_species=False, max_steps=1, final_refine_steps=0
+    )
+
+    distances = neighbor_list("d", atoms, descriptor.cutoff_max[0] + descriptor._topology.skin)
+    expected = np.square(np.maximum(0.7 - distances, 0.0)).mean()
+    assert expected > 0
+    assert result.loss_history[0]["repulsion"] == pytest.approx(expected)
+    assert np.isfinite(result.structure.positions).all()
 
 
 def test_calculator_returns_negative_position_gradient_and_resets_species():

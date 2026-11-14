@@ -51,12 +51,22 @@ same atom are supported. Only the zero-image self-pair is excluded.
 
 Neighbor indices and image shifts are cached on each device, but vectors,
 distances and their autograd graphs are recomputed on every call. Sparse
-2-body Gaussian projections accumulate only bins in the existing finite
-support; very broad Gaussians use the dense projection instead. The 3- and
-4-body calculations share near-neighbor geometry during a call when both are
-enabled. Higher-order indices are not cached across calls: local neighbor
+2-body Gaussian projections accumulate only bins in finite support. Large
+angular projections on CPU also use sparse accumulation and an analytical
+backward pass; small, broad-support and GPU angular projections use the dense
+reference implementation. The 3- and 4-body calculations share near-neighbor
+geometry during a call when both are enabled. Higher-order indices are not
+cached across calls: local neighbor
 pairs are formed as needed, and four-body combinations are processed in
 chunks to avoid a potentially large ``N*k**3`` topology allocation.
+
+Set ``parameters={"gaussian_tolerance": 1e-8}`` to change the Gaussian
+support for all body orders. The default, ``exp(-16)`` (about ``1.13e-7``),
+preserves the original support. The tolerance bounds the amplitude of each
+omitted *unweighted* Gaussian kernel value, not the accumulated, normalized
+fingerprint or gradient error. Errors can accumulate across features and
+channels; compare results at tighter tolerances for the system of interest.
+The value must be finite and strictly between zero and one.
 
 At fixed element and bin counts, the 2-, 3- and 4-body histogram calculations
 scale approximately as ``N*k``, ``N*k**2`` and ``N*k**3``, respectively, for

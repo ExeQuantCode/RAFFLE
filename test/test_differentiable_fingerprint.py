@@ -19,7 +19,10 @@ from raffle.fingerprint.differentiable import (
     FingerprintCalculator,
     FingerprintRelaxation,
 )
-from raffle.fingerprint.differentiable.descriptor import _fingerprint_loss
+from raffle.fingerprint.differentiable.descriptor import (
+    _fingerprint_loss,
+    _SparseGaussianProjection,
+)
 from raffle.raffle import Geom_Rw
 
 
@@ -245,10 +248,15 @@ def test_topology_rebuilds_when_structure_metadata_changes(change):
     torch.testing.assert_close(actual.two_body, expected.two_body)
 
 
-@pytest.mark.parametrize("sigma", [0.1, 2.0])
-def test_radial_projection_matches_dense_reference_at_grid_edges(sigma):
+@pytest.mark.parametrize(
+    ("sigma", "tolerance"),
+    [(0.1, math.exp(-16)), (2.0, math.exp(-16)), (0.1, 1e-2), (0.1, 1e-12)],
+)
+def test_radial_projection_matches_dense_reference_at_grid_edges(sigma, tolerance):
     descriptor = DifferentiableFingerprint(
-        ["C", "Si"], parameters={"sigma": [sigma, 0.1, 0.1]}, body_orders=(2,)
+        ["C", "Si"],
+        parameters={"sigma": [sigma, 0.1, 0.1], "gaussian_tolerance": tolerance},
+        body_orders=(2,),
     )
     positions = torch.tensor(
         [[0., 0., 0.], [0.52, 0., 0.], [5.9, 0.12, 0.]],
@@ -274,7 +282,7 @@ def test_radial_projection_matches_dense_reference_at_grid_edges(sigma):
     )
     grid = fp.grids["two_body"]
     eta = 1.0 / (2.0 * sigma ** 2)
-    support_radius = math.ceil(math.sqrt(16.0 / eta) / descriptor.width[0])
+    support_radius = math.ceil(math.sqrt(-math.log(tolerance) / eta) / descriptor.width[0])
     nearest = torch.floor((distances - descriptor.cutoff_min[0]) / descriptor.width[0] + 0.5)
     support = (torch.arange(grid.numel())[None, :] - nearest[:, None]).abs() <= support_radius
     projected = torch.exp(-eta * (distances[:, None] - grid[None, :]).square()) * support
@@ -302,6 +310,121 @@ def test_radial_projection_matches_dense_reference_at_grid_edges(sigma):
     expected_grad = torch.autograd.grad((expected * factors).sum(), (positions, logits))
     for lhs, rhs in zip(actual_grad, expected_grad):
         torch.testing.assert_close(lhs, rhs, rtol=1e-11, atol=1e-11)
+
+
+@pytest.mark.parametrize(
+    ("n_features", "n_bins", "sigma", "tolerance"),
+    [(1, 65, 0.1, math.exp(-16)), (17, 65, 0.1, 1e-3),
+     (1024, 65, 0.1, math.exp(-16)), (4097, 221, 0.1, 1e-8),
+     (1024, 65, 2.0, math.exp(-16))],
+)
+def test_angular_projection_matches_dense_values_and_gradients(
+    n_features, n_bins, sigma, tolerance
+):
+    width = math.pi / (n_bins - 1)
+    grid = torch.linspace(0, math.pi, n_bins, dtype=torch.float64)
+    generator = torch.Generator().manual_seed(7)
+    values = (torch.rand(n_features, generator=generator, dtype=torch.float64) * math.pi)
+    if n_features > 1:
+        values[0], values[1] = -0.01, math.pi + 0.01
+    values.requires_grad_()
+    weights = torch.rand(n_features, generator=generator, dtype=torch.float64).requires_grad_()
+    denominator = torch.tensor(2.3, dtype=torch.float64, requires_grad=True)
+    actual = DifferentiableFingerprint._project(
+        values, weights, denominator, grid, sigma, width, 0.0, tolerance
+    )
+    eta = 1 / (2 * sigma ** 2)
+    radius = math.ceil(math.sqrt(-math.log(tolerance) / eta) / width)
+    nearest = torch.floor(values / width + 0.5)
+    support = (torch.arange(n_bins)[None, :] - nearest[:, None]).abs() <= radius
+    gaussian = torch.exp(-eta * (values[:, None] - grid[None, :]).square())
+    if (~support).any():
+        assert gaussian[~support].max() <= tolerance
+    expected = (gaussian * support * weights[:, None]).sum(dim=0)
+    expected = expected * math.sqrt(eta / math.pi) / denominator
+    probe = torch.linspace(0.1, 1.0, n_bins, dtype=torch.float64)
+    actual_gradients = torch.autograd.grad(
+        (actual * probe).sum(), (values, weights, denominator), retain_graph=True
+    )
+    expected_gradients = torch.autograd.grad((expected * probe).sum(), (values, weights, denominator))
+    for lhs, rhs in zip((actual, *actual_gradients), (expected, *expected_gradients)):
+        torch.testing.assert_close(lhs, rhs, rtol=1e-11, atol=1e-11)
+
+
+def test_sparse_gaussian_analytical_backward_gradcheck():
+    grid = torch.linspace(0, math.pi, 65, dtype=torch.float64)
+    values = torch.tensor([0.123, 1.234, 3.13], dtype=torch.float64, requires_grad=True)
+    weights = torch.tensor([0.2, 0.6, 0.8], dtype=torch.float64, requires_grad=True)
+
+    def project(x, w):
+        return _SparseGaussianProjection.apply(x, w, grid, 50.0, math.pi / 64, 0.0, 12)
+
+    assert torch.autograd.gradcheck(project, (values, weights))
+    assert torch.autograd.gradgradcheck(project, (values, weights))
+
+
+@pytest.mark.parametrize("tolerance", [0.0, -0.1, 1.0, math.inf, math.nan])
+def test_gaussian_tolerance_rejects_invalid_values(tolerance):
+    with pytest.raises(ValueError, match="gaussian_tolerance"):
+        DifferentiableFingerprint(["C"], parameters={"gaussian_tolerance": tolerance})
+
+
+def test_gaussian_tolerance_applies_to_all_body_orders():
+    atoms = bulk("C", "fcc", a=2.5, cubic=True)
+    atoms.positions[0] += [0.02, 0.01, -0.03]
+    reference = DifferentiableFingerprint(["C"]).generate(atoms)
+    truncated = DifferentiableFingerprint(
+        ["C"], parameters={"gaussian_tolerance": 1e-2}
+    ).generate(atoms)
+    for name in ("two_body", "three_body", "four_body"):
+        assert (reference.unnormalized[name] - truncated.unnormalized[name]).abs().max() > 1e-9
+
+
+@pytest.mark.parametrize("body_order", [3, 4])
+def test_sparse_angular_fingerprint_matches_dense_gradients(monkeypatch, body_order):
+    atoms = bulk("C", "fcc", a=2.5, cubic=True)
+    atoms.positions[0] += [0.02, 0.01, -0.03]
+    radius = 2.0 if body_order == 3 else 0.76
+    descriptor = DifferentiableFingerprint(
+        ["C", "Si"], body_orders=(body_order,),
+        bond_radii={("C", "C"): radius, ("C", "Si"): radius, ("Si", "Si"): radius},
+    )
+
+    def evaluate():
+        positions = torch.tensor(atoms.positions, dtype=torch.float64, requires_grad=True)
+        probabilities = torch.tensor(
+            [[0.7, 0.3], [0.6, 0.4], [0.4, 0.6], [0.3, 0.7]],
+            dtype=torch.float64, requires_grad=True,
+        )
+        fingerprint = descriptor(positions, atoms.cell.array, probabilities, atoms.pbc)
+        result = fingerprint.three_body if body_order == 3 else fingerprint.four_body
+        probe = torch.linspace(0.1, 1.0, result.numel(), dtype=result.dtype).reshape(result.shape)
+        gradients = torch.autograd.grad((result * probe).sum(), (positions, probabilities))
+        return (result.detach(), *(gradient.detach() for gradient in gradients))
+
+    sizes = []
+    original = DifferentiableFingerprint._project
+
+    def observe(*args):
+        sizes.append(args[0].numel())
+        return original(*args)
+
+    monkeypatch.setattr(DifferentiableFingerprint, "_project", staticmethod(observe))
+    actual = evaluate()
+    assert max(sizes) >= 1024
+
+    def dense(values, weights, denominator, grid, sigma, width, minimum, tolerance):
+        eta = 1 / (2 * sigma ** 2)
+        radius = math.ceil(math.sqrt(-math.log(tolerance) / eta) / width)
+        nearest = torch.floor((values - minimum) / width + 0.5)
+        support = (torch.arange(grid.numel())[None, :] - nearest[:, None]).abs() <= radius
+        gaussian = torch.exp(-eta * (values[:, None] - grid[None, :]).square())
+        return (gaussian * support * weights[:, None]).sum(dim=0) * math.sqrt(eta / math.pi) / denominator
+
+    monkeypatch.setattr(DifferentiableFingerprint, "_project", staticmethod(dense))
+    expected = evaluate()
+    for lhs, rhs in zip(actual, expected):
+        torch.testing.assert_close(lhs, rhs, rtol=1e-8, atol=1e-10)
 
 
 def test_candidate_topology_covers_larger_allowed_species_radii():

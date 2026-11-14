@@ -188,13 +188,56 @@ class _NeighborTopology:
         return self._device_pairs[device]
 
 
+class _SparseGaussianProjection(torch.autograd.Function):
+    """Recompute local Gaussian support in backward instead of retaining it."""
+
+    @staticmethod
+    def forward(ctx, values, weights, grid, eta, width, minimum, radius):
+        ctx.save_for_backward(values, weights, grid)
+        ctx.eta, ctx.width, ctx.minimum, ctx.radius = eta, width, minimum, radius
+        offsets = torch.arange(-radius, radius + 1, device=values.device)
+        ctx.chunk = min(2048, max(1, 524288 // offsets.numel()))
+        result = weights.new_zeros(grid.shape)
+        for start in range(0, values.numel(), ctx.chunk):
+            x, weight = values[start:start + ctx.chunk], weights[start:start + ctx.chunk]
+            nearest = torch.floor((x - minimum) / width + 0.5).to(torch.long)
+            index = nearest[:, None] + offsets[None, :]
+            valid = (index >= 0) & (index < grid.numel())
+            safe = index.clamp(0, grid.numel() - 1)
+            gaussian = torch.exp(-eta * (x[:, None] - grid[safe]).square()) * valid
+            result.index_add_(0, safe.reshape(-1), (gaussian * weight[:, None]).reshape(-1))
+        return result
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        values, weights, grid = ctx.saved_tensors
+        offsets = torch.arange(-ctx.radius, ctx.radius + 1, device=values.device)
+        grad_values, grad_weights = [], []
+        for start in range(0, values.numel(), ctx.chunk):
+            x, weight = values[start:start + ctx.chunk], weights[start:start + ctx.chunk]
+            nearest = torch.floor((x - ctx.minimum) / ctx.width + 0.5).to(torch.long)
+            index = nearest[:, None] + offsets[None, :]
+            valid = (index >= 0) & (index < grid.numel())
+            safe = index.clamp(0, grid.numel() - 1)
+            difference = x[:, None] - grid[safe]
+            gaussian = torch.exp(-ctx.eta * difference.square()) * valid
+            weighted_gradient = grad_output[safe] * gaussian
+            grad_weights.append(weighted_gradient.sum(dim=1))
+            grad_values.append(
+                (weighted_gradient * weight[:, None] * (-2.0 * ctx.eta * difference)).sum(dim=1)
+            )
+        return torch.cat(grad_values), torch.cat(grad_weights), None, None, None, None, None
+
+
 class DifferentiableFingerprint:
     """Compute differentiable 2-, 3- and 4-body RAFFLE-style histograms.
 
     ``elements`` supplies the possible species, sorted alphabetically for
     channel ordering. ``parameters`` may be a RAFFLE distribution container
     or a mapping of ``width``, ``sigma``, ``cutoff_min``, ``cutoff_max``,
-    ``radius_distance_tol`` and optionally ``bond_radii``. Explicit
+    ``radius_distance_tol`` and optionally ``bond_radii`` and
+    ``gaussian_tolerance``. The latter is the per-Gaussian kernel amplitude
+    bound outside the retained support and defaults to ``exp(-16)``. Explicit
     ``bond_radii`` override those in the parameters; missing pairs use the
     mean of ASE covalent radii. The four distance tolerances define the
     lower/upper radial windows for the first two neighbours and for the
@@ -245,6 +288,11 @@ class DifferentiableFingerprint:
         self.radius_distance_tol = self._parameter(
             parameters, "radius_distance_tol", [1.5, 2.5, 3.0, 6.0]
         )
+        if isinstance(parameters, Mapping):
+            gaussian_tolerance = parameters.get("gaussian_tolerance", math.exp(-16.0))
+        else:
+            gaussian_tolerance = getattr(parameters, "gaussian_tolerance", math.exp(-16.0))
+        self.gaussian_tolerance = float(gaussian_tolerance)
         self._validate_parameters()
 
         configured_radii: dict[tuple[str, str], float] = {}
@@ -305,6 +353,8 @@ class DifferentiableFingerprint:
             raise ValueError("each cutoff_min value must be smaller than cutoff_max")
         if any(value <= 0 for value in self.radius_distance_tol):
             raise ValueError("radius_distance_tol values must be positive")
+        if not math.isfinite(self.gaussian_tolerance) or not 0 < self.gaussian_tolerance < 1:
+            raise ValueError("gaussian_tolerance must be finite and between 0 and 1")
 
     def _grids(self, dtype: torch.dtype, device: torch.device) -> dict[str, torch.Tensor]:
         return {
@@ -330,18 +380,27 @@ class DifferentiableFingerprint:
         sigma: float,
         width: float,
         cutoff_min: float,
+        tolerance: float = math.exp(-16.0),
     ) -> torch.Tensor:
         """Project weighted values onto Gaussian bins within truncated support."""
         eta = 1.0 / (2.0 * sigma * sigma)
         if values.numel() == 0:
             return grid.new_zeros(grid.shape)
-        nearest = torch.floor((values - cutoff_min) / width + 0.5)
-        bin_index = torch.arange(grid.numel(), device=grid.device, dtype=grid.dtype)
-        support = (bin_index[None, :] - nearest[:, None]).abs() <= math.ceil(
-            math.sqrt(16.0 / eta) / width
-        )
-        gaussian = torch.exp(-eta * (values[:, None] - grid[None, :]).square())
-        projected = (gaussian * support.to(gaussian.dtype) * weights[:, None]).sum(dim=0)
+        radius = math.ceil(math.sqrt(-math.log(tolerance) / eta) / width)
+        if (
+            values.device.type == "cpu"
+            and values.numel() >= 1024
+            and 4 * radius + 2 <= grid.numel()
+        ):
+            projected = _SparseGaussianProjection.apply(
+                values, weights, grid, eta, width, cutoff_min, radius
+            )
+        else:
+            nearest = torch.floor((values - cutoff_min) / width + 0.5)
+            bin_index = torch.arange(grid.numel(), device=grid.device, dtype=grid.dtype)
+            support = (bin_index[None, :] - nearest[:, None]).abs() <= radius
+            gaussian = torch.exp(-eta * (values[:, None] - grid[None, :]).square())
+            projected = (gaussian * support.to(gaussian.dtype) * weights[:, None]).sum(dim=0)
         return projected * math.sqrt(eta / math.pi) / denominator.clamp_min(
             torch.finfo(grid.dtype).tiny
         )
@@ -438,7 +497,9 @@ class DifferentiableFingerprint:
                 0, radial_centers, neighbor_probabilities
             ).clamp_min(torch.finfo(dtype).tiny)
             bins = torch.arange(grids2.numel(), dtype=dtype, device=device)
-            support_radius = math.ceil(math.sqrt(16.0 / eta2) / self.width[0])
+            support_radius = math.ceil(
+                math.sqrt(-math.log(self.gaussian_tolerance) / eta2) / self.width[0]
+            )
             sparse_projection = 2 * support_radius + 1 < grids2.numel()
             if sparse_projection:
                 offsets = torch.arange(-support_radius, support_radius + 1, device=device)
@@ -572,6 +633,7 @@ class DifferentiableFingerprint:
                     self.sigma[1],
                     self.width[1],
                     self.cutoff_min[1],
+                    self.gaussian_tolerance,
                 )
                 raw3[:, alpha] = raw3[:, alpha] + contribution
 
@@ -710,6 +772,7 @@ class DifferentiableFingerprint:
                             self.sigma[2],
                             self.width[2],
                             self.cutoff_min[2],
+                            self.gaussian_tolerance,
                         )
 
         norm4 = self._normalise(raw4)

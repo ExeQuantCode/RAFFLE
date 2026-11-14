@@ -93,7 +93,8 @@ Joint position and species relaxation
 
 ASE's normal optimizers only change positions. ``FingerprintRelaxation`` uses
 an Adam loop for positions and species logits, and performs a global
-minimum-cost species assignment before optional final positional refinement.
+minimum-cost species assignment in exact mode before optional final positional
+refinement.
 ``fixed_position_mask`` and ``fixed_species_mask`` are independent Boolean
 arrays of length ``n_atoms``.
 Generate target and candidate fingerprints with matching elements and grids;
@@ -165,13 +166,26 @@ there is no universal distance threshold or guarantee that fine relaxation
 will escape a local minimum. Compare the unsmoothed fingerprints, not coarse
 and fine loss values, which use different objectives.
 
-``composition_constraint`` has three modes:
+``composition_constraint`` is a dimensionless composition temperature:
 
-* ``0.0``: unrestricted composition, with no composition penalty.
-* A finite positive value: a penalty strength applied to the squared
-  difference between predicted and requested element fractions.
-* ``float("inf")`` or ``"exact"``: Sinkhorn-constrained probabilities and an
-  exact final integer assignment.
+* ``0.0`` or ``"exact"``: Sinkhorn-constrained probabilities and an exact
+  final integer assignment.
+* A finite positive value ``T``: the joint objective includes
+  ``sum((predicted_fraction - target_fraction)**2) / T``. Smaller values
+  bias more strongly towards the target. The recorded ``composition`` loss
+  is the unscaled squared mismatch.
+* ``float("inf")``, ``"none"`` or ``None`` (the default): unrestricted
+  composition, with no composition penalty.
+
+The finite-temperature term is a deterministic, Boltzmann-inspired bias; it
+does not sample a Boltzmann distribution or provide thermal barrier crossing.
+It is independent of the existing species ``temperature`` and
+``final_temperature`` parameters. Finite-temperature rounding uses each
+atom's most probable species and therefore does not guarantee exact counts.
+The numerical endpoints reverse the previous API: migrate existing ``0.0``
+calls to ``None`` for no constraint, and existing ``float("inf")`` calls to
+``0.0`` or ``"exact"``. For the same finite penalty strength as before, use
+its reciprocal as the new temperature.
 
 Specify ``target_composition`` as element counts when it is unavailable in the
 target fingerprint metadata. Fixed-species counts are subtracted before the

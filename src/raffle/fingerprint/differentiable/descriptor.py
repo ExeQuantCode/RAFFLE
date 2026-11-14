@@ -879,20 +879,23 @@ class FingerprintRelaxation:
     ``radial_smoothing`` (Angstrom) and ``angular_smoothing`` (radians) apply
     Gaussian convolutions to fingerprint differences, not to the structures.
 
-    ``composition_constraint`` is zero for no constraint, a finite positive
-    penalty strength, or ``"exact"``/infinity for Sinkhorn-constrained soft
-    probabilities and an integer assignment with exact counts. The counts
-    come from ``target_composition`` or target metadata. Entropy and
-    short-range repulsion are optional joint-loop penalties; both default to
-    zero. The current repulsion uses 0.7 times the descriptor's pair radius
+    ``composition_constraint`` is a composition temperature: zero or
+    ``"exact"`` enforces exact counts, a finite positive value divides the
+    squared fractional composition mismatch, and infinity, ``"none"`` or
+    ``None`` disables the constraint. Exact mode uses Sinkhorn-constrained
+    probabilities and an integer assignment. The counts come from
+    ``target_composition`` or target metadata. This deterministic bias does
+    not sample a Boltzmann distribution or enable thermal barrier crossing.
+    Entropy and short-range repulsion are optional joint-loop penalties; both
+    default to zero. The current repulsion uses 0.7 times the descriptor's pair radius
     as its onset, excludes zero-shift self-pairs, and is not included in the
     final position-only refinement. Periodic self-images are included. The
     soft penalty is not a hard minimum-distance guarantee.
 
     ``temperature`` and ``final_temperature`` control geometric annealing of
-    the soft species probabilities. Position and species learning rates are
-    independent; neither the objective nor its gradients are physical energies
-    or forces.
+    Sinkhorn probabilities in exact mode; the unconstrained softmax does not
+    use them. Position and species learning rates are independent; neither the
+    objective nor its gradients are physical energies or forces.
     """
 
     def __init__(
@@ -901,7 +904,7 @@ class FingerprintRelaxation:
         target: FingerprintResult,
         *,
         target_composition: Mapping[str, int] | None = None,
-        composition_constraint: float | str = 0.0,
+        composition_constraint: float | str | None = None,
         fixed_position_mask: Sequence[bool] | None = None,
         fixed_species_mask: Sequence[bool] | None = None,
         loss_weights: Sequence[float] = (1.0, 1.0, 1.0),
@@ -915,20 +918,30 @@ class FingerprintRelaxation:
         angular_smoothing: float = 0.0,
         loss_reduction: str = "mean",
     ):
-        if isinstance(composition_constraint, str):
-            if composition_constraint.lower() != "exact":
-                raise ValueError('composition_constraint string alias must be "exact"')
+        if composition_constraint is None:
             composition_constraint = math.inf
-        if composition_constraint < 0 or math.isnan(float(composition_constraint)):
+        elif isinstance(composition_constraint, str):
+            aliases = {"exact": 0.0, "none": math.inf}
+            alias = composition_constraint.strip().lower()
+            if alias not in aliases:
+                raise ValueError('composition_constraint string must be "exact" or "none"')
+            composition_constraint = aliases[alias]
+        composition_constraint = float(composition_constraint)
+        if composition_constraint < 0 or math.isnan(composition_constraint):
             raise ValueError("composition_constraint must be non-negative")
+        if (
+            0 < composition_constraint < math.inf
+            and not math.isfinite(1.0 / composition_constraint)
+        ):
+            raise ValueError('composition_constraint is too small; use 0 or "exact"')
         self.descriptor = descriptor
         self.target = target
-        self.composition_constraint = float(composition_constraint)
+        self.composition_constraint = composition_constraint
         self.target_composition = dict(
             target_composition or target.composition or {}
         )
-        if math.isinf(self.composition_constraint) and not self.target_composition:
-            raise ValueError("exact composition requires target_composition metadata")
+        if not math.isinf(self.composition_constraint) and not self.target_composition:
+            raise ValueError("composition constraint requires target_composition metadata")
         self.fixed_position_mask = fixed_position_mask
         self.fixed_species_mask = fixed_species_mask
         self.loss_weights = tuple(float(value) for value in loss_weights)
@@ -1085,11 +1098,11 @@ class FingerprintRelaxation:
         in either variable; configured per-atom masks also remain in force.
         The input ASE object is copied, and its cell is never optimized.
 
-        At each joint step, logits become species probabilities by softmax or
-        Sinkhorn balancing at the annealed temperature. The descriptor and
-        weighted loss are evaluated, optional composition/entropy/repulsion
-        terms are added, and Adam updates positions and logits. Fixed values
-        are restored after each update. Five consecutive relative loss
+        At each joint step, logits become species probabilities by softmax or,
+        in exact mode, Sinkhorn balancing at the annealed temperature. The
+        descriptor and weighted loss are evaluated, optional composition,
+        entropy and repulsion terms are added, and Adam updates positions and
+        logits. Fixed values are restored after each update. Five consecutive relative loss
         changes no larger than ``tolerance`` stop the joint loop; zero
         tolerance disables early stopping.
 
@@ -1100,8 +1113,8 @@ class FingerprintRelaxation:
         frame preserves the input species, and the final frame contains the
         assigned discrete species and final positions.
 
-        After the joint loop, soft probabilities at ``final_temperature`` are
-        converted to discrete species. Exact composition uses a minimum-cost
+        After the joint loop, soft probabilities are converted to discrete
+        species. Exact mode uses ``final_temperature`` and a minimum-cost
         assignment; otherwise each atom takes its most probable species.
         Up to ``final_refine_steps`` further Adam updates optimize positions
         with those species fixed, retaining the best fingerprint loss
@@ -1138,7 +1151,7 @@ class FingerprintRelaxation:
             fixed_species[:] = True
         exact_counts = (
             self._composition_counts(atoms)
-            if math.isinf(self.composition_constraint)
+            if self.composition_constraint == 0
             else None
         )
         start_probabilities = self.descriptor.probabilities_from_atoms(atoms)
@@ -1218,7 +1231,12 @@ class FingerprintRelaxation:
                 predicted = probabilities.sum(dim=0) / n_atoms
                 desired = target_fractions.to(predicted)
                 composition_loss = (predicted - desired).square().sum()
-                total = total + self.composition_constraint * composition_loss
+                penalty = composition_loss / self.composition_constraint
+                if not torch.isfinite(penalty.detach()).item():
+                    raise FloatingPointError(
+                        'composition penalty overflowed; increase composition_constraint or use "exact"'
+                    )
+                total = total + penalty
                 components["composition"] = composition_loss
             if self.entropy_weight:
                 entropy = -(probabilities * probabilities.clamp_min(1e-15).log()).sum(dim=1).mean()
@@ -1246,6 +1264,15 @@ class FingerprintRelaxation:
                 total = total + self.repulsion_weight * repulsion
                 components["repulsion"] = repulsion
             total.backward()
+            if (
+                target_fractions is not None
+                and logits.grad is not None
+                and not torch.isfinite(logits.grad.square()).all().item()
+            ):
+                raise FloatingPointError(
+                    "species gradient is non-finite or too large for Adam; "
+                    'check loss scales or increase composition_constraint'
+                )
             if not optimise_positions:
                 position_parameter.grad = None
             elif position_parameter.grad is not None:

@@ -399,7 +399,8 @@ def test_calculator_returns_negative_position_gradient_and_resets_species():
     assert atoms.get_potential_energy() >= 0.0
 
 
-def test_exact_composition_and_fixed_atoms_are_preserved():
+@pytest.mark.parametrize("constraint", [0.0, "exact"])
+def test_exact_composition_and_fixed_atoms_are_preserved(constraint):
     target_atoms = Atoms(
         symbols=["C", "Si", "C"],
         positions=[[0.0, 0.0, 0.0], [1.8, 0.0, 0.0], [0.0, 1.8, 0.0]],
@@ -415,7 +416,7 @@ def test_exact_composition_and_fixed_atoms_are_preserved():
         descriptor,
         target,
         target_composition={"C": 2, "Si": 1},
-        composition_constraint=math.inf,
+        composition_constraint=constraint,
         fixed_position_mask=[True, False, False],
         fixed_species_mask=[False, True, False],
         position_learning_rate=0.001,
@@ -440,6 +441,106 @@ def test_exact_composition_and_fixed_atoms_are_preserved():
         torch.ones(3, dtype=torch.float64),
         atol=1e-8,
     )
+
+
+def test_composition_temperature_scales_fractional_mismatch():
+    atoms = Atoms("CC", positions=[[0, 0, 0], [1.5, 0, 0]], cell=[10] * 3)
+    initial = atoms.copy()
+    initial[1].symbol = "Si"
+    descriptor = DifferentiableFingerprint(["C", "Si"], body_orders=(2,))
+    target = descriptor.generate(atoms)
+
+    def run(constraint):
+        relaxation = FingerprintRelaxation(
+            descriptor, target, composition_constraint=constraint,
+            loss_weights=(1.0, 0.0, 0.0),
+        )
+        return relaxation.run(initial, optimise_positions=False, max_steps=1, final_refine_steps=0)
+
+    unrestricted = [run(value) for value in (None, "none", math.inf)]
+    default = FingerprintRelaxation(
+        descriptor, target, loss_weights=(1.0, 0.0, 0.0)
+    ).run(initial, optimise_positions=False, max_steps=1, final_refine_steps=0)
+    assert default.loss_history[0]["total"] == pytest.approx(unrestricted[0].loss_history[0]["total"])
+    for result in unrestricted:
+        assert result.structure.get_chemical_symbols() == ["C", "Si"]
+        assert "composition" not in result.loss_history[0]
+        assert result.loss_history[0]["total"] == pytest.approx(unrestricted[0].loss_history[0]["total"])
+
+    for temperature in (0.1, 2.0):
+        result = run(temperature)
+        record = result.loss_history[0]
+        mismatch = record["composition"]
+        assert mismatch > 0
+        assert record["total"] == pytest.approx(
+            unrestricted[0].loss_history[0]["total"] + mismatch / temperature
+        )
+
+
+def test_finite_composition_temperature_biases_species_relaxation():
+    atoms = Atoms("CC", positions=[[0, 0, 0], [1.5, 0, 0]], cell=[10] * 3)
+    initial = atoms.copy()
+    initial[1].symbol = "Si"
+    descriptor = DifferentiableFingerprint(["C", "Si"], body_orders=(2,))
+    target = descriptor.generate(atoms)
+    results = []
+    for constraint in (None, 0.1):
+        relaxation = FingerprintRelaxation(
+            descriptor, target, composition_constraint=constraint,
+            loss_weights=(0.0, 0.0, 0.0), fixed_species_mask=[True, False],
+        )
+        results.append(relaxation.run(
+            initial, optimise_positions=False, max_steps=40, final_refine_steps=0,
+            tolerance=0,
+        ))
+    assert results[0].structure.get_chemical_symbols() == ["C", "Si"]
+    assert results[1].structure.get_chemical_symbols() == ["C", "C"]
+
+
+def test_finite_composition_temperature_allows_fixed_species_mismatch():
+    atoms = Atoms("CC", positions=[[0, 0, 0], [1.5, 0, 0]], cell=[10] * 3)
+    initial = atoms.copy()
+    initial[1].symbol = "Si"
+    descriptor = DifferentiableFingerprint(["C", "Si"], body_orders=(2,))
+    relaxation = FingerprintRelaxation(
+        descriptor, descriptor.generate(atoms), composition_constraint=0.1,
+        fixed_species_mask=[False, True], loss_weights=(1.0, 0.0, 0.0),
+    )
+    result = relaxation.run(initial, optimise_positions=False, max_steps=2, final_refine_steps=0)
+    assert result.structure[1].symbol == "Si"
+    assert result.loss_history[-1]["composition"] > 0
+
+
+@pytest.mark.parametrize("constraint", [-1.0, -math.inf, math.nan, "invalid", 1e-320])
+def test_invalid_composition_temperature_is_rejected(constraint):
+    atoms = Atoms("C", positions=[[0, 0, 0]], cell=[10] * 3)
+    descriptor = DifferentiableFingerprint(["C"], body_orders=(2,))
+    with pytest.raises(ValueError, match="composition_constraint"):
+        FingerprintRelaxation(descriptor, descriptor.generate(atoms), composition_constraint=constraint)
+
+
+@pytest.mark.parametrize("constraint", [0.0, 1.0])
+def test_composition_temperature_requires_target_counts(constraint):
+    atoms = Atoms("C", positions=[[0, 0, 0]], cell=[10] * 3)
+    descriptor = DifferentiableFingerprint(["C"], body_orders=(2,))
+    target = descriptor.generate(atoms)
+    target.composition = None
+    with pytest.raises(ValueError, match="target_composition"):
+        FingerprintRelaxation(descriptor, target, composition_constraint=constraint)
+    FingerprintRelaxation(descriptor, target, composition_constraint=None)
+
+
+def test_composition_temperature_rejects_gradient_overflow():
+    atoms = Atoms("CC", positions=[[0, 0, 0], [1.5, 0, 0]], cell=[10] * 3)
+    initial = atoms.copy()
+    initial[1].symbol = "Si"
+    descriptor = DifferentiableFingerprint(["C", "Si"], body_orders=(2,))
+    relaxation = FingerprintRelaxation(
+        descriptor, descriptor.generate(atoms), composition_constraint=1e-200,
+        loss_weights=(1.0, 0.0, 0.0),
+    )
+    with pytest.raises(FloatingPointError, match="species gradient"):
+        relaxation.run(initial, optimise_positions=False, max_steps=1, final_refine_steps=0)
 
 
 def test_trajectory_and_callback_reflect_evaluated_species_and_positions():

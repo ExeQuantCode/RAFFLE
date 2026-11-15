@@ -113,6 +113,63 @@ def test_four_body_position_and_multispecies_logit_gradcheck():
     )
 
 
+def test_large_multispecies_checkpoint_matches_uncheckpointed_gradients(monkeypatch):
+    import torch.utils.checkpoint
+
+    isolated = [
+        [10 + 8 * i, 10 + 8 * j, 10 + 8 * k]
+        for i in range(5) for j in range(5) for k in range(5)
+    ][:124]
+    atoms = Atoms(
+        "C128",
+        positions=[
+            [0, 0, 0], [1.35, 0.1, 0.1], [0.2, 1.4, 0.3],
+            [59.9, 0.3, 2.8], *isolated,
+        ],
+        cell=[60] * 3, pbc=[True, False, True],
+    )
+    descriptor = DifferentiableFingerprint(["C", "N", "O", "Si"], body_orders=(3, 4))
+
+    def evaluate():
+        positions = torch.tensor(atoms.positions, dtype=torch.float64, requires_grad=True)
+        logits = torch.linspace(-0.3, 0.4, 4, dtype=torch.float64).repeat(len(atoms), 1)
+        logits.requires_grad_()
+        probabilities = logits.softmax(dim=1)
+        fp = descriptor(positions, atoms.cell.array, probabilities, atoms.pbc)
+        values = (
+            fp.three_body, fp.four_body,
+            fp.unnormalized["three_body"], fp.unnormalized["four_body"],
+        )
+        loss = sum(value.square().sum() for value in values)
+        gradients = torch.autograd.grad(loss, (positions, probabilities, logits))
+        return tuple(value.detach() for value in (*values, *gradients))
+
+    calls = []
+    original_checkpoint = torch.utils.checkpoint.checkpoint
+
+    def checked(function, *args, **kwargs):
+        calls.append(True)
+        return original_checkpoint(function, *args, **kwargs)
+
+    monkeypatch.setattr(torch.utils.checkpoint, "checkpoint", checked)
+    actual = evaluate()
+    atoms.positions[0, 0] += 0.04
+    actual_after_move = evaluate()
+    assert calls
+
+    def direct(function, *args, **kwargs):
+        return function(*args)
+
+    monkeypatch.setattr(torch.utils.checkpoint, "checkpoint", direct)
+    expected_after_move = evaluate()
+    atoms.positions[0, 0] -= 0.04
+    expected = evaluate()
+    for lhs, rhs in zip(
+        (*actual, *actual_after_move), (*expected, *expected_after_move)
+    ):
+        torch.testing.assert_close(lhs, rhs, rtol=1e-8, atol=1e-10)
+
+
 def test_zero_skin_rebuilds_neighbor_topology_after_position_change():
     atoms = Atoms("CC", positions=[[0.0, 0.0, 0.0], [7.0, 0.0, 0.0]], cell=[20.0] * 3, pbc=False)
     descriptor = DifferentiableFingerprint(["C"], skin=0.0)

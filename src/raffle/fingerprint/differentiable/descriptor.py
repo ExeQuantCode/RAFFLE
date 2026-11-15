@@ -389,7 +389,7 @@ class DifferentiableFingerprint:
         radius = math.ceil(math.sqrt(-math.log(tolerance) / eta) / width)
         if (
             values.device.type == "cpu"
-            and values.numel() >= 1024
+            and values.numel() >= 128
             and 4 * radius + 2 <= grid.numel()
         ):
             projected = _SparseGaussianProjection.apply(
@@ -640,6 +640,14 @@ class DifferentiableFingerprint:
         norm3 = self._normalise(raw3)
 
         grids4 = grids["four_body"]
+        checkpoint_four_body = (
+            4 in self.body_orders and n_atoms >= 128 and n_elements >= 4
+            and torch.is_grad_enabled()
+            and (vectors.requires_grad or probabilities.requires_grad)
+        )
+        if checkpoint_four_body:
+            from torch.utils.checkpoint import checkpoint
+
         # Combine each near-neighbor pair with a fourth-body neighbor and
         # project the angle between the resulting plane normals.
         for atom in (range(n_atoms) if 4 in self.body_orders else ()):
@@ -727,6 +735,25 @@ class DifferentiableFingerprint:
                     )
                 else:
                     upper_weights = lower_weights = species_weights
+                near_vectors = vectors[ids]
+                fourth_vectors = vectors[fourth_ids]
+                pair_normals = torch.linalg.cross(
+                    near_vectors[left], near_vectors[right], dim=1
+                )
+                pair_norms = torch.linalg.vector_norm(pair_normals, dim=1)
+                fourth_normals = torch.linalg.cross(
+                    near_vectors[:, None, :].expand(-1, fourth_ids.numel(), -1),
+                    fourth_vectors[None, :, :].expand(ids.numel(), -1, -1),
+                    dim=2,
+                )
+                fourth_norms = torch.linalg.vector_norm(fourth_normals, dim=2)
+                forward_pair_weights = (
+                    species_weights[left] * upper_weights[right]
+                ).sum(dim=1)
+                reverse_pair_weights = (
+                    (species_weights[left] * lower_weights[right]).sum(dim=1)
+                    if n_elements > 1 else forward_pair_weights
+                )
                 for start in range(0, n_combinations, chunk):
                     flat_index = torch.arange(
                         start, min(start + chunk, n_combinations), device=device
@@ -734,46 +761,57 @@ class DifferentiableFingerprint:
                     pair_index = flat_index // fourth_ids.numel()
                     j, k = left[pair_index], right[pair_index]
                     l = flat_index % fourth_ids.numel()
-                    vj = vectors[ids[j]]
-                    vk = vectors[ids[k]]
-                    vl = vectors[fourth_ids[l]]
-                    common_weights = (
-                        win4[l] * probabilities[atom, alpha]
-                        / (
-                            d[j].square()
-                            * d[k].square()
-                            * fourth_d[l].square()
-                        ).clamp_min(1e-24)
-                    )
                     for reversed_order in range(2 if n_elements > 1 else 1):
-                        first, second = (vk, vj) if reversed_order else (vj, vk)
-                        normal_a = torch.linalg.cross(first, second, dim=1)
-                        normal_b = torch.linalg.cross(second, vl, dim=1)
-                        norm_a = torch.linalg.vector_norm(normal_a, dim=1)
-                        norm_b = torch.linalg.vector_norm(normal_b, dim=1)
-                        valid_angle = (norm_a > 1e-12) & (norm_b > 1e-12)
-                        cosine = (normal_a * normal_b).sum(dim=1) / (
-                            norm_a * norm_b
-                        ).clamp_min(1e-24)
-                        angles = torch.acos(
-                            cosine.clamp(-1.0 + angle_epsilon, 1.0 - angle_epsilon)
+                        pair_weights = (
+                            reverse_pair_weights if reversed_order else forward_pair_weights
                         )
-                        right_weights = lower_weights if reversed_order else upper_weights
-                        weights = (
-                            (species_weights[j] * right_weights[k]).sum(dim=1)
-                            * common_weights
-                            * valid_angle.to(dtype)
+
+                        # Freeze loop-specific indices and settings for backward recomputation.
+                        def project_chunk(
+                            pair_normals, pair_norms, fourth_normals, fourth_norms,
+                            d, fourth_d, win4, center_probability, pair_weights, denominator,
+                            pair_index=pair_index, j=j, k=k, l=l, reversed_order=reversed_order,
+                            angle_epsilon=angle_epsilon, sigma=self.sigma[2], width=self.width[2],
+                            cutoff_min=self.cutoff_min[2], tolerance=self.gaussian_tolerance,
+                        ):
+                            normal_a = pair_normals[pair_index]
+                            if reversed_order:
+                                normal_a = -normal_a
+                            second = j if reversed_order else k
+                            normal_b = fourth_normals[second, l]
+                            norm_a = pair_norms[pair_index]
+                            norm_b = fourth_norms[second, l]
+                            valid_angle = (norm_a > 1e-12) & (norm_b > 1e-12)
+                            cosine = (normal_a * normal_b).sum(dim=1) / (
+                                norm_a * norm_b
+                            ).clamp_min(1e-24)
+                            angles = torch.acos(
+                                cosine.clamp(-1.0 + angle_epsilon, 1.0 - angle_epsilon)
+                            )
+                            common_weights = win4[l] * center_probability / (
+                                d[j].square() * d[k].square() * fourth_d[l].square()
+                            ).clamp_min(1e-24)
+                            weights = (
+                                pair_weights[pair_index] * common_weights * valid_angle.to(dtype)
+                            )
+                            return self._project(
+                                angles, weights, denominator, grids4, sigma,
+                                width, cutoff_min, tolerance,
+                            )
+
+                        arguments = (
+                            pair_normals, pair_norms, fourth_normals, fourth_norms,
+                            d, fourth_d, win4, probabilities[atom, alpha],
+                            pair_weights, denominator,
                         )
-                        raw4[:, alpha] = raw4[:, alpha] + self._project(
-                            angles,
-                            weights,
-                            denominator,
-                            grids4,
-                            self.sigma[2],
-                            self.width[2],
-                            self.cutoff_min[2],
-                            self.gaussian_tolerance,
+                        contribution = (
+                            checkpoint(
+                                project_chunk, *arguments,
+                                use_reentrant=False, preserve_rng_state=False,
+                            )
+                            if checkpoint_four_body else project_chunk(*arguments)
                         )
+                        raw4[:, alpha] = raw4[:, alpha] + contribution
 
         norm4 = self._normalise(raw4)
         composition = None

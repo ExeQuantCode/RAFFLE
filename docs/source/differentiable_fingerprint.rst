@@ -59,6 +59,12 @@ geometry during a call when both are enabled. Higher-order indices are not
 cached across calls: local neighbor
 pairs are formed as needed, and four-body combinations are processed in
 chunks to avoid a potentially large ``N*k**3`` topology allocation.
+Four-body plane normals and species-pair weights are reused within each
+central-atom calculation. For at least 128 atoms and four allowed elements,
+when gradients are needed, four-body chunks are checkpointed: their
+intermediates are recomputed during backward rather than retained. This
+reduces peak memory at the cost of extra computation; it does not bound total
+memory, which still grows with system size and coordination.
 
 Set ``parameters={"gaussian_tolerance": 1e-8}`` to change the Gaussian
 support for all body orders. The default, ``exp(-16)`` (about ``1.13e-7``),

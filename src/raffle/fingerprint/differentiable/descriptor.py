@@ -506,6 +506,28 @@ class DifferentiableFingerprint:
                 chunk = min(2048, max(1, 524288 // (offsets.numel() * len(pair_indices))))
             else:
                 chunk = 2048
+            checkpoint_radial = (
+                sparse_projection and n_atoms >= 512 and n_elements >= 4
+                and torch.is_grad_enabled()
+                and (distances.requires_grad or probabilities.requires_grad)
+            )
+            if checkpoint_radial:
+                from torch.utils.checkpoint import checkpoint
+
+            def project_radial(r, channel_weights, accumulator, width=self.width[0]):
+                nearest = torch.floor((r - rmin) / width + 0.5)
+                bin_indices = nearest.to(torch.long)[:, None] + offsets[None, :]
+                valid_bins = (bin_indices >= 0) & (bin_indices < grids2.numel())
+                safe_indices = bin_indices.clamp(0, grids2.numel() - 1)
+                gaussian = torch.exp(-eta2 * (r[:, None] - grids2[safe_indices]).square())
+                projected = gaussian * valid_bins.to(dtype)
+                contributions = (
+                    projected[:, :, None] * channel_weights[:, None, :]
+                ).reshape(-1, len(pair_indices))
+                return accumulator.index_add(
+                    0, safe_indices.reshape(-1), contributions * math.sqrt(eta2 / math.pi)
+                )
+
             for start in range(0, radial_ids.numel(), chunk):
                 ids = radial_ids[start:start + chunk]
                 centers = radial_centers[start:start + chunk]
@@ -513,7 +535,6 @@ class DifferentiableFingerprint:
                 p_neighbor = neighbor_probabilities[start:start + chunk]
                 denominator = denominators[centers]
                 r = distances[ids]
-                nearest = torch.floor((r - rmin) / self.width[0] + 0.5)
                 channel_weights = []
                 for alpha, beta in pair_indices:
                     weights = p_center[:, alpha] * p_neighbor[:, beta] / denominator[:, beta]
@@ -524,18 +545,15 @@ class DifferentiableFingerprint:
                     channel_weights.append(weights)
                 channel_weights = torch.stack(channel_weights, dim=1)
                 if sparse_projection:
-                    bin_indices = nearest.to(torch.long)[:, None] + offsets[None, :]
-                    valid_bins = (bin_indices >= 0) & (bin_indices < grids2.numel())
-                    safe_indices = bin_indices.clamp(0, grids2.numel() - 1)
-                    gaussian = torch.exp(-eta2 * (r[:, None] - grids2[safe_indices]).square())
-                    projected = gaussian * valid_bins.to(dtype)
-                    contributions = (
-                        projected[:, :, None] * channel_weights[:, None, :]
-                    ).reshape(-1, len(pair_indices))
-                    raw2 = raw2.index_add(
-                        0, safe_indices.reshape(-1), contributions * math.sqrt(eta2 / math.pi)
+                    raw2 = (
+                        checkpoint(
+                            project_radial, r, channel_weights, raw2,
+                            use_reentrant=False, preserve_rng_state=False,
+                        )
+                        if checkpoint_radial else project_radial(r, channel_weights, raw2)
                     )
                 else:
+                    nearest = torch.floor((r - rmin) / self.width[0] + 0.5)
                     support = (bins[None, :] - nearest[:, None]).abs() <= support_radius
                     gaussian = torch.exp(-eta2 * (r[:, None] - grids2[None, :]).square())
                     projected = gaussian * support.to(dtype)
@@ -969,10 +987,8 @@ class FingerprintRelaxation:
 
     The target supplies histograms, grids and optionally composition, not
     target coordinates. The candidate's cell and periodicity stay fixed.
-    ``fixed_position_mask`` and ``fixed_species_mask`` independently select
-    atoms that must not move or change species. Generate the target with the
-    same elements and grids as the descriptor: matching grid values and
-    element identities are not validated by the loss.
+    Generate the target with the same elements and grids as the descriptor:
+    matching grid values and element identities are not validated by the loss.
 
     ``loss_weights`` weights the 2-, 3- and 4-body squared differences.
     ``loss_reduction="mean"`` averages over bins and channels; ``"density"``
@@ -1006,8 +1022,6 @@ class FingerprintRelaxation:
         *,
         target_composition: Mapping[str, int] | None = None,
         composition_constraint: float | str | None = None,
-        fixed_position_mask: Sequence[bool] | None = None,
-        fixed_species_mask: Sequence[bool] | None = None,
         loss_weights: Sequence[float] = (1.0, 1.0, 1.0),
         position_learning_rate: float = 0.02,
         species_learning_rate: float = 0.05,
@@ -1043,8 +1057,6 @@ class FingerprintRelaxation:
         )
         if not math.isinf(self.composition_constraint) and not self.target_composition:
             raise ValueError("composition constraint requires target_composition metadata")
-        self.fixed_position_mask = fixed_position_mask
-        self.fixed_species_mask = fixed_species_mask
         self.loss_weights = tuple(float(value) for value in loss_weights)
         if len(self.loss_weights) != 3 or any(
             not math.isfinite(value) or value < 0 for value in self.loss_weights
@@ -1186,6 +1198,8 @@ class FingerprintRelaxation:
         *,
         optimise_positions: bool = True,
         optimise_species: bool = True,
+        fixed_position_mask: Sequence[bool] | None = None,
+        fixed_species_mask: Sequence[bool] | None = None,
         max_steps: int = 500,
         trajectory_interval: int = 1,
         final_refine_steps: int = 20,
@@ -1196,7 +1210,8 @@ class FingerprintRelaxation:
         """Run joint Adam updates, discretise species, and refine positions.
 
         ``optimise_positions`` and ``optimise_species`` can freeze all atoms
-        in either variable; configured per-atom masks also remain in force.
+        in either variable; per-atom masks independently freeze selected
+        positions and species for this run.
         The input ASE object is copied, and its cell is never optimized.
 
         At each joint step, logits become species probabilities by softmax or,
@@ -1237,13 +1252,13 @@ class FingerprintRelaxation:
         atoms = initial_atoms.copy()
         n_atoms, n_elements = len(atoms), len(self.descriptor.elements)
         fixed_positions = torch.as_tensor(
-            self.fixed_position_mask if self.fixed_position_mask is not None else np.zeros(n_atoms),
+            fixed_position_mask if fixed_position_mask is not None else np.zeros(n_atoms),
             dtype=torch.bool,
-        )
+        ).clone()
         fixed_species = torch.as_tensor(
-            self.fixed_species_mask if self.fixed_species_mask is not None else np.zeros(n_atoms),
+            fixed_species_mask if fixed_species_mask is not None else np.zeros(n_atoms),
             dtype=torch.bool,
-        )
+        ).clone()
         if fixed_positions.shape != (n_atoms,) or fixed_species.shape != (n_atoms,):
             raise ValueError("fixed masks must be Boolean arrays of length n_atoms")
         if not optimise_positions:
@@ -1474,19 +1489,7 @@ class FingerprintRelaxation:
                     refine_positions.detach() - previous_positions,
                 )
 
-        final_fp = self.descriptor(
-            refine_positions,
-            cell,
-            final_probabilities,
-            atoms.pbc,
-        )
-        final_loss, _ = _fingerprint_loss(
-            final_fp, self.target, self.loss_weights, self.radial_smoothing,
-            self.angular_smoothing, self.loss_reduction,
-        )
-        if float(final_loss.detach()) > best_loss:
-            with torch.no_grad():
-                refine_positions.copy_(best_positions)
+        with torch.no_grad():
             final_fp = self.descriptor(
                 refine_positions,
                 cell,
@@ -1497,6 +1500,18 @@ class FingerprintRelaxation:
                 final_fp, self.target, self.loss_weights, self.radial_smoothing,
                 self.angular_smoothing, self.loss_reduction,
             )
+            if float(final_loss) > best_loss:
+                refine_positions.copy_(best_positions)
+                final_fp = self.descriptor(
+                    refine_positions,
+                    cell,
+                    final_probabilities,
+                    atoms.pbc,
+                )
+                final_loss, _ = _fingerprint_loss(
+                    final_fp, self.target, self.loss_weights, self.radial_smoothing,
+                    self.angular_smoothing, self.loss_reduction,
+                )
         atoms.set_positions(refine_positions.detach().cpu().numpy())
         composition = {
             element: atoms.get_chemical_symbols().count(element)

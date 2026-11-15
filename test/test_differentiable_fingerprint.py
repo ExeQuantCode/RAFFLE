@@ -113,22 +113,25 @@ def test_four_body_position_and_multispecies_logit_gradcheck():
     )
 
 
-def test_large_multispecies_checkpoint_matches_uncheckpointed_gradients(monkeypatch):
+@pytest.mark.parametrize("n_atoms", [128, 512])
+def test_large_multispecies_checkpoint_matches_uncheckpointed_gradients(monkeypatch, n_atoms):
     import torch.utils.checkpoint
 
+    side = 5 if n_atoms == 128 else 8
+    cell_length = 60 if n_atoms == 128 else 90
     isolated = [
         [10 + 8 * i, 10 + 8 * j, 10 + 8 * k]
-        for i in range(5) for j in range(5) for k in range(5)
-    ][:124]
+        for i in range(side) for j in range(side) for k in range(side)
+    ][:n_atoms - 4]
     atoms = Atoms(
-        "C128",
+        f"C{n_atoms}",
         positions=[
             [0, 0, 0], [1.35, 0.1, 0.1], [0.2, 1.4, 0.3],
-            [59.9, 0.3, 2.8], *isolated,
+            [cell_length - 0.1, 0.3, 2.8], *isolated,
         ],
-        cell=[60] * 3, pbc=[True, False, True],
+        cell=[cell_length] * 3, pbc=[True, False, True],
     )
-    descriptor = DifferentiableFingerprint(["C", "N", "O", "Si"], body_orders=(3, 4))
+    descriptor = DifferentiableFingerprint(["C", "N", "O", "Si"])
 
     def evaluate():
         positions = torch.tensor(atoms.positions, dtype=torch.float64, requires_grad=True)
@@ -137,8 +140,9 @@ def test_large_multispecies_checkpoint_matches_uncheckpointed_gradients(monkeypa
         probabilities = logits.softmax(dim=1)
         fp = descriptor(positions, atoms.cell.array, probabilities, atoms.pbc)
         values = (
-            fp.three_body, fp.four_body,
-            fp.unnormalized["three_body"], fp.unnormalized["four_body"],
+            fp.two_body, fp.three_body, fp.four_body,
+            fp.unnormalized["two_body"], fp.unnormalized["three_body"],
+            fp.unnormalized["four_body"],
         )
         loss = sum(value.square().sum() for value in values)
         gradients = torch.autograd.grad(loss, (positions, probabilities, logits))
@@ -148,14 +152,16 @@ def test_large_multispecies_checkpoint_matches_uncheckpointed_gradients(monkeypa
     original_checkpoint = torch.utils.checkpoint.checkpoint
 
     def checked(function, *args, **kwargs):
-        calls.append(True)
+        calls.append(function.__name__)
         return original_checkpoint(function, *args, **kwargs)
 
     monkeypatch.setattr(torch.utils.checkpoint, "checkpoint", checked)
     actual = evaluate()
     atoms.positions[0, 0] += 0.04
     actual_after_move = evaluate()
-    assert calls
+    assert "project_chunk" in calls
+    if n_atoms == 512:
+        assert "project_radial" in calls
 
     def direct(function, *args, **kwargs):
         return function(*args)
@@ -367,6 +373,46 @@ def test_radial_projection_matches_dense_reference_at_grid_edges(sigma, toleranc
     expected_grad = torch.autograd.grad((expected * factors).sum(), (positions, logits))
     for lhs, rhs in zip(actual_grad, expected_grad):
         torch.testing.assert_close(lhs, rhs, rtol=1e-11, atol=1e-11)
+
+
+def test_large_radial_checkpoint_matches_multiple_uncheckpointed_chunks(monkeypatch):
+    import torch.utils.checkpoint
+
+    atoms = bulk("C", "diamond", a=3.567, cubic=True).repeat((4, 4, 4))
+    descriptor = DifferentiableFingerprint(["C", "N", "O", "Si"], body_orders=(2,))
+    rng = np.random.default_rng(42)
+    atoms.positions += rng.normal(0.0, 0.015, atoms.positions.shape)
+    logits_data = rng.normal(0.0, 0.4, (len(atoms), 4))
+
+    def evaluate():
+        positions = torch.tensor(atoms.positions, dtype=torch.float64, requires_grad=True)
+        logits = torch.tensor(logits_data, dtype=torch.float64, requires_grad=True)
+        probabilities = logits.softmax(dim=1)
+        fp = descriptor(positions, atoms.cell.array, probabilities, atoms.pbc)
+        values = (fp.two_body, fp.unnormalized["two_body"])
+        gradients = torch.autograd.grad(
+            sum(value.square().sum() for value in values),
+            (positions, probabilities, logits),
+        )
+        return tuple(value.detach() for value in (*values, *gradients))
+
+    original_checkpoint = torch.utils.checkpoint.checkpoint
+    calls = []
+
+    def checked(function, *args, **kwargs):
+        calls.append(function.__name__)
+        return original_checkpoint(function, *args, **kwargs)
+
+    monkeypatch.setattr(torch.utils.checkpoint, "checkpoint", checked)
+    actual = evaluate()
+    assert calls.count("project_radial") > 1
+    monkeypatch.setattr(
+        torch.utils.checkpoint, "checkpoint",
+        lambda function, *args, **kwargs: function(*args),
+    )
+    expected = evaluate()
+    for lhs, rhs in zip(actual, expected):
+        torch.testing.assert_close(lhs, rhs, rtol=1e-9, atol=1e-10)
 
 
 @pytest.mark.parametrize(
@@ -597,18 +643,21 @@ def test_exact_composition_and_fixed_atoms_are_preserved(constraint):
         target,
         target_composition={"C": 2, "Si": 1},
         composition_constraint=constraint,
-        fixed_position_mask=[True, False, False],
-        fixed_species_mask=[False, True, False],
         position_learning_rate=0.001,
         species_learning_rate=0.01,
     )
     result = relaxation.run(
-        initial, max_steps=3, trajectory_interval=1, final_refine_steps=0
+        initial, max_steps=3, trajectory_interval=1, final_refine_steps=0,
+        fixed_position_mask=[True, False, False],
+        fixed_species_mask=[False, True, False],
     )
 
     assert result.composition == {"C": 2, "Si": 1}
     assert np.array_equal(result.structure.positions[0], initial.positions[0])
     assert result.structure[1].symbol == initial[1].symbol
+    assert not result.fingerprint.two_body.requires_grad
+    assert not result.fingerprint.three_body.requires_grad
+    assert not result.fingerprint.four_body.requires_grad
     assert np.array_equal(result.trajectory[-1].positions, result.structure.positions)
     assert result.trajectory[-1].get_chemical_symbols() == result.structure.get_chemical_symbols()
     assert all(
@@ -657,6 +706,57 @@ def test_composition_temperature_scales_fractional_mismatch():
         )
 
 
+def test_unconstrained_species_follow_fingerprint_loss():
+    atoms = Atoms(
+        "CCC", positions=[[0, 0, 0], [1.35, 0, 0], [0.2, 1.6, 0.2]],
+        cell=[10] * 3,
+    )
+    initial = atoms.copy()
+    initial[1].symbol = "Si"
+    descriptor = DifferentiableFingerprint(["C", "Si"], body_orders=(2, 3))
+    relaxation = FingerprintRelaxation(
+        descriptor, descriptor.generate(atoms), loss_weights=(1.0, 1.0, 0.0),
+        species_learning_rate=0.2,
+    )
+    result = relaxation.run(
+        initial, optimise_positions=False, max_steps=20, final_refine_steps=0,
+        tolerance=0,
+    )
+    initial_soft = torch.tensor(
+        [[2.0, 0.0], [0.0, 2.0], [2.0, 0.0]], dtype=torch.float64
+    ).softmax(dim=1)
+    assert not torch.allclose(result.species_probabilities, initial_soft)
+    assert result.loss_history[-1]["total"] < result.loss_history[0]["total"]
+    assert "composition" not in result.loss_history[-1]
+
+
+def test_run_masks_are_per_structure_and_do_not_mutate_inputs():
+    atoms = Atoms("CC", positions=[[0, 0, 0], [1.5, 0, 0]], cell=[10] * 3)
+    descriptor = DifferentiableFingerprint(["C", "Si"], body_orders=(2,))
+    relaxation = FingerprintRelaxation(
+        descriptor, descriptor.generate(atoms), loss_weights=(1.0, 0.0, 0.0)
+    )
+    positions_mask = np.array([True, False])
+    species_mask = np.array([False, True])
+    relaxation.run(
+        atoms, optimise_positions=False, optimise_species=False,
+        fixed_position_mask=positions_mask, fixed_species_mask=species_mask,
+        max_steps=1, final_refine_steps=0,
+    )
+    assert positions_mask.tolist() == [True, False]
+    assert species_mask.tolist() == [False, True]
+
+    larger = atoms + Atoms("C", positions=[[0, 1.6, 0]])
+    result = relaxation.run(
+        larger, fixed_position_mask=[True, False, False],
+        fixed_species_mask=[False, True, False], max_steps=1, final_refine_steps=0,
+    )
+    assert np.array_equal(result.structure.positions[0], larger.positions[0])
+    assert result.structure[1].symbol == larger[1].symbol
+    with pytest.raises(ValueError, match="fixed masks"):
+        relaxation.run(larger, fixed_position_mask=positions_mask, max_steps=1)
+
+
 def test_finite_composition_temperature_biases_species_relaxation():
     atoms = Atoms("CC", positions=[[0, 0, 0], [1.5, 0, 0]], cell=[10] * 3)
     initial = atoms.copy()
@@ -667,11 +767,11 @@ def test_finite_composition_temperature_biases_species_relaxation():
     for constraint in (None, 0.1):
         relaxation = FingerprintRelaxation(
             descriptor, target, composition_constraint=constraint,
-            loss_weights=(0.0, 0.0, 0.0), fixed_species_mask=[True, False],
+            loss_weights=(0.0, 0.0, 0.0),
         )
         results.append(relaxation.run(
             initial, optimise_positions=False, max_steps=40, final_refine_steps=0,
-            tolerance=0,
+            tolerance=0, fixed_species_mask=[True, False],
         ))
     assert results[0].structure.get_chemical_symbols() == ["C", "Si"]
     assert results[1].structure.get_chemical_symbols() == ["C", "C"]
@@ -684,9 +784,12 @@ def test_finite_composition_temperature_allows_fixed_species_mismatch():
     descriptor = DifferentiableFingerprint(["C", "Si"], body_orders=(2,))
     relaxation = FingerprintRelaxation(
         descriptor, descriptor.generate(atoms), composition_constraint=0.1,
-        fixed_species_mask=[False, True], loss_weights=(1.0, 0.0, 0.0),
+        loss_weights=(1.0, 0.0, 0.0),
     )
-    result = relaxation.run(initial, optimise_positions=False, max_steps=2, final_refine_steps=0)
+    result = relaxation.run(
+        initial, optimise_positions=False, max_steps=2, final_refine_steps=0,
+        fixed_species_mask=[False, True],
+    )
     assert result.structure[1].symbol == "Si"
     assert result.loss_history[-1]["composition"] > 0
 
@@ -913,14 +1016,16 @@ def test_refinement_reduces_loss_and_verbose_reports_steps(capsys):
     initial = atoms.copy()
     initial.positions[0, 0] += 0.18
     relaxation = FingerprintRelaxation(
-        descriptor, target, fixed_position_mask=[False, True], position_learning_rate=0.01
+        descriptor, target, position_learning_rate=0.01
     )
     before = relaxation.run(
-        initial, optimise_species=False, max_steps=1, final_refine_steps=0
+        initial, optimise_species=False, max_steps=1, final_refine_steps=0,
+        fixed_position_mask=[False, True],
     )
     assert capsys.readouterr().out == ""
     after = relaxation.run(
-        initial, optimise_species=False, max_steps=1, final_refine_steps=20, verbose=True
+        initial, optimise_species=False, max_steps=1, final_refine_steps=20, verbose=True,
+        fixed_position_mask=[False, True],
     )
     output = capsys.readouterr().out
 

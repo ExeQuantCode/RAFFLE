@@ -64,7 +64,12 @@ central-atom calculation. For at least 128 atoms and four allowed elements,
 when gradients are needed, four-body chunks are checkpointed: their
 intermediates are recomputed during backward rather than retained. This
 reduces peak memory at the cost of extra computation; it does not bound total
-memory, which still grows with system size and coordination.
+memory, which still grows with system size and coordination. At 512 atoms or
+more with at least four allowed elements, sparse 2-body chunks also use
+checkpointing when gradients are needed. Both optimizations retain the same
+fingerprint definition and are inactive when generating a target without
+gradients. The final fingerprint returned by ``run`` is also computed without
+an autograd graph; call the descriptor directly for a differentiable result.
 
 Set ``parameters={"gaussian_tolerance": 1e-8}`` to change the Gaussian
 support for all body orders. The default, ``exp(-16)`` (about ``1.13e-7``),
@@ -111,8 +116,9 @@ ASE's normal optimizers only change positions. ``FingerprintRelaxation`` uses
 an Adam loop for positions and species logits, and performs a global
 minimum-cost species assignment in exact mode before optional final positional
 refinement.
-``fixed_position_mask`` and ``fixed_species_mask`` are independent Boolean
-arrays of length ``n_atoms``.
+Pass ``fixed_position_mask`` and ``fixed_species_mask`` to ``run`` as
+independent Boolean arrays of length ``n_atoms`` for that structure. These
+masks were previously constructor arguments and must now be passed to ``run``.
 Generate target and candidate fingerprints with matching elements and grids;
 the loss does not verify their element identities or grid values.
 
@@ -198,6 +204,11 @@ does not sample a Boltzmann distribution or provide thermal barrier crossing.
 It is independent of the existing species ``temperature`` and
 ``final_temperature`` parameters. Finite-temperature rounding uses each
 atom's most probable species and therefore does not guarantee exact counts.
+With no composition constraint, unfixed species still optimize against the
+fingerprint through their soft probabilities by default; set
+``optimise_species=False`` to freeze them. Independent channel normalization
+can make the fingerprint insensitive to species probabilities in some
+geometries, so species changes and the target composition are not guaranteed.
 The numerical endpoints reverse the previous API: migrate existing ``0.0``
 calls to ``None`` for no constraint, and existing ``float("inf")`` calls to
 ``0.0`` or ``"exact"``. For the same finite penalty strength as before, use
@@ -218,8 +229,10 @@ Use ``fixed_position_mask`` to keep every other atom fixed, and set
 .. code-block:: python
 
    fixed = [i != mobile_index for i in range(len(initial_atoms))]
-   relaxation = FingerprintRelaxation(descriptor, target, fixed_position_mask=fixed)
-   result = relaxation.run(initial_atoms, optimise_species=False)
+   relaxation = FingerprintRelaxation(descriptor, target)
+   result = relaxation.run(
+       initial_atoms, optimise_species=False, fixed_position_mask=fixed
+   )
 
 This minimizes the **global** fingerprint mismatch with respect to one atom;
 it is not a fingerprint restricted to that atom's local neighborhood. The

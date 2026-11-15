@@ -49,7 +49,7 @@ def main():
     }
     rng = np.random.default_rng(args.seed)
     diamond = bulk("C", "diamond", a=3.567, cubic=True)
-    diamond.positions += rng.normal(0.0, 0.15, diamond.positions.shape)
+    # diamond.positions += rng.normal(0.0, 0.15, diamond.positions.shape)
     for phase, target_atoms in targets.items():
         initial = diamond.copy()
         target = descriptor.generate(target_atoms)

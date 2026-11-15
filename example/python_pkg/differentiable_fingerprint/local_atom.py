@@ -35,13 +35,12 @@ def main():
     result = FingerprintRelaxation(
         descriptor,
         target,
-        fixed_position_mask=fixed,
         loss_weights=(1.0, 1.0, 1.0),
         loss_reduction="density",
         radial_smoothing=0.25,
         angular_smoothing=0.2,
         position_learning_rate=0.01,
-    ).run(initial, optimise_species=False, max_steps=args.steps,
+    ).run(initial, optimise_species=False, fixed_position_mask=fixed, max_steps=args.steps,
           final_refine_steps=0, tolerance=0, verbose=True)
 
     movement = np.linalg.norm(result.structure.positions - initial.positions, axis=1)

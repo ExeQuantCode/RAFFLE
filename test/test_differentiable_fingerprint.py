@@ -3,6 +3,7 @@ import math
 import os
 from pathlib import Path
 import runpy
+import shutil
 import subprocess
 import sys
 
@@ -24,6 +25,196 @@ from raffle.fingerprint.differentiable.descriptor import (
     _SparseGaussianProjection,
 )
 from raffle.raffle import Geom_Rw
+
+
+@pytest.fixture(scope="session")
+def parallel_four_library(tmp_path_factory):
+    compiler = shutil.which("c++")
+    if compiler is None or sys.platform == "win32":
+        pytest.skip("a C++ compiler is needed to test the parallel CPU library")
+    directory = tmp_path_factory.mktemp("parallel-four")
+    suffix = ".dylib" if sys.platform == "darwin" else ".so"
+    library = directory / ("_raffle_four_body" + suffix)
+    source = (
+        Path(__file__).resolve().parents[1]
+        / "src/raffle/fingerprint/differentiable/_four_body.cpp"
+    )
+    subprocess.run(
+        [compiler, "-O3", "-std=c++17", "-dynamiclib" if sys.platform == "darwin" else "-shared",
+         "-fPIC", "-pthread", str(source), "-o", str(library)],
+        check=True, capture_output=True, text=True,
+    )
+    return directory
+
+
+@pytest.fixture
+def parallel_four(monkeypatch, parallel_four_library):
+    from raffle.fingerprint.differentiable import _parallel_four
+
+    _parallel_four._load_native.cache_clear()
+    monkeypatch.setattr(_parallel_four, "__file__", str(parallel_four_library / "_parallel_four.py"))
+    yield
+    _parallel_four._load_native.cache_clear()
+
+
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float64])
+@pytest.mark.parametrize("workers", [1, 4])
+@pytest.mark.parametrize("periodic", [False, True])
+def test_parallel_four_matches_reference_values_and_gradients(parallel_four, dtype, workers, periodic):
+    if periodic:
+        atoms = bulk("C", "diamond", a=3.567, cubic=False)
+        atoms.cell[1, 0] += 0.1
+        atoms.pbc = [True, False, True]
+    else:
+        atoms = Atoms(
+            "CCCC", positions=[[0, 0, 0], [1.35, 0.1, 0.1], [0.2, 1.4, 0.3], [0.1, 0.3, 2.8]],
+            cell=[12.0] * 3, pbc=False,
+        )
+    elements = ["C", "N", "O", "Si"]
+    generator = torch.Generator().manual_seed(7)
+    initial_logits = torch.randn((len(atoms), len(elements)), dtype=dtype, generator=generator)
+
+    def evaluate(parallel):
+        descriptor = DifferentiableFingerprint(
+            elements, parallel_workers=workers if parallel else None,
+        )
+        positions = torch.tensor(atoms.positions, dtype=dtype, requires_grad=True)
+        cell = torch.tensor(atoms.cell.array, dtype=dtype, requires_grad=True)
+        logits = initial_logits.clone().requires_grad_()
+        fp = descriptor(positions, cell, logits.softmax(dim=1), atoms.pbc)
+        probe = torch.linspace(0.1, 1.0, fp.four_body.numel(), dtype=dtype).reshape(fp.four_body.shape)
+        loss = (fp.four_body * probe).sum() + (fp.unnormalized["four_body"] * probe).sum()
+        gradients = torch.autograd.grad(loss, (positions, cell, logits), retain_graph=True)
+        repeat = torch.autograd.grad(loss, (positions, cell, logits))
+        for first, second in zip(gradients, repeat):
+            torch.testing.assert_close(first, second)
+        with torch.no_grad():
+            no_grad = descriptor(positions, cell, logits.softmax(dim=1), atoms.pbc)
+        torch.testing.assert_close(fp.four_body.detach(), no_grad.four_body)
+        return fp.four_body.detach(), fp.unnormalized["four_body"].detach(), gradients
+
+    actual, raw, gradients = evaluate(True)
+    expected, expected_raw, expected_gradients = evaluate(False)
+    atol, rtol = (2e-6, 2e-3) if dtype == torch.float32 else (2e-10, 2e-8)
+    torch.testing.assert_close(actual, expected, atol=atol, rtol=rtol)
+    torch.testing.assert_close(raw, expected_raw, atol=atol, rtol=rtol)
+    for lhs, rhs in zip(gradients, expected_gradients):
+        torch.testing.assert_close(lhs, rhs, atol=atol, rtol=rtol)
+
+
+def test_parallel_four_gradcheck(parallel_four):
+    atoms = Atoms(
+        "CSiOC",
+        positions=[[0, 0, 0], [1.35, 0.1, 0.1], [0.2, 1.4, 0.3], [0.1, 0.3, 2.8]],
+        cell=[12.0] * 3, pbc=False,
+    )
+    descriptor = DifferentiableFingerprint(["C", "O", "Si"], body_orders=(4,), parallel_workers=2)
+    positions = torch.tensor(atoms.positions, dtype=torch.float64, requires_grad=True)
+    logits = torch.tensor(
+        [[0.2, 0.1, -0.3], [-0.3, 0.4, 0.2], [0.1, -0.2, 0.3], [0.2, 0.3, -0.1]],
+        dtype=torch.float64, requires_grad=True,
+    )
+
+    def objective(position_values, species_logits):
+        result = descriptor(position_values, atoms.cell.array, species_logits.softmax(dim=-1), atoms.pbc)
+        return result.four_body.square().sum()
+
+    assert torch.autograd.gradcheck(objective, (positions, logits), eps=1e-6, atol=5e-4, rtol=5e-3)
+
+
+def test_parallel_four_single_species_and_higher_order_error(parallel_four):
+    atoms = Atoms(
+        "CCCC", positions=[[0, 0, 0], [1.3, 0, 0], [0, 1.3, 0], [0, 0, 2.7]],
+        cell=[8.0] * 3, pbc=False,
+    )
+    positions = torch.tensor(atoms.positions, dtype=torch.float64, requires_grad=True)
+    probabilities = torch.ones((4, 1), dtype=torch.float64)
+    reference = DifferentiableFingerprint(["C"], body_orders=(4,))
+    parallel = DifferentiableFingerprint(["C"], body_orders=(4,), parallel_workers=3)
+    expected = reference(positions, atoms.cell.array, probabilities, atoms.pbc).four_body
+    actual = parallel(positions, atoms.cell.array, probabilities, atoms.pbc).four_body
+    torch.testing.assert_close(actual, expected, atol=1e-10, rtol=1e-8)
+    expected_gradient = torch.autograd.grad(expected.square().sum(), positions, retain_graph=True)[0]
+    actual_gradient = torch.autograd.grad(actual.square().sum(), positions, retain_graph=True)[0]
+    torch.testing.assert_close(actual_gradient, expected_gradient, atol=1e-9, rtol=1e-7)
+    with pytest.raises(RuntimeError, match="higher-order"):
+        torch.autograd.grad(actual.square().sum(), positions, create_graph=True)
+
+
+def test_parallel_four_nearly_collinear_matches_reference(parallel_four):
+    atoms = Atoms(
+        "CCCC", positions=[[0, 0, 0], [1.3, 0, 0], [2.6, 1e-11, 0], [0, 1.3, 0.1]],
+        cell=[10.0] * 3, pbc=False,
+    )
+    probabilities = torch.tensor(
+        [[0.6, 0.4], [0.2, 0.8], [0.7, 0.3], [0.5, 0.5]], dtype=torch.float64
+    )
+    results = []
+    for workers in (None, 2):
+        positions = torch.tensor(atoms.positions, dtype=torch.float64, requires_grad=True)
+        species = probabilities.clone().requires_grad_()
+        descriptor = DifferentiableFingerprint(["C", "Si"], body_orders=(4,), parallel_workers=workers)
+        result = descriptor(positions, atoms.cell.array, species, atoms.pbc).four_body
+        probe = torch.linspace(0.1, 1.0, result.numel(), dtype=result.dtype).reshape(result.shape)
+        gradients = torch.autograd.grad((result * probe).sum(), (positions, species))
+        results.append((result.detach(), gradients))
+    assert results[0][0].abs().max() > 0
+    torch.testing.assert_close(results[0][0], results[1][0], atol=1e-9, rtol=1e-7)
+    for lhs, rhs in zip(results[0][1], results[1][1]):
+        torch.testing.assert_close(lhs, rhs, atol=1e-7, rtol=1e-6)
+
+
+def test_parallel_four_tiny_species_probabilities_match_reference(parallel_four):
+    atoms = Atoms(
+        "CCCC", positions=[[0, 0, 0], [2, 0, 0], [0, 2, 0], [0, 0, 2.4]],
+        cell=[12.0] * 3, pbc=False,
+    )
+    probabilities = torch.tensor([[1.0, 1e-154]] * 4, dtype=torch.float64)
+    positions = torch.tensor(atoms.positions, dtype=torch.float64)
+    reference = DifferentiableFingerprint(["C", "Si"], body_orders=(4,))
+    parallel = DifferentiableFingerprint(["C", "Si"], body_orders=(4,), parallel_workers=2)
+    actual = parallel(positions, atoms.cell.array, probabilities, atoms.pbc)
+    expected = reference(positions, atoms.cell.array, probabilities, atoms.pbc)
+    assert torch.isfinite(actual.four_body).all()
+    assert expected.unnormalized["four_body"].abs().max() > 0
+    torch.testing.assert_close(
+        actual.unnormalized["four_body"], expected.unnormalized["four_body"], atol=1e-15, rtol=1e-8
+    )
+
+
+def test_parallel_four_inverse_design_matches_reference(parallel_four):
+    atoms = bulk("C", "diamond", a=3.567, cubic=False)
+    initial = atoms.copy()
+    initial.positions[0, 0] += 0.1
+    results = []
+    for workers in (None, 2):
+        descriptor = DifferentiableFingerprint(["C", "Si"], parallel_workers=workers)
+        relaxation = FingerprintRelaxation(descriptor, descriptor.generate(atoms))
+        results.append(relaxation.run(initial, max_steps=2, final_refine_steps=1, tolerance=0))
+    np.testing.assert_allclose(results[0].structure.positions, results[1].structure.positions, atol=1e-8)
+    torch.testing.assert_close(
+        results[0].species_probabilities, results[1].species_probabilities, atol=1e-8, rtol=1e-7
+    )
+    assert results[0].loss == pytest.approx(results[1].loss, abs=1e-10)
+
+
+@pytest.mark.parametrize("workers", [0, -1, True, 1.5, 2**31])
+def test_invalid_parallel_workers(workers):
+    with pytest.raises(ValueError, match="parallel_workers"):
+        DifferentiableFingerprint(["C"], parallel_workers=workers)
+
+
+def test_missing_parallel_library_reports_error(monkeypatch, tmp_path):
+    import raffle
+    from raffle.fingerprint.differentiable import _parallel_four
+
+    _parallel_four._load_native.cache_clear()
+    monkeypatch.setattr(raffle, "__path__", [str(tmp_path)])
+    monkeypatch.setattr(_parallel_four, "__file__", str(tmp_path / "_parallel_four.py"))
+    atoms = Atoms("C", positions=[[0, 0, 0]], cell=[10.0] * 3, pbc=False)
+    with pytest.raises(RuntimeError, match="parallel four-body library is unavailable"):
+        DifferentiableFingerprint(["C"], parallel_workers=2).generate(atoms)
+    _parallel_four._load_native.cache_clear()
 
 
 def test_periodic_fingerprint_and_autograd_gradients():
@@ -57,6 +248,68 @@ def test_periodic_fingerprint_and_autograd_gradients():
         torch.tensor([1.0, 0.0, 0.0], dtype=torch.float64),
         atol=1e-10,
     )
+
+
+def test_descriptor_precision_for_ase_and_direct_inputs():
+    atoms = Atoms(
+        "CCCC", positions=[[0, 0, 0], [1.3, 0, 0], [0, 1.3, 0], [0, 0, 2.7]],
+        cell=[8.0] * 3, pbc=False,
+    )
+    descriptor = DifferentiableFingerprint(["C"], dtype=torch.float32)
+    assert descriptor.generate(atoms).two_body.dtype == torch.float32
+    assert descriptor.probabilities_from_atoms(atoms).dtype == torch.float32
+    positions = torch.tensor(atoms.positions, dtype=torch.float64, requires_grad=True)
+    result = descriptor(positions, atoms.cell.array, np.ones((len(atoms), 1)), atoms.pbc)
+    assert result.four_body.dtype == torch.float64
+    assert torch.isfinite(torch.autograd.grad(result.four_body.square().sum(), positions)[0]).all()
+    assert DifferentiableFingerprint(["C"]).generate(atoms).two_body.dtype == torch.float64
+    with pytest.raises(ValueError, match="dtype"):
+        DifferentiableFingerprint(["C"], dtype=torch.float16)
+
+
+def test_float32_exact_relaxation_preserves_fixed_positions_and_species():
+    atoms = Atoms(
+        "CSiC", positions=[[0.123456789, 0, 0], [1.8, 0, 0], [0, 1.8, 0]],
+        cell=[8.0] * 3, pbc=False,
+    )
+    descriptor = DifferentiableFingerprint(["C", "Si"], dtype=torch.float32)
+    relaxation = FingerprintRelaxation(
+        descriptor, descriptor.generate(atoms), composition_constraint="exact"
+    )
+    result = relaxation.run(
+        atoms, max_steps=2, final_refine_steps=1, fixed_position_mask=[True, False, False],
+        fixed_species_mask=[False, True, False],
+    )
+    assert result.composition == {"C": 2, "Si": 1}
+    assert result.species_probabilities.dtype == torch.float32
+    assert np.array_equal(result.structure.positions[0], atoms.positions[0])
+    assert all(np.array_equal(frame.positions[0], atoms.positions[0]) for frame in result.trajectory)
+    assert result.structure[1].symbol == atoms[1].symbol
+
+
+def test_float32_nearly_collinear_geometry_has_finite_gradients():
+    atoms = Atoms(
+        "CCCC",
+        positions=[[0, 0, 0], [1.3, 0, 0], [2.6, 1e-5, 0], [0, 1.3, 1e-5]],
+        cell=[10.0] * 3, pbc=False,
+    )
+    descriptor = DifferentiableFingerprint(["C", "Si"])
+    outputs = []
+    for dtype in (torch.float64, torch.float32):
+        positions = torch.tensor(atoms.positions, dtype=dtype, requires_grad=True)
+        logits = torch.tensor(
+            [[0.2, -0.1], [0.3, 0.1], [-0.2, 0.3], [0.1, 0.2]],
+            dtype=dtype, requires_grad=True,
+        )
+        result = descriptor(positions, atoms.cell.array, logits.softmax(dim=1), atoms.pbc)
+        loss = sum(
+            values.square().sum()
+            for values in (result.two_body, result.three_body, result.four_body)
+        )
+        gradients = torch.autograd.grad(loss, (positions, logits))
+        assert all(torch.isfinite(gradient).all() for gradient in gradients)
+        outputs.append(result.four_body.detach())
+    assert (outputs[0] - outputs[1].double()).abs().max() < 3e-3
 
 
 def test_position_and_species_logit_gradcheck():
@@ -116,6 +369,9 @@ def test_four_body_position_and_multispecies_logit_gradcheck():
 @pytest.mark.parametrize("n_atoms", [128, 512])
 def test_large_multispecies_checkpoint_matches_uncheckpointed_gradients(monkeypatch, n_atoms):
     import torch.utils.checkpoint
+    import raffle.fingerprint.differentiable.descriptor as descriptor_module
+
+    monkeypatch.setattr(descriptor_module, "_FOUR_BODY_CHECKPOINT_MIN_COMBINATIONS", 0)
 
     side = 5 if n_atoms == 128 else 8
     cell_length = 60 if n_atoms == 128 else 90
@@ -174,6 +430,53 @@ def test_large_multispecies_checkpoint_matches_uncheckpointed_gradients(monkeypa
         (*actual, *actual_after_move), (*expected, *expected_after_move)
     ):
         torch.testing.assert_close(lhs, rhs, rtol=1e-8, atol=1e-10)
+
+
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float64])
+def test_four_body_checkpoint_budget_preserves_gradients(monkeypatch, dtype):
+    import torch.utils.checkpoint
+    import raffle.fingerprint.differentiable.descriptor as descriptor_module
+
+    angles = np.arange(9) * (2 * np.pi / 9)
+    cluster = [[0, 0, 0]] + [
+        [1.4 * np.cos(angle), 1.4 * np.sin(angle), 0.2 * np.sin(2 * angle)]
+        for angle in angles
+    ] + [
+        [2.8 * np.cos(angle), 2.8 * np.sin(angle), 0.3]
+        for angle in np.arange(8) * (2 * np.pi / 8)
+    ]
+    isolated = [[20 + 8 * i, 20 + 8 * j, 20 + 8 * k]
+                for i in range(5) for j in range(5) for k in range(5)][:110]
+    atoms = Atoms("C128", positions=cluster + isolated, cell=[80.0] * 3, pbc=False)
+    descriptor = DifferentiableFingerprint(["C", "N", "O", "Si"], body_orders=(4,))
+    monkeypatch.setattr(descriptor_module, "_FOUR_BODY_CHECKPOINT_MIN_COMBINATIONS", 1_000_000)
+    calls = []
+    original = torch.utils.checkpoint.checkpoint
+
+    def checked(function, *args, **kwargs):
+        calls.append(function.__name__)
+        return original(function, *args, **kwargs)
+
+    monkeypatch.setattr(torch.utils.checkpoint, "checkpoint", checked)
+
+    def evaluate(budget):
+        monkeypatch.setattr(descriptor_module, "_FOUR_BODY_UNCHECKPOINTED_BUDGET", budget)
+        calls.clear()
+        positions = torch.tensor(atoms.positions, dtype=dtype, requires_grad=True)
+        logits = torch.zeros((len(atoms), 4), dtype=dtype, requires_grad=True)
+        result = descriptor(positions, atoms.cell.array, logits.softmax(dim=1), atoms.pbc)
+        gradients = torch.autograd.grad(result.four_body.square().sum(), (positions, logits))
+        return result.four_body.detach(), tuple(gradient.detach() for gradient in gradients), len(calls)
+
+    checkpointed, checkpointed_gradients, n_checkpointed = evaluate(0)
+    retained, retained_gradients, n_retained = evaluate(2_500_000)
+    if dtype == torch.float32:
+        assert n_checkpointed > n_retained
+    else:
+        assert n_checkpointed == n_retained
+    torch.testing.assert_close(checkpointed, retained, atol=1e-7, rtol=1e-6)
+    for lhs, rhs in zip(checkpointed_gradients, retained_gradients):
+        torch.testing.assert_close(lhs, rhs, atol=1e-7, rtol=1e-6)
 
 
 def test_zero_skin_rebuilds_neighbor_topology_after_position_change():
@@ -1007,6 +1310,23 @@ def test_sinkhorn_enforces_rows_and_composition_with_sharp_logits():
     assert torch.allclose(probabilities.sum(dim=0), counts, atol=1e-5)
     probabilities.square().sum().backward()
     assert torch.isfinite(logits.grad).all()
+
+
+def test_float32_sinkhorn_large_composition_and_gradients():
+    torch.manual_seed(4)
+    logits = (torch.randn((1024, 4), dtype=torch.float32) * 1.5).requires_grad_()
+    counts = torch.tensor([51.0, 205.0, 512.0, 256.0])
+    probabilities = FingerprintRelaxation._sinkhorn(logits, counts, 0.5)
+    assert probabilities.dtype == torch.float32
+    assert torch.allclose(
+        probabilities.double().sum(dim=0), counts.double(), atol=1e-5, rtol=0
+    )
+    gradient = torch.autograd.grad(probabilities.square().sum(), logits)[0]
+    reference_logits = logits.detach().double().requires_grad_()
+    reference = FingerprintRelaxation._sinkhorn(reference_logits, counts.double(), 0.5)
+    reference_gradient = torch.autograd.grad(reference.square().sum(), reference_logits)[0]
+    assert torch.isfinite(gradient).all()
+    assert torch.allclose(gradient.double(), reference_gradient, atol=1e-6, rtol=1e-4)
 
 
 def test_refinement_reduces_loss_and_verbose_reports_steps(capsys):

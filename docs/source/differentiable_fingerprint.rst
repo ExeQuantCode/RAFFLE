@@ -29,6 +29,18 @@ Generating fingerprints
        pbc=target_atoms.pbc,
    )
 
+ASE target generation, the ASE calculator and inverse-design relaxation use
+``torch.float64`` by default. To use single precision instead, construct the
+descriptor with ``dtype=torch.float32`` (after importing ``torch``). Direct
+descriptor calls preserve the dtype and device of floating-point position
+inputs; cell and probability inputs are converted to match. Integer positions
+use the descriptor's configured dtype. Float32 reduces memory and can improve
+speed, but rounding and nearly degenerate angles can change gradients and
+relaxation trajectories. Compare with float64 when precision is important.
+Exact-composition Sinkhorn balancing in relaxation uses float64 internally
+before returning probabilities in the configured dtype; the final discrete
+assignment enforces the requested counts.
+
 Element channels are ordered alphabetically, matching RAFFLE's Fortran
 structure conversion. Each body order is returned as a bin-by-channel tensor.
 ``FingerprintResult.unnormalized`` contains the pre-channel-normalisation
@@ -61,8 +73,11 @@ pairs are formed as needed, and four-body combinations are processed in
 chunks to avoid a potentially large ``N*k**3`` topology allocation.
 Four-body plane normals and species-pair weights are reused within each
 central-atom calculation. For at least 128 atoms and four allowed elements,
-when gradients are needed, four-body chunks are checkpointed: their
-intermediates are recomputed during backward rather than retained. This
+when gradients are needed, large four-body environments are checkpointed:
+their intermediates are recomputed during backward rather than retained. On
+CPU with float32, moderate environments with sparse projections are retained
+up to a per-call combination budget, after which they too are checkpointed.
+Float64, dense projections and GPU environments remain checkpointed. This
 reduces peak memory at the cost of extra computation; it does not bound total
 memory, which still grows with system size and coordination. At 512 atoms or
 more with at least four allowed elements, sparse 2-body chunks also use
@@ -70,6 +85,18 @@ checkpointing when gradients are needed. Both optimizations retain the same
 fingerprint definition and are inactive when generating a target without
 gradients. The final fingerprint returned by ``run`` is also computed without
 an autograd graph; call the descriptor directly for a differentiable result.
+
+For CPU calculations, ``DifferentiableFingerprint(..., parallel_workers=4)``
+opts into the compiled four-body projection and its first-order analytical
+backward. Use a positive worker count appropriate for the machine; set
+``torch.set_num_threads(1)`` when benchmarking to avoid oversubscribing the
+separate PyTorch thread pool. The parallel library is installed when RAFFLE is
+built with Python support and a C++ compiler. CMake builds can disable it with
+``-DBUILD_DIFFERENTIABLE_PARALLEL=OFF``. An editable installation must be
+rebuilt to obtain it. Without the library, requesting this option for CPU
+float64 raises an error; omit it to use the PyTorch reference. Float32 and
+non-CPU inputs use the reference path. The compiled backward does not support higher-order
+derivatives; omit ``parallel_workers`` if those are needed.
 
 Set ``parameters={"gaussian_tolerance": 1e-8}`` to change the Gaussian
 support for all body orders. The default, ``exp(-16)`` (about ``1.13e-7``),

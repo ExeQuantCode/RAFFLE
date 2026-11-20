@@ -47,6 +47,7 @@ set( CMAKE_BUILD_TYPE "Release"
 option(BUILD_TESTS "Build the unit tests" On)
 option(BUILD_EXAMPLES "Build the examples" On)
 option(BUILD_PYTHON "Build the python library" On)
+option(BUILD_DIFFERENTIABLE_PARALLEL "Build the optional differentiable CPU kernel" On)
 option(BUILD_EXECUTABLE "Build the Fortran executable" On)
 option(REMAKE_F90WRAP "Remake the f90wrap signature file" Off)
 
@@ -305,6 +306,21 @@ endif()
 
 
 if (BUILD_PYTHON)
+
+    if (BUILD_DIFFERENTIABLE_PARALLEL)
+        enable_language(CXX)
+        find_package(Threads REQUIRED)
+        add_library(raffle_four_body SHARED
+            src/raffle/fingerprint/differentiable/_four_body.cpp)
+        set_target_properties(raffle_four_body PROPERTIES
+            PREFIX "" OUTPUT_NAME "_raffle_four_body"
+            CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON
+            CXX_VISIBILITY_PRESET hidden)
+        target_link_libraries(raffle_four_body PRIVATE Threads::Threads)
+        install(TARGETS raffle_four_body
+            LIBRARY DESTINATION ${SKBUILD_PROJECT_NAME}/fingerprint/differentiable
+            RUNTIME DESTINATION ${SKBUILD_PROJECT_NAME}/fingerprint/differentiable)
+    endif()
 
     # # Get the directory where object files are generated
     get_target_property(OBJECTS ${PROJECT_NAME} EXTERNAL_OBJECT)

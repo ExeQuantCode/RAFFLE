@@ -22,6 +22,10 @@ from ase.geometry import complete_cell, find_mic
 from ase.neighborlist import primitive_neighbor_list
 
 
+_FOUR_BODY_CHECKPOINT_MIN_COMBINATIONS = 1024
+_FOUR_BODY_UNCHECKPOINTED_BUDGET = 2_500_000
+
+
 @dataclass
 class FingerprintResult:
     """Species-resolved, bin-by-channel fingerprint tensors.
@@ -245,7 +249,11 @@ class DifferentiableFingerprint:
 
     ``skin`` controls the cached neighbor-list margin in Angstrom.
     ``body_orders`` selects which histograms to compute; disabled orders
-    retain correctly shaped zero tensors.
+    retain correctly shaped zero tensors. ``dtype`` sets the floating-point
+    precision for ASE target generation, the calculator and relaxation. Direct
+    calls use the dtype and device of floating-point position inputs instead.
+    ``parallel_workers`` optionally enables the compiled CPU four-body
+    projection with the specified number of workers.
 
     Two-body channels histogram distances, with per-center species-weighted
     neighbor normalization, inverse-square radial weighting and an edge taper.
@@ -270,7 +278,20 @@ class DifferentiableFingerprint:
         bond_radii: Mapping[tuple[str, str], float] | None = None,
         skin: float = 0.5,
         body_orders: Sequence[int] = (2, 3, 4),
+        dtype: torch.dtype = torch.float64,
+        parallel_workers: int | None = None,
     ):
+        if dtype not in (torch.float32, torch.float64):
+            raise ValueError("dtype must be torch.float32 or torch.float64")
+        if parallel_workers is not None and (
+            isinstance(parallel_workers, bool)
+            or not isinstance(parallel_workers, int)
+            or parallel_workers < 1
+            or parallel_workers > 2**31 - 1
+        ):
+            raise ValueError("parallel_workers must be a positive 32-bit integer or None")
+        self.dtype = dtype
+        self.parallel_workers = parallel_workers
         normalized_elements = tuple(sorted({str(element).strip() for element in elements}))
         if not normalized_elements or any(
             element not in atomic_numbers or atomic_numbers[element] == 0
@@ -439,7 +460,7 @@ class DifferentiableFingerprint:
         """
         positions = torch.as_tensor(positions)
         if not positions.is_floating_point():
-            positions = positions.to(torch.float64)
+            positions = positions.to(self.dtype)
         device, dtype = positions.device, positions.dtype
         cell = torch.as_tensor(cell, dtype=dtype, device=device)
         probabilities = torch.as_tensor(species_probabilities, dtype=dtype, device=device)
@@ -658,6 +679,18 @@ class DifferentiableFingerprint:
         norm3 = self._normalise(raw3)
 
         grids4 = grids["four_body"]
+        parallel_four = (
+            self.parallel_workers is not None and 4 in self.body_orders
+            and device.type == "cpu" and dtype == torch.float64
+        )
+        if parallel_four:
+            from ._parallel_four import _load_native, project
+
+            _load_native()
+            minimum_parallel_denominator = torch.finfo(dtype).tiny * max(
+                1.0, 1.0 / (self.sigma[2] * math.sqrt(2.0 * math.pi))
+            )
+        environments = []
         checkpoint_four_body = (
             4 in self.body_orders and n_atoms >= 128 and n_elements >= 4
             and torch.is_grad_enabled()
@@ -665,6 +698,15 @@ class DifferentiableFingerprint:
         )
         if checkpoint_four_body:
             from torch.utils.checkpoint import checkpoint
+        uncheckpointed_combinations = 0
+        sparse_four_body = (
+            device.type == "cpu"
+            and dtype == torch.float32
+            and 4 * math.ceil(
+                math.sqrt(-2.0 * math.log(self.gaussian_tolerance))
+                * self.sigma[2] / self.width[2]
+            ) + 2 <= grids4.numel()
+        )
 
         # Combine each near-neighbor pair with a fourth-body neighbor and
         # project the angle between the resulting plane normals.
@@ -734,11 +776,22 @@ class DifferentiableFingerprint:
                     continue
 
                 denominator = near_denominator * valid4.sum()
-                if denominator.detach().item() == 0.0:
+                denominator_value = denominator.detach().item()
+                if denominator_value == 0.0:
                     continue
                 # Enumerate only local triplets, never a dense N^4 tensor.
                 chunk = 4096
                 n_combinations = left.numel() * fourth_ids.numel()
+                projected_combinations = n_combinations * (2 if n_elements > 1 else 1)
+                checkpoint_environment = checkpoint_four_body and (
+                    not sparse_four_body
+                    or n_combinations < 128
+                    or n_combinations >= _FOUR_BODY_CHECKPOINT_MIN_COMBINATIONS
+                    or uncheckpointed_combinations + projected_combinations
+                    > _FOUR_BODY_UNCHECKPOINTED_BUDGET
+                )
+                if checkpoint_four_body and not checkpoint_environment:
+                    uncheckpointed_combinations += projected_combinations
                 angle_epsilon = max(torch.finfo(dtype).eps * 10.0, 1e-12)
                 species_weights = win3_by_species * neighbor_probabilities
                 # All beta <= gamma share one plane orientation; beta > gamma
@@ -772,6 +825,13 @@ class DifferentiableFingerprint:
                     (species_weights[left] * lower_weights[right]).sum(dim=1)
                     if n_elements > 1 else forward_pair_weights
                 )
+                if parallel_four and denominator_value >= minimum_parallel_denominator:
+                    environments.append((
+                        alpha, pair_normals, pair_norms, fourth_normals, fourth_norms,
+                        d, fourth_d, win4, probabilities[atom, alpha],
+                        forward_pair_weights, reverse_pair_weights, denominator, left, right,
+                    ))
+                    continue
                 for start in range(0, n_combinations, chunk):
                     flat_index = torch.arange(
                         start, min(start + chunk, n_combinations), device=device
@@ -827,10 +887,15 @@ class DifferentiableFingerprint:
                                 project_chunk, *arguments,
                                 use_reentrant=False, preserve_rng_state=False,
                             )
-                            if checkpoint_four_body else project_chunk(*arguments)
+                            if checkpoint_environment else project_chunk(*arguments)
                         )
                         raw4[:, alpha] = raw4[:, alpha] + contribution
 
+        if parallel_four:
+            raw4 = project(
+                environments, grids4, self.sigma[2], self.width[2], self.cutoff_min[2],
+                self.gaussian_tolerance, n_elements, self.parallel_workers, raw4,
+            )
         norm4 = self._normalise(raw4)
         composition = None
         return FingerprintResult(
@@ -848,8 +913,8 @@ class DifferentiableFingerprint:
         """Generate a reusable target fingerprint from an ASE structure."""
         probabilities = self.probabilities_from_atoms(atoms)
         result = self(
-            torch.as_tensor(atoms.positions, dtype=torch.float64),
-            torch.as_tensor(np.asarray(atoms.cell), dtype=torch.float64),
+            torch.as_tensor(atoms.positions, dtype=self.dtype),
+            torch.as_tensor(np.asarray(atoms.cell), dtype=self.dtype),
             probabilities,
             atoms.pbc,
         )
@@ -862,7 +927,7 @@ class DifferentiableFingerprint:
         missing = sorted(set(atoms.get_chemical_symbols()) - set(self.elements))
         if missing:
             raise ValueError(f"structure contains elements not configured in descriptor: {missing}")
-        result = torch.zeros((len(atoms), len(self.elements)), dtype=torch.float64)
+        result = torch.zeros((len(atoms), len(self.elements)), dtype=self.dtype)
         for index, symbol in enumerate(atoms.get_chemical_symbols()):
             result[index, self.elements.index(symbol)] = 1.0
         return result
@@ -965,12 +1030,12 @@ class FingerprintCalculator(Calculator):
         probabilities = (
             self.descriptor.probabilities_from_atoms(atoms)
             if self._species_probabilities is None
-            else torch.as_tensor(self._species_probabilities, dtype=torch.float64)
+            else torch.as_tensor(self._species_probabilities, dtype=self.descriptor.dtype)
         )
-        positions = torch.tensor(atoms.positions, dtype=torch.float64, requires_grad=True)
+        positions = torch.tensor(atoms.positions, dtype=self.descriptor.dtype, requires_grad=True)
         result = self.descriptor(
             positions,
-            torch.as_tensor(np.asarray(atoms.cell), dtype=torch.float64),
+            torch.as_tensor(np.asarray(atoms.cell), dtype=self.descriptor.dtype),
             probabilities,
             atoms.pbc,
         )
@@ -1068,6 +1133,7 @@ class FingerprintRelaxation:
         self.final_temperature = float(final_temperature)
         self.entropy_weight = float(entropy_weight)
         self.repulsion_weight = float(repulsion_weight)
+        self.repulsion_alpha = 4.0
         self.radial_smoothing = float(radial_smoothing)
         if not math.isfinite(self.radial_smoothing) or self.radial_smoothing < 0:
             raise ValueError("radial_smoothing must be finite and non-negative")
@@ -1117,8 +1183,10 @@ class FingerprintRelaxation:
         active = counts > 0
         if not active.any():
             raise ValueError("exact composition leaves no atoms for variable species")
-        log_kernel = logits[:, active] / temperature
-        target = counts[active]
+        # Float32 reductions can exceed the absolute count tolerance for large
+        # systems; balance in float64 before returning the requested dtype.
+        log_kernel = logits[:, active].to(torch.float64) / temperature
+        target = counts[active].to(torch.float64)
         log_target = target.log()
         column_scale = torch.zeros_like(log_target)
         for iteration in range(1000):
@@ -1138,7 +1206,7 @@ class FingerprintRelaxation:
                 "try a higher temperature or lower species learning rate"
             )
         probabilities = torch.zeros_like(logits)
-        probabilities[:, active] = (log_kernel + column_scale[None, :]).softmax(dim=1)
+        probabilities[:, active] = (log_kernel + column_scale[None, :]).softmax(dim=1).to(logits.dtype)
         return probabilities
 
     def _probabilities(
@@ -1271,7 +1339,8 @@ class FingerprintRelaxation:
             else None
         )
         start_probabilities = self.descriptor.probabilities_from_atoms(atoms)
-        cell = torch.as_tensor(np.asarray(atoms.cell), dtype=torch.float64)
+        dtype = self.descriptor.dtype
+        cell = torch.as_tensor(np.asarray(atoms.cell), dtype=dtype)
         target_fractions = (
             self._composition_counts(atoms) / n_atoms
             if 0 < self.composition_constraint < math.inf else None
@@ -1279,10 +1348,10 @@ class FingerprintRelaxation:
         # Initial labels are favored, but remain soft unless fixed or forced by
         # an exact composition constraint.
         logits = torch.nn.Parameter(
-            torch.where(start_probabilities > 0, 2.0, 0.0).to(torch.float64)
+            torch.where(start_probabilities > 0, 2.0, 0.0).to(dtype)
         )
         position_parameter = torch.nn.Parameter(
-            torch.as_tensor(atoms.positions, dtype=torch.float64).clone()
+            torch.as_tensor(atoms.positions, dtype=dtype).clone()
         )
         optimizer = torch.optim.Adam(
             [
@@ -1364,19 +1433,41 @@ class FingerprintRelaxation:
                     cell,
                     atoms.pbc,
                 )
+
+                # Exclude zero-image self-interactions, but retain periodic self-images.
                 interacting = (ids_i != ids_j) | shifts.ne(0).any(dim=1)
-                ids_i, ids_j, shifts = ids_i[interacting], ids_j[interacting], shifts[interacting]
-                vectors = evaluated_positions[ids_j] - evaluated_positions[ids_i] + shifts.to(
-                    evaluated_positions.dtype
-                ) @ cell
+                ids_i = ids_i[interacting]
+                ids_j = ids_j[interacting]
+                shifts = shifts[interacting]
+
+                vectors = (
+                    evaluated_positions[ids_j]
+                    - evaluated_positions[ids_i]
+                    + shifts.to(evaluated_positions.dtype) @ cell
+                )
                 distances = torch.linalg.vector_norm(vectors, dim=1)
+
+                # Pair-specific radii, including continuous species probabilities.
                 radii = self.descriptor._radii.to(probabilities)
-                minimum = 0.7 * (
+
+                pair_radius = (
                     probabilities[ids_i]
                     * (probabilities[ids_j] @ radii.T)
                 ).sum(dim=1)
-                penalties = torch.relu(minimum - distances).square()
+
+                # Convert the average atomic radii into pair separation.
+                cutoff = 2.0 * pair_radius
+
+                # Dimensionless fractional overlap: x = max(0, (R_cut - r) / R_cut).
+                cutoff = cutoff.clamp_min(1e-8)
+                overlap = ((cutoff - distances) / cutoff).clamp_min(0.0)
+
+                # Smooth exponential repulsive potential.
+                alpha = self.repulsion_alpha  # Suggested initial value: 4.0
+                penalties = overlap.pow(3) * torch.exp(alpha * overlap)
+
                 repulsion = penalties.mean() if penalties.numel() else penalties.sum()
+
                 total = total + self.repulsion_weight * repulsion
                 components["repulsion"] = repulsion
             total.backward()
@@ -1413,6 +1504,7 @@ class FingerprintRelaxation:
                 # pre-update descriptor evaluation as the recorded loss.
                 frame = atoms.copy()
                 frame.positions = evaluated_positions.detach().cpu().numpy()
+                frame.positions[fixed_positions.numpy()] = initial_atoms.positions[fixed_positions.numpy()]
                 frame_probabilities = probabilities.detach().clone()
                 assignment = self._assign_species(
                     frame_probabilities, fixed_species, start_probabilities, exact_counts
@@ -1427,7 +1519,7 @@ class FingerprintRelaxation:
                 probability_history.append(frame_probabilities)
             if len(history) > 1 and tolerance > 0:
                 previous_loss, current_loss = history[-2]["total"], history[-1]["total"]
-                scale = max(abs(previous_loss), abs(current_loss), torch.finfo(torch.float64).tiny)
+                scale = max(abs(previous_loss), abs(current_loss), torch.finfo(dtype).tiny)
                 stable_steps = (
                     stable_steps + 1
                     if abs(previous_loss - current_loss) <= tolerance * scale
@@ -1453,9 +1545,9 @@ class FingerprintRelaxation:
         atoms.set_chemical_symbols([self.descriptor.elements[index] for index in assignment])
         final_probabilities = torch.nn.functional.one_hot(
             torch.as_tensor(assignment), num_classes=n_elements
-        ).to(torch.float64)
+        ).to(dtype)
 
-        refine_positions = torch.nn.Parameter(torch.tensor(atoms.positions, dtype=torch.float64))
+        refine_positions = torch.nn.Parameter(torch.tensor(atoms.positions, dtype=dtype))
         refine_optimizer = torch.optim.Adam([refine_positions], lr=self.position_learning_rate)
         best_positions = refine_positions.detach().clone()
         best_loss = math.inf
@@ -1513,6 +1605,7 @@ class FingerprintRelaxation:
                     self.angular_smoothing, self.loss_reduction,
                 )
         atoms.set_positions(refine_positions.detach().cpu().numpy())
+        atoms.positions[fixed_positions.numpy()] = initial_atoms.positions[fixed_positions.numpy()]
         composition = {
             element: atoms.get_chemical_symbols().count(element)
             for element in self.descriptor.elements

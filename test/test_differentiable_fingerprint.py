@@ -975,6 +975,185 @@ def test_exact_composition_and_fixed_atoms_are_preserved(constraint):
     )
 
 
+@pytest.mark.parametrize("method", ["metropolis", "langevin"])
+def test_stochastic_relaxation_is_seeded_and_respects_fixed_constraints(method):
+    atoms = Atoms(
+        "CSiC", positions=[[0.123456789, 0, 0], [1.8, 0.1, 0], [0.2, 1.7, 0.3]],
+        cell=[8.0] * 3, pbc=False,
+    )
+    descriptor = DifferentiableFingerprint(["C", "Si"], body_orders=(2, 3))
+    relaxation = FingerprintRelaxation(
+        descriptor, descriptor.generate(atoms), composition_constraint="exact",
+        loss_weights=(1.0, 1.0, 0.0),
+    )
+    kwargs = dict(
+        method=method, exploration_temperature=0.01, random_seed=42,
+        max_steps=3, final_refine_steps=0, fixed_position_mask=[True, False, False],
+        fixed_species_mask=[False, True, False],
+    )
+    random_state = torch.random.get_rng_state().clone()
+    first = relaxation.run(atoms, **kwargs)
+    second = relaxation.run(atoms, **kwargs)
+    assert torch.equal(torch.random.get_rng_state(), random_state)
+    np.testing.assert_array_equal(first.structure.positions, second.structure.positions)
+    torch.testing.assert_close(first.species_probabilities, second.species_probabilities, rtol=0, atol=0)
+    assert first.composition == {"C": 2, "Si": 1}
+    assert np.array_equal(first.structure.positions[0], atoms.positions[0])
+    assert first.structure[1].symbol == "Si"
+    assert all(np.array_equal(frame.positions[0], atoms.positions[0]) for frame in first.trajectory)
+    assert not np.array_equal(first.structure.positions[2], atoms.positions[2])
+
+
+def test_metropolis_temperature_controls_uphill_acceptance():
+    atoms = Atoms("CC", positions=[[0, 0, 0], [1.5, 0.1, 0]], cell=[10] * 3, pbc=False)
+    initial = atoms.copy()
+    initial.positions[1, 0] += 0.3
+    descriptor = DifferentiableFingerprint(["C"], body_orders=(2,))
+    relaxation = FingerprintRelaxation(
+        descriptor, descriptor.generate(atoms), loss_weights=(1.0, 0.0, 0.0),
+        position_learning_rate=0.1,
+    )
+    results = [
+        relaxation.run(
+            initial, method="metropolis", exploration_temperature=temperature,
+            random_seed=7, optimise_species=False, max_steps=8, final_refine_steps=0,
+        )
+        for temperature in (0.0, 1.0)
+    ]
+    assert any(not item["metropolis_accepted"] for item in results[0].loss_history)
+    assert all(item["metropolis_accepted"] for item in results[1].loss_history)
+    assert not np.array_equal(results[0].structure.positions, results[1].structure.positions)
+
+
+def test_langevin_noise_scales_with_square_root_of_temperature():
+    atoms = Atoms("CC", positions=[[0, 0, 0], [1.5, 0, 0]], cell=[10] * 3, pbc=False)
+    descriptor = DifferentiableFingerprint(["C"], body_orders=(2,))
+    relaxation = FingerprintRelaxation(
+        descriptor, descriptor.generate(atoms), loss_weights=(0.0, 0.0, 0.0)
+    )
+    displacements = []
+    for temperature in (0.01, 0.04):
+        result = relaxation.run(
+            atoms, method="langevin", exploration_temperature=temperature,
+            random_seed=42, optimise_species=False, max_steps=1, final_refine_steps=0,
+            fixed_position_mask=[True, False],
+        )
+        displacements.append(result.structure.positions - atoms.positions)
+    assert np.linalg.norm(displacements[0][1]) > 0
+    np.testing.assert_allclose(displacements[1], 2 * displacements[0], atol=1e-14)
+
+
+@pytest.mark.parametrize("method", ["metropolis", "langevin"])
+def test_stochastic_relaxation_can_change_unconstrained_species(method):
+    atoms = Atoms(
+        "CSiC", positions=[[0, 0, 0], [1.5, 0.1, 0], [0.2, 1.6, 0.3]],
+        cell=[10] * 3, pbc=False,
+    )
+    descriptor = DifferentiableFingerprint(["C", "Si"], body_orders=(2, 3))
+    relaxation = FingerprintRelaxation(
+        descriptor, descriptor.generate(atoms), loss_weights=(1.0, 1.0, 0.0)
+    )
+    deterministic = relaxation.run(
+        atoms, optimise_positions=False, max_steps=1, final_refine_steps=0,
+        fixed_species_mask=[True, False, False],
+        method="langevin" if method == "langevin" else "adam", random_seed=42,
+    )
+    stochastic = relaxation.run(
+        atoms, optimise_positions=False, max_steps=1, final_refine_steps=0,
+        method=method, exploration_temperature=1.0, random_seed=42,
+        fixed_species_mask=[True, False, False],
+    )
+    assert torch.equal(
+        stochastic.species_probabilities[0], descriptor.probabilities_from_atoms(atoms)[0]
+    )
+    assert not torch.allclose(
+        stochastic.species_probabilities[1:], deterministic.species_probabilities[1:]
+    )
+
+
+def test_denoiser_stage_uses_seeded_large_perturbations_and_preserves_masks():
+    atoms = Atoms(
+        "CSiC", positions=[[0.123456789, 0, 0], [1.8, 0.1, 0], [0.2, 1.7, 0.3]],
+        cell=[8.0] * 3, pbc=False,
+    )
+    descriptor = DifferentiableFingerprint(["C", "Si"], body_orders=(2, 3))
+    relaxation = FingerprintRelaxation(
+        descriptor, descriptor.generate(atoms), composition_constraint="exact",
+        loss_weights=(1.0, 1.0, 0.0), position_learning_rate=0.001,
+    )
+    callbacks = []
+    result = relaxation.run(
+        atoms, denoiser_steps=3, denoising_position_scale=0.5,
+        denoising_species_scale=0.8, random_seed=123, max_steps=2,
+        final_refine_steps=0, fixed_position_mask=[True, False, False],
+        fixed_species_mask=[False, True, False], tolerance=0,
+        callback=lambda step, frame, probabilities, record: callbacks.append(
+            (step, frame, probabilities, record)
+        ),
+    )
+    assert result.n_steps == 5
+    assert all("denoising" in record for record in result.loss_history[:3])
+    assert all("denoising" not in record for record in result.loss_history[3:])
+    assert np.linalg.norm(result.trajectory[1].positions[2] - atoms.positions[2]) > 0.1
+    assert all(np.array_equal(frame.positions[0], atoms.positions[0]) for frame in result.trajectory)
+    assert result.structure[1].symbol == "Si"
+    assert result.composition == {"C": 2, "Si": 1}
+    assert len(callbacks) == result.n_steps
+    for (step, frame, probabilities, record), saved, saved_probabilities in zip(
+        callbacks, result.trajectory[1:-1], result.species_probabilities_history[1:-1]
+    ):
+        assert np.array_equal(frame.positions, saved.positions)
+        assert torch.equal(probabilities, saved_probabilities)
+        assert record == result.loss_history[step]
+
+
+def test_denoiser_can_perturb_species_without_changing_positions():
+    atoms = Atoms(
+        "CSiC", positions=[[0, 0, 0], [1.5, 0.1, 0], [0.2, 1.6, 0.3]],
+        cell=[10] * 3, pbc=False,
+    )
+    descriptor = DifferentiableFingerprint(["C", "Si"], body_orders=(2, 3))
+    relaxation = FingerprintRelaxation(
+        descriptor, descriptor.generate(atoms), loss_weights=(1.0, 1.0, 0.0)
+    )
+    results = [
+        relaxation.run(
+            atoms, optimise_positions=False, denoiser_steps=1, denoising_species_scale=scale,
+            random_seed=42, max_steps=1, final_refine_steps=0,
+            fixed_species_mask=[True, False, False],
+        )
+        for scale in (0.0, 2.0)
+    ]
+    assert np.array_equal(results[1].structure.positions, atoms.positions)
+    assert not torch.allclose(
+        results[0].species_probabilities_history[1][1:],
+        results[1].species_probabilities_history[1][1:],
+    )
+    assert torch.equal(
+        results[1].species_probabilities_history[1][0], descriptor.probabilities_from_atoms(atoms)[0]
+    )
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"method": "unknown"}, {"exploration_temperature": 1.0},
+        {"method": "langevin", "exploration_temperature": float("inf")},
+        {"denoiser_steps": -1}, {"denoiser_steps": 1.5},
+        {"denoising_position_scale": -0.1}, {"denoising_species_scale": float("nan")},
+        {"random_seed": -1},
+    ],
+)
+def test_invalid_stochastic_relaxation_options(options):
+    atoms = Atoms("CC", positions=[[0, 0, 0], [1.5, 0, 0]], cell=[10] * 3, pbc=False)
+    descriptor = DifferentiableFingerprint(["C"], body_orders=(2,))
+    relaxation = FingerprintRelaxation(
+        descriptor, descriptor.generate(atoms), loss_weights=(1.0, 0.0, 0.0)
+    )
+    with pytest.raises(ValueError):
+        relaxation.run(atoms, max_steps=1, final_refine_steps=0, **options)
+
+
 def test_composition_temperature_scales_fractional_mismatch():
     atoms = Atoms("CC", positions=[[0, 0, 0], [1.5, 0, 0]], cell=[10] * 3)
     initial = atoms.copy()

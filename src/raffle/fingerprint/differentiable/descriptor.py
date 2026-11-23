@@ -1272,6 +1272,12 @@ class FingerprintRelaxation:
         trajectory_interval: int = 1,
         final_refine_steps: int = 20,
         tolerance: float = 1e-8,
+        method: str = "adam",
+        exploration_temperature: float = 0.0,
+        denoiser_steps: int = 0,
+        denoising_position_scale: float = 0.3,
+        denoising_species_scale: float = 1.0,
+        random_seed: int | None = None,
         callback: Any = None,
         verbose: bool = False,
     ) -> RelaxationResult:
@@ -1282,13 +1288,24 @@ class FingerprintRelaxation:
         positions and species for this run.
         The input ASE object is copied, and its cell is never optimized.
 
+        ``method`` selects the original Adam updates, Adam followed by
+        Metropolis trial moves, or overdamped Langevin updates. The separate
+        ``exploration_temperature`` is in fingerprint-objective units, not
+        kelvin. ``denoiser_steps`` adds a preliminary stage of annealed
+        perturbations followed by Adam updates against the fingerprint loss;
+        this is objective-guided denoising, not a trained diffusion model.
+        Its position and logit noise scales are controlled separately.
+        ``random_seed`` repeats the stochastic draws without changing the
+        global PyTorch random state.
+
         At each joint step, logits become species probabilities by softmax or,
         in exact mode, Sinkhorn balancing at the annealed temperature. The
         descriptor and weighted loss are evaluated, optional composition,
-        entropy and repulsion terms are added, and Adam updates positions and
-        logits. Fixed values are restored after each update. Five consecutive relative loss
-        changes no larger than ``tolerance`` stop the joint loop; zero
-        tolerance disables early stopping.
+        entropy and repulsion terms are added, and the selected method updates
+        positions and logits. Fixed values are restored after each update.
+        For Adam, five consecutive relative loss changes no larger than
+        ``tolerance`` stop the joint loop; zero tolerance disables early
+        stopping. Stochastic methods run all ``max_steps``.
 
         ``callback(step, frame, probabilities, record)`` receives the
         pre-update evaluated state and unweighted component losses plus the
@@ -1308,8 +1325,9 @@ class FingerprintRelaxation:
         The returned ``loss`` and ``fingerprint`` describe the final discrete
         structure; ``loss_history`` describes joint pre-update states, and
         ``species_probabilities`` is the final soft state before rounding.
-        ``n_steps`` and ``converged`` refer only to the joint loop. Verbose
-        gradients are objective gradients, not physical forces.
+        ``n_steps`` includes denoising and joint steps; ``converged`` refers
+        to the joint loop. Verbose gradients are objective gradients, not
+        physical forces.
         """
         if len(initial_atoms) == 0:
             raise ValueError("cannot relax an empty structure")
@@ -1317,6 +1335,23 @@ class FingerprintRelaxation:
             raise ValueError("max_steps and trajectory_interval must be positive")
         if final_refine_steps < 0 or tolerance < 0 or not math.isfinite(tolerance):
             raise ValueError("final_refine_steps and tolerance must be non-negative")
+        if method not in ("adam", "metropolis", "langevin"):
+            raise ValueError('method must be "adam", "metropolis", or "langevin"')
+        if not math.isfinite(exploration_temperature) or exploration_temperature < 0:
+            raise ValueError("exploration_temperature must be finite and non-negative")
+        if method == "adam" and exploration_temperature != 0:
+            raise ValueError('exploration_temperature requires method="metropolis" or "langevin"')
+        if isinstance(denoiser_steps, bool) or not isinstance(denoiser_steps, int) or denoiser_steps < 0:
+            raise ValueError("denoiser_steps must be a non-negative integer")
+        if any(not math.isfinite(value) or value < 0 for value in (
+            denoising_position_scale, denoising_species_scale
+        )):
+            raise ValueError("denoising noise scales must be finite and non-negative")
+        if random_seed is not None and (
+            isinstance(random_seed, bool) or not isinstance(random_seed, int)
+            or not 0 <= random_seed < 2**64
+        ):
+            raise ValueError("random_seed must be an integer from 0 to 2**64 - 1")
         atoms = initial_atoms.copy()
         n_atoms, n_elements = len(atoms), len(self.descriptor.elements)
         fixed_positions = torch.as_tensor(
@@ -1365,6 +1400,13 @@ class FingerprintRelaxation:
         prior_positions = position_parameter.detach().clone()
         converged = False
         stable_steps = 0
+        generator = None
+        if denoiser_steps or method in ("metropolis", "langevin"):
+            generator = torch.Generator(device="cpu")
+            if random_seed is None:
+                generator.seed()
+            else:
+                generator.manual_seed(random_seed)
 
         def log_step(phase: str, step: int, loss: float, gradient: torch.Tensor | None,
                      species_gradient: torch.Tensor | None, displacement: torch.Tensor) -> None:
@@ -1390,17 +1432,12 @@ class FingerprintRelaxation:
                 flush=True,
             )
 
-        # Joint phase: the descriptor sees soft species and the current geometry.
-        for step in range(max_steps):
-            fraction = step / max(1, max_steps - 1)
-            temp = self.temperature * (self.final_temperature / self.temperature) ** fraction
-            optimizer.zero_grad(set_to_none=True)
-            position_parameter.grad = None
+        def evaluate_state(position_values, species_logits, temperature):
             probabilities = self._probabilities(
-                start_probabilities, logits, fixed_species, temp, exact_counts
+                start_probabilities, species_logits, fixed_species, temperature, exact_counts
             )
             evaluated_positions = torch.where(
-                fixed_positions[:, None], prior_positions, position_parameter
+                fixed_positions[:, None], prior_positions, position_values
             )
             current = self.descriptor(
                 evaluated_positions,
@@ -1470,7 +1507,36 @@ class FingerprintRelaxation:
 
                 total = total + self.repulsion_weight * repulsion
                 components["repulsion"] = repulsion
+            return total, components, probabilities, evaluated_positions
+
+        def add_noise(values, fixed, scale):
+            if scale == 0 or bool(fixed.all()):
+                return
+            noise = torch.randn(values.shape, dtype=values.dtype, device=values.device, generator=generator)
+            values.add_(noise * (~fixed)[:, None], alpha=scale)
+
+        # Denoising is a separate warm-up stage; max_steps still counts joint steps.
+        for step in range(denoiser_steps + max_steps):
+            denoising = step < denoiser_steps
+            joint_step = max(0, step - denoiser_steps)
+            fraction = joint_step / max(1, max_steps - 1)
+            temp = self.temperature * (self.final_temperature / self.temperature) ** fraction
+            if denoising:
+                noise_fraction = (denoiser_steps - step) / denoiser_steps
+                with torch.no_grad():
+                    add_noise(position_parameter, fixed_positions, denoising_position_scale * noise_fraction)
+                    add_noise(logits, fixed_species, denoising_species_scale * noise_fraction)
+            optimizer.zero_grad(set_to_none=True)
+            position_parameter.grad = None
+            total, components, probabilities, evaluated_positions = evaluate_state(
+                position_parameter, logits, temp
+            )
             total.backward()
+            if (denoising or method != "adam") and any(
+                gradient is not None and not torch.isfinite(gradient).all().item()
+                for gradient in (position_parameter.grad, logits.grad)
+            ):
+                raise FloatingPointError("stochastic relaxation produced a non-finite gradient")
             if (
                 target_fractions is not None
                 and logits.grad is not None
@@ -1487,18 +1553,60 @@ class FingerprintRelaxation:
             if not optimise_species:
                 logits.grad = None
             previous_positions = position_parameter.detach().clone() if verbose else None
-            optimizer.step()
+            accepted = None
+            if denoising or method != "langevin":
+                optimizer.step()
+            else:
+                position_noise = math.sqrt(2.0 * exploration_temperature * self.position_learning_rate)
+                species_noise = math.sqrt(2.0 * exploration_temperature * self.species_learning_rate)
+                if not math.isfinite(position_noise) or not math.isfinite(species_noise):
+                    raise FloatingPointError("Langevin noise scale is not finite")
+                with torch.no_grad():
+                    if position_parameter.grad is not None:
+                        position_parameter.add_(position_parameter.grad, alpha=-self.position_learning_rate)
+                    if logits.grad is not None:
+                        logits.add_(logits.grad, alpha=-self.species_learning_rate)
+                    add_noise(position_parameter, fixed_positions, position_noise)
+                    add_noise(logits, fixed_species, species_noise)
+                    if not torch.isfinite(position_parameter).all() or not torch.isfinite(logits).all():
+                        raise FloatingPointError("Langevin update produced non-finite values")
             with torch.no_grad():
                 position_parameter[fixed_positions] = prior_positions[fixed_positions]
+                if not denoising and method == "metropolis":
+                    if bool(fixed_positions.all()) and bool(fixed_species.all()):
+                        accepted = True
+                    else:
+                        baseline, _, _, _ = evaluate_state(position_parameter, logits, temp)
+                        proposed_positions = position_parameter.clone()
+                        proposed_logits = logits.clone()
+                        add_noise(proposed_positions, fixed_positions, self.position_learning_rate)
+                        add_noise(proposed_logits, fixed_species, self.species_learning_rate)
+                        proposed, _, _, _ = evaluate_state(proposed_positions, proposed_logits, temp)
+                        baseline_value, proposed_value = float(baseline), float(proposed)
+                        if not math.isfinite(baseline_value) or not math.isfinite(proposed_value):
+                            raise FloatingPointError("Metropolis objective is not finite")
+                        change = proposed_value - baseline_value
+                        accepted = change <= 0 or (
+                            exploration_temperature > 0
+                            and float(torch.rand((), generator=generator))
+                            < math.exp(-change / exploration_temperature)
+                        )
+                        if accepted:
+                            position_parameter.copy_(proposed_positions)
+                            logits.copy_(proposed_logits)
             record = {key: float(value.detach()) for key, value in components.items()}
             record["total"] = float(total.detach())
+            if denoising:
+                record["denoising"] = 1.0
+            if accepted is not None:
+                record["metropolis_accepted"] = float(accepted)
             history.append(record)
             if verbose:
                 log_step(
-                    "Joint", step, record["total"], position_parameter.grad,
+                    "Denoise" if denoising else "Joint", step, record["total"], position_parameter.grad,
                     logits.grad, position_parameter.detach() - previous_positions,
                 )
-            save_frame = step % trajectory_interval == 0 or step == max_steps - 1
+            save_frame = step % trajectory_interval == 0 or step == denoiser_steps + max_steps - 1
             if callback is not None or save_frame:
                 # Keep frame positions and probabilities from the same
                 # pre-update descriptor evaluation as the recorded loss.
@@ -1517,7 +1625,7 @@ class FingerprintRelaxation:
             if save_frame:
                 trajectory.append(frame)
                 probability_history.append(frame_probabilities)
-            if len(history) > 1 and tolerance > 0:
+            if not denoising and method == "adam" and joint_step > 0 and tolerance > 0:
                 previous_loss, current_loss = history[-2]["total"], history[-1]["total"]
                 scale = max(abs(previous_loss), abs(current_loss), torch.finfo(dtype).tiny)
                 stable_steps = (

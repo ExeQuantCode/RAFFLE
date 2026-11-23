@@ -173,8 +173,64 @@ This avoids premature stopping when the absolute fingerprint loss is small.
 Position and species step sizes can be adjusted independently using
 ``position_learning_rate`` and ``species_learning_rate``. The final
 ``final_refine_steps`` position-only steps use Adam after species assignment,
-and return the lowest-loss positions encountered. ``converged`` and ``n_steps``
-refer to the joint loop.
+and return the lowest-loss positions encountered. ``converged`` refers to the
+joint loop; ``n_steps`` includes any denoising steps.
+
+Stochastic exploration and denoising
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The default ``method="adam"`` remains deterministic. Two alternative joint
+methods can help explore the non-convex fingerprint objective:
+
+* ``method="metropolis"`` performs the usual Adam update, then proposes
+  independent Gaussian position and species-logit changes. Their standard
+  deviations are the respective learning rates. A proposed move is accepted
+  when it lowers the *full joint objective*; an uphill move of size
+  ``delta`` is accepted with probability ``exp(-delta / T)``. ``T`` is
+  ``exploration_temperature``; at zero, uphill proposals are rejected.
+  The Adam step is not a Metropolis proposal, so the combined procedure is
+  an optimizer, not a guarantee of equilibrium sampling.
+* ``method="langevin"`` replaces the Adam joint update with a gradient step
+  and independent Gaussian noise. For each variable group with learning rate
+  ``h``, the noise standard deviation is ``sqrt(2*h*T)``. At zero temperature
+  this becomes deterministic gradient descent.
+
+``exploration_temperature`` is a non-negative, finite **objective-scale**
+parameter, not kelvin or energy in eV. It is separate from the constructor's
+``temperature`` and ``final_temperature``, which control the exact-composition
+Sinkhorn probabilities. Its useful magnitude depends on the fingerprint loss,
+weights and other penalties; no setting guarantees barrier crossing. Both
+methods respect fixed masks and exact-composition constraints. Relative-loss
+early stopping is disabled for these stochastic methods, so they run all
+``max_steps``. Each Metropolis step requires two additional objective
+evaluations.
+
+``denoiser_steps`` optionally adds a preliminary objective-guided denoising
+stage before the selected joint method. At each step, Gaussian perturbations
+are added to free positions and logits, with a linearly decreasing amplitude,
+then an Adam step follows the fingerprint objective. The initial standard
+deviations are ``denoising_position_scale`` (Angstrom, default 0.3) and
+``denoising_species_scale`` (logit units, default 1.0). This is an annealed
+perturb-and-relax heuristic, **not** a trained diffusion denoiser; noise can
+increase the loss or create close contacts. It does not guarantee a physically
+valid structure. Fixed masks and exact composition remain enforced.
+
+These are additional steps: ``denoiser_steps=10, max_steps=100`` can perform
+110 updates, and ``n_steps`` includes both stages. Denoising entries
+in ``loss_history`` have ``denoising=1``; Metropolis joint entries have
+``metropolis_accepted`` set to 0 or 1. Losses and callback frames still
+describe the pre-update state; the acceptance flag describes the subsequent
+trial. Set ``random_seed`` to repeat the stochastic draws without changing
+PyTorch's global random state; other numerical nondeterminism may still affect
+results. Final position-only refinement remains the existing deterministic
+Adam procedure.
+
+.. code-block:: python
+
+   result = relaxation.run(
+       initial_atoms, method="metropolis", exploration_temperature=1e-5,
+       denoiser_steps=10, random_seed=42,
+   )
 
 The optional ``repulsion_weight`` defaults to zero. Its current joint-loop
 penalty uses 0.7 times the descriptor's pair radius as its onset. It excludes

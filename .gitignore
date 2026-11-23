@@ -5,6 +5,8 @@ obj/
 *.mod
 *.smod
 *.so
+_raffle_four_body.dylib
+_raffle_four_body.dll
 *.txt
 DTESTING/
 DTEST/

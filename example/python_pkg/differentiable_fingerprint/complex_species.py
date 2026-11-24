@@ -32,7 +32,7 @@ def main():
     all_species = reference.get_chemical_symbols()
     elements = sorted(set(reference.get_chemical_symbols()))
     elements += ["C"]
-    descriptor = DifferentiableFingerprint(elements, body_orders=(2, 3), parallel_workers=args.parallel_workers)
+    descriptor = DifferentiableFingerprint(elements, body_orders=(2, 3, 4), parallel_workers=args.parallel_workers)
     target = descriptor.generate(reference)
     initial = reference.copy()
     initial.set_chemical_symbols(["C"] * len(initial))
@@ -45,7 +45,7 @@ def main():
         descriptor,
         target,
         composition_constraint="exact",
-        loss_weights=(1.0, 1.0, 0.0),
+        loss_weights=(1.0, 1.0, 1.0),
         loss_reduction="density",
         radial_smoothing=0.5,
         angular_smoothing=0.3,
@@ -60,31 +60,32 @@ def main():
         final_refine_steps=0,
         tolerance=0,
         verbose=True,
-        method="metropolis", exploration_temperature=0.025,
-        denoiser_steps=0, random_seed=42,  # for reproducibility
+        # method="adam", exploration_temperature=0.01,
+        # denoiser_steps=0, random_seed=42,  # for reproducibility
     )
-    result2 = FingerprintRelaxation(
-        descriptor,
-        target,
-        composition_constraint="exact",
-        loss_weights=(1.0, 1.0, 0.0),
-        loss_reduction="density",
-        radial_smoothing=0.5,
-        angular_smoothing=0.3,
-        species_learning_rate=0.05,
-        final_temperature=1.0,
-        position_learning_rate=0.1,
-        repulsion_weight=10.0,
-    ).run(
-        result1.structure,
-        optimise_positions=True,
-        final_refine_steps=0,
-        max_steps=50,
-        tolerance=0,
-        verbose=True,
-        method="adam",
-    )
-    result = result2
+    # result2 = FingerprintRelaxation(
+    #     descriptor,
+    #     target,
+    #     composition_constraint="exact",
+    #     loss_weights=(1.0, 1.0, 0.0),
+    #     loss_reduction="density",
+    #     radial_smoothing=0.5,
+    #     angular_smoothing=0.3,
+    #     species_learning_rate=0.05,
+    #     final_temperature=1.0,
+    #     position_learning_rate=0.1,
+    #     repulsion_weight=10.0,
+    # ).run(
+    #     result1.structure,
+    #     optimise_positions=True,
+    #     final_refine_steps=0,
+    #     max_steps=50,
+    #     tolerance=0,
+    #     verbose=True,
+    #     method="adam",
+    # )
+    # result = result2
+    result = result1
     correct = sum(
         actual == expected
         for actual, expected in zip(result.structure.get_chemical_symbols(), reference.get_chemical_symbols())
@@ -94,7 +95,7 @@ def main():
     print(f"Final discrete loss: {result.loss:.6g}; exact site labels: {correct}/{len(reference)}")
     print(f"Final composition: {result.composition}")
     write(args.output_dir / "complex_species.extxyz", result.structure)
-    write(args.output_dir / "complex_species.traj", result1.trajectory + result2.trajectory)
+    write(args.output_dir / "complex_species.traj", result1.trajectory )#+ result2.trajectory)
     plot_fingerprint_results(target, result.fingerprint, args.output_dir / "complex_species.png")
 
 

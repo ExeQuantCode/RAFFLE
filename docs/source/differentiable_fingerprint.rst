@@ -51,6 +51,14 @@ For expensive systems, pass ``body_orders=(2, 3)`` to the descriptor to skip
 ``FingerprintResult.body_orders``; requesting a nonzero loss weight for a
 disabled order raises an error.
 
+Channels that are structurally empty can be skipped by passing
+``active_species`` as a Boolean sequence in element order; omitted channels
+stay zero and their gradient contributions are not computed, so only mark
+species that cannot receive probability mass. Exact-composition relaxation
+sets this automatically for elements with a zero target count. Grids, taper,
+radial windows and index buffers are cached per descriptor, so repeated
+evaluations do not rebuild them.
+
 Neighbor topology is built with ASE out to the maximum radial cutoff plus
 ``skin`` (default 0.5 Angstrom). This global cutoff also bounds the
 species-dependent angular windows, so the candidate list covers every allowed

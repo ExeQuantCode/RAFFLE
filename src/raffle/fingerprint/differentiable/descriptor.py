@@ -24,6 +24,17 @@ from ase.neighborlist import primitive_neighbor_list
 
 _FOUR_BODY_CHECKPOINT_MIN_COMBINATIONS = 1024
 _FOUR_BODY_UNCHECKPOINTED_BUDGET = 2_500_000
+# Per-device offset vectors reused by every sparse Gaussian projection.
+_SPARSE_OFFSET_CACHE: dict[tuple[int, torch.device], torch.Tensor] = {}
+
+
+def _sparse_offsets(radius: int, device: torch.device) -> torch.Tensor:
+    key = (radius, device)
+    offsets = _SPARSE_OFFSET_CACHE.get(key)
+    if offsets is None:
+        offsets = torch.arange(-radius, radius + 1, device=device)
+        _SPARSE_OFFSET_CACHE[key] = offsets
+    return offsets
 
 
 @dataclass
@@ -199,8 +210,8 @@ class _SparseGaussianProjection(torch.autograd.Function):
     def forward(ctx, values, weights, grid, eta, width, minimum, radius):
         ctx.save_for_backward(values, weights, grid)
         ctx.eta, ctx.width, ctx.minimum, ctx.radius = eta, width, minimum, radius
-        offsets = torch.arange(-radius, radius + 1, device=values.device)
-        ctx.chunk = min(2048, max(1, 524288 // offsets.numel()))
+        offsets = _sparse_offsets(radius, values.device)
+        ctx.chunk = min(8192, max(1, 2_097_152 // offsets.numel()))
         result = weights.new_zeros(grid.shape)
         for start in range(0, values.numel(), ctx.chunk):
             x, weight = values[start:start + ctx.chunk], weights[start:start + ctx.chunk]
@@ -215,7 +226,7 @@ class _SparseGaussianProjection(torch.autograd.Function):
     @staticmethod
     def backward(ctx, grad_output):
         values, weights, grid = ctx.saved_tensors
-        offsets = torch.arange(-ctx.radius, ctx.radius + 1, device=values.device)
+        offsets = _sparse_offsets(ctx.radius, values.device)
         grad_values, grad_weights = [], []
         for start in range(0, values.numel(), ctx.chunk):
             x, weight = values[start:start + ctx.chunk], weights[start:start + ctx.chunk]
@@ -347,6 +358,13 @@ class DifferentiableFingerprint:
             dtype=torch.float64,
         )
         self._topology = _NeighborTopology(max(self.cutoff_max[0], 1e-4), skin)
+        # Grids, radii, taper and radial windows are configuration constants.
+        # Rebuilding them on every descriptor evaluation dominates small calls,
+        # so they are memoized against the parameters that define them.
+        self._constants_cache: dict[tuple[Any, ...], dict[str, Any]] = {}
+        self._triu_cache: dict[
+            tuple[int, torch.device], tuple[torch.Tensor, torch.Tensor]
+        ] = {}
 
     @staticmethod
     def _pair_key(a: str, b: str) -> tuple[str, str]:
@@ -391,6 +409,100 @@ class DifferentiableFingerprint:
                 self.width,
             )
         }
+
+    def _constants(self, dtype: torch.dtype, device: torch.device) -> dict[str, Any]:
+        """Return memoized grids, radii, taper and radial windows."""
+        # Include the tunable parameters so that mutating ``width`` and friends
+        # invalidates the cached tensors instead of returning stale grids.
+        key = (
+            dtype,
+            device,
+            tuple(self.width),
+            tuple(self.sigma),
+            tuple(self.cutoff_min),
+            tuple(self.cutoff_max),
+            tuple(self.radius_distance_tol),
+            self.gaussian_tolerance,
+        )
+        cached = self._constants_cache.get(key)
+        if cached is not None:
+            return cached
+        grids = self._grids(dtype, device)
+        radii = self._radii.to(dtype=dtype, device=device)
+        n_elements = len(self.elements)
+        grids2 = grids["two_body"]
+
+        taper_max = self.cutoff_max[0] - 0.25
+        taper_min = self.cutoff_min[0] + 0.25
+        taper = torch.where(
+            grids2 > taper_max,
+            0.5 * (1.0 + torch.cos(math.pi * (grids2 - taper_max) / 0.25)),
+            torch.ones_like(grids2),
+        )
+        taper = torch.where(
+            grids2 < taper_min,
+            0.5 * (1.0 + torch.cos(math.pi * (grids2 - taper_min) / 0.25)),
+            taper,
+        )
+
+        # The neighbour windows depend on the central species only, so they can
+        # be built once instead of for every atom.
+        lower = grids2.new_full((n_elements,), self.cutoff_min[0])
+        upper = grids2.new_full((n_elements,), self.cutoff_max[0])
+        near_windows = [
+            (
+                torch.maximum(lower, radii[alpha] * self.radius_distance_tol[0]),
+                torch.minimum(upper, radii[alpha] * self.radius_distance_tol[1]),
+            )
+            for alpha in range(n_elements)
+        ]
+        fourth_windows = [
+            (
+                torch.maximum(lower, radii[alpha] * self.radius_distance_tol[2]),
+                torch.minimum(upper, radii[alpha] * self.radius_distance_tol[3]),
+            )
+            for alpha in range(n_elements)
+        ]
+
+        eta2 = 1.0 / (2.0 * self.sigma[0] ** 2)
+        radial_radius = math.ceil(
+            math.sqrt(-math.log(self.gaussian_tolerance) / eta2) / self.width[0]
+        )
+        pair_indices = [
+            (a, b) for a in range(n_elements) for b in range(a, n_elements)
+        ]
+        radial_offsets = torch.arange(
+            -radial_radius, radial_radius + 1, device=device
+        )
+        radial_chunk = min(
+            2048, max(1, 524288 // (radial_offsets.numel() * len(pair_indices)))
+        )
+        constants = {
+            "grids": grids,
+            "radii": radii,
+            "pair_indices": pair_indices,
+            "taper": taper,
+            "bins2": torch.arange(grids2.numel(), dtype=dtype, device=device),
+            "near_windows": near_windows,
+            "fourth_windows": fourth_windows,
+            "eta2": eta2,
+            "radial_radius": radial_radius,
+            "radial_offsets": radial_offsets,
+            "radial_chunk": radial_chunk,
+            "radial_sparse": 2 * radial_radius + 1 < grids2.numel(),
+        }
+        self._constants_cache[key] = constants
+        return constants
+
+    def _triu_indices(
+        self, n: int, device: torch.device
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        key = (n, device)
+        cached = self._triu_cache.get(key)
+        if cached is None:
+            cached = torch.triu_indices(n, n, offset=1, device=device)
+            self._triu_cache[key] = cached
+        return cached
 
     @staticmethod
     def _project(
@@ -450,6 +562,8 @@ class DifferentiableFingerprint:
         cell: torch.Tensor | np.ndarray,
         species_probabilities: torch.Tensor | np.ndarray,
         pbc: Sequence[bool] = (True, True, True),
+        *,
+        active_species: Sequence[bool] | None = None,
     ) -> FingerprintResult:
         """Evaluate the descriptor without discarding position/species gradients.
 
@@ -457,6 +571,13 @@ class DifferentiableFingerprint:
         3-by-3 cell in Angstrom, and ``species_probabilities`` has shape
         ``(N, S)`` with nonnegative rows summing to one. Periodic image shifts
         follow ``pbc``. Returned histograms have one row per grid bin.
+
+        ``active_species`` optionally marks species that can carry probability
+        mass. Channels for inactive species are known to be zero and are
+        skipped; their entries in the returned histograms and their gradient
+        contributions are therefore omitted. Inactive species must have zero
+        probability mass. Omit it (the default) to evaluate every channel,
+        including channels whose probabilities happen to be zero.
         """
         positions = torch.as_tensor(positions)
         if not positions.is_floating_point():
@@ -485,9 +606,24 @@ class DifferentiableFingerprint:
         ):
             raise ValueError("each species-probability row must sum to one")
 
-        radii = self._radii.to(dtype=dtype, device=device)
-        grids = self._grids(dtype, device)
-        pair_indices = [(a, b) for a in range(n_elements) for b in range(a, n_elements)]
+        constants = self._constants(dtype, device)
+        grids = constants["grids"]
+        pair_indices = constants["pair_indices"]
+        if active_species is None:
+            channels = range(n_elements)
+        else:
+            mask = np.asarray(active_species, dtype=bool)
+            if mask.shape != (n_elements,):
+                raise ValueError("active_species must contain one Boolean per element")
+            if not mask.any():
+                raise ValueError("active_species must select at least one element")
+            if (~mask).any():
+                inactive = torch.as_tensor(~mask, dtype=torch.bool, device=device)
+                if bool((probabilities[:, inactive] != 0).any()):
+                    raise ValueError(
+                        "inactive species must have zero probability mass"
+                    )
+            channels = np.flatnonzero(mask)
         raw2 = positions.new_zeros((grids["two_body"].numel(), len(pair_indices)))
         raw3 = positions.new_zeros((grids["three_body"].numel(), n_elements))
         raw4 = positions.new_zeros((grids["four_body"].numel(), n_elements))
@@ -503,7 +639,7 @@ class DifferentiableFingerprint:
         rmin, rmax = self.cutoff_min[0], self.cutoff_max[0]
         radial = (distances >= rmin) & (distances <= rmax) & (distances > 1e-10)
         grids2 = grids["two_body"]
-        eta2 = 1.0 / (2.0 * self.sigma[0] ** 2)
+        eta2 = constants["eta2"]
 
         if 2 in self.body_orders:
             # Reuse each radial Gaussian across all species-pair channels.
@@ -517,14 +653,12 @@ class DifferentiableFingerprint:
             denominators = probabilities.new_zeros((n_atoms, n_elements)).index_add(
                 0, radial_centers, neighbor_probabilities
             ).clamp_min(torch.finfo(dtype).tiny)
-            bins = torch.arange(grids2.numel(), dtype=dtype, device=device)
-            support_radius = math.ceil(
-                math.sqrt(-math.log(self.gaussian_tolerance) / eta2) / self.width[0]
-            )
-            sparse_projection = 2 * support_radius + 1 < grids2.numel()
+            bins = constants["bins2"]
+            support_radius = constants["radial_radius"]
+            sparse_projection = constants["radial_sparse"]
             if sparse_projection:
-                offsets = torch.arange(-support_radius, support_radius + 1, device=device)
-                chunk = min(2048, max(1, 524288 // (offsets.numel() * len(pair_indices))))
+                offsets = constants["radial_offsets"]
+                chunk = constants["radial_chunk"]
             else:
                 chunk = 2048
             checkpoint_radial = (
@@ -581,22 +715,7 @@ class DifferentiableFingerprint:
                     raw2 = raw2 + projected.T @ channel_weights * math.sqrt(eta2 / math.pi)
 
         raw2 = raw2 / grids2[:, None].square()
-        taper_max = self.cutoff_max[0] - 0.25
-        taper_min = self.cutoff_min[0] + 0.25
-        taper = torch.ones_like(grids2)
-        upper = grids2 > taper_max
-        lower = grids2 < taper_min
-        taper = torch.where(
-            upper,
-            0.5 * (1.0 + torch.cos(math.pi * (grids2 - taper_max) / 0.25)),
-            taper,
-        )
-        taper = torch.where(
-            lower,
-            0.5 * (1.0 + torch.cos(math.pi * (grids2 - taper_min) / 0.25)),
-            taper,
-        )
-        raw2 = raw2 * taper[:, None]
+        raw2 = raw2 * constants["taper"][:, None]
         norm2 = self._normalise(raw2)
 
         grids3 = grids["three_body"]
@@ -610,18 +729,10 @@ class DifferentiableFingerprint:
             center_ids = by_center[atom]
             if center_ids.numel() < 2:
                 continue
-            for alpha in range(n_elements):
+            for alpha in channels:
                 ids = center_ids
                 d = distances[ids]
-                pair_radii = radii[alpha]
-                lower3 = torch.maximum(
-                    d.new_full((n_elements,), self.cutoff_min[0]),
-                    pair_radii * self.radius_distance_tol[0],
-                )
-                upper3 = torch.minimum(
-                    d.new_full((n_elements,), self.cutoff_max[0]),
-                    pair_radii * self.radius_distance_tol[1],
-                )
+                lower3, upper3 = constants["near_windows"][alpha]
                 win3_by_species, valid3_by_species = self._cosine_window(
                     d, lower3, upper3
                 )
@@ -637,7 +748,7 @@ class DifferentiableFingerprint:
                 valid3 = valid3[possible]
                 if ids.numel() < 2:
                     continue
-                left, right = torch.triu_indices(ids.numel(), ids.numel(), offset=1, device=device)
+                left, right = self._triu_indices(ids.numel(), device)
                 pair_count_weights = valid3[left] * valid3[right]
                 denominator = pair_count_weights.sum()
                 if denominator.detach().item() == 0.0:
@@ -714,9 +825,8 @@ class DifferentiableFingerprint:
             center_ids = by_center[atom]
             if center_ids.numel() < 2:
                 continue
-            for alpha in range(n_elements):
+            for alpha in channels:
                 fourth_ids = center_ids
-                pair_radii = radii[alpha]
                 if near_cache is not None:
                     cached = near_cache[atom][alpha]
                     if cached is None:
@@ -726,14 +836,7 @@ class DifferentiableFingerprint:
                 else:
                     ids = center_ids
                     d = distances[ids]
-                    lower3 = torch.maximum(
-                        d.new_full((n_elements,), self.cutoff_min[0]),
-                        pair_radii * self.radius_distance_tol[0],
-                    )
-                    upper3 = torch.minimum(
-                        d.new_full((n_elements,), self.cutoff_max[0]),
-                        pair_radii * self.radius_distance_tol[1],
-                    )
+                    lower3, upper3 = constants["near_windows"][alpha]
                     win3_by_species, valid3_by_species = self._cosine_window(
                         d, lower3, upper3
                     )
@@ -747,20 +850,11 @@ class DifferentiableFingerprint:
                     neighbor_probabilities = neighbor_probabilities[possible3]
                     if ids.numel() < 2:
                         continue
-                    left, right = torch.triu_indices(
-                        ids.numel(), ids.numel(), offset=1, device=device
-                    )
+                    left, right = self._triu_indices(ids.numel(), device)
                     near_denominator = (valid3[left] * valid3[right]).sum()
 
                 fourth_d = distances[fourth_ids]
-                lower4 = torch.maximum(
-                    fourth_d.new_full((n_elements,), self.cutoff_min[0]),
-                    pair_radii * self.radius_distance_tol[2],
-                )
-                upper4 = torch.minimum(
-                    fourth_d.new_full((n_elements,), self.cutoff_max[0]),
-                    pair_radii * self.radius_distance_tol[3],
-                )
+                lower4, upper4 = constants["fourth_windows"][alpha]
                 win4_by_species, valid4_by_species = self._cosine_window(
                     fourth_d, lower4, upper4
                 )
@@ -780,7 +874,7 @@ class DifferentiableFingerprint:
                 if denominator_value == 0.0:
                     continue
                 # Enumerate only local triplets, never a dense N^4 tensor.
-                chunk = 4096
+                chunk = 8192
                 n_combinations = left.numel() * fourth_ids.numel()
                 projected_combinations = n_combinations * (2 if n_elements > 1 else 1)
                 checkpoint_environment = checkpoint_four_body and (
@@ -903,7 +997,8 @@ class DifferentiableFingerprint:
             norm3,
             norm4,
             {"two_body": raw2, "three_body": raw3, "four_body": raw4},
-            grids,
+            # Copy the shared cached grids so callers cannot corrupt them.
+            {name: value.clone() for name, value in grids.items()},
             self.elements,
             composition,
             self.body_orders,
@@ -912,11 +1007,13 @@ class DifferentiableFingerprint:
     def generate(self, atoms: Atoms) -> FingerprintResult:
         """Generate a reusable target fingerprint from an ASE structure."""
         probabilities = self.probabilities_from_atoms(atoms)
+        present = set(atoms.get_chemical_symbols())
         result = self(
             torch.as_tensor(atoms.positions, dtype=self.dtype),
             torch.as_tensor(np.asarray(atoms.cell), dtype=self.dtype),
             probabilities,
             atoms.pbc,
+            active_species=[element in present for element in self.elements],
         )
         result.composition = {
             element: atoms.get_chemical_symbols().count(element) for element in self.elements
@@ -1027,17 +1124,22 @@ class FingerprintCalculator(Calculator):
         super().calculate(atoms, properties, system_changes)
         if atoms is None:
             raise ValueError("ASE atoms are required")
-        probabilities = (
-            self.descriptor.probabilities_from_atoms(atoms)
-            if self._species_probabilities is None
-            else torch.as_tensor(self._species_probabilities, dtype=self.descriptor.dtype)
-        )
+        if self._species_probabilities is None:
+            probabilities = self.descriptor.probabilities_from_atoms(atoms)
+            present = set(atoms.get_chemical_symbols())
+            active_species = [element in present for element in self.descriptor.elements]
+        else:
+            probabilities = torch.as_tensor(
+                self._species_probabilities, dtype=self.descriptor.dtype
+            )
+            active_species = None
         positions = torch.tensor(atoms.positions, dtype=self.descriptor.dtype, requires_grad=True)
         result = self.descriptor(
             positions,
             torch.as_tensor(np.asarray(atoms.cell), dtype=self.descriptor.dtype),
             probabilities,
             atoms.pbc,
+            active_species=active_species,
         )
         energy, _ = _fingerprint_loss(result, self.target, self.loss_weights)
         gradient = torch.autograd.grad(energy, positions)[0]
@@ -1373,6 +1475,13 @@ class FingerprintRelaxation:
             if self.composition_constraint == 0
             else None
         )
+        # In exact mode species with a zero count never receive probability
+        # mass, so their descriptor channels (and gradients) are structurally
+        # zero and can be skipped.
+        active_species = (
+            [bool(count) for count in exact_counts.tolist()]
+            if exact_counts is not None else None
+        )
         start_probabilities = self.descriptor.probabilities_from_atoms(atoms)
         dtype = self.descriptor.dtype
         cell = torch.as_tensor(np.asarray(atoms.cell), dtype=dtype)
@@ -1444,6 +1553,7 @@ class FingerprintRelaxation:
                 cell,
                 probabilities,
                 atoms.pbc,
+                active_species=active_species,
             )
             total, components = _fingerprint_loss(
                 current, self.target, self.loss_weights, self.radial_smoothing,
@@ -1668,6 +1778,7 @@ class FingerprintRelaxation:
                 cell,
                 final_probabilities,
                 atoms.pbc,
+                active_species=active_species,
             )
             final_loss, _ = _fingerprint_loss(
                 final_fp, self.target, self.loss_weights, self.radial_smoothing,
@@ -1695,6 +1806,7 @@ class FingerprintRelaxation:
                 cell,
                 final_probabilities,
                 atoms.pbc,
+                active_species=active_species,
             )
             final_loss, _ = _fingerprint_loss(
                 final_fp, self.target, self.loss_weights, self.radial_smoothing,
@@ -1707,6 +1819,7 @@ class FingerprintRelaxation:
                     cell,
                     final_probabilities,
                     atoms.pbc,
+                    active_species=active_species,
                 )
                 final_loss, _ = _fingerprint_loss(
                     final_fp, self.target, self.loss_weights, self.radial_smoothing,

@@ -1456,12 +1456,48 @@ def test_enabled_body_orders_and_multielement_neighbors():
     assert torch.allclose(mixed.three_body[:, 1], pure.three_body[:, 0], atol=1e-10)
     assert torch.allclose(mixed.four_body[:, 1], pure.four_body[:, 0], atol=1e-10)
     assert pure.three_body.max() > 0 and pure.four_body.max() > 0
-
     limited = DifferentiableFingerprint(["Ca", "O"], body_orders=(2, 3)).generate(atoms)
     assert limited.body_orders == (2, 3)
     assert torch.allclose(limited.three_body, mixed.three_body)
     with pytest.raises(ValueError, match="4-body loss requires"):
         _fingerprint_loss(limited, limited)
+
+
+def test_active_species_matches_full_channels_and_position_gradients():
+    atoms = bulk("C", "diamond", a=3.567, cubic=True)
+    descriptor = DifferentiableFingerprint(["C", "Si", "O"])
+    probabilities = torch.zeros((len(atoms), 3), dtype=torch.float64)
+    probabilities[:, 0] = 1.0
+    active = [True, False, False]
+
+    def evaluate(active_species):
+        positions = torch.tensor(atoms.positions, dtype=torch.float64, requires_grad=True)
+        result = descriptor(
+            positions, atoms.cell.array, probabilities, atoms.pbc,
+            active_species=active_species,
+        )
+        grand = sum(
+            (value * torch.linspace(0.1, 1.0, value.numel(), dtype=value.dtype)
+             .reshape(value.shape)).sum()
+            for value in (result.two_body, result.three_body, result.four_body)
+        )
+        return result, torch.autograd.grad(grand, positions)[0]
+
+    full, full_gradient = evaluate(None)
+    sparse, sparse_gradient = evaluate(active)
+    for name in ("two_body", "three_body", "four_body"):
+        full_channel = getattr(full, name)
+        sparse_channel = getattr(sparse, name)
+        torch.testing.assert_close(sparse_channel, full_channel)
+        assert sparse_channel[:, 1:].abs().max() == 0
+    torch.testing.assert_close(sparse_gradient, full_gradient)
+
+    with pytest.raises(ValueError, match="inactive species"):
+        descriptor(
+            atoms.positions, atoms.cell.array,
+            torch.full((len(atoms), 3), 1.0 / 3.0, dtype=torch.float64),
+            atoms.pbc, active_species=active,
+        )
 
 
 def test_nonperiodic_four_body_includes_in_cell_neighbors():
